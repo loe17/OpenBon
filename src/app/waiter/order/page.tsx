@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import { formatCurrency } from '@/lib/utils';
@@ -16,6 +16,7 @@ import {
   Layers,
   Sparkles,
   Search,
+  RefreshCw,
 } from 'lucide-react';
 
 interface CartItem {
@@ -30,7 +31,7 @@ interface CartItem {
   customizationText?: string;
 }
 
-export default function WaiterOrderPage() {
+function WaiterOrderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tableId = searchParams.get('tableId');
@@ -473,5 +474,20 @@ export default function WaiterOrderPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function WaiterOrderPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex-1 flex items-center justify-center bg-slate-950 text-slate-400">
+          <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+          <span>Lade Bestellmaske...</span>
+        </div>
+      }
+    >
+      <WaiterOrderContent />
+    </Suspense>
   );
 }

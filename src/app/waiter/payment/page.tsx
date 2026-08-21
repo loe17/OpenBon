@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { formatCurrency } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
@@ -32,7 +32,7 @@ interface PayableItem {
   selectedQty: number;
 }
 
-export default function WaiterPaymentPage() {
+function WaiterPaymentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tableId = searchParams.get('tableId');
@@ -529,5 +529,20 @@ export default function WaiterPaymentPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function WaiterPaymentPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex-1 flex items-center justify-center bg-slate-950 text-slate-400">
+          <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+          <span>Lade Kassiermaske...</span>
+        </div>
+      }
+    >
+      <WaiterPaymentContent />
+    </Suspense>
   );
 }

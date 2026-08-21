@@ -30,6 +30,7 @@ import {
   Grid,
   Layers,
   Terminal,
+  LayoutDashboard,
 } from 'lucide-react';
 
 export default function Navbar() {

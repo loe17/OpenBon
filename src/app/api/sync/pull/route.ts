@@ -8,9 +8,9 @@ export async function GET(req: Request) {
 
     const entries = await prisma.syncJournal.findMany({
       where: {
-        sequence: { gt: sinceSequence },
+        id: { gt: sinceSequence },
       },
-      orderBy: { sequence: 'asc' },
+      orderBy: { id: 'asc' },
       take: 100,
     });
 

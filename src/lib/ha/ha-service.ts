@@ -123,9 +123,9 @@ export class HighAvailabilityService {
   private async pullAndApplySyncDelta() {
     try {
       const lastLocalEntry = await prisma.syncJournal.findFirst({
-        orderBy: { sequence: 'desc' },
+        orderBy: { id: 'desc' },
       });
-      const lastSeq = lastLocalEntry ? lastLocalEntry.sequence : 0;
+      const lastSeq = lastLocalEntry ? lastLocalEntry.id : 0;
 
       const res = await fetch(`${this.partnerUrl}/api/sync/pull?sinceSequence=${lastSeq}`);
       if (!res.ok) return;

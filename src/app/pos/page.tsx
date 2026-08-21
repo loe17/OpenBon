@@ -23,7 +23,7 @@ export default function PosCounterPage() {
   const [selectedCatId, setSelectedCatId] = useState<string>('');
   const [cart, setCart] = useState<any[]>([]);
   const [mode, setMode] = useState<'DIRECT' | 'VOUCHER' | 'DUAL'>('DUAL');
-  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'CARD_SUMUP'>('CASH');
+  const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
   const [givenAmount, setGivenAmount] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastToken, setLastToken] = useState<number | null>(null);

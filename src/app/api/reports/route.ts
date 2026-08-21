@@ -14,7 +14,7 @@ export async function GET(req: Request) {
         include: { table: true, items: true },
       }),
       prisma.order.findMany({
-        where: { isCancelled: false, isTraining: false },
+        where: { status: { not: 'CANCELLED' }, isTraining: false },
         include: { items: true },
       }),
       prisma.product.findMany({
