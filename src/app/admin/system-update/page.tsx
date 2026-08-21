@@ -135,8 +135,10 @@ export default function SystemUpdatePage() {
 
       if (data.success) {
         addTerminalLog(data.logs, false);
-        alert('Update erfolgreich installiert! Das System ist auf dem neuesten Stand.');
-        fetchSystemStatus();
+        addTerminalLog('[NEUSTART] Server startet jetzt mit der neuen Version neu. Seite lädt in Kürze neu...', false);
+        setTimeout(() => {
+          window.location.reload();
+        }, 4000);
       } else {
         addTerminalLog(`[UPDATE FEHLGESCHLAGEN]: ${data.error}`, true);
       }

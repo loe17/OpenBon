@@ -126,9 +126,15 @@ export async function POST(req: Request) {
         logs.push(buildOut.trim());
 
         const duration = Math.round((Date.now() - startTime) / 1000);
-        logs.push(`[ERFOLG] Update in ${duration}s abgeschlossen!`);
+        logs.push(`[ERFOLG] Update in ${duration}s abgeschlossen! Server startet automatisch neu...`);
 
-        return NextResponse.json({ success: true, logs: logs.join('\n\n') });
+        // Trigger graceful process exit so systemd restarts the server with the new build
+        setTimeout(() => {
+          console.log('[UPDATE] Server startet neu, um die neue Version zu laden...');
+          process.exit(0);
+        }, 1500);
+
+        return NextResponse.json({ success: true, logs: logs.join('\n\n'), restart: true });
       } catch (updateErr: any) {
         logs.push(`[FEHLER]: ${updateErr.message}`);
         return NextResponse.json({ success: false, error: updateErr.message, logs: logs.join('\n\n') }, { status: 500 });
