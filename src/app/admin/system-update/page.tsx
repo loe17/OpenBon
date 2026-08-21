@@ -1,92 +1,82 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Terminal,
   RefreshCw,
   DownloadCloud,
   CheckCircle2,
-  AlertCircle,
-  ExternalLink,
-  Play,
-  Trash2,
-  Cpu,
+  AlertTriangle,
   GitBranch,
+  Cpu,
   Clock,
   Sparkles,
-  ShieldCheck,
-  HardDrive,
-  Copy,
-  Check,
+  Play,
+  RotateCcw,
+  Trash2,
 } from 'lucide-react';
 import { APP_VERSION, GITHUB_REPO_URL } from '@/lib/version';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 
-interface TerminalEntry {
+interface TerminalLog {
   id: string;
-  command?: string;
-  output: string;
+  text: string;
   isError?: boolean;
   timestamp: string;
+  command?: string;
 }
 
-export default function SystemUpdatePage() {
+export default function AdminSystemUpdatePage() {
   const [sysInfo, setSysInfo] = useState<any>(null);
   const [checking, setChecking] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [commandInput, setCommandInput] = useState('');
   const [executing, setExecuting] = useState(false);
-  const [terminalHistory, setTerminalHistory] = useState<TerminalEntry[]>([
-    {
-      id: 'welcome',
-      output: `[OPENBON SYSTEM-UPDATE & KONSOLE v${APP_VERSION}]\nBereit fuer Git-Befehle und System-Updates. Ziel: ${GITHUB_REPO_URL}`,
-      timestamp: new Date().toLocaleTimeString('de-DE'),
-    },
-  ]);
+  const [terminalHistory, setTerminalHistory] = useState<TerminalLog[]>([]);
 
-  const terminalEndRef = useRef<HTMLDivElement>(null);
+  const addTerminalLog = (text: string, isError = false, command?: string) => {
+    const newLog: TerminalLog = {
+      id: Math.random().toString(36).substring(2, 9),
+      text,
+      isError,
+      timestamp: new Date().toLocaleTimeString('de-DE'),
+      command,
+    };
+    setTerminalHistory((prev) => [...prev, newLog]);
+  };
 
   const fetchSystemStatus = async () => {
     setChecking(true);
+    triggerHapticFeedback();
     try {
       const res = await fetch('/api/system/update');
       const data = await res.json();
       setSysInfo(data);
-
-      addTerminalLog(
-        `[STATUS] Branch: ${data.branch} | Commit: ${data.localCommit} | Remote: ${data.remoteStatus}`,
-        data.hasUpdate
-      );
+      if (data.pendingCommits && data.pendingCommits.length > 0) {
+        addTerminalLog(
+          `[STATUS] ${data.pendingCommits.length} Update(s) auf GitHub verfügbar:\n${data.pendingCommits.join('\n')}`,
+          false
+        );
+      } else {
+        addTerminalLog(`[STATUS] Branch: ${data.branch || 'master'} | Commit: ${data.localCommit || '-'} | Remote: Aktuell`);
+      }
     } catch (e: any) {
-      addTerminalLog(`[FEHLER] Statusabfrage fehlgeschlagen: ${e.message}`, true);
+      addTerminalLog(`Fehler bei Statusprüfung: ${e.message}`, true);
     } finally {
       setChecking(false);
     }
   };
 
   useEffect(() => {
+    addTerminalLog(
+      `[OPENBON SYSTEM-UPDATE & KONSOLE v${APP_VERSION}]\nBereit fuer Git-Befehle und System-Updates. Ziel: ${GITHUB_REPO_URL}`
+    );
     fetchSystemStatus();
   }, []);
 
-  useEffect(() => {
-    terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [terminalHistory]);
-
-  const addTerminalLog = (output: string, isError = false, command?: string) => {
-    setTerminalHistory((prev) => [
-      ...prev,
-      {
-        id: Math.random().toString(36).substring(7),
-        command,
-        output,
-        isError,
-        timestamp: new Date().toLocaleTimeString('de-DE'),
-      },
-    ]);
-  };
-
-  const handleRunCommand = async (cmdToRun?: string) => {
-    const cmd = (cmdToRun || commandInput).trim();
+  const handleExecuteCommand = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cmd = commandInput.trim();
     if (!cmd || executing) return;
 
     triggerHapticFeedback();
@@ -107,6 +97,12 @@ export default function SystemUpdatePage() {
           false,
           cmd
         );
+        if (data.restart) {
+          addTerminalLog('[NEUSTART] Seite wird in 3 Sekunden automatisch neu geladen...', false);
+          setTimeout(() => {
+            window.location.reload();
+          }, 3500);
+        }
       } else {
         addTerminalLog(data.stderr || data.error || 'Ausführungsfehler', true, cmd);
       }
@@ -115,6 +111,32 @@ export default function SystemUpdatePage() {
     } finally {
       setExecuting(false);
     }
+  };
+
+  const handleRestartServer = async () => {
+    if (!confirm('Möchtest du den OpenBon Server-Prozess jetzt neu starten?')) return;
+
+    triggerHapticFeedback();
+    addTerminalLog('[START] Sende Neustart-Signal an den OpenBon Dienst...', false);
+
+    try {
+      const res = await fetch('/api/system/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'RESTART' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        addTerminalLog(data.stdout, false);
+      }
+    } catch {
+      // Ignore network break during restart
+    }
+
+    addTerminalLog('[NEUSTART] Server startet neu. Seite lädt in 3 Sekunden neu...', false);
+    setTimeout(() => {
+      window.location.reload();
+    }, 3500);
   };
 
   const handleInstallUpdate = async () => {
@@ -175,7 +197,7 @@ export default function SystemUpdatePage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={fetchSystemStatus}
             disabled={checking}
@@ -183,6 +205,15 @@ export default function SystemUpdatePage() {
           >
             <RefreshCw className={`w-4 h-4 ${checking ? 'animate-spin' : ''}`} />
             <span>Prüfen</span>
+          </button>
+
+          <button
+            onClick={handleRestartServer}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-amber-950/60 hover:border-amber-700 text-amber-300 rounded-xl text-xs font-bold border border-slate-700 transition shadow"
+            title="Startet den Server-Prozess im Hintergrunddienst neu"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>Server neu starten</span>
           </button>
 
           <button
@@ -233,12 +264,16 @@ export default function SystemUpdatePage() {
         </div>
 
         <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800 flex items-center gap-3">
-          <Sparkles className="w-5 h-5 text-purple-400" />
+          {sysInfo?.hasUpdate ? (
+            <AlertTriangle className="w-5 h-5 text-amber-400" />
+          ) : (
+            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+          )}
           <div className="min-w-0">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">GitHub Status</span>
+            <span className="text-[10px] uppercase font-bold text-slate-400 block">GitHub-Status</span>
             <span
               className={`text-xs font-bold truncate block ${
-                sysInfo?.hasUpdate ? 'text-amber-400 animate-pulse' : 'text-emerald-400'
+                sysInfo?.hasUpdate ? 'text-amber-300' : 'text-emerald-300'
               }`}
             >
               {sysInfo?.remoteStatus || 'Wird geprüft...'}
@@ -247,97 +282,67 @@ export default function SystemUpdatePage() {
         </div>
       </div>
 
-      {/* Interactive Web Terminal Box */}
-      <div className="flex-1 bg-black border-2 border-slate-800 rounded-3xl flex flex-col overflow-hidden shadow-2xl">
-        {/* Terminal Header Bar */}
-        <div className="p-3 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between">
+      {/* Terminal View Container */}
+      <div className="flex-1 flex flex-col bg-black border border-slate-800 rounded-3xl overflow-hidden shadow-2xl font-mono text-xs">
+        {/* Terminal Header */}
+        <div className="px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-rose-500/80" />
-            <div className="w-3 h-3 rounded-full bg-amber-500/80" />
-            <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-            <span className="text-xs font-mono text-slate-400 font-bold ml-2">
-              openbon@server:~/Kassensystem$
-            </span>
+            <span className="w-3 h-3 rounded-full bg-rose-500/80 inline-block" />
+            <span className="w-3 h-3 rounded-full bg-amber-500/80 inline-block" />
+            <span className="w-3 h-3 rounded-full bg-emerald-500/80 inline-block" />
+            <span className="text-slate-400 font-bold ml-2 text-[11px]">Server-Konsole & Git-Runner</span>
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={clearTerminal}
-              className="text-xs text-slate-400 hover:text-white flex items-center gap-1 font-bold px-2.5 py-1 rounded-lg bg-slate-800"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Leeren</span>
-            </button>
-          </div>
+          <button
+            onClick={clearTerminal}
+            className="text-slate-400 hover:text-white p-1 rounded transition"
+            title="Terminal leeren"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
         </div>
 
-        {/* Terminal Logs Viewport */}
-        <div className="flex-1 overflow-y-auto p-4 font-mono text-xs sm:text-sm space-y-3">
-          {terminalHistory.map((item) => (
-            <div key={item.id} className="leading-relaxed">
-              {item.command && (
-                <div className="text-blue-400 font-bold flex items-center gap-2">
-                  <span className="text-emerald-400">$</span>
-                  <span>{item.command}</span>
-                  <span className="text-[10px] text-slate-600 ml-auto font-normal">{item.timestamp}</span>
+        {/* Terminal Output Log Area */}
+        <div className="flex-1 p-4 overflow-y-auto space-y-3 font-mono">
+          {terminalHistory.map((log) => (
+            <div key={log.id} className="space-y-1">
+              {log.command && (
+                <div className="text-emerald-400 font-bold flex items-center gap-2">
+                  <span className="text-slate-500">$</span>
+                  <span>{log.command}</span>
+                  <span className="text-[10px] text-slate-600 font-normal ml-auto">{log.timestamp}</span>
                 </div>
               )}
               <pre
-                className={`whitespace-pre-wrap font-mono mt-1 ${
-                  item.isError ? 'text-rose-400 font-bold' : 'text-slate-300'
+                className={`whitespace-pre-wrap leading-relaxed ${
+                  log.isError ? 'text-rose-400 font-bold' : 'text-slate-300'
                 }`}
               >
-                {item.output}
+                {log.text}
               </pre>
             </div>
           ))}
-          <div ref={terminalEndRef} />
         </div>
 
-        {/* Quick Command Snippets Bar */}
-        <div className="p-2 bg-slate-900/60 border-t border-slate-800 flex items-center gap-1.5 overflow-x-auto">
-          <span className="text-[11px] font-bold text-slate-500 uppercase px-2">Schnellbefehle:</span>
-          {[
-            { label: 'git status', cmd: 'git status' },
-            { label: 'git log (5)', cmd: 'git log -n 5 --oneline' },
-            { label: 'git pull', cmd: 'git pull origin master' },
-            { label: 'Tests ausführen', cmd: 'npm test' },
-            { label: 'DB Status', cmd: 'npx prisma db push --skip-generate' },
-          ].map((s) => (
-            <button
-              key={s.label}
-              onClick={() => handleRunCommand(s.cmd)}
-              disabled={executing}
-              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-mono text-slate-300 border border-slate-700 whitespace-nowrap active:scale-95 transition"
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Terminal Input Line */}
-        <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center gap-2">
-          <span className="text-emerald-400 font-mono font-black text-sm">$</span>
+        {/* Command Input Bar */}
+        <form onSubmit={handleExecuteCommand} className="p-3 bg-slate-950 border-t border-slate-800 flex items-center gap-2">
+          <span className="text-emerald-400 font-black pl-2">$</span>
           <input
             type="text"
-            placeholder="Befehl eingeben (z. B. git status, git pull, npm test)..."
+            placeholder="Befehl eingeben (z. B. 'git status', 'git pull', 'restart')..."
             value={commandInput}
             onChange={(e) => setCommandInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleRunCommand();
-            }}
             disabled={executing}
-            className="flex-1 bg-transparent border-none text-white font-mono text-xs sm:text-sm focus:outline-none placeholder-slate-600"
+            className="flex-1 bg-transparent border-none text-white text-xs font-mono focus:outline-none placeholder-slate-600"
           />
           <button
-            onClick={() => handleRunCommand()}
+            type="submit"
             disabled={executing || !commandInput.trim()}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white rounded-xl text-xs font-bold transition"
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow"
           >
             <Play className="w-3.5 h-3.5" />
             <span>Ausführen</span>
           </button>
-        </div>
+        </form>
       </div>
     </div>
   );

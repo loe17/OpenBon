@@ -65,6 +65,22 @@ export async function POST(req: Request) {
   try {
     const { action, customCommand } = await req.json();
 
+    if (action === 'RESTART' || (action === 'EXEC' && /restart|reboot|systemctl restart/i.test(customCommand || ''))) {
+      setTimeout(() => {
+        console.log('[RESTART] Server wird durch Benutzerbefehl neu gestartet...');
+        process.exit(0);
+      }, 1000);
+
+      return NextResponse.json({
+        success: true,
+        command: customCommand || 'restart',
+        stdout: '[SYSTEM] Server-Prozess beendet sich kontrolliert. Der systemd-Dienst startet den Server in 1-2 Sekunden neu...',
+        stderr: '',
+        duration: 50,
+        restart: true,
+      });
+    }
+
     if (action === 'EXEC') {
       if (!customCommand || typeof customCommand !== 'string') {
         return NextResponse.json({ error: 'Befehl fehlt' }, { status: 400 });
