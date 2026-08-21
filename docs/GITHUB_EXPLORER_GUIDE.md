@@ -1,68 +1,41 @@
-# OpenBon - GitHub Veröffentlichungs- & Update-Leitfaden für Windows
+# OpenBon - GitHub Leitfaden (Arbeiten auf C: & Veröffentlichen über P:)
 
-Diese Anleitung zeigt dir Schritt für Schritt, wie du **OpenBon** aus dem Windows Explorer auf deinem GitHub-Repository **[https://github.com/loe17/OpenBon](https://github.com/loe17/OpenBon)** veröffentlichst und künftig mit einem Klick aktualisierst.
+Dieser Leitfaden beschreibt deinen genauen Workflow:
+- **Lokaler Arbeitsordner**: `C:\Users\Lukas\Documents\GeminiTemp\Kassensystem` (reine Entwicklung, unabhängig von GitHub)
+- **Haupt-Projektordner**: `P:\Projekte\OpenBon` (verknüpft mit GitHub `https://github.com/loe17/OpenBon`)
 
 ---
 
-## 1. Methode 1: 1-Klick Schnell-Veröffentlichung (Empfohlen)
+## 1. Lösung für den Fehler "fatal: detected dubious ownership in repository at 'P:/Projekte/OpenBon'"
 
-Im OpenBon-Projektordner findest du zwei vorgefertigte Batch-Dateien:
+Dieser Fehler tritt bei Git auf Netzlaufwerken oder externen Laufwerken (`P:`) auf.
+Er wurde bereits **vollautomatisch in allen Skripten behoben** durch den globalen Befehl:
+```cmd
+git config --global --add safe.directory *
+```
+Dadurch akzeptiert Git das Laufwerk `P:` dauerhaft ohne Sicherheitswarnung.
 
-### Erstmaliges Hochladen & spätere Updates veröffentlichen:
-1. Öffne den Projektordner `Kassensystem` im Windows Explorer.
-2. Mache einen **Doppelklick auf `github-1-click-publish.bat`**.
+---
+
+## 2. Der 1-Klick Workflow
+
+### Option A: Direkt von C: nach P: synchronisieren und auf GitHub hochladen (Empfohlen)
+1. Wenn du in `C:\Users\Lukas\Documents\GeminiTemp\Kassensystem` fertig gearbeitet hast:
+2. Mache einen **Doppelklick auf `sync-to-P-and-publish.bat`**.
 3. Das Skript:
-   - Verknüpft deinen Ordner automatisch mit `https://github.com/loe17/OpenBon.git`.
-   - Erfasst alle geänderten Dateien.
-   - Erstellt einen Commit mit aktuellem Zeitstempel.
-   - Lädt alles per `git push` auf dein GitHub-Repository hoch.
+   - Kopiert automatisch alle neuen und geänderten Dateien von `C:` nach `P:\Projekte\OpenBon`.
+   - Schließt temporäre Dateien (`node_modules`, `.next`, etc.) intelligent aus.
+   - Setzt `safe.directory` für Laufwerk `P:`.
+   - Committet und pusht alles von `P:\Projekte\OpenBon` direkt auf **`https://github.com/loe17/OpenBon`**.
+
+### Option B: Direkt in `P:\Projekte\OpenBon` arbeiten
+- **Veröffentlichen**: Doppelklick auf `github-1-click-publish.bat` in `P:\Projekte\OpenBon`.
+- **Updates von GitHub ziehen**: Doppelklick auf `github-1-click-update.bat` in `P:\Projekte\OpenBon`.
 
 ---
 
-## 2. GitHub Authentifizierung unter Windows (Einmalig)
+## 3. Web-Konsole im Adminbereich
 
-Wenn du das erste Mal auf GitHub hochlädst, fragt Windows/Git nach deinen Zugangsdaten:
-
-1. **GitHub Anmeldefenster**:
-   - Wenn das Browser-Fenster aufpoppt, klicke einfach auf **"Sign in with your browser"** und bestätige den Zugriff.
-2. **Alternativ mit Personal Access Token (PAT)**:
-   - Da GitHub seit 2021 keine reinen Account-Passwörter bei `git push` mehr akzeptiert, erstelle einen Token:
-     1. Öffne [github.com/settings/tokens](https://github.com/settings/tokens).
-     2. Klicke auf **"Generate new token (classic)"**.
-     3. Gib als Notiz z. B. `OpenBon-Windows` ein und setze den Haken bei **`repo`** (Full control of private repositories).
-     4. Klicke unten auf **"Generate token"** und kopiere den Code (z. B. `ghp_xxxxxxxxxxxx`).
-     5. Wenn Git im Terminal nach deinem Passwort fragt, füge diesen Token ein!
-
----
-
-## 3. Methode 2: Über GitHub Desktop (Grafische Oberfläche)
-
-Falls du eine grafische Benutzeroberfläche bevorzugst:
-
-1. Lade [GitHub Desktop](https://desktop.github.com/) herunter und installiere es.
-2. Melde dich in GitHub Desktop mit deinem Account `loe17` an.
-3. Klicke im Menü auf **File -> Add Local Repository...**
-4. Wähle deinen OpenBon-Ordner aus (`c:\Users\Lukas\Documents\GeminiTemp\Kassensystem`).
-5. Klicke oben rechts auf **"Publish repository"** und wähle `loe17/OpenBon`.
-6. Wenn du künftig Dateien änderst:
-   - Siehst du links alle Änderungen.
-   - Unten links: Gib eine Nachricht ein (z. B. *"Update Preisliste"*).
-   - Klicke auf **"Commit to master"** und danach oben auf **"Push origin"**.
-
----
-
-## 4. Updates von GitHub auf den Kassen-PC herunterladen
-
-Wenn du oder ein Teammitglied Änderungen auf GitHub hochgeladen hat und du deinen Haupt-PC oder Laptop auf den neuesten Stand bringen möchtest:
-
-1. Öffne den Projektordner im Windows Explorer.
-2. Mache einen **Doppelklick auf `github-1-click-update.bat`**.
-3. Das Skript lädt automatisch alle Neuerungen herunter, aktualisiert die Datenbank und baut das System neu.
-
----
-
-## 5. Web-Konsole im Adminbereich (Browser)
-
-Du kannst Updates auch direkt im laufenden Betrieb über die Weboberfläche prüfen und installieren:
-1. Öffne OpenBon im Browser und gehe zu **Verwaltung -> System-Update & Konsole** (`/admin/system-update`).
-2. Klicke auf **"Auf Updates prüfen"** oder **"Update jetzt installieren"**.
+Du kannst Updates auch im laufenden Kassenbetrieb prüfen und einspielen:
+- Öffne **Verwaltung -> System-Update & Konsole** (`/admin/system-update`).
+- Klicke auf **"Auf Updates prüfen"** oder **"Update installieren"**.

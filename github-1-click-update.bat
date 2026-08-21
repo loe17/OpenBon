@@ -2,6 +2,10 @@
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
+REM Behebt 'detected dubious ownership' auf P: und Netzlaufwerken
+git config --global --add safe.directory * >nul 2>nul
+git config --global --add safe.directory "%~dp0" >nul 2>nul
+
 title OpenBon - 1-Klick GitHub Update
 echo ======================================================================
 echo   OPENBON - 1-KLICK SYSTEM-UPDATE VON GITHUB
@@ -22,7 +26,7 @@ echo [1/4] Lade neuesten Code von GitHub herunter (git pull)...
 git pull origin master
 
 echo [2/4] Aktualisiere Abhaengigkeiten (npm install)...
-call npm install --production=false
+call npm install
 
 echo [3/4] Aktualisiere Datenbankstruktur (prisma db push)...
 call npx prisma db push --skip-generate

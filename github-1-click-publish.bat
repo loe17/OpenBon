@@ -4,10 +4,15 @@ setlocal enabledelayedexpansion
 REM Arbeitsverzeichnis auf Ordner dieser Batch-Datei festlegen
 cd /d "%~dp0"
 
+REM Behebt die Git-Meldung 'detected dubious ownership' auf Netzlaufwerken / P:
+git config --global --add safe.directory * >nul 2>nul
+git config --global --add safe.directory "%~dp0" >nul 2>nul
+
 title OpenBon - 1-Klick GitHub Veroeffentlichung
 echo ======================================================================
 echo   OPENBON - 1-KLICK GITHUB VEROEFFENTLICHUNG
-echo   Ziel: https://github.com/loe17/OpenBon
+echo   Arbeitsordner: %~dp0
+echo   Ziel:          https://github.com/loe17/OpenBon
 echo ======================================================================
 echo.
 
@@ -34,7 +39,7 @@ git remote remove origin >nul 2>nul
 git remote add origin https://github.com/loe17/OpenBon.git
 
 REM 4. Alle Dateien erfassen und committen
-echo [3/4] Erfasse Dateien und erstelle Commit...
+echo [3/4] Erfasse geaenderte Dateien und erstelle Commit...
 git add .
 git commit -m "OpenBon Release Update" >nul 2>nul
 
