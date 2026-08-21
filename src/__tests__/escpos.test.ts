@@ -4,7 +4,7 @@ import { EscPosBuilder } from '../lib/printer/escpos-builder';
 describe('ESC/POS Builder & Encoding', () => {
   it('should initialize and produce raw byte buffers', () => {
     const builder = new EscPosBuilder();
-    builder.text('OrderAssist Test').lineFeed(2).cut();
+    builder.text('OpenBon Test').lineFeed(2).cut();
     const buffer = builder.build();
 
     expect(buffer).toBeDefined();
