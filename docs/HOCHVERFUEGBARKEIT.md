@@ -1,10 +1,10 @@
-# 🛡️ Hochverfügbarkeit & Replikation (Dual-Server Failover)
+# OpenBon - Hochverfügbarkeit & Replikation (Dual-Server Failover)
 
-OrderAssist Web verfügt über eine integrierte **Echtzeit-Transaktionsreplikation** zwischen zwei Rechnern, damit der Kassenbetrieb selbst bei einem totalen Hardwareausfall oder Stromausfall an einem Laptop niemals stoppt.
+OpenBon verfügt über eine integrierte **Echtzeit-Transaktionsreplikation** zwischen zwei Rechnern, damit der Kassenbetrieb selbst bei einem totalen Hardwareausfall oder Stromausfall an einem Laptop niemals stoppt.
 
 ---
 
-## 🏗️ Funktionsweise
+## 1. Funktionsweise
 
 1. **PC 1 (Primary Master)**:
    - Führt alle Schreibvorgänge aus.
@@ -19,7 +19,7 @@ OrderAssist Web verfügt über eine integrierte **Echtzeit-Transaktionsreplikati
 
 ---
 
-## 🚀 Inbetriebnahme
+## 2. Inbetriebnahme
 
 - **Hauptrechner 1**: `start-primary.bat` starten (oder `PORT=3000 HA_ROLE=PRIMARY`).
 - **Ersatzrechner 2**: `start-standby.bat` starten (oder `PORT=3001 HA_ROLE=STANDBY HA_PARTNER_URL=http://192.168.1.100:3000`).

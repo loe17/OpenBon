@@ -7,8 +7,8 @@ import Navbar from '@/components/navigation/navbar';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'OrderAssist Web - Kassensystem',
-  description: 'Plattformunabhängiges, modernes Kassensystem für Vereinsfeste und Gastronomie mit Hochverfügbarkeit',
+  title: 'OpenBon - Kassensystem',
+  description: 'Plattformunabhängiges, modernes Kassen- und Bestellsystem für Vereinsfeste und Gastronomie mit Hochverfügbarkeit',
   manifest: '/manifest.json',
 };
 
@@ -18,7 +18,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#0f172a',
+  themeColor: '#020617',
 };
 
 export default function RootLayout({

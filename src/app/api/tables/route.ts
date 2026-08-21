@@ -111,7 +111,7 @@ export async function POST(req: Request) {
           title: 'TISCHMARKE',
           tableLabel: `TISCH ${i}`,
           items: [],
-          footerText: 'OrderAssist Kassen-System',
+          footerText: 'OpenBon Kassensystem',
         };
         await networkSpooler.printTicket(printer, ticket);
       }

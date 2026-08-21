@@ -1,7 +1,7 @@
 @echo off
-title OrderAssist - HA STANDBY REPLICA (Port 3001)
+title OpenBon - HA STANDBY REPLICA (Port 3001)
 echo ========================================================
-echo   ORDERASSIST WEB KASSENSYSTEM - HA STANDBY REPLICA
+echo   OPENBON KASSENSYSTEM - HA STANDBY REPLICA
 echo ========================================================
 echo.
 set PORT=3001

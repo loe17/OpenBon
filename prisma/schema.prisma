@@ -14,6 +14,7 @@ model EventConfig {
   taxRateNormal   Float    @default(19.0)
   taxRateReduced  Float    @default(7.0)
   trainingMode    Boolean  @default(false)
+  adminPin        String   @default("1234")
   haRole          String   @default("PRIMARY") // PRIMARY, STANDBY
   haPartnerUrl    String?  @default("http://192.168.1.101:3000")
   haAutoFailover  Boolean  @default(true)
@@ -74,7 +75,7 @@ model ProductOption {
 model CustomizationWordGroup {
   id        String   @id @default(cuid())
   name      String
-  words     String   // JSON-Array als String: ["ohne", "extra", "wenig", "viel"]
+  words     String   // JSON-Array: ["ohne", "extra", "wenig", "viel"]
   sortIndex Int      @default(0)
 }
 

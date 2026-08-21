@@ -2,7 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starte Seeding für Kassensystem...');
+  console.log('[OPENBON] Starte Initialisierung der Demo-Daten...');
 
   // 1. Event-Konfiguration
   await prisma.eventConfig.upsert({
@@ -343,12 +343,12 @@ async function main() {
     }
   }
 
-  console.log('✅ Seeding erfolgreich abgeschlossen!');
+  console.log('[OK] Demo-Stammdaten erfolgreich eingespielt.');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Fehler beim Seeding:', e);
+    console.error('[ERROR] Fehler beim Seeding:', e);
     process.exit(1);
   })
   .finally(async () => {

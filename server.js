@@ -119,11 +119,11 @@ app.prepare().then(() => {
   server.listen(port, hostname, (err) => {
     if (err) throw err;
     console.log(`\n==================================================`);
-    console.log(`🚀 KASSENSYSTEM SERVER GESTARTET`);
-    console.log(`🌐 Lokale URL:       http://localhost:${port}`);
-    console.log(`📶 Netzwerk-URL:     http://${hostname}:${port}`);
-    console.log(`⚙️  Modus:            ${dev ? 'Entwicklung (Development)' : 'Produktion'}`);
-    console.log(`💾 HA-Rolle:         ${process.env.HA_ROLE || 'PRIMARY'}`);
+    console.log(`[OPENBON] KASSENSYSTEM SERVER GESTARTET`);
+    console.log(`[HTTP]    Lokale URL:   http://localhost:${port}`);
+    console.log(`[NETZ]    Netzwerk-URL: http://${hostname}:${port}`);
+    console.log(`[MODE]    Modus:        ${dev ? 'Entwicklung' : 'Produktion'}`);
+    console.log(`[HA]      HA-Rolle:     ${process.env.HA_ROLE || 'PRIMARY'}`);
     console.log(`==================================================\n`);
   });
 });

@@ -1,10 +1,10 @@
-# 🌐 Netzwerk-, Router- und Kartenzahlungs-Setup
+# OpenBon - Netzwerk-, Router- und Kartenzahlungs-Setup
 
-OrderAssist Web ist so konzipiert, dass es **100% offline im lokalen Netzwerk** funktioniert. Es wird für den regulären Kassenbetrieb kein Internetanschluss benötigt.
+OpenBon ist so konzipiert, dass es **100% offline im lokalen Netzwerk** funktioniert. Es wird für den regulären Kassenbetrieb kein Internetanschluss benötigt.
 
 ---
 
-## 🔌 Router-Topologie & Internet-Flexibilität
+## 1. Router-Topologie & Internet-Flexibilität
 
 ```
                 ┌─────────────────────────────────────────┐
@@ -48,7 +48,7 @@ OrderAssist Web ist so konzipiert, dass es **100% offline im lokalen Netzwerk** 
 
 ---
 
-## 🖨️ Feste IP-Adressen für Bondrucker
+## 2. Feste IP-Adressen für Bondrucker
 Vergib im Router für alle ESC/POS Thermodrucker feste DHCP-Leases, z. B.:
 - **192.168.1.201**: Küchendrucker Grillstation (Port 9100)
 - **192.168.1.202**: Getränkedrucker Ausschank (Port 9100)

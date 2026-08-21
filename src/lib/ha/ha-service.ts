@@ -60,7 +60,7 @@ export class HighAvailabilityService {
         },
       });
     } catch (e) {
-      console.error('⚠️ Fehler beim Schreiben des SyncJournals:', e);
+      console.error('[HA] Fehler beim Schreiben des SyncJournals:', e);
     }
   }
 
@@ -92,10 +92,10 @@ export class HighAvailabilityService {
 
   private async handleHeartbeatFailure() {
     this.missedHeartbeats++;
-    console.warn(`⚠️ [HA STANDBY] Primary (${this.partnerUrl}) nicht erreichbar! Fehlversuche: ${this.missedHeartbeats}/3`);
+    console.warn(`[HA STANDBY] Primary (${this.partnerUrl}) nicht erreichbar! Fehlversuche: ${this.missedHeartbeats}/3`);
 
     if (this.missedHeartbeats >= 3) {
-      console.error(`🚨 [HA FAILOVER TRIGGER] Primärserver ausgefallen! Befördere STANDBY zum PRIMARY MASTER!`);
+      console.error(`[HA FAILOVER] Primaerserver ausgefallen! Befoerdere STANDBY zum PRIMARY MASTER!`);
       await this.promoteToPrimary();
     }
   }

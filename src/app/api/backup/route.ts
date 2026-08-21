@@ -4,27 +4,45 @@ import prisma from '@/lib/db';
 export async function GET() {
   try {
     const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
-    const categories = await prisma.productCategory.findMany({ include: { products: { include: { variants: true, options: true } } } });
+    const categories = await prisma.productCategory.findMany({
+      include: {
+        products: {
+          include: {
+            variants: true,
+            options: true,
+            stockItem: true,
+          },
+        },
+      },
+    });
     const wordGroups = await prisma.customizationWordGroup.findMany();
     const tables = await prisma.diningTable.findMany();
     const printers = await prisma.printer.findMany();
     const printGroups = await prisma.printGroup.findMany();
+    const orders = await prisma.order.findMany({ include: { items: true } });
+    const payments = await prisma.payment.findMany({ include: { items: true } });
 
     const backupData = {
+      system: 'OpenBon',
       version: '1.0.0',
       exportedAt: new Date().toISOString(),
+      eventName: config?.name || 'Veranstaltung',
       config,
       categories,
       wordGroups,
       tables,
       printers,
       printGroups,
+      orders,
+      payments,
     };
+
+    const fileName = `OpenBon_Komplettbackup_${(config?.name || 'Veranstaltung').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.json`;
 
     return new Response(JSON.stringify(backupData, null, 2), {
       headers: {
-        'Content-Type': 'application/json',
-        'Content-Disposition': `attachment; filename="Veranstaltung_Backup_${new Date().toISOString().slice(0, 10)}.json"`,
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${fileName}"`,
       },
     });
   } catch (error: any) {
@@ -36,7 +54,7 @@ export async function POST(req: Request) {
   try {
     const backupData = await req.json();
     if (!backupData.categories || !backupData.tables) {
-      return NextResponse.json({ error: 'Ungültige Backup-Datei' }, { status: 400 });
+      return NextResponse.json({ error: 'Ungültige OpenBon Backup-Datei' }, { status: 400 });
     }
 
     // 1. Restore Config
@@ -139,7 +157,7 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, message: 'Veranstaltungsdaten erfolgreich wiederhergestellt!' });
+    return NextResponse.json({ success: true, message: 'Veranstaltungs-Komplettbackup erfolgreich eingespielt!' });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

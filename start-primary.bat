@@ -1,7 +1,7 @@
 @echo off
-title OrderAssist - HA PRIMARY MASTER (Port 3000)
+title OpenBon - HA PRIMARY MASTER (Port 3000)
 echo ========================================================
-echo   ORDERASSIST WEB KASSENSYSTEM - HA PRIMARY MASTER
+echo   OPENBON KASSENSYSTEM - HA PRIMARY MASTER
 echo ========================================================
 echo.
 set PORT=3000

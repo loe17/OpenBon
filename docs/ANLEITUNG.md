@@ -1,23 +1,23 @@
-# 📖 OrderAssist Web - Vollständige Bedienungsanleitung
+# OpenBon - Vollständige Bedienungsanleitung
 
-Willkommen bei **OrderAssist Web**, dem plattformunabhängigen, hochverfügbaren Kassensystem für Vereinsfeste, Gastronomie und Events.
+Willkommen bei **OpenBon**, dem plattformunabhängigen, hochverfügbaren Kassensystem für Vereinsfeste, Gastronomie und Events.
 
 ---
 
-## 🌟 Schnellstart in 3 Schritten
+## 1. Schnellstart in 3 Schritten
 
 1. **Server starten**:
    - Starte auf deinem Haupt-PC einfach die Datei `start-primary.bat` (Windows) oder `./start-primary.sh` (Linux/Mac).
    - Der Server öffnet Port **3000** und ist sofort betriebsbereit.
 2. **Geräte verbinden**:
    - Verbinde Smartphones, Tablets oder Theken-Touchscreens mit demselben WLAN.
-   - Öffne im Webbrowser die IP-Adresse des Servers (z. B. `http://192.168.1.100:3000`).
+   - Öffne im Webbrowser die IP-Adresse des Servers (z. B. `http://192.168.1.100:3000`) oder scanne den QR-Code aus dem **QR-Code Beitritts-Center** (`/admin/qr-codes`).
 3. **Station auswählen**:
    - Wähle auf der Startseite deine Station (**Bedienung**, **Bonkasse**, **Küchenmonitor** oder **Verwaltung**).
 
 ---
 
-## 📱 Die Stationen im Detail
+## 2. Die Stationen im Detail
 
 ### 1. Bedienung / Service (Kellner-Smartphone)
 - **Tischübersicht**: Zeigt alle Tische mit Farbcodierung (Grau = Frei, Gelb/Orange = Belegt mit offenen Posten und Gesamtsumme).

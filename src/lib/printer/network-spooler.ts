@@ -70,7 +70,7 @@ class NetworkSpooler {
       global.io.emit('virtual_printer:new_ticket', record);
     }
 
-    console.log(`🖨️ [VIRTUELLER DRUCKER: ${job.printerName}]`);
+    console.log(`[VIRTUELLER DRUCKER: ${job.printerName}]`);
     console.log(textRepresentation);
     console.log(`--------------------------------------------------`);
 
@@ -90,12 +90,12 @@ class NetworkSpooler {
     try {
       await this.sendToRawSocket(job);
     } catch (err: any) {
-      console.error(`❌ Fehler beim Drucken auf ${job.printerName} (${job.printerIp}):`, err.message);
+      console.error(`[ERROR] Fehler beim Drucken auf ${job.printerName} (${job.printerIp}):`, err.message);
       
       // Auto retry up to 3 times before error alert
       if (job.retries < 3) {
         job.retries++;
-        console.log(`🔄 Wiederhole Druckauftrag für ${job.printerName} (Versuch ${job.retries}/3)...`);
+        console.log(`[RETRY] Wiederhole Druckauftrag fuer ${job.printerName} (Versuch ${job.retries}/3)...`);
         this.queue.push(job);
       } else {
         if (global.io) {
@@ -139,7 +139,7 @@ class NetworkSpooler {
 
   public async openDrawer(printer: { ipAddress: string; port: number; isVirtual: boolean; name: string }): Promise<void> {
     if (printer.isVirtual) {
-      console.log(`🔔 [KASSENLADE GEÖFFNET]: Virtueller Impuls an ${printer.name}`);
+      console.log(`[KASSENLADE] Virtueller Impuls an ${printer.name}`);
       return;
     }
 

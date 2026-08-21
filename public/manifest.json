@@ -1,6 +1,6 @@
 {
-  "name": "OrderAssist Web Kassensystem",
-  "short_name": "OrderAssist",
+  "name": "OpenBon Kassensystem",
+  "short_name": "OpenBon",
   "description": "Modernes web-basiertes Kassensystem für Vereinsfeste und Gastronomie",
   "start_url": "/",
   "display": "standalone",

@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  openbon-primary:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openbon-primary
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HA_ROLE=PRIMARY
+      - HA_PARTNER_URL=http://openbon-standby:3001
+    volumes:
+      - openbon-data:/app/prisma
+
+  openbon-standby:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openbon-standby
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - HA_ROLE=STANDBY
+      - HA_PARTNER_URL=http://openbon-primary:3000
+    volumes:
+      - openbon-standby-data:/app/prisma
+
+volumes:
+  openbon-data:
+  openbon-standby-data:
