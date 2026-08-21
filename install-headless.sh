@@ -68,11 +68,12 @@ chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 # 5. Abhängigkeiten & Datenbank initialisieren
 echo "[4/6] Installiere npm-Abhängigkeiten & initialisiere Datenbank..."
 sudo -u "$SERVICE_USER" npm install
-sudo -u "$SERVICE_USER" npx prisma db push --skip-generate
-sudo -u "$SERVICE_USER" node prisma/seed.js
+sudo -u "$SERVICE_USER" DATABASE_URL="file:./dev.db" npx prisma generate
+sudo -u "$SERVICE_USER" DATABASE_URL="file:./dev.db" npx prisma db push --skip-generate
+sudo -u "$SERVICE_USER" DATABASE_URL="file:./dev.db" node prisma/seed.js
 
 echo "[5/6] Baue Next.js Produktions-Build..."
-sudo -u "$SERVICE_USER" npm run build
+sudo -u "$SERVICE_USER" DATABASE_URL="file:./dev.db" npm run build
 
 # 6. Systemd Hintergrunddienst erstellen
 echo "[6/6] Richte systemd-Dienst ein (/etc/systemd/system/openbon.service)..."
