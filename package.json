@@ -14,7 +14,7 @@
     "build": "prisma generate && next build",
     "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
-    "test": "vitest run",
+    "test": "tsc --noEmit && vitest run",
     "test:watch": "vitest",
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.js",
