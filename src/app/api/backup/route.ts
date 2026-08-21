@@ -1,43 +1,69 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { APP_VERSION } from '@/lib/version';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
-    const categories = await prisma.productCategory.findMany({
-      include: {
-        products: {
+    const { searchParams } = new URL(req.url);
+    const incConfig = searchParams.get('incConfig') !== '0';
+    const incProducts = searchParams.get('incProducts') !== '0';
+    const incWordGroups = searchParams.get('incWordGroups') !== '0';
+    const incTables = searchParams.get('incTables') !== '0';
+    const incPrinters = searchParams.get('incPrinters') !== '0';
+    const incStock = searchParams.get('incStock') !== '0';
+    const incOrders = searchParams.get('incOrders') === '1'; // Default off unless requested
+    const incPayments = searchParams.get('incPayments') === '1';
+
+    const config = incConfig ? await prisma.eventConfig.findUnique({ where: { id: 'default' } }) : null;
+    const categories = incProducts
+      ? await prisma.productCategory.findMany({
           include: {
-            variants: true,
-            options: true,
-            stockItem: true,
+            products: {
+              include: {
+                variants: true,
+                options: true,
+                stockItem: incStock,
+              },
+            },
           },
-        },
-      },
-    });
-    const wordGroups = await prisma.customizationWordGroup.findMany();
-    const tables = await prisma.diningTable.findMany();
-    const printers = await prisma.printer.findMany();
-    const printGroups = await prisma.printGroup.findMany();
-    const orders = await prisma.order.findMany({ include: { items: true } });
-    const payments = await prisma.payment.findMany({ include: { items: true } });
+        })
+      : null;
+
+    const wordGroups = incWordGroups ? await prisma.customizationWordGroup.findMany() : null;
+    const tables = incTables ? await prisma.diningTable.findMany() : null;
+    const printers = incPrinters ? await prisma.printer.findMany() : null;
+    const printGroups = incPrinters ? await prisma.printGroup.findMany() : null;
+    const stockItems = incStock ? await prisma.stockItem.findMany() : null;
+    const orders = incOrders ? await prisma.order.findMany({ include: { items: true } }) : null;
+    const payments = incPayments ? await prisma.payment.findMany({ include: { items: true } }) : null;
 
     const backupData = {
       system: 'OpenBon',
-      version: '1.0.0',
+      version: APP_VERSION,
       exportedAt: new Date().toISOString(),
       eventName: config?.name || 'Veranstaltung',
+      scopes: {
+        config: incConfig,
+        products: incProducts,
+        wordGroups: incWordGroups,
+        tables: incTables,
+        printers: incPrinters,
+        stock: incStock,
+        orders: incOrders,
+        payments: incPayments,
+      },
       config,
       categories,
       wordGroups,
       tables,
       printers,
       printGroups,
+      stockItems,
       orders,
       payments,
     };
 
-    const fileName = `OpenBon_Komplettbackup_${(config?.name || 'Veranstaltung').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.json`;
+    const fileName = `OpenBon_Backup_${(config?.name || 'Veranstaltung').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.json`;
 
     return new Response(JSON.stringify(backupData, null, 2), {
       headers: {
@@ -52,13 +78,25 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const backupData = await req.json();
-    if (!backupData.categories || !backupData.tables) {
+    const body = await req.json();
+    const backupData = body.data || body;
+    const restoreOptions = body.options || {
+      config: true,
+      products: true,
+      wordGroups: true,
+      tables: true,
+      printers: true,
+      stock: true,
+      orders: false,
+      payments: false,
+    };
+
+    if (!backupData.categories && !backupData.tables && !backupData.config) {
       return NextResponse.json({ error: 'Ungültige OpenBon Backup-Datei' }, { status: 400 });
     }
 
     // 1. Restore Config
-    if (backupData.config) {
+    if (restoreOptions.config && backupData.config) {
       await prisma.eventConfig.upsert({
         where: { id: 'default' },
         update: backupData.config,
@@ -67,7 +105,7 @@ export async function POST(req: Request) {
     }
 
     // 2. Restore Word Groups
-    if (backupData.wordGroups) {
+    if (restoreOptions.wordGroups && backupData.wordGroups) {
       await prisma.customizationWordGroup.deleteMany({});
       for (const wg of backupData.wordGroups) {
         await prisma.customizationWordGroup.create({
@@ -82,7 +120,7 @@ export async function POST(req: Request) {
     }
 
     // 3. Restore Printers & Groups
-    if (backupData.printers) {
+    if (restoreOptions.printers && backupData.printers) {
       for (const p of backupData.printers) {
         await prisma.printer.upsert({
           where: { id: p.id },
@@ -92,7 +130,7 @@ export async function POST(req: Request) {
       }
     }
 
-    if (backupData.printGroups) {
+    if (restoreOptions.printers && backupData.printGroups) {
       for (const pg of backupData.printGroups) {
         await prisma.printGroup.upsert({
           where: { id: pg.id },
@@ -103,7 +141,7 @@ export async function POST(req: Request) {
     }
 
     // 4. Restore Categories & Products
-    if (backupData.categories) {
+    if (restoreOptions.products && backupData.categories) {
       for (const cat of backupData.categories) {
         await prisma.productCategory.upsert({
           where: { id: cat.id },
@@ -147,7 +185,7 @@ export async function POST(req: Request) {
     }
 
     // 5. Restore Tables
-    if (backupData.tables) {
+    if (restoreOptions.tables && backupData.tables) {
       for (const t of backupData.tables) {
         await prisma.diningTable.upsert({
           where: { id: t.id },
@@ -157,7 +195,29 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, message: 'Veranstaltungs-Komplettbackup erfolgreich eingespielt!' });
+    // 6. Restore Orders & Payments if selected
+    if (restoreOptions.orders && backupData.orders) {
+      for (const ord of backupData.orders) {
+        await prisma.order.upsert({
+          where: { id: ord.id },
+          update: { status: ord.status },
+          create: {
+            id: ord.id,
+            orderNumber: ord.orderNumber,
+            tableId: ord.tableId,
+            waiterName: ord.waiterName,
+            deviceId: ord.deviceId,
+            status: ord.status,
+            orderType: ord.orderType,
+            tokenNumber: ord.tokenNumber,
+            isTraining: ord.isTraining,
+            createdAt: new Date(ord.createdAt),
+          },
+        });
+      }
+    }
+
+    return NextResponse.json({ success: true, message: 'Ausgewählte Backup-Bereiche erfolgreich wiederhergestellt!' });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

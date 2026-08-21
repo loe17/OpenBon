@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   Settings,
   GraduationCap,
@@ -15,7 +16,13 @@ import {
   Globe,
   KeyRound,
   ShieldCheck,
+  Terminal,
+  CheckSquare,
+  Square,
+  Sparkles,
 } from 'lucide-react';
+import { APP_VERSION } from '@/lib/version';
+import { triggerHapticFeedback } from '@/lib/socket-client';
 
 export default function AdminSettingsPage() {
   const [config, setConfig] = useState<any>(null);
@@ -27,6 +34,18 @@ export default function AdminSettingsPage() {
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [pinChangeMsg, setPinChangeMsg] = useState<{ text: string; error?: boolean } | null>(null);
+
+  // Selective Backup Scopes State
+  const [backupScopes, setBackupScopes] = useState({
+    config: true,
+    products: true,
+    wordGroups: true,
+    tables: true,
+    printers: true,
+    stock: true,
+    orders: false,
+    payments: false,
+  });
 
   const fetchConfig = async () => {
     try {
@@ -84,14 +103,26 @@ export default function AdminSettingsPage() {
     }
   };
 
-  const handleDownloadBackup = () => {
-    window.open('/api/backup', '_blank');
+  const handleDownloadSelectiveBackup = () => {
+    triggerHapticFeedback();
+    const params = new URLSearchParams({
+      incConfig: backupScopes.config ? '1' : '0',
+      incProducts: backupScopes.products ? '1' : '0',
+      incWordGroups: backupScopes.wordGroups ? '1' : '0',
+      incTables: backupScopes.tables ? '1' : '0',
+      incPrinters: backupScopes.printers ? '1' : '0',
+      incStock: backupScopes.stock ? '1' : '0',
+      incOrders: backupScopes.orders ? '1' : '0',
+      incPayments: backupScopes.payments ? '1' : '0',
+    });
+
+    window.open(`/api/backup?${params.toString()}`, '_blank');
   };
 
   const handleRestoreBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!confirm('Achtung: Dadurch werden alle aktuellen Daten mit dem Backup überschrieben. Fortfahren?')) return;
+    if (!confirm('Achtung: Die ausgewählten Datenbereiche werden mit der Backup-Datei überschrieben. Fortfahren?')) return;
 
     try {
       const reader = new FileReader();
@@ -100,10 +131,10 @@ export default function AdminSettingsPage() {
         const res = await fetch('/api/backup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(json),
+          body: JSON.stringify({ data: json, options: backupScopes }),
         });
         if (res.ok) {
-          alert('Komplettbackup erfolgreich eingespielt!');
+          alert('Ausgewählte Backup-Bereiche erfolgreich wiederhergestellt!');
           window.location.reload();
         } else {
           alert('Fehler beim Wiederherstellen des Backups.');
@@ -115,21 +146,53 @@ export default function AdminSettingsPage() {
     }
   };
 
+  const toggleScope = (scope: keyof typeof backupScopes) => {
+    triggerHapticFeedback();
+    setBackupScopes((prev) => ({ ...prev, [scope]: !prev[scope] }));
+  };
+
+  const toggleAllScopes = (select: boolean) => {
+    triggerHapticFeedback();
+    setBackupScopes({
+      config: select,
+      products: select,
+      wordGroups: select,
+      tables: select,
+      printers: select,
+      stock: select,
+      orders: select,
+      payments: select,
+    });
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-y-auto bg-slate-950 text-white p-4 sm:p-6 max-w-5xl mx-auto w-full">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-800">
         <div className="flex items-center gap-3">
-          <div className="bg-purple-600 text-white p-2.5 rounded-2xl">
+          <div className="bg-purple-600 text-white p-2.5 rounded-2xl shadow">
             <Settings className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-black">Einstellungen & Hochverfügbarkeit</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-black">Einstellungen & Systemverwaltung</h1>
+              <span className="bg-blue-950 text-blue-300 font-bold px-2.5 py-0.5 rounded-lg text-xs border border-blue-700">
+                v{APP_VERSION}
+              </span>
+            </div>
             <p className="text-xs text-slate-400">
-              Veranstaltungsdaten, Admin-PIN, 2-Server Replikation und Komplett-Datensicherung
+              Veranstaltungsdaten, Admin-PIN, selektives Backup und System-Updates
             </p>
           </div>
         </div>
+
+        <Link
+          href="/admin/system-update"
+          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-bold text-white shadow-lg transition"
+        >
+          <Terminal className="w-4 h-4" />
+          <span>System-Update & Konsole</span>
+        </Link>
       </div>
 
       {loading ? (
@@ -227,11 +290,6 @@ export default function AdminSettingsPage() {
                   />
                 </div>
               </div>
-
-              <p className="text-xs text-slate-400 bg-slate-950 p-3 rounded-xl border border-slate-800">
-                Der Ersatzserver (Standby) überwacht den Hauptserver sekündlich per Heartbeat und spiegelt alle
-                Transaktionen in Echtzeit. Fällt der Hauptserver aus, übernimmt der Ersatzserver automatisch in &lt;3s.
-              </p>
             </div>
 
             {/* Save Button */}
@@ -307,26 +365,80 @@ export default function AdminSettingsPage() {
             </button>
           </form>
 
-          {/* Form 3: Complete Event Backup & Download */}
+          {/* Form 3: Modular Selective Backup & Download with Checkboxes */}
           <div className="p-5 bg-slate-900 rounded-3xl border border-slate-700 shadow-xl space-y-4">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <HardDrive className="w-4 h-4 text-emerald-400" />
-              <span>Gesamte Veranstaltung herunterladen & sichern</span>
-            </h3>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <HardDrive className="w-4 h-4 text-emerald-400" />
+                <span>Selektives Backup & Wiederherstellung</span>
+              </h3>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleAllScopes(true)}
+                  className="text-xs text-blue-400 hover:text-blue-300 font-bold px-2 py-1 bg-slate-800 rounded-lg"
+                >
+                  Alle wählen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleAllScopes(false)}
+                  className="text-xs text-slate-400 hover:text-white font-bold px-2 py-1 bg-slate-800 rounded-lg"
+                >
+                  Alle abwählen
+                </button>
+              </div>
+            </div>
 
             <p className="text-xs text-slate-400">
-              Lade mit einem Klick das vollständige Archiv aller Artikel, Kategorien, Tische, Drucker, Bestellungen
-              und Buchungen als portable JSON-Datei auf dein Endgerät (Laptop oder Smartphone) herunter.
+              Wähle mit den Checkboxen genau aus, welche Datenbereiche in die Backup-Datei exportiert bzw. beim Einspielen wiederhergestellt werden sollen:
             </p>
 
-            <div className="flex flex-wrap items-center gap-3 pt-2">
+            {/* Checkboxes Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+              {[
+                { key: 'config', label: 'Stammdaten & Setup' },
+                { key: 'products', label: 'Artikel & Warengruppen' },
+                { key: 'wordGroups', label: 'Sonderwünsche & Wörter' },
+                { key: 'tables', label: 'Tischplan & Raster' },
+                { key: 'printers', label: 'Drucker & Druckgruppen' },
+                { key: 'stock', label: 'Lagerbestand' },
+                { key: 'orders', label: 'Bestellhistorie' },
+                { key: 'payments', label: 'Zahlungen & Z-Bon' },
+              ].map((item) => {
+                const isChecked = (backupScopes as any)[item.key];
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => toggleScope(item.key as any)}
+                    className={`p-3 rounded-2xl border flex items-center gap-2.5 text-xs font-bold transition text-left ${
+                      isChecked
+                        ? 'bg-emerald-950/40 border-emerald-500 text-emerald-200'
+                        : 'bg-slate-800/40 border-slate-700 text-slate-400'
+                    }`}
+                  >
+                    {isChecked ? (
+                      <CheckSquare className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                    ) : (
+                      <Square className="w-4 h-4 text-slate-600 flex-shrink-0" />
+                    )}
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-800">
               <button
                 type="button"
-                onClick={handleDownloadBackup}
-                className="pos-touch-btn flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-3 rounded-2xl text-sm font-bold shadow-lg shadow-emerald-900/30 transition"
+                onClick={handleDownloadSelectiveBackup}
+                className="pos-touch-btn flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-3 rounded-2xl text-sm font-bold shadow-lg shadow-emerald-950/40 transition"
               >
                 <Download className="w-4 h-4" />
-                <span>Komplett-Backup herunterladen (JSON)</span>
+                <span>Ausgewähltes Backup herunterladen (JSON)</span>
               </button>
 
               <label className="pos-touch-btn flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-5 py-3 rounded-2xl text-sm font-bold border border-slate-700 transition cursor-pointer">

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useSocket } from '../providers/socket-provider';
 import FullscreenButton from '../ui/fullscreen-button';
 import PinModal from '../auth/pin-modal';
+import { APP_VERSION } from '@/lib/version';
 import {
   Menu,
   X,
@@ -28,6 +29,7 @@ import {
   Lock,
   Grid,
   Layers,
+  Terminal,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -129,6 +131,7 @@ export default function Navbar() {
     { href: '/admin/qr-codes', label: 'QR-Code Beitritts-Center', icon: QrCode, roles: ['ADMIN'] },
     { href: '/admin/inventory', label: 'Lagerbestand', icon: HardDrive, roles: ['ADMIN'] },
     { href: '/admin/reports', label: 'Auswertungen & Z-Bon', icon: BarChart3, roles: ['ADMIN'] },
+    { href: '/admin/system-update', label: 'System-Update & Konsole', icon: Terminal, roles: ['ADMIN'] },
     { href: '/admin/settings', label: 'Einstellungen & Backup', icon: Settings, roles: ['ADMIN'] },
   ];
 
@@ -159,6 +162,9 @@ export default function Navbar() {
                 OB
               </span>
               <span className="text-white">OpenBon</span>
+              <span className="text-[10px] text-slate-400 font-mono font-bold bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                v{APP_VERSION}
+              </span>
             </Link>
           </div>
 
@@ -211,7 +217,12 @@ export default function Navbar() {
             {/* Header */}
             <div className="p-4 border-b border-slate-800 flex items-center justify-between">
               <div>
-                <h3 className="font-black text-lg text-white">Hauptmenü</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-black text-lg text-white">Hauptmenü</h3>
+                  <span className="text-[10px] font-mono font-bold text-blue-400 bg-blue-950 px-1.5 py-0.5 rounded border border-blue-800">
+                    v{APP_VERSION}
+                  </span>
+                </div>
                 <p className="text-xs text-slate-400">OpenBon Kassensystem</p>
               </div>
               <button onClick={() => setIsOpen(false)} className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800">
@@ -273,7 +284,7 @@ export default function Navbar() {
 
             {/* Footer */}
             <div className="p-3 border-t border-slate-800 bg-slate-950 text-center text-xs text-slate-500 font-medium">
-              OpenBon v1.0 • Offline Ready
+              OpenBon v{APP_VERSION} • 100% Offline Ready
             </div>
           </div>
         </div>

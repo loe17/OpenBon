@@ -1,9 +1,13 @@
 {
   "name": "openbon",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "private": true,
   "description": "OpenBon - Modernes, plattformunabhängiges Kassensystem mit Hochverfügbarkeit, ESC/POS-Druck und Echtzeit-Synchronisation für Vereinsfeste und Gastronomie",
   "author": "OpenBon Community",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/loe17/OpenBon.git"
+  },
   "license": "MIT",
   "scripts": {
     "dev": "node server.js",
