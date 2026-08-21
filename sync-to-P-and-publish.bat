@@ -4,9 +4,9 @@ cd /d "%~dp0"
 
 title OpenBon - Sync von C: nach P:\Projekte\OpenBon und GitHub Push
 echo ======================================================================
-echo   OPENBON - SYNC VON C: NACH P:\Projekte\OpenBon & GITHUB PUSH
+echo   OPENBON - SYNC VON C: NACH P:\Projekte\OpenBon UND GITHUB PUSH
 echo   Quelle: C:\Users\Lukas\Documents\GeminiTemp\Kassensystem
-echo   Ziel:   P:\Projekte\OpenBon -> https://github.com/loe17/OpenBon
+echo   Ziel:   P:\Projekte\OpenBon -^> https://github.com/loe17/OpenBon
 echo ======================================================================
 echo.
 
@@ -21,7 +21,7 @@ if not exist "%TARGET_DIR%" (
 
 REM 2. Synchronisiere alle Dateien von C: nach P: (ohne temporaere Cache-Ordner)
 echo [2/4] Kopiere geaenderte Projektdateien nach P:\Projekte\OpenBon...
-robocopy "%SOURCE_DIR%." "%TARGET_DIR%." /E /XD node_modules .next .git .system_generated .gemini /XF dev.db dev.db-journal *.log IMPLEMENTIERUNGSPLAN*.md implementation_plan.md walkthrough.md *.tmp /NDL /NFL /NJH /NJS /nc /ns /np
+robocopy "%SOURCE_DIR%." "%TARGET_DIR%." /E /R:1 /W:1 /XD node_modules .next .git .system_generated .gemini /XF dev.db dev.db-journal *.log IMPLEMENTIERUNGSPLAN*.md implementation_plan.md walkthrough.md *.tmp /NDL /NFL /NJH /NJS /nc /ns /np
 
 REM 3. In P:\Projekte\OpenBon wechseln und Git konfigurieren
 echo [3/4] Wechsle nach %TARGET_DIR% und konfiguriere Git...
@@ -61,5 +61,4 @@ if %ERRORLEVEL% EQU 0 (
 )
 
 echo.
-echo Druecke eine beliebige Taste zum Schliessen...
-pause >nul
+pause
