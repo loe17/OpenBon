@@ -47,15 +47,45 @@ export default function AdminSettingsPage() {
     payments: false,
   });
 
+  // Autostart State
+  const [autostartInfo, setAutostartInfo] = useState<any>(null);
+  const [togglingAutostart, setTogglingAutostart] = useState(false);
+
   const fetchConfig = async () => {
     try {
-      const res = await fetch('/api/config');
-      const data = await res.json();
+      const [cfgRes, autoRes] = await Promise.all([
+        fetch('/api/config'),
+        fetch('/api/system/autostart'),
+      ]);
+      const data = await cfgRes.json();
+      const autoData = await autoRes.json();
       setConfig(data);
+      setAutostartInfo(autoData);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleAutostart = async () => {
+    triggerHapticFeedback();
+    setTogglingAutostart(true);
+    try {
+      const nextVal = !autostartInfo?.autostartEnabled;
+      const res = await fetch('/api/system/autostart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enable: nextVal }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAutostartInfo((prev: any) => ({ ...prev, autostartEnabled: nextVal }));
+      }
+    } catch (e) {
+      alert('Fehler beim Ändern des Autostarts.');
+    } finally {
+      setTogglingAutostart(false);
     }
   };
 
@@ -446,6 +476,39 @@ export default function AdminSettingsPage() {
                 <span>Backup wiederherstellen</span>
                 <input type="file" accept=".json" onChange={handleRestoreBackup} className="hidden" />
               </label>
+            </div>
+          </div>
+
+          {/* Form 4: System Autostart Management */}
+          <div className="p-5 bg-slate-900 rounded-3xl border border-slate-700 shadow-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-blue-400" />
+                  <span>Automatischer Server-Start bei Systemboot (Autostart)</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Startet den OpenBon Kassen-Server automatisch im Hintergrund, sobald der Computer oder Raspberry Pi eingeschaltet wird.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                disabled={togglingAutostart}
+                onClick={handleToggleAutostart}
+                className={`px-5 py-2.5 rounded-2xl text-xs font-black transition flex items-center gap-2 border ${
+                  autostartInfo?.autostartEnabled
+                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                    : 'bg-slate-800 text-slate-400 border-slate-700'
+                }`}
+              >
+                <span>{autostartInfo?.autostartEnabled ? 'AKTIVIERT' : 'DEAKTIVIERT'}</span>
+              </button>
+            </div>
+
+            <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800 text-xs text-slate-400 flex items-center justify-between">
+              <span>Betriebssystem: <strong className="text-white">{autostartInfo?.platform || 'windows'}</strong></span>
+              <span>Dienst-Name: <strong className="font-mono text-blue-400">openbon.service</strong></span>
             </div>
           </div>
         </div>

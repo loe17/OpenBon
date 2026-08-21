@@ -165,9 +165,12 @@ model Payment {
   returnDeposit      Float         @default(0.0)
   discountAmount     Float         @default(0.0)
   tipAmount          Float         @default(0.0)
+  surchargeAmount    Float         @default(0.0)
+  surchargePercent   Float         @default(0.0)
+  surchargeReason    String?
   givenAmount        Float         @default(0.0)
   changeAmount       Float         @default(0.0)
-  paymentMethod      String        @default("CASH") // CASH, CARD_SUMUP, CARD_TERMINAL, NON_PAID_STAFF, NON_PAID_COMPLAINT, DISCOUNT
+  paymentMethod      String        @default("CASH") // CASH, CARD_SUMUP, CARD_VRPAY, CARD_TERMINAL, NON_PAID_STAFF, NON_PAID_COMPLAINT, DISCOUNT
   nonPaidReason      String?
   isCancelled        Boolean       @default(false)
   cancellationReason String?

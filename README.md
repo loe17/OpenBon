@@ -16,8 +16,11 @@
 - **Rollen-Sicherheit & PIN-Schutz**: 4-stelliger Admin-PIN schützt Preislisten, Einstellungen und Berichte. Helfer-Smartphones werden in ihrer Station arretiert.
 - **QR-Code Beitritts-Center**: Helfer treten Stationen (Bedienung, Kasse, Küche) blitzschnell per Scan bei. QR-Codes können direkt auf Thermobondruckern ausgedruckt werden.
 - **2-Rechner-Hochverfügbarkeit (HA Failover)**: Primär- und Ersatzserver spiegeln Transaktionen in Echtzeit (<3s automatischer Failover bei PC-Ausfall).
-- **100% Offline-Fähig + Flexible Kartenzahlung**: Funktioniert im autarken Festzelt-WLAN ohne Internet. Sobald Internet an den Router gesteckt wird (LAN/LTE), steht sofort Kartenzahlung (SumUp / Terminal) bereit.
-- **Komplett-Veranstaltungsbackup**: 1-Klick Download des vollständigen Veranstaltungsarchivs (Artikel, Tische, Buchungen, Rechnungen) als portable JSON-Datei.
+- **100% Offline-Fähig & Flexible Kartenzahldienste**: Funktioniert im autarken Festzelt-WLAN ohne Internet. Unterstützt **Bargeld**, **VR-Pay Me** (Volksbanken / Raiffeisenbanken), **SumUp** (Air/Solo) und **EC-Terminals**.
+- **Aufschlag-Funktion**: Beliebige prozentuale Aufschläge (z. B. Nacht-/Feiertagszuschlag) oder Festbeträge (z. B. Pauschale / Kartengebühr) beim Kassieren mit Ausweisung auf dem Beleg.
+- **Kellner-Leistungsmetriken & Rangliste**: Echtzeit-Verfolgung der Bestellungen und Umsätze der letzten 60 Minuten pro Bedienung.
+- **Autostart-Steuerung**: Systemd-Autostart bei Serverboot direkt über das Web-Adminmenü aktivier- und deaktivierbar.
+- **[Hardwareempfehlungen & Mindestanforderungen](docs/HARDWARE_EMPFEHLUNGEN.md)**: Kompletter Hardware-Leitfaden für Server (Raspberry Pi, Mini-PC, Laptop), Mobilteile, Thermodrucker und Router.
 - **Schnelle Kellner-Bestellmaske**:
   - Tischübersicht mit Live-Farbcodierung und Offenbeträgen
   - 1-Klick-Sonderwünsche (z. B. *"ohne Zwiebeln"*, *"extra Soße"*)

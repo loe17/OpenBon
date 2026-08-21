@@ -318,28 +318,54 @@ export default function PosCounterPage() {
             </div>
 
             {/* Payment Method */}
-            <div className="grid grid-cols-2 gap-2 mb-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
               <button
+                type="button"
                 onClick={() => setPaymentMethod('CASH')}
-                className={`py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 border transition ${
+                className={`py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition ${
                   paymentMethod === 'CASH'
                     ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
                     : 'bg-slate-800 text-slate-300 border-slate-700'
                 }`}
               >
                 <Banknote className="w-4 h-4" />
-                <span>Barzahlung</span>
+                <span>Bargeld</span>
               </button>
               <button
+                type="button"
                 onClick={() => setPaymentMethod('CARD_SUMUP')}
-                className={`py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 border transition ${
+                className={`py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition ${
                   paymentMethod === 'CARD_SUMUP'
                     ? 'bg-blue-600 text-white border-blue-500 shadow-md'
                     : 'bg-slate-800 text-slate-300 border-slate-700'
                 }`}
               >
                 <CreditCard className="w-4 h-4" />
-                <span>Karte</span>
+                <span>SumUp</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('CARD_VRPAY')}
+                className={`py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition ${
+                  paymentMethod === 'CARD_VRPAY'
+                    ? 'bg-blue-700 text-white border-blue-400 shadow-md'
+                    : 'bg-slate-800 text-slate-300 border-slate-700'
+                }`}
+              >
+                <CreditCard className="w-4 h-4" />
+                <span>VR-Pay Me</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('CARD_TERMINAL')}
+                className={`py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition ${
+                  paymentMethod === 'CARD_TERMINAL'
+                    ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                    : 'bg-slate-800 text-slate-300 border-slate-700'
+                }`}
+              >
+                <CreditCard className="w-4 h-4" />
+                <span>EC-Terminal</span>
               </button>
             </div>
 

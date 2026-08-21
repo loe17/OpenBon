@@ -25,28 +25,37 @@ export async function GET(req: Request) {
       }),
     ]);
 
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
     // Aggregate totals
     let totalGross = 0;
     let totalNet = 0;
     let totalTax19 = 0;
     let totalTax7 = 0;
     let totalCash = 0;
-    let totalCard = 0;
+    let totalCardSumUp = 0;
+    let totalCardVrPay = 0;
+    let totalCardTerminal = 0;
+    let totalCardAll = 0;
     let totalStaff = 0;
     let totalDepositCharged = 0;
     let totalDepositReturned = 0;
     let totalTips = 0;
     let totalDiscounts = 0;
+    let totalSurcharges = 0;
 
     const waiterMap = new Map<
       string,
       {
         waiterName: string;
+        totalGross: number;
         cashGross: number;
         cardGross: number;
         tips: number;
         depositReturned: number;
         transactionCount: number;
+        ordersLastHour: number;
+        salesLastHour: number;
       }
     >();
 
@@ -58,12 +67,21 @@ export async function GET(req: Request) {
       totalDepositReturned += p.returnDeposit;
       totalTips += p.tipAmount;
       totalDiscounts += p.discountAmount;
+      totalSurcharges += p.surchargeAmount || 0;
 
-      if (p.paymentMethod === 'CASH') {
+      const method = p.paymentMethod || 'CASH';
+      if (method === 'CASH') {
         totalCash += p.totalGross;
-      } else if (p.paymentMethod.startsWith('CARD')) {
-        totalCard += p.totalGross;
-      } else if (p.paymentMethod.startsWith('NON_PAID')) {
+      } else if (method === 'CARD_SUMUP') {
+        totalCardSumUp += p.totalGross;
+        totalCardAll += p.totalGross;
+      } else if (method === 'CARD_VRPAY') {
+        totalCardVrPay += p.totalGross;
+        totalCardAll += p.totalGross;
+      } else if (method === 'CARD_TERMINAL' || method.startsWith('CARD')) {
+        totalCardTerminal += p.totalGross;
+        totalCardAll += p.totalGross;
+      } else if (method.startsWith('NON_PAID')) {
         totalStaff += p.totalGross;
       }
 
@@ -72,24 +90,39 @@ export async function GET(req: Request) {
       if (!waiterMap.has(wName)) {
         waiterMap.set(wName, {
           waiterName: wName,
+          totalGross: 0,
           cashGross: 0,
           cardGross: 0,
           tips: 0,
           depositReturned: 0,
           transactionCount: 0,
+          ordersLastHour: 0,
+          salesLastHour: 0,
         });
       }
 
       const w = waiterMap.get(wName)!;
       w.transactionCount++;
+      w.totalGross += p.totalGross;
       w.tips += p.tipAmount;
       w.depositReturned += p.returnDeposit;
-      if (p.paymentMethod === 'CASH') {
+
+      if (new Date(p.createdAt) >= oneHourAgo) {
+        w.ordersLastHour++;
+        w.salesLastHour += p.totalGross;
+      }
+
+      if (method === 'CASH') {
         w.cashGross += p.totalGross;
-      } else if (p.paymentMethod.startsWith('CARD')) {
+      } else if (method.startsWith('CARD')) {
         w.cardGross += p.totalGross;
       }
     }
+
+    // Rank waiters by total gross
+    const rankedWaiters = Array.from(waiterMap.values())
+      .sort((a, b) => b.totalGross - a.totalGross)
+      .map((w, idx) => ({ ...w, rank: idx + 1 }));
 
     // Top selling items
     const productStats = new Map<string, { name: string; quantity: number; revenue: number }>();
@@ -133,22 +166,35 @@ export async function GET(req: Request) {
       };
     });
 
+    const paymentSplit = {
+      cash: { amount: totalCash, percent: totalGross > 0 ? Math.round((totalCash / totalGross) * 100) : 0 },
+      cardAll: { amount: totalCardAll, percent: totalGross > 0 ? Math.round((totalCardAll / totalGross) * 100) : 0 },
+      cardSumUp: totalCardSumUp,
+      cardVrPay: totalCardVrPay,
+      cardTerminal: totalCardTerminal,
+      staff: totalStaff,
+      discounts: totalDiscounts,
+      surcharges: totalSurcharges,
+    };
+
     const summary = {
       totalGross,
       totalNet,
       totalTax19,
       totalTax7,
       totalCash,
-      totalCard,
+      totalCard: totalCardAll,
+      paymentSplit,
       totalStaff,
       totalDepositCharged,
       totalDepositReturned,
       netDepositBalance: totalDepositCharged - totalDepositReturned,
       totalTips,
       totalDiscounts,
+      totalSurcharges,
       transactionCount: payments.length,
       ordersCount: orders.length,
-      waiters: Array.from(waiterMap.values()),
+      waiters: rankedWaiters,
       topProducts,
       hourlySales,
       categoryBreakdown,
@@ -166,16 +212,20 @@ export async function GET(req: Request) {
       csvLines.push(`Gesamtumsatz Netto;${totalNet.toFixed(2)} EUR`);
       csvLines.push(`MwSt 19%;${totalTax19.toFixed(2)} EUR`);
       csvLines.push(`Bargeld (Ist);${totalCash.toFixed(2)} EUR`);
-      csvLines.push(`Kartenzahlung;${totalCard.toFixed(2)} EUR`);
+      csvLines.push(`Kartenzahlung (Gesamt);${totalCardAll.toFixed(2)} EUR`);
+      csvLines.push(`- davon SumUp;${totalCardSumUp.toFixed(2)} EUR`);
+      csvLines.push(`- davon VR-Pay Me;${totalCardVrPay.toFixed(2)} EUR`);
+      csvLines.push(`- davon EC-Terminal;${totalCardTerminal.toFixed(2)} EUR`);
+      csvLines.push(`Aufschlaege (Pauschalen / %);${totalSurcharges.toFixed(2)} EUR`);
       csvLines.push(`Personal / Bewirtung;${totalStaff.toFixed(2)} EUR`);
       csvLines.push(`Ausgezahlter Rueckpfand;${totalDepositReturned.toFixed(2)} EUR`);
       csvLines.push(`Erhaltenes Kellner-Trinkgeld;${totalTips.toFixed(2)} EUR`);
       csvLines.push(`Anzahl Belege;${payments.length}`);
       csvLines.push('');
-      csvLines.push('KELLNER;BAR-UMSATZ;KARTEN-UMSATZ;TRINKGELD;RUECKPFAND;BELEGE');
-      for (const w of summary.waiters) {
+      csvLines.push('RANG;KELLNER;GESAMT-UMSATZ;LETZTE STUNDE;BAR-UMSATZ;KARTEN-UMSATZ;TRINKGELD;BELEGE');
+      for (const w of rankedWaiters) {
         csvLines.push(
-          `${w.waiterName};${w.cashGross.toFixed(2)};${w.cardGross.toFixed(2)};${w.tips.toFixed(2)};${w.depositReturned.toFixed(2)};${w.transactionCount}`
+          `#${w.rank};${w.waiterName};${w.totalGross.toFixed(2)};${w.salesLastHour.toFixed(2)} (${w.ordersLastHour} Bons);${w.cashGross.toFixed(2)};${w.cardGross.toFixed(2)};${w.tips.toFixed(2)};${w.transactionCount}`
         );
       }
       csvLines.push('');

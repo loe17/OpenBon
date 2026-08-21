@@ -100,9 +100,15 @@ export async function POST(req: Request) {
     const returnDeposit = parseFloat(body.returnDepositAmount || 0);
     const discount = parseFloat(body.discountAmount || 0);
     const tip = parseFloat(body.tipAmount || 0);
+    const surchargeAmount = parseFloat(body.surchargeAmount || 0);
+    const surchargePercent = parseFloat(body.surchargePercent || 0);
+    const surchargeReason = body.surchargeReason || null;
     const given = parseFloat(body.givenAmount || 0);
 
-    const finalGrossToPay = Math.max(0, grossSum - returnDeposit - discount);
+    const percentSurchargeValue = grossSum * (surchargePercent / 100);
+    const totalSurcharges = surchargeAmount + percentSurchargeValue;
+
+    const finalGrossToPay = Math.max(0, grossSum - returnDeposit - discount + totalSurcharges);
     const change = given > 0 ? Math.max(0, given - finalGrossToPay - tip) : 0;
 
     // 2. Create Payment Record in DB
@@ -113,12 +119,15 @@ export async function POST(req: Request) {
         waiterName: body.waiterName || 'Bedienung',
         deviceId: body.deviceId || null,
         totalGross: finalGrossToPay,
-        totalNet: netSum,
-        totalTax: taxSum,
+        totalNet: netSum + (totalSurcharges / 1.19),
+        totalTax: taxSum + (totalSurcharges - totalSurcharges / 1.19),
         totalDeposit: depositSum,
         returnDeposit,
         discountAmount: discount,
         tipAmount: tip,
+        surchargeAmount: totalSurcharges,
+        surchargePercent,
+        surchargeReason,
         givenAmount: given,
         changeAmount: change,
         paymentMethod: body.paymentMethod || 'CASH',

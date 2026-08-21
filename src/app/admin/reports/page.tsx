@@ -18,6 +18,9 @@ import {
   Banknote,
   HeartHandshake,
   CheckCircle2,
+  Trophy,
+  Landmark,
+  PlusCircle,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
@@ -83,6 +86,10 @@ export default function AdminReportsPage() {
     ? Math.max(...data.topProducts.slice(0, 10).map((p: any) => p.quantity), 1)
     : 1;
 
+  const maxWaiterGross = data?.waiters
+    ? Math.max(...data.waiters.map((w: any) => w.totalGross), 1)
+    : 1;
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-y-auto bg-slate-950 text-white p-3 sm:p-6 max-w-7xl mx-auto w-full">
       {/* Header */}
@@ -94,7 +101,7 @@ export default function AdminReportsPage() {
           <div>
             <h1 className="text-2xl font-black">Statistiken, Charts & Vorhersagen</h1>
             <p className="text-xs text-slate-400">
-              Echtzeit-Umsätze, stündliche Lastspitzen, Renner/Penner und KI-Bedarfsprognose
+              Echtzeit-Umsätze, stündliche Lastspitzen, Kellner-Performance und KI-Bedarfsprognose
             </p>
           </div>
         </div>
@@ -158,7 +165,7 @@ export default function AdminReportsPage() {
             </div>
 
             <div className="p-4 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl">
-              <span className="text-xs font-bold text-slate-400 block mb-1">Barbestand Kasse</span>
+              <span className="text-xs font-bold text-slate-400 block mb-1">Barbestand (Ist)</span>
               <div className="text-2xl sm:text-3xl font-black text-blue-400 font-mono">
                 {formatCurrency(data.totalCash)}
               </div>
@@ -174,11 +181,11 @@ export default function AdminReportsPage() {
             </div>
 
             <div className="p-4 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl">
-              <span className="text-xs font-bold text-slate-400 block mb-1">Belege & Bons</span>
+              <span className="text-xs font-bold text-slate-400 block mb-1">Belege & Aufschläge</span>
               <div className="text-2xl sm:text-3xl font-black text-purple-400 font-mono">
                 {data.transactionCount}
               </div>
-              <span className="text-[11px] text-slate-500 mt-1 block">Kellner-Trinkgeld: {formatCurrency(data.totalTips)}</span>
+              <span className="text-[11px] text-slate-500 mt-1 block">Aufschläge: +{formatCurrency(data.totalSurcharges)}</span>
             </div>
           </div>
 
@@ -186,8 +193,8 @@ export default function AdminReportsPage() {
           <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded-2xl border border-slate-800 w-fit">
             {[
               { id: 'FORECAST', label: 'Prognose & Bedarf', icon: Sparkles },
-              { id: 'CHARTS', label: 'Stundenverlauf & Warengruppen', icon: TrendingUp },
-              { id: 'WAITERS', label: 'Kellner-Abrechnung (Z-Bon)', icon: Users },
+              { id: 'CHARTS', label: 'Umsatz & Zahlungsarten', icon: TrendingUp },
+              { id: 'WAITERS', label: 'Kellner-Performance & Z-Bon', icon: Trophy },
               { id: 'ITEMS', label: 'Top-Seller Ranking', icon: BarChart3 },
             ].map((t) => {
               const Icon = t.icon;
@@ -301,113 +308,242 @@ export default function AdminReportsPage() {
             </div>
           )}
 
-          {/* TAB 2: Visual Charts */}
+          {/* TAB 2: Visual Charts & Payment Splits */}
           {activeTab === 'CHARTS' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Hourly Peak Load Bar Chart */}
-              <div className="p-5 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl flex flex-col justify-between">
-                <div>
-                  <h3 className="text-base font-bold text-white mb-1 flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-blue-400" />
-                    <span>Stündlicher Umsatzverlauf (08:00 - 23:00)</span>
-                  </h3>
-                  <p className="text-xs text-slate-400 mb-6">Umsatz pro Stunde zur Erkennung von Lastspitzen</p>
+            <div className="space-y-6">
+              {/* Payment Split Banner */}
+              <div className="p-5 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl space-y-4">
+                <h3 className="text-base font-bold text-white flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-blue-400" />
+                    <span>Zahlungsarten-Verteilung: Bar vs. Karte</span>
+                  </span>
+                  <span className="text-xs text-slate-400 font-normal">
+                    Bar: {data.paymentSplit?.cash.percent}% • Karte: {data.paymentSplit?.cardAll.percent}%
+                  </span>
+                </h3>
+
+                {/* Combined Progress Bar */}
+                <div className="h-6 w-full bg-slate-800 rounded-2xl overflow-hidden flex border border-slate-700">
+                  <div
+                    style={{ width: `${Math.max(2, data.paymentSplit?.cash.percent || 0)}%` }}
+                    className="bg-emerald-500 h-full flex items-center justify-center text-[10px] font-bold text-white transition-all"
+                  >
+                    Bar {data.paymentSplit?.cash.percent}%
+                  </div>
+                  <div
+                    style={{ width: `${Math.max(2, data.paymentSplit?.cardAll.percent || 0)}%` }}
+                    className="bg-blue-600 h-full flex items-center justify-center text-[10px] font-bold text-white transition-all"
+                  >
+                    Karte {data.paymentSplit?.cardAll.percent}%
+                  </div>
                 </div>
 
-                <div className="h-60 flex items-end gap-1.5 sm:gap-2 px-2 pt-6 border-b border-slate-700">
-                  {data.hourlySales?.map((h: any) => {
-                    const heightPercent = Math.max(6, Math.round((h.grossAmount / maxHourlyGross) * 100));
-                    const isPeak = h.grossAmount === maxHourlyGross && h.grossAmount > 0;
+                {/* Detailed Payment Split Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                  <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                    <div className="text-xs text-slate-400 font-semibold mb-1 flex items-center gap-1.5">
+                      <Banknote className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Bargeld (Kasse)</span>
+                    </div>
+                    <div className="text-lg font-black font-mono text-emerald-400">
+                      {formatCurrency(data.paymentSplit?.cash.amount || 0)}
+                    </div>
+                  </div>
 
+                  <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                    <div className="text-xs text-slate-400 font-semibold mb-1 flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5 text-blue-400" />
+                      <span>SumUp</span>
+                    </div>
+                    <div className="text-lg font-black font-mono text-blue-400">
+                      {formatCurrency(data.paymentSplit?.cardSumUp || 0)}
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                    <div className="text-xs text-slate-400 font-semibold mb-1 flex items-center gap-1.5">
+                      <Landmark className="w-3.5 h-3.5 text-blue-400" />
+                      <span>VR-Pay Me</span>
+                    </div>
+                    <div className="text-lg font-black font-mono text-blue-300">
+                      {formatCurrency(data.paymentSplit?.cardVrPay || 0)}
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                    <div className="text-xs text-slate-400 font-semibold mb-1 flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5 text-purple-400" />
+                      <span>EC-Terminal / Sonst.</span>
+                    </div>
+                    <div className="text-lg font-black font-mono text-purple-400">
+                      {formatCurrency(data.paymentSplit?.cardTerminal || 0)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hourly Chart & Category Progress */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Hourly Peak Load Bar Chart */}
+                <div className="p-5 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+                      <BarChart3 className="w-5 h-5 text-blue-400" />
+                      <span>Stündlicher Umsatzverlauf (08:00 - 23:00)</span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mb-6">Umsatz pro Stunde zur Erkennung von Lastspitzen</p>
+                  </div>
+
+                  <div className="h-60 flex items-end gap-1.5 sm:gap-2 px-2 pt-6 border-b border-slate-700">
+                    {data.hourlySales?.map((h: any) => {
+                      const heightPercent = Math.max(6, Math.round((h.grossAmount / maxHourlyGross) * 100));
+                      const isPeak = h.grossAmount === maxHourlyGross && h.grossAmount > 0;
+
+                      return (
+                        <div key={h.hour} className="flex-1 flex flex-col items-center group relative">
+                          <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-950 text-white text-[10px] font-mono px-2 py-1 rounded-lg border border-slate-700 whitespace-nowrap z-10 pointer-events-none shadow-xl">
+                            {h.label}: {formatCurrency(h.grossAmount)} ({h.orderCount} Bons)
+                          </div>
+
+                          <div
+                            style={{ height: `${heightPercent}%` }}
+                            className={`w-full rounded-t-xl transition-all ${
+                              isPeak
+                                ? 'bg-amber-400 shadow-lg shadow-amber-400/30'
+                                : h.grossAmount > 0
+                                ? 'bg-blue-500 hover:bg-blue-400'
+                                : 'bg-slate-800'
+                            }`}
+                          />
+                          <span className="text-[10px] font-mono text-slate-400 mt-2 rotate-[-45deg] origin-top-left">
+                            {h.hour}h
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Category Breakdown Progress */}
+                <div className="p-5 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+                      <PieChart className="w-5 h-5 text-emerald-400" />
+                      <span>Umsatz nach Warengruppen</span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mb-4">Prozentuale Verteilung aller Umsätze</p>
+                  </div>
+
+                  <div className="space-y-4 my-auto">
+                    {data.categoryBreakdown?.map((cat: any) => (
+                      <div key={cat.id}>
+                        <div className="flex justify-between text-xs font-bold mb-1">
+                          <span className="text-slate-200">{cat.name} ({cat.count} Stk.)</span>
+                          <span className="font-mono text-emerald-400">{formatCurrency(cat.revenue)} ({cat.percent}%)</span>
+                        </div>
+                        <div className="h-3.5 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{ width: `${Math.max(4, cat.percent)}%`, backgroundColor: cat.color || '#3b82f6' }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: Waiter Performance & Leaderboard */}
+          {activeTab === 'WAITERS' && (
+            <div className="space-y-6">
+              {/* Waiter Leaderboard Ranking Cards */}
+              <div className="p-5 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl">
+                <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-amber-400" />
+                  <span>Bedienungs-Rangliste & Performance der letzten Stunde</span>
+                </h3>
+
+                <div className="space-y-3">
+                  {data.waiters?.map((w: any) => {
+                    const widthPercent = Math.round((w.totalGross / maxWaiterGross) * 100);
                     return (
-                      <div key={h.hour} className="flex-1 flex flex-col items-center group relative">
-                        {/* Tooltip on hover */}
-                        <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-950 text-white text-[10px] font-mono px-2 py-1 rounded-lg border border-slate-700 whitespace-nowrap z-10 pointer-events-none shadow-xl">
-                          {h.label}: {formatCurrency(h.grossAmount)} ({h.orderCount} Bons)
+                      <div key={w.waiterName} className="p-4 bg-slate-950 rounded-2xl border border-slate-800">
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-3">
+                            <span className={`w-7 h-7 rounded-xl flex items-center justify-center font-black text-xs ${
+                              w.rank === 1 ? 'bg-amber-500 text-black' : w.rank === 2 ? 'bg-slate-300 text-black' : w.rank === 3 ? 'bg-amber-700 text-white' : 'bg-slate-800 text-slate-400'
+                            }`}>
+                              #{w.rank}
+                            </span>
+                            <span className="font-bold text-white text-sm sm:text-base">{w.waiterName}</span>
+                          </div>
+
+                          <div className="flex items-center gap-4 text-xs font-semibold">
+                            <span className="text-blue-400 font-mono">
+                              Letzte 60 Min: <strong>{formatCurrency(w.salesLastHour)}</strong> ({w.ordersLastHour} Bons)
+                            </span>
+                            <span className="text-emerald-400 font-mono text-sm sm:text-base font-black">
+                              {formatCurrency(w.totalGross)}
+                            </span>
+                          </div>
                         </div>
 
-                        {/* Bar */}
-                        <div
-                          style={{ height: `${heightPercent}%` }}
-                          className={`w-full rounded-t-xl transition-all ${
-                            isPeak
-                              ? 'bg-amber-400 shadow-lg shadow-amber-400/30'
-                              : h.grossAmount > 0
-                              ? 'bg-blue-500 hover:bg-blue-400'
-                              : 'bg-slate-800'
-                          }`}
-                        />
-                        <span className="text-[10px] font-mono text-slate-400 mt-2 rotate-[-45deg] origin-top-left">
-                          {h.hour}h
-                        </span>
+                        <div className="h-2.5 w-full bg-slate-800 rounded-full overflow-hidden mb-2">
+                          <div
+                            className="h-full bg-gradient-to-r from-blue-500 to-emerald-400 rounded-full"
+                            style={{ width: `${Math.max(3, widthPercent)}%` }}
+                          />
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-400 pt-1">
+                          <span>Bar: {formatCurrency(w.cashGross)} • Karte: {formatCurrency(w.cardGross)}</span>
+                          <span>Trinkgeld: +{formatCurrency(w.tips)} • Belege: {w.transactionCount}</span>
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Category Breakdown Progress */}
-              <div className="p-5 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl flex flex-col justify-between">
-                <div>
-                  <h3 className="text-base font-bold text-white mb-1 flex items-center gap-2">
-                    <PieChart className="w-5 h-5 text-emerald-400" />
-                    <span>Umsatz nach Warengruppen</span>
-                  </h3>
-                  <p className="text-xs text-slate-400 mb-4">Prozentuale Verteilung aller Umsätze</p>
-                </div>
+              {/* Detail Table */}
+              <div className="p-5 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl overflow-x-auto">
+                <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-blue-400" />
+                  <span>Detaillierte Kellner-Schichtabrechnung (Z-Bon)</span>
+                </h3>
 
-                <div className="space-y-4 my-auto">
-                  {data.categoryBreakdown?.map((cat: any) => (
-                    <div key={cat.id}>
-                      <div className="flex justify-between text-xs font-bold mb-1">
-                        <span className="text-slate-200">{cat.name} ({cat.count} Stk.)</span>
-                        <span className="font-mono text-emerald-400">{formatCurrency(cat.revenue)} ({cat.percent}%)</span>
-                      </div>
-                      <div className="h-3.5 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{ width: `${Math.max(4, cat.percent)}%`, backgroundColor: cat.color || '#3b82f6' }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: Waiter Breakdown */}
-          {activeTab === 'WAITERS' && (
-            <div className="p-5 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl overflow-x-auto">
-              <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-400" />
-                <span>Kellner-Schichtabrechnung (Z-Bon)</span>
-              </h3>
-
-              <table className="w-full text-left text-xs sm:text-sm">
-                <thead>
-                  <tr className="border-b border-slate-800 text-slate-400">
-                    <th className="pb-3 font-bold">Bedienung</th>
-                    <th className="pb-3 font-bold">Barumsatz (Ist)</th>
-                    <th className="pb-3 font-bold">Kartenzahlung</th>
-                    <th className="pb-3 font-bold">Rückpfand</th>
-                    <th className="pb-3 font-bold">Trinkgeld</th>
-                    <th className="pb-3 font-bold text-right">Belege</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {data.waiters?.map((w: any) => (
-                    <tr key={w.waiterName}>
-                      <td className="py-3 font-bold text-white">{w.waiterName}</td>
-                      <td className="py-3 font-mono font-bold text-blue-400">{formatCurrency(w.cashGross)}</td>
-                      <td className="py-3 font-mono text-slate-300">{formatCurrency(w.cardGross)}</td>
-                      <td className="py-3 font-mono text-amber-400">-{formatCurrency(w.depositReturned)}</td>
-                      <td className="py-3 font-mono text-emerald-400">+{formatCurrency(w.tips)}</td>
-                      <td className="py-3 font-mono text-right text-slate-300">{w.transactionCount}</td>
+                <table className="w-full text-left text-xs sm:text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400">
+                      <th className="pb-3 font-bold">Rang</th>
+                      <th className="pb-3 font-bold">Bedienung</th>
+                      <th className="pb-3 font-bold">Gesamtumsatz</th>
+                      <th className="pb-3 font-bold">Letzte Stunde</th>
+                      <th className="pb-3 font-bold">Barumsatz</th>
+                      <th className="pb-3 font-bold">Kartenzahlung</th>
+                      <th className="pb-3 font-bold">Trinkgeld</th>
+                      <th className="pb-3 font-bold text-right">Belege</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {data.waiters?.map((w: any) => (
+                      <tr key={w.waiterName}>
+                        <td className="py-3 font-bold text-slate-400">#{w.rank}</td>
+                        <td className="py-3 font-bold text-white">{w.waiterName}</td>
+                        <td className="py-3 font-mono font-black text-emerald-400">{formatCurrency(w.totalGross)}</td>
+                        <td className="py-3 font-mono text-blue-400">{formatCurrency(w.salesLastHour)} ({w.ordersLastHour} Bons)</td>
+                        <td className="py-3 font-mono text-slate-300">{formatCurrency(w.cashGross)}</td>
+                        <td className="py-3 font-mono text-slate-300">{formatCurrency(w.cardGross)}</td>
+                        <td className="py-3 font-mono text-amber-400">+{formatCurrency(w.tips)}</td>
+                        <td className="py-3 font-mono text-right text-slate-300">{w.transactionCount}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 

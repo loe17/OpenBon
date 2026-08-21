@@ -51,9 +51,21 @@ else
   cd "$INSTALL_DIR"
 fi
 
+# 4. Erstelle .env Datei falls nicht vorhanden
+if [ ! -f "$INSTALL_DIR/.env" ]; then
+  echo "  -> Erstelle Standard-Umgebungskonfiguration (.env)..."
+  cat <<EOF > "$INSTALL_DIR/.env"
+DATABASE_URL="file:./dev.db"
+NODE_ENV="production"
+PORT=3000
+HOST="0.0.0.0"
+HA_ROLE="PRIMARY"
+EOF
+fi
+
 chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 
-# 4. Abhängigkeiten & Datenbank initialisieren
+# 5. Abhängigkeiten & Datenbank initialisieren
 echo "[4/6] Installiere npm-Abhängigkeiten & initialisiere Datenbank..."
 sudo -u "$SERVICE_USER" npm install
 sudo -u "$SERVICE_USER" npx prisma db push --skip-generate
@@ -77,6 +89,7 @@ Environment=NODE_ENV=production
 Environment=PORT=3000
 Environment=HOST=0.0.0.0
 Environment=HA_ROLE=PRIMARY
+Environment=DATABASE_URL="file:./dev.db"
 ExecStart=/usr/bin/node server.js
 Restart=always
 RestartSec=5

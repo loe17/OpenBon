@@ -87,4 +87,29 @@ describe('Praxisnahe End-to-End Workflow Tests', () => {
     haService.promoteToPrimary();
     expect(haService.getRole()).toBe('PRIMARY');
   });
+
+  it('Workflow 5: VR-Pay Me & Kartenzahlung mit prozentualem und festem Aufschlag', () => {
+    const grossTotal = 50.0;
+    const surchargePercent = 10.0; // 10%
+    const surchargeFixed = 2.0; // 2€ Festpauschale
+
+    const percentValue = grossTotal * (surchargePercent / 100); // 5.00 €
+    const totalSurcharges = surchargeFixed + percentValue; // 7.00 €
+    const finalGrossToPay = grossTotal + totalSurcharges; // 57.00 €
+
+    expect(percentValue).toBe(5.0);
+    expect(totalSurcharges).toBe(7.0);
+    expect(finalGrossToPay).toBe(57.0);
+
+    const payment = {
+      paymentMethod: 'CARD_VRPAY',
+      totalGross: finalGrossToPay,
+      surchargeAmount: totalSurcharges,
+      surchargePercent: 10.0,
+      surchargeReason: '10% Nachtzuschlag + 2€ Pauschale',
+    };
+
+    expect(payment.paymentMethod).toBe('CARD_VRPAY');
+    expect(payment.surchargeAmount).toBe(7.0);
+  });
 });

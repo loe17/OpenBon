@@ -17,6 +17,8 @@ import {
   Coins,
   Receipt,
   HeartHandshake,
+  Landmark,
+  PlusCircle,
 } from 'lucide-react';
 
 interface PayableItem {
@@ -41,6 +43,13 @@ export default function WaiterPaymentPage() {
   const [depositUnit, setDepositUnit] = useState<number>(1.0);
   const [discountAmount, setDiscountAmount] = useState<number>(0);
   const [tipAmount, setTipAmount] = useState<number>(0);
+
+  // Surcharge states (Aufschlag)
+  const [surchargePercent, setSurchargePercent] = useState<number>(0);
+  const [surchargeFixed, setSurchargeFixed] = useState<number>(0);
+  const [surchargeReason, setSurchargeReason] = useState<string>('');
+  const [showSurchargeModal, setShowSurchargeModal] = useState<boolean>(false);
+
   const [givenAmount, setGivenAmount] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
   const [nonPaidReason, setNonPaidReason] = useState<string>('');
@@ -118,7 +127,10 @@ export default function WaiterPaymentPage() {
     0
   );
   const totalReturnDeposit = returnDepositCount * depositUnit;
-  const finalToPay = Math.max(0, selectedGrossTotal - totalReturnDeposit - discountAmount);
+  const percentSurchargeValue = selectedGrossTotal * (surchargePercent / 100);
+  const totalSurcharges = surchargeFixed + percentSurchargeValue;
+
+  const finalToPay = Math.max(0, selectedGrossTotal - totalReturnDeposit - discountAmount + totalSurcharges);
   const change = givenAmount > 0 ? Math.max(0, givenAmount - finalToPay - tipAmount) : 0;
 
   const handleCheckout = async () => {
@@ -153,6 +165,9 @@ export default function WaiterPaymentPage() {
         returnDepositAmount: totalReturnDeposit,
         discountAmount,
         tipAmount,
+        surchargeAmount: surchargeFixed,
+        surchargePercent,
+        surchargeReason: totalSurcharges > 0 ? surchargeReason || 'Aufschlag' : null,
         givenAmount,
         printReceipt,
         itemsToPay,
@@ -303,7 +318,7 @@ export default function WaiterPaymentPage() {
         </div>
 
         {/* Right: Payment Calculation & Method Drawer */}
-        <div className="w-full lg:w-[440px] bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-700 p-5 flex flex-col justify-between overflow-y-auto shadow-2xl">
+        <div className="w-full lg:w-[460px] bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-700 p-5 flex flex-col justify-between overflow-y-auto shadow-2xl">
           <div className="space-y-4">
             {/* Amount Summary */}
             <div className="p-4 rounded-3xl bg-slate-950 border border-slate-800 shadow-inner">
@@ -323,6 +338,12 @@ export default function WaiterPaymentPage() {
                   <span>-{formatCurrency(discountAmount)}</span>
                 </div>
               )}
+              {totalSurcharges > 0 && (
+                <div className="flex justify-between text-xs text-purple-400 font-bold mb-1">
+                  <span>Zzgl. Aufschlag ({surchargeReason || 'Pauschale'}):</span>
+                  <span>+{formatCurrency(totalSurcharges)}</span>
+                </div>
+              )}
               {tipAmount > 0 && (
                 <div className="flex justify-between text-xs text-amber-400 font-bold mb-1">
                   <span>Trinkgeld:</span>
@@ -334,6 +355,63 @@ export default function WaiterPaymentPage() {
                 <span className="text-3xl sm:text-4xl font-black text-emerald-400 font-mono">
                   {formatCurrency(finalToPay + tipAmount)}
                 </span>
+              </div>
+            </div>
+
+            {/* Quick Aufschlag Button & Setup */}
+            <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                  <PlusCircle className="w-4 h-4 text-purple-400" />
+                  <span>Aufschlag (% oder Festbetrag)</span>
+                </span>
+                {totalSurcharges > 0 && (
+                  <button
+                    onClick={() => {
+                      setSurchargeFixed(0);
+                      setSurchargePercent(0);
+                      setSurchargeReason('');
+                    }}
+                    className="text-[11px] text-rose-400 hover:underline font-bold"
+                  >
+                    Entfernen
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-4 gap-1.5">
+                {[
+                  { label: '+5%', percent: 5, fixed: 0, reason: '5% Aufschlag' },
+                  { label: '+10%', percent: 10, fixed: 0, reason: '10% Aufschlag' },
+                  { label: '+1.00 €', percent: 0, fixed: 1.0, reason: '1€ Pauschale' },
+                  { label: '+2.00 €', percent: 0, fixed: 2.0, reason: '2€ Pauschale' },
+                ].map((sc, idx) => {
+                  const isActive = (sc.percent > 0 && surchargePercent === sc.percent) || (sc.fixed > 0 && surchargeFixed === sc.fixed);
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        triggerHapticFeedback();
+                        if (isActive) {
+                          setSurchargePercent(0);
+                          setSurchargeFixed(0);
+                        } else {
+                          setSurchargePercent(sc.percent);
+                          setSurchargeFixed(sc.fixed);
+                          setSurchargeReason(sc.reason);
+                        }
+                      }}
+                      className={`py-2 rounded-xl text-xs font-bold border transition ${
+                        isActive
+                          ? 'bg-purple-600 text-white border-purple-500 shadow'
+                          : 'bg-slate-800 text-slate-300 border-slate-700'
+                      }`}
+                    >
+                      {sc.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -384,39 +462,18 @@ export default function WaiterPaymentPage() {
               )}
             </div>
 
-            {/* Trinkgeld Stepper */}
+            {/* Payment Method Selector (Bargeld, SumUp, VR-Pay Me, Terminal, Staff, Discount) */}
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-                Trinkgeld (Kellner):
-              </label>
-              <div className="flex items-center gap-2">
-                {[0.5, 1.0, 2.0, 5.0].map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setTipAmount(tipAmount === t ? 0 : t)}
-                    className={`pos-touch-btn flex-1 py-2 rounded-xl text-xs font-bold border transition ${
-                      tipAmount === t
-                        ? 'bg-amber-500 text-black border-amber-400 shadow-md'
-                        : 'bg-slate-800 text-slate-300 border-slate-700'
-                    }`}
-                  >
-                    +{t.toFixed(2)} €
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Payment Method Selector */}
-            <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-                Zahlungsart:
+                Zahlungsart & Kartendienst:
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {[
                   { id: 'CASH', label: 'Bargeld', icon: Banknote },
-                  { id: 'CARD_SUMUP', label: 'Kartenzahlung', icon: CreditCard },
-                  { id: 'NON_PAID_STAFF', label: 'Personal / Bewirtung', icon: HeartHandshake },
+                  { id: 'CARD_SUMUP', label: 'SumUp', icon: CreditCard },
+                  { id: 'CARD_VRPAY', label: 'VR-Pay Me', icon: Landmark },
+                  { id: 'CARD_TERMINAL', label: 'EC-Terminal', icon: CreditCard },
+                  { id: 'NON_PAID_STAFF', label: 'Personal/Bewirtung', icon: HeartHandshake },
                   { id: 'DISCOUNT', label: 'Rabatt', icon: Percent },
                 ].map((m) => {
                   const Icon = m.icon;
