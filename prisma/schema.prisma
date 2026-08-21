@@ -1,0 +1,233 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model EventConfig {
+  id              String   @id @default("default")
+  name            String   @default("Vereinsfest 2026")
+  currency        String   @default("EUR")
+  taxRateNormal   Float    @default(19.0)
+  taxRateReduced  Float    @default(7.0)
+  trainingMode    Boolean  @default(false)
+  haRole          String   @default("PRIMARY") // PRIMARY, STANDBY
+  haPartnerUrl    String?  @default("http://192.168.1.101:3000")
+  haAutoFailover  Boolean  @default(true)
+  tokenSequence   Int      @default(1)
+  invoiceSequence Int      @default(1)
+  orderSequence   Int      @default(1)
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+}
+
+model ProductCategory {
+  id        String    @id @default(cuid())
+  name      String
+  sortIndex Int       @default(0)
+  color     String?   @default("#3b82f6")
+  icon      String?   @default("Utensils")
+  products  Product[]
+}
+
+model Product {
+  id                    String            @id @default(cuid())
+  name                  String
+  alternativeTicketName String?
+  price                 Float             @default(0.0)
+  deposit               Float             @default(0.0)
+  taxRate               Float             @default(19.0)
+  buttonColor           String?           @default("#3b82f6")
+  status                String            @default("ACTIVE") // ACTIVE, INACTIVE, HIDDEN
+  sortIndex             Int               @default(0)
+  categoryId            String
+  category              ProductCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  variants              ProductVariant[]
+  options               ProductOption[]
+  printGroupId          String?
+  printGroup            PrintGroup?       @relation(fields: [printGroupId], references: [id], onDelete: SetNull)
+  stockItem             StockItem?
+  orderItems            OrderItem[]
+}
+
+model ProductVariant {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name       String
+  priceDelta Float    @default(0.0)
+  sortIndex  Int      @default(0)
+}
+
+model ProductOption {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name       String
+  priceDelta Float    @default(0.0)
+  sortIndex  Int      @default(0)
+}
+
+model CustomizationWordGroup {
+  id        String   @id @default(cuid())
+  name      String
+  words     String   // JSON-Array als String: ["ohne", "extra", "wenig", "viel"]
+  sortIndex Int      @default(0)
+}
+
+model DiningTable {
+  id               String    @id @default(cuid())
+  tableNumber      Int       @unique
+  label            String
+  gridX            Int       @default(0)
+  gridY            Int       @default(0)
+  status           String    @default("FREE") // FREE, OCCUPIED, HIDDEN, INACTIVE
+  activeWaiterName String?
+  orders           Order[]
+  payments         Payment[]
+}
+
+model Printer {
+  id           String       @id @default(cuid())
+  name         String
+  ipAddress    String       @default("127.0.0.1")
+  port         Int          @default(9100)
+  paperWidth   Int          @default(80)
+  characterSet String       @default("CP858")
+  isVirtual    Boolean      @default(false)
+  isActive     Boolean      @default(true)
+  printGroups  PrintGroup[]
+}
+
+model PrintGroup {
+  id                String    @id @default(cuid())
+  name              String
+  printerId         String?
+  printer           Printer?  @relation(fields: [printerId], references: [id], onDelete: SetNull)
+  maxItemsPerTicket Int       @default(0) // 0 = unbegrenzt, 1 = Einzelbons
+  autoCut           Boolean   @default(true)
+  products          Product[]
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  orderNumber  Int         @default(1)
+  tableId      String?
+  table        DiningTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  waiterName   String      @default("Bedienung")
+  deviceId     String?
+  status       String      @default("OPEN") // OPEN, IN_PREPARATION, READY, COMPLETED, CANCELLED
+  orderType    String      @default("TABLE") // TABLE, COUNTER_VOUCHER, COUNTER_DIRECT
+  tokenNumber  Int?
+  isTraining   Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  items        OrderItem[]
+}
+
+model OrderItem {
+  id                String        @id @default(cuid())
+  orderId           String
+  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId         String
+  product           Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productName       String
+  quantity          Int           @default(1)
+  unitPrice         Float
+  deposit           Float         @default(0.0)
+  taxRate           Float         @default(19.0)
+  variantName       String?
+  selectedOptions   String?       // JSON Array String
+  customizationText String?
+  printStatus       String        @default("PENDING") // PENDING, PRINTED, ERROR
+  kdsStatus         String        @default("PENDING") // PENDING, IN_PROGRESS, READY, COMPLETED
+  kdsCompletedAt    DateTime?
+  paidQuantity      Int           @default(0)
+  isCancelled       Boolean       @default(false)
+  cancellationReason String?
+  paymentItems      PaymentItem[]
+}
+
+model Payment {
+  id                 String        @id @default(cuid())
+  invoiceNumber      String        @unique
+  tableId            String?
+  table              DiningTable?  @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  waiterName         String
+  deviceId           String?
+  totalGross         Float
+  totalNet           Float
+  totalTax           Float
+  totalDeposit       Float         @default(0.0)
+  returnDeposit      Float         @default(0.0)
+  discountAmount     Float         @default(0.0)
+  tipAmount          Float         @default(0.0)
+  givenAmount        Float         @default(0.0)
+  changeAmount       Float         @default(0.0)
+  paymentMethod      String        @default("CASH") // CASH, CARD_SUMUP, CARD_TERMINAL, NON_PAID_STAFF, NON_PAID_COMPLAINT, DISCOUNT
+  nonPaidReason      String?
+  isCancelled        Boolean       @default(false)
+  cancellationReason String?
+  isTraining         Boolean       @default(false)
+  createdAt          DateTime      @default(now())
+  items              PaymentItem[]
+}
+
+model PaymentItem {
+  id          String     @id @default(cuid())
+  paymentId   String
+  payment     Payment    @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  orderItemId String?
+  orderItem   OrderItem? @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  productName String
+  quantity    Int
+  unitPrice   Float
+  deposit     Float      @default(0.0)
+  taxRate     Float      @default(19.0)
+}
+
+model StockItem {
+  id               String   @id @default(cuid())
+  productId        String   @unique
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  initialQuantity  Int      @default(100)
+  currentQuantity  Int      @default(100)
+  alertThreshold   Int      @default(10)
+  isAutoDeactivate Boolean  @default(true)
+  updatedAt        DateTime @updatedAt
+}
+
+model ChatMessage {
+  id             String   @id @default(cuid())
+  senderName     String
+  senderDeviceId String?
+  targetDeviceId String?  // null = Broadcast an alle
+  message        String
+  isUrgent       Boolean  @default(false)
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+}
+
+model Device {
+  id           String   @id // Client UUID
+  name         String
+  role         String   @default("WAITER") // ADMIN, WAITER, POS_CASHIER, KITCHEN
+  ipAddress    String?  @default("127.0.0.1")
+  userAgent    String?
+  batteryLevel Float?   @default(100.0)
+  isCharging   Boolean? @default(false)
+  status       String   @default("ONLINE") // ONLINE, IDLE, OFFLINE
+  connectedAt  DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
+}
+
+model SyncJournal {
+  id         Int      @id @default(autoincrement())
+  entityType String   // ORDER, PAYMENT, PRODUCT, TABLE, etc.
+  entityId   String
+  operation  String   // INSERT, UPDATE, DELETE
+  payload    String   // JSON Snapshot
+  createdAt  DateTime @default(now())
+}
