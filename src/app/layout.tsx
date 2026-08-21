@@ -19,7 +19,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#ffffff',
+  themeColor: '#020617',
 };
 
 export default function RootLayout({
@@ -28,8 +28,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="de" className="h-full">
-      <body className={`${inter.className} min-h-full flex flex-col bg-slate-900 text-slate-100 antialiased`}>
+    <html lang="de" className="dark h-full">
+      <body className={`${inter.className} min-h-full flex flex-col bg-slate-950 text-slate-100 antialiased`}>
         <ThemeProvider>
           <SocketProvider>
             <Navbar />
