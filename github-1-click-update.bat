@@ -1,4 +1,7 @@
 @echo off
+setlocal enabledelayedexpansion
+cd /d "%~dp0"
+
 title OpenBon - 1-Klick GitHub Update
 echo ======================================================================
 echo   OPENBON - 1-KLICK SYSTEM-UPDATE VON GITHUB
@@ -9,6 +12,8 @@ echo.
 where git >nul 2>nul
 if %ERRORLEVEL% NEQ 0 (
     echo [FEHLER] Git ist auf diesem PC nicht installiert!
+    echo Bitte lade Git herunter: https://git-scm.com/download/win
+    echo.
     pause
     exit /b 1
 )

@@ -1,4 +1,7 @@
 @echo off
+setlocal enabledelayedexpansion
+cd /d "%~dp0"
+
 title OpenBon - HA STANDBY REPLICA (Port 3001)
 echo ========================================================
 echo   OPENBON KASSENSYSTEM - HA STANDBY REPLICA

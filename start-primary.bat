@@ -1,4 +1,7 @@
 @echo off
+setlocal enabledelayedexpansion
+cd /d "%~dp0"
+
 title OpenBon - HA PRIMARY MASTER (Port 3000)
 echo ========================================================
 echo   OPENBON KASSENSYSTEM - HA PRIMARY MASTER
