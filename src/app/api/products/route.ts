@@ -4,6 +4,7 @@ import prisma from '@/lib/db';
 export async function GET() {
   try {
     const products = await prisma.product.findMany({
+      where: { status: { not: 'HIDDEN' } },
       orderBy: { sortIndex: 'asc' },
       include: {
         category: true,
@@ -33,6 +34,11 @@ export async function POST(req: Request) {
         taxRate: parseFloat(body.taxRate || 19),
         buttonColor: body.buttonColor || '#3b82f6',
         status: body.status || 'ACTIVE',
+        isSoldOut: body.isSoldOut ?? false,
+        trackStock: body.trackStock ?? false,
+        stockQuantity: parseInt(body.stockQuantity || 0, 10),
+        stockAlertThreshold: parseInt(body.stockAlertThreshold || 10, 10),
+        subCategory: body.subCategory || null,
         sortIndex: body.sortIndex ?? 0,
         categoryId: body.categoryId,
         printGroupId: body.printGroupId || null,
@@ -41,6 +47,7 @@ export async function POST(req: Request) {
               create: body.variants.map((v: any, idx: number) => ({
                 name: v.name,
                 priceDelta: parseFloat(v.priceDelta || 0),
+                isSoldOut: v.isSoldOut ?? false,
                 sortIndex: idx,
               })),
             }
@@ -54,21 +61,12 @@ export async function POST(req: Request) {
               })),
             }
           : undefined,
-        stockItem: body.trackStock
-          ? {
-              create: {
-                initialQuantity: parseInt(body.stockQuantity || 100, 10),
-                currentQuantity: parseInt(body.stockQuantity || 100, 10),
-                alertThreshold: parseInt(body.alertThreshold || 10, 10),
-              },
-            }
-          : undefined,
       },
       include: {
         variants: true,
         options: true,
-        stockItem: true,
         printGroup: true,
+        category: true,
       },
     });
 

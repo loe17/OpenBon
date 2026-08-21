@@ -90,14 +90,12 @@ export class EscPosBuilder {
   }
 
   public openCashDrawer(): this {
-    // Standard ESC/POS cash drawer kick command: ESC p pin t1 t2
     this.buffer.push(Buffer.from([ESC, 0x70, 0, 25, 250]));
     return this;
   }
 
   public cut(partial = false): this {
     this.lineFeed(4);
-    // GS V 66 0 (partial/full cut with feed)
     this.buffer.push(Buffer.from([GS, 0x56, partial ? 1 : 0]));
     return this;
   }
@@ -106,7 +104,7 @@ export class EscPosBuilder {
     return Buffer.concat(this.buffer);
   }
 
-  // High-level template builder for all POS ticket types
+  // 1. Standard POS Ticket Builder
   public static buildTicket(data: TicketData, paperWidth = 80): { rawBuffer: Buffer; textRepresentation: string } {
     const builder = new EscPosBuilder(paperWidth);
     const textLines: string[] = [];
@@ -115,13 +113,11 @@ export class EscPosBuilder {
       textLines.push(t);
     };
 
-    // Training mode watermark banner
     if (data.isTraining) {
-      builder.align('center').bold(true).invert(true).textLine(' *** ÜBUNGSMODUS - KEIN BELEG *** ').invert(false).bold(false);
-      addText('*** ÜBUNGSMODUS - KEIN BELEG ***');
+      builder.align('center').bold(true).invert(true).textLine(' *** UEBUNGSMODUS - KEIN BELEG *** ').invert(false).bold(false);
+      addText('*** UEBUNGSMODUS - KEIN BELEG ***');
     }
 
-    // Header
     builder.align('center').size(true, true).bold(true).textLine(data.title).size(false, false).bold(false);
     addText(`[ ${data.title} ]`);
 
@@ -133,7 +129,6 @@ export class EscPosBuilder {
     builder.doubleDivider();
     addText('='.repeat(paperWidth === 58 ? 32 : 42));
 
-    // Order Info / Table / Token
     builder.align('left');
     if (data.tokenNumber) {
       builder.size(true, true).bold(true).align('center').textLine(`ABHOL-NR: #${data.tokenNumber}`).size(false, false).bold(false).align('left');
@@ -145,14 +140,12 @@ export class EscPosBuilder {
       addText(`Tisch: ${data.tableLabel}`);
     }
 
-    if (data.orderNumber) {
-      builder.twoColumn(`Bestell-Nr: #${data.orderNumber}`, `Bedienung: ${data.waiterName || '-'}`);
-      addText(`Bestell-Nr: #${data.orderNumber}  |  Bedienung: ${data.waiterName || '-'}`);
-    }
+    builder.bold(true).twoColumn(`Bedienung: ${data.waiterName || 'Kasse'}`, data.orderNumber ? `Bon #${data.orderNumber}` : '').bold(false);
+    addText(`Bedienung: ${data.waiterName || 'Kasse'} ${data.orderNumber ? `| Bon #${data.orderNumber}` : ''}`);
 
     const dateStr = data.createdAt ? new Date(data.createdAt).toLocaleString('de-DE') : new Date().toLocaleString('de-DE');
-    builder.textLine(`Datum/Zeit: ${dateStr}`);
-    addText(`Datum/Zeit: ${dateStr}`);
+    builder.textLine(`Datum: ${dateStr}`);
+    addText(`Datum: ${dateStr}`);
 
     if (data.invoiceNumber) {
       builder.textLine(`Beleg-Nr: ${data.invoiceNumber}`);
@@ -162,7 +155,6 @@ export class EscPosBuilder {
     builder.divider();
     addText('-'.repeat(paperWidth === 58 ? 32 : 42));
 
-    // Items List
     for (const item of data.items) {
       const displayName = item.alternativeName || item.name;
       const priceStr = item.unitPrice !== undefined ? `${(item.unitPrice * item.quantity).toFixed(2)} EUR` : '';
@@ -194,7 +186,6 @@ export class EscPosBuilder {
     builder.divider();
     addText('-'.repeat(paperWidth === 58 ? 32 : 42));
 
-    // Financial totals (for payment receipts)
     if (data.totalGross !== undefined) {
       builder.size(true, false).bold(true).twoColumn('GESAMTBETRAG:', `${data.totalGross.toFixed(2)} EUR`).size(false, false).bold(false);
       addText(`GESAMTBETRAG: ${data.totalGross.toFixed(2)} EUR`);
@@ -228,7 +219,7 @@ export class EscPosBuilder {
       if (data.totalNet !== undefined && data.totalTax !== undefined) {
         builder.divider('.');
         builder.twoColumn('Netto:', `${data.totalNet.toFixed(2)} EUR`);
-        builder.twoColumn('MwSt (enthalten):', `${data.totalTax.toFixed(2)} EUR`);
+        builder.twoColumn('MwSt 19% (enthalten):', `${data.totalTax.toFixed(2)} EUR`);
       }
     }
 
@@ -243,6 +234,91 @@ export class EscPosBuilder {
     return {
       rawBuffer: builder.build(),
       textRepresentation: textLines.join('\n'),
+    };
+  }
+
+  // 2. Station Joining QR-Code Ticket
+  public static buildStationJoinTicket(station: { title: string; role: string; description: string; url: string; pin: string }, paperWidth = 80): { rawBuffer: Buffer; textRepresentation: string } {
+    const builder = new EscPosBuilder(paperWidth);
+    const textLines: string[] = [];
+
+    builder.align('center').bold(true).textLine('=== OPENBON KASSENSYSTEM ===');
+    builder.size(true, true).bold(true).textLine(station.title).size(false, false).bold(false);
+    builder.lineFeed(1);
+
+    builder.textLine(`Rolle: ${station.role}`);
+    builder.textLine(`Beschreibung: ${station.description}`);
+    builder.doubleDivider();
+
+    builder.size(true, true).bold(true).textLine(`STATIONS-PIN: ${station.pin}`).size(false, false).bold(false);
+    builder.doubleDivider();
+
+    builder.textLine('URL im Smartphone-Browser oeffnen:');
+    builder.bold(true).textLine(station.url).bold(false);
+    builder.lineFeed(1);
+    builder.textLine('Oder scanne den QR-Code auf dem Bildschirm');
+    builder.textLine('Tipp: "Zum Home-Bildschirm" fuer Vollbild');
+    builder.doubleDivider();
+    builder.textLine(`Gedruckt: ${new Date().toLocaleString('de-DE')}`);
+    builder.cut();
+
+    return {
+      rawBuffer: builder.build(),
+      textRepresentation: [
+        `[ OPENBON BEITRITTS-BON ]`,
+        station.title,
+        `STATIONS-PIN: ${station.pin}`,
+        `URL: ${station.url}`,
+      ].join('\n'),
+    };
+  }
+
+  // 3. Official Z-Bon Tagesabschluss Report Ticket
+  public static buildZBonTicket(report: any, paperWidth = 80): { rawBuffer: Buffer; textRepresentation: string } {
+    const builder = new EscPosBuilder(paperWidth);
+    const textLines: string[] = [];
+
+    builder.align('center').bold(true).textLine('========================================');
+    builder.size(true, true).bold(true).textLine('Z-BON TAGESABSCHLUSS').size(false, false).bold(false);
+    builder.textLine('OpenBon Kassensystem');
+    builder.textLine(`Abschluss: ${new Date().toLocaleString('de-DE')}`);
+    builder.doubleDivider();
+
+    builder.align('left');
+    builder.size(true, false).bold(true).twoColumn('GESAMTUMSATZ BRUTTO:', `${(report.totalGross || 0).toFixed(2)} EUR`).size(false, false).bold(false);
+    builder.twoColumn('Gesamtumsatz Netto:', `${(report.totalNet || 0).toFixed(2)} EUR`);
+    builder.twoColumn('MwSt 19%:', `${(report.totalTax19 || 0).toFixed(2)} EUR`);
+    builder.twoColumn('MwSt 7%:', `${(report.totalTax7 || 0).toFixed(2)} EUR`);
+    builder.divider();
+
+    builder.bold(true).textLine('ZAHLUNGSARTEN:').bold(false);
+    builder.twoColumn('Bargeld (Kassenbestand):', `${(report.totalCash || 0).toFixed(2)} EUR`);
+    builder.twoColumn('Kartenzahlung Gesamt:', `${(report.totalCard || 0).toFixed(2)} EUR`);
+    if (report.paymentSplit) {
+      builder.twoColumn(' - davon SumUp:', `${(report.paymentSplit.cardSumUp || 0).toFixed(2)} EUR`);
+      builder.twoColumn(' - davon VR-Pay Me:', `${(report.paymentSplit.cardVrPay || 0).toFixed(2)} EUR`);
+      builder.twoColumn(' - davon EC-Terminal:', `${(report.paymentSplit.cardTerminal || 0).toFixed(2)} EUR`);
+    }
+    builder.twoColumn('Personal / Bewirtung:', `${(report.totalStaff || 0).toFixed(2)} EUR`);
+    builder.twoColumn('Aufschlaege (Pauschalen):', `${(report.totalSurcharges || 0).toFixed(2)} EUR`);
+    builder.twoColumn('Ausgezahlter Rueckpfand:', `-${(report.totalDepositReturned || 0).toFixed(2)} EUR`);
+    builder.twoColumn('Erhaltenes Trinkgeld:', `+${(report.totalTips || 0).toFixed(2)} EUR`);
+    builder.twoColumn('Anzahl Transaktionen:', `${report.transactionCount || 0}`);
+    builder.divider();
+
+    builder.bold(true).textLine('KELLNER-SCHICHTABRECHNUNG:').bold(false);
+    for (const w of report.waiters || []) {
+      builder.bold(true).twoColumn(`${w.waiterName}:`, `${(w.totalGross || 0).toFixed(2)} EUR`).bold(false);
+      builder.textLine(`  Bar: ${(w.cashGross || 0).toFixed(2)} EUR | Karte: ${(w.cardGross || 0).toFixed(2)} EUR | Bons: ${w.transactionCount || 0}`);
+    }
+
+    builder.doubleDivider();
+    builder.align('center').textLine('*** TAGESABSCHLUSS ERFOLGREICH ***');
+    builder.cut();
+
+    return {
+      rawBuffer: builder.build(),
+      textRepresentation: `Z-BON TAGESABSCHLUSS - ${(report.totalGross || 0).toFixed(2)} EUR`,
     };
   }
 }

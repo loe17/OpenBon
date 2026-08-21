@@ -11,6 +11,10 @@ import {
   RefreshCw,
   User,
   Clock,
+  ShieldCheck,
+  Smartphone,
+  CreditCard,
+  ChefHat,
 } from 'lucide-react';
 
 export default function ChatPage() {
@@ -33,8 +37,21 @@ export default function ChatPage() {
   };
 
   useEffect(() => {
-    const savedName = localStorage.getItem('pos_waiter_name') || 'Bedienung 1';
-    setSenderName(savedName);
+    const role = localStorage.getItem('pos_user_role') || 'WAITER';
+    const waiter = localStorage.getItem('pos_waiter_name');
+
+    let defaultName = 'Bedienung';
+    if (role === 'WAITER') {
+      defaultName = waiter ? `Bedienung ${waiter}` : 'Bedienung (Mobil)';
+    } else if (role === 'POS_CASHIER') {
+      defaultName = 'Bonkasse / Theke';
+    } else if (role === 'KITCHEN') {
+      defaultName = 'Küchenmonitor';
+    } else if (role === 'ADMIN') {
+      defaultName = 'Admin / Festleitung';
+    }
+
+    setSenderName(defaultName);
     fetchMessages();
 
     if (socket) {
@@ -64,7 +81,7 @@ export default function ChatPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          senderName,
+          senderName: senderName.trim() || 'Bedienung',
           senderDeviceId: deviceId,
           message: inputText.trim(),
           isUrgent,
@@ -79,53 +96,71 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white max-w-4xl mx-auto w-full p-3 sm:p-6">
-      {/* Header */}
-      <div className="p-4 bg-slate-900 rounded-3xl border border-slate-800 flex items-center justify-between mb-3 shadow-lg">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white max-w-4xl mx-auto w-full">
+      {/* Top Bar */}
+      <div className="p-3 sm:p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-3">
-          <div className="bg-blue-600 text-white p-2.5 rounded-2xl">
-            <MessageSquare className="w-5 h-5" />
+          <div className="p-2 bg-blue-600 rounded-2xl shadow">
+            <MessageSquare className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h2 className="font-bold text-base sm:text-lg">Interne Funk-Nachrichten & Chat</h2>
-            <p className="text-xs text-slate-400">Schnelle Kommunikation zwischen Theke, Küche und Bedienung</p>
+            <h1 className="font-extrabold text-base sm:text-lg">Team-Funk & Notrufe</h1>
+            <p className="text-xs text-slate-400">
+              Echtzeit-Kurznachrichten zwischen Service, Theke, Küche und Leitung
+            </p>
           </div>
+        </div>
+
+        {/* Sender Name Identifier Pill */}
+        <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-700 px-3 py-1.5 rounded-xl text-xs">
+          <User className="w-3.5 h-3.5 text-blue-400" />
+          <input
+            type="text"
+            value={senderName}
+            onChange={(e) => setSenderName(e.target.value)}
+            className="bg-transparent border-none text-white font-bold text-xs focus:outline-none w-28 sm:w-36"
+            title="Klicke zum Ändern deines Funk-Namens"
+          />
         </div>
       </div>
 
-      {/* Messages Feed */}
-      <div className="flex-1 overflow-y-auto p-4 bg-slate-900/60 rounded-3xl border border-slate-800 space-y-3 mb-3">
+      {/* Messages List */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 ? (
-          <div className="text-center py-12 text-xs text-slate-500">Noch keine Nachrichten vorhanden.</div>
+          <div className="h-full flex flex-col items-center justify-center text-slate-500 gap-2">
+            <MessageSquare className="w-8 h-8 stroke-1" />
+            <p className="text-sm">Keine Funksprüche vorhanden.</p>
+          </div>
         ) : (
-          messages.map((m) => {
-            const isMine = m.senderName === senderName;
+          messages.map((msg, idx) => {
+            const isMe = msg.senderName === senderName;
             return (
               <div
-                key={m.id}
-                className={`flex flex-col max-w-[80%] ${isMine ? 'ml-auto items-end' : 'mr-auto items-start'}`}
+                key={msg.id || idx}
+                className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
               >
-                <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mb-1 px-1">
-                  <span className="font-bold text-slate-300">{m.senderName}</span>
+                <div className="flex items-center gap-1.5 mb-1 px-1 text-[11px] text-slate-400">
+                  <span className="font-bold text-slate-300">{msg.senderName}</span>
                   <span>•</span>
-                  <span>{new Date(m.createdAt).toLocaleTimeString('de-DE')}</span>
-                  {m.isUrgent && (
-                    <span className="bg-rose-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full uppercase ml-1 animate-pulse">
-                      EILMELDUNG
-                    </span>
-                  )}
+                  <span>{new Date(msg.createdAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
 
                 <div
-                  className={`p-3 rounded-2xl text-sm leading-relaxed ${
-                    m.isUrgent
-                      ? 'bg-gradient-to-r from-rose-600 to-amber-600 text-white font-bold shadow-lg shadow-rose-950/50'
-                      : isMine
+                  className={`p-3 rounded-2xl max-w-[85%] sm:max-w-md shadow-md text-sm ${
+                    msg.isUrgent
+                      ? 'bg-rose-600 text-white font-bold border-2 border-rose-400 animate-pulse'
+                      : isMe
                       ? 'bg-blue-600 text-white rounded-tr-none'
                       : 'bg-slate-800 text-slate-100 rounded-tl-none border border-slate-700'
                   }`}
                 >
-                  {m.message}
+                  {msg.isUrgent && (
+                    <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider mb-1 font-black text-rose-200">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>Dringender Notruf / Priorität</span>
+                    </div>
+                  )}
+                  <p className="break-words">{msg.message}</p>
                 </div>
               </div>
             );
@@ -133,51 +168,36 @@ export default function ChatPage() {
         )}
       </div>
 
-      {/* Message Input Box */}
-      <form
-        onSubmit={handleSendMessage}
-        className="p-3 bg-slate-900 rounded-3xl border border-slate-800 flex flex-col gap-2 shadow-xl"
-      >
-        <div className="flex items-center justify-between px-1">
-          <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isUrgent}
-              onChange={(e) => setIsUrgent(e.target.checked)}
-              className="w-4 h-4 text-rose-600 rounded bg-slate-800 border-slate-700"
-            />
-            <span className={isUrgent ? 'font-black text-rose-400' : 'text-slate-400'}>
-              🚨 Als dringende Eilmeldung senden (mit Signalton)
-            </span>
-          </label>
+      {/* Input Bar */}
+      <form onSubmit={handleSendMessage} className="p-3 bg-slate-900 border-t border-slate-800 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setIsUrgent(!isUrgent)}
+          className={`p-2.5 rounded-xl border transition ${
+            isUrgent
+              ? 'bg-rose-600 border-rose-400 text-white animate-pulse'
+              : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+          }`}
+          title={isUrgent ? 'Dringend aktiviert' : 'Als dringenden Notruf markieren'}
+        >
+          <AlertTriangle className="w-5 h-5" />
+        </button>
 
-          <input
-            type="text"
-            placeholder="Dein Name"
-            value={senderName}
-            onChange={(e) => {
-              setSenderName(e.target.value);
-              localStorage.setItem('pos_waiter_name', e.target.value);
-            }}
-            className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-0.5 text-xs text-slate-200 w-32 text-right"
-          />
-        </div>
+        <input
+          type="text"
+          placeholder="Nachricht an alle Stationen senden..."
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          className="flex-1 bg-slate-950 border border-slate-700 rounded-2xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold"
+        />
 
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            placeholder="Nachricht eingeben..."
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            className="flex-1 bg-slate-800 border border-slate-700 rounded-2xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <button
-            type="submit"
-            className="p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-900/30 transition"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
+        <button
+          type="submit"
+          disabled={!inputText.trim()}
+          className="p-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-2xl font-bold shadow-lg transition"
+        >
+          <Send className="w-5 h-5" />
+        </button>
       </form>
     </div>
   );

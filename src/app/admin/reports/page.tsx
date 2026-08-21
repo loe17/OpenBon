@@ -64,15 +64,22 @@ export default function AdminReportsPage() {
     }
 
     try {
-      await fetch('/api/printers', {
+      const res = await fetch('/api/printers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'TEST_PRINT',
+          action: 'PRINT_ZBON',
           printerId: selectedPrinterId,
+          reportData: data,
         }),
       });
-      alert('Z-Bon Kassenabschluss erfolgreich an den Drucker gesendet!');
+
+      if (res.ok) {
+        alert('Z-Bon Kassenabschluss erfolgreich an den Drucker gesendet!');
+      } else {
+        const err = await res.json();
+        alert(`Druckfehler beim Z-Bon: ${err.error || 'Unbekannt'}`);
+      }
     } catch (e) {
       alert('Druckfehler beim Z-Bon');
     }

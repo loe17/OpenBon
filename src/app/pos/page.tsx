@@ -1,26 +1,29 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useSocket } from '@/components/providers/socket-provider';
 import { formatCurrency } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import {
-  CreditCard,
+  Ticket,
   Plus,
   Minus,
   Trash2,
   Check,
-  Printer,
-  Sparkles,
-  Layers,
+  CreditCard,
   Banknote,
-  Coins,
-  Ticket,
+  Percent,
+  Sparkles,
   DoorOpen,
+  Receipt,
+  User,
+  Ban,
 } from 'lucide-react';
 
 export default function PosCounterPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCatId, setSelectedCatId] = useState<string>('');
+  const [selectedSubCat, setSelectedSubCat] = useState<string>('ALL');
   const [cart, setCart] = useState<any[]>([]);
   const [mode, setMode] = useState<'DIRECT' | 'VOUCHER' | 'DUAL'>('DUAL');
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
@@ -41,6 +44,11 @@ export default function PosCounterPage() {
   }, []);
 
   const addToCart = (product: any, variant?: any) => {
+    if (product.isSoldOut || (variant && variant.isSoldOut)) {
+      alert(`Artikel "${product.name}" ist derzeit ausverkauft / gesperrt.`);
+      return;
+    }
+
     triggerHapticFeedback();
     const unitPrice = product.price + (variant ? variant.priceDelta : 0);
     const lineId = `${product.id}_${variant ? variant.name : 'def'}`;
@@ -71,56 +79,55 @@ export default function PosCounterPage() {
     triggerHapticFeedback();
     setCart((prev) =>
       prev
-        .map((i) => {
-          if (i.id === lineId) {
-            const next = i.quantity + delta;
-            return next > 0 ? { ...i, quantity: next } : null;
-          }
-          return i;
-        })
-        .filter(Boolean)
+        .map((i) => (i.id === lineId ? { ...i, quantity: i.quantity + delta } : i))
+        .filter((i) => i.quantity > 0)
     );
   };
 
+  const totalAmount = cart.reduce((sum, item) => sum + (item.price + item.deposit) * item.quantity, 0);
+  const changeAmount = Math.max(0, givenAmount - totalAmount);
+
   const openDrawer = async () => {
-    const printerRes = await fetch('/api/printers');
-    const printers = await printerRes.json();
-    if (printers.length > 0) {
-      await fetch('/api/printers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'OPEN_DRAWER', printerId: printers[0].id }),
-      });
-      triggerHapticFeedback();
+    triggerHapticFeedback();
+    try {
+      const prnRes = await fetch('/api/printers');
+      const prns = await prnRes.json();
+      if (Array.isArray(prns) && prns.length > 0) {
+        await fetch('/api/printers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'OPEN_DRAWER', printerId: prns[0].id }),
+        });
+      }
+    } catch {
+      // Ignore
     }
   };
-
-  const totalAmount = cart.reduce(
-    (sum, i) => sum + (i.price + i.deposit) * i.quantity,
-    0
-  );
-  const change = givenAmount > 0 ? Math.max(0, givenAmount - totalAmount) : 0;
 
   const handleCheckout = async () => {
     if (cart.length === 0 || isProcessing) return;
     setIsProcessing(true);
+    triggerHapticFeedback();
 
     try {
-      const waiterName = 'Thekenkasse 1';
+      const waiterName = localStorage.getItem('pos_waiter_name') || 'Bonkasse Theke';
       const deviceId = localStorage.getItem('pos_device_id');
 
-      const orderType = mode === 'DIRECT' ? 'COUNTER_DIRECT' : 'COUNTER_VOUCHER';
+      // 1. Create Counter / Voucher Order
       const orderRes = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          orderType: mode === 'DIRECT' ? 'DIRECT_SALE' : 'VOUCHER',
           waiterName,
           deviceId,
-          orderType,
-          items: cart.map((i) => ({
-            productId: i.productId,
-            quantity: i.quantity,
-            variantName: i.variantName,
+          items: cart.map((item) => ({
+            productId: item.productId,
+            name: item.name,
+            quantity: item.quantity,
+            unitPrice: item.price,
+            deposit: item.deposit,
+            variantName: item.variantName,
           })),
         }),
       });
@@ -130,6 +137,7 @@ export default function PosCounterPage() {
         setLastToken(orderData.tokenNumber);
       }
 
+      // 2. Complete Payment
       const paymentRes = await fetch('/api/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -154,6 +162,9 @@ export default function PosCounterPage() {
         triggerHapticFeedback();
         setCart([]);
         setGivenAmount(0);
+        if (paymentMethod === 'CASH') {
+          openDrawer();
+        }
       }
     } catch (e) {
       console.error(e);
@@ -164,6 +175,10 @@ export default function PosCounterPage() {
   };
 
   const currentCategory = categories.find((c) => c.id === selectedCatId);
+  const displayedProducts = currentCategory?.products?.filter((p: any) => {
+    if (selectedSubCat !== 'ALL' && p.subCategory !== selectedSubCat) return false;
+    return true;
+  });
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white">
@@ -175,7 +190,13 @@ export default function PosCounterPage() {
           </div>
           <div>
             <h2 className="font-black text-lg sm:text-xl">Bonkasse & Thekenverkauf</h2>
-            <p className="text-xs text-slate-400 font-semibold">Schnellverkauf mit fortlaufenden Abholnummern</p>
+            <p className="text-xs text-slate-400 font-semibold">
+              {mode === 'DIRECT'
+                ? 'Direktverkauf (Theke / Bar ohne Küchenbon)'
+                : mode === 'VOUCHER'
+                ? 'Gutscheinbon / Wertmarke (Einzelbons mit Abhol-Nr.)'
+                : 'Gutschein + Gegenbon (Gastbon + Küchenbon)'}
+            </p>
           </div>
         </div>
 
@@ -183,25 +204,28 @@ export default function PosCounterPage() {
         <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-700">
           <button
             onClick={() => setMode('DIRECT')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
               mode === 'DIRECT' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
             }`}
+            title="Reiner Verkauf an der Theke"
           >
             Nur Kassieren
           </button>
           <button
             onClick={() => setMode('VOUCHER')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
               mode === 'VOUCHER' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
             }`}
+            title="Druckt Wertmarken je Artikel mit Abholnummer"
           >
-            Gutscheinbon
+            Wertmarken
           </button>
           <button
             onClick={() => setMode('DUAL')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
               mode === 'DUAL' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
             }`}
+            title="Druckt Gast-Wertmarke UND Küchen-Gegenbon"
           >
             Gutschein + Gegenbon
           </button>
@@ -218,12 +242,15 @@ export default function PosCounterPage() {
       </div>
 
       {/* Categories */}
-      <div className="bg-slate-900 px-3 py-2 border-b border-slate-700 flex items-center gap-2 overflow-x-auto">
+      <div className="bg-slate-900 px-3 py-2 border-b border-slate-800 flex items-center gap-2 overflow-x-auto">
         {categories.map((cat) => (
           <button
             key={cat.id}
-            onClick={() => setSelectedCatId(cat.id)}
-            className={`pos-touch-btn px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all border ${
+            onClick={() => {
+              setSelectedCatId(cat.id);
+              setSelectedSubCat('ALL');
+            }}
+            className={`pos-touch-btn px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all border ${
               selectedCatId === cat.id
                 ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-950/50'
                 : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-white'
@@ -234,31 +261,73 @@ export default function PosCounterPage() {
         ))}
       </div>
 
+      {/* Beverage Filter Bar */}
+      <div className="bg-slate-950 px-3 py-1.5 border-b border-slate-800 flex items-center gap-1.5 overflow-x-auto text-xs">
+        {[
+          { id: 'ALL', label: 'Alle Artikel' },
+          { id: 'BIER', label: '🍺 Bier' },
+          { id: 'WEIN', label: '🍷 Wein' },
+          { id: 'ALKOHOLFREI', label: '🥤 Alkoholfrei' },
+          { id: 'HEISS', label: '☕ Heißgetränke' },
+          { id: 'BAR', label: '🍸 Bar' },
+        ].map((sub) => (
+          <button
+            key={sub.id}
+            onClick={() => setSelectedSubCat(sub.id)}
+            className={`px-2.5 py-1 rounded-xl text-xs font-bold transition border ${
+              selectedSubCat === sub.id
+                ? 'bg-slate-800 text-amber-300 border-amber-500/60'
+                : 'bg-transparent text-slate-500 border-transparent hover:text-slate-300'
+            }`}
+          >
+            {sub.label}
+          </button>
+        ))}
+      </div>
+
       {/* Main Split */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Left: Product Tiles */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-5">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
-            {currentCategory?.products?.map((prod: any) => (
-              <button
-                key={prod.id}
-                onClick={() => addToCart(prod)}
-                className="pos-touch-btn flex flex-col justify-between p-4 rounded-3xl bg-slate-900 border-2 border-slate-700 hover:border-emerald-500 shadow-lg text-left min-h-[120px] transition"
-                style={{ borderLeftColor: prod.buttonColor || '#10b981', borderLeftWidth: '6px' }}
-              >
-                <div className="font-extrabold text-sm sm:text-base text-white line-clamp-2">
-                  {prod.name}
-                </div>
-                <div className="flex items-center justify-between w-full mt-2">
-                  <span className="text-base sm:text-lg font-black font-mono text-emerald-400">
-                    {formatCurrency(prod.price)}
-                  </span>
-                  <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200">
-                    <Plus className="w-4 h-4" />
+            {displayedProducts?.map((prod: any) => {
+              const isOut = prod.isSoldOut;
+              return (
+                <button
+                  key={prod.id}
+                  disabled={isOut}
+                  onClick={() => addToCart(prod)}
+                  className={`pos-touch-btn relative flex flex-col justify-between p-4 rounded-3xl border-2 shadow-lg text-left min-h-[120px] transition ${
+                    isOut
+                      ? 'bg-slate-950/60 border-rose-900/40 opacity-40 cursor-not-allowed line-through'
+                      : 'bg-slate-900 border-slate-700 hover:border-emerald-500 active:scale-95'
+                  }`}
+                  style={{ borderLeftColor: isOut ? '#991b1b' : prod.buttonColor || '#10b981', borderLeftWidth: '6px' }}
+                >
+                  <div>
+                    <div className="font-extrabold text-sm sm:text-base text-white line-clamp-2">
+                      {prod.name}
+                    </div>
+                    {isOut && (
+                      <span className="inline-block mt-1 text-[10px] font-black uppercase tracking-wider text-rose-400 bg-rose-950/80 px-2 py-0.5 rounded border border-rose-800">
+                        Ausverkauft
+                      </span>
+                    )}
                   </div>
-                </div>
-              </button>
-            ))}
+
+                  <div className="flex items-center justify-between w-full mt-2">
+                    <span className="text-base sm:text-lg font-black font-mono text-emerald-400">
+                      {formatCurrency(prod.price)}
+                    </span>
+                    {!isOut && (
+                      <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200">
+                        <Plus className="w-4 h-4" />
+                      </div>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -385,15 +454,18 @@ export default function PosCounterPage() {
               </div>
             )}
 
-            {givenAmount > 0 && (
-              <div className="p-3 rounded-2xl bg-emerald-950/80 border border-emerald-700 text-xs flex justify-between font-bold text-emerald-300 mb-2">
-                <span>Rückgeld:</span>
-                <span className="font-mono text-lg font-black text-emerald-400">{formatCurrency(change)}</span>
+            {/* Change Return Box */}
+            {paymentMethod === 'CASH' && givenAmount > 0 && (
+              <div className="p-3 mb-3 rounded-2xl bg-slate-950 border border-slate-800 flex justify-between items-center text-xs font-bold">
+                <span className="text-slate-400">Rückgeld:</span>
+                <span className="text-amber-400 text-lg font-black font-mono">
+                  {formatCurrency(changeAmount)}
+                </span>
               </div>
             )}
           </div>
 
-          {/* Big Checkout Button */}
+          {/* Checkout Submit Button */}
           <button
             disabled={cart.length === 0 || isProcessing}
             onClick={handleCheckout}
@@ -404,7 +476,11 @@ export default function PosCounterPage() {
             }`}
           >
             <Check className="w-6 h-6" />
-            <span>{isProcessing ? 'Druckt Bon...' : `Buchen & Drucken (${formatCurrency(totalAmount)})`}</span>
+            <span>
+              {isProcessing
+                ? 'Wird gedruckt & gebucht...'
+                : `Kassieren & ${mode === 'DIRECT' ? 'Lade auf' : 'Bons drucken'}`}
+            </span>
           </button>
         </div>
       </div>

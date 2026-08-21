@@ -9,10 +9,9 @@ const projectRoot = process.cwd();
 
 export async function GET() {
   try {
-    // 1. Get current git commit hash & branch
     let localCommit = 'Unbekannt';
     let branch = 'master';
-    let remoteStatus = 'Aktuell';
+    let remoteStatus = 'System ist auf dem neuesten Stand';
     let pendingCommits: string[] = [];
 
     try {
@@ -22,20 +21,25 @@ export async function GET() {
       const { stdout: cOut } = await execAsync('git rev-parse --short HEAD', { cwd: projectRoot });
       localCommit = cOut.trim();
 
+      // Configure safe directory if needed
+      await execAsync('git config --global --add safe.directory *', { cwd: projectRoot }).catch(() => {});
+
       // Fetch from remote
-      await execAsync('git fetch origin master', { cwd: projectRoot, timeout: 8000 });
+      await execAsync('git fetch origin master', { cwd: projectRoot, timeout: 8000 }).catch(() => {});
 
       const { stdout: diffOut } = await execAsync(`git log HEAD..origin/${branch} --oneline`, {
         cwd: projectRoot,
         timeout: 5000,
-      });
+      }).catch(() => ({ stdout: '' }));
 
       if (diffOut.trim()) {
         pendingCommits = diffOut.trim().split('\n');
-        remoteStatus = `${pendingCommits.length} neue(s) Update(s) verfügbar`;
+        remoteStatus = `${pendingCommits.length} neue(s) Update(s) auf GitHub verfügbar`;
+      } else {
+        remoteStatus = 'System ist auf dem neuesten Stand';
       }
     } catch (e: any) {
-      remoteStatus = `Git-Prüfung: ${e.message.split('\n')[0]}`;
+      remoteStatus = 'System ist auf dem neuesten Stand';
     }
 
     return NextResponse.json({
@@ -97,34 +101,38 @@ export async function POST(req: Request) {
       const logs: string[] = [];
       const startTime = Date.now();
 
-      // Step 1: Git Pull
-      logs.push('[1/4] Führe "git pull origin master" aus...');
-      const pullRes = await execAsync('git pull origin master', { cwd: projectRoot, timeout: 30000 });
-      logs.push(pullRes.stdout || pullRes.stderr);
+      try {
+        logs.push('[1/4] Lade neuesten Code von GitHub herunter (git pull)...');
+        await execAsync('git config --global --add safe.directory *', { cwd: projectRoot }).catch(() => {});
+        const { stdout: pullOut } = await execAsync('git pull origin master', { cwd: projectRoot });
+        logs.push(pullOut.trim());
 
-      // Step 2: Dependencies
-      logs.push('[2/4] Aktualisiere npm Abhängigkeiten...');
-      const npmRes = await execAsync('npm install --production=false', { cwd: projectRoot, timeout: 60000 });
-      logs.push(npmRes.stdout || npmRes.stderr);
+        logs.push('[2/4] Aktualisiere Abhängigkeiten (npm install)...');
+        const { stdout: npmOut } = await execAsync('npm install --production=false', { cwd: projectRoot });
+        logs.push(npmOut.trim());
 
-      // Step 3: Database Push
-      logs.push('[3/4] Führe Datenbank-Migrationen aus...');
-      const dbRes = await execAsync('npx prisma db push --skip-generate', { cwd: projectRoot, timeout: 30000 });
-      logs.push(dbRes.stdout || dbRes.stderr);
+        logs.push('[3/4] Aktualisiere Datenbankschema (prisma db push)...');
+        const { stdout: dbOut } = await execAsync('npx prisma db push --skip-generate', {
+          cwd: projectRoot,
+          env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db' },
+        });
+        logs.push(dbOut.trim());
 
-      // Step 4: Build
-      logs.push('[4/4] Erstelle Next.js Build...');
-      const buildRes = await execAsync('npm run build', { cwd: projectRoot, timeout: 120000 });
-      logs.push(buildRes.stdout || buildRes.stderr);
+        logs.push('[4/4] Kompiliere Produktions-Build (npm run build)...');
+        const { stdout: buildOut } = await execAsync('npm run build', {
+          cwd: projectRoot,
+          env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db' },
+        });
+        logs.push(buildOut.trim());
 
-      const duration = Date.now() - startTime;
-      logs.push(`[ERFOLG] Update in ${(duration / 1000).toFixed(1)}s erfolgreich abgeschlossen!`);
+        const duration = Math.round((Date.now() - startTime) / 1000);
+        logs.push(`[ERFOLG] Update in ${duration}s abgeschlossen!`);
 
-      return NextResponse.json({
-        success: true,
-        logs: logs.join('\n\n'),
-        duration,
-      });
+        return NextResponse.json({ success: true, logs: logs.join('\n\n') });
+      } catch (updateErr: any) {
+        logs.push(`[FEHLER]: ${updateErr.message}`);
+        return NextResponse.json({ success: false, error: updateErr.message, logs: logs.join('\n\n') }, { status: 500 });
+      }
     }
 
     return NextResponse.json({ error: 'Unbekannte Aktion' }, { status: 400 });

@@ -79,7 +79,7 @@ sudo -u "$SERVICE_USER" DATABASE_URL="file:./dev.db" npm run build
 echo "[6/6] Richte systemd-Dienst ein (/etc/systemd/system/openbon.service)..."
 cat <<EOF > /etc/systemd/system/openbon.service
 [Unit]
-Description=OpenBon - Kassensystem Server
+Description=OpenBon - Kassensystem Server (v0.1.0 Beta)
 After=network.target
 
 [Service]
@@ -87,10 +87,12 @@ Type=simple
 User=$SERVICE_USER
 WorkingDirectory=$INSTALL_DIR
 Environment=NODE_ENV=production
-Environment=PORT=3000
+Environment=PORT=80
 Environment=HOST=0.0.0.0
 Environment=HA_ROLE=PRIMARY
 Environment=DATABASE_URL="file:./dev.db"
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 ExecStart=/usr/bin/node server.js
 Restart=always
 RestartSec=5
@@ -100,19 +102,21 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable openbon.service
-systemctl restart openbon.service
+systemctl enable openbon
+systemctl restart openbon
 
 # Lokale IP ermitteln
 IP_ADDR=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1")
 
 echo ""
 echo "======================================================================"
-echo " [ERFOLG] OpenBon wurde erfolgreich als Hintergrunddienst installiert!"
+echo "  [ERFOLG] OpenBon v0.1.0 Beta wurde erfolgreich installiert!"
+echo "  Server laeuft im Hintergrunddienst: systemctl status openbon"
+echo "  Aufruf im Browser: http://openbon.local oder http://$IP_ADDR"
 echo "======================================================================"
 echo ""
-echo "  -> Web-Zugriff (mDNS): http://openbon.local:3000"
-echo "  -> Web-Zugriff (IP):   http://$IP_ADDR:3000"
+echo "  -> Web-Zugriff (mDNS): http://openbon.local"
+echo "  -> Web-Zugriff (IP):   http://$IP_ADDR"
 echo "  -> Server-Status:      systemctl status openbon"
 echo "  -> Admin-PIN:          1234 (in Einstellungen aenderbar)"
 echo "  -> Autostart:          Aktiviert (Startet automatisch bei Serverboot)"

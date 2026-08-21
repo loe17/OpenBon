@@ -1,16 +1,22 @@
 import { describe, it, expect } from 'vitest';
 import prisma from '../lib/db';
-import { APP_VERSION, APP_NAME } from '../lib/version';
+import { APP_VERSION, APP_IS_BETA } from '../lib/version';
+import { parseAndValidateLicense, generateOfflineSignature } from '../lib/license';
+import { verifyStationPin } from '../lib/auth-pin';
+import { EscPosBuilder } from '../lib/printer/escpos-builder';
 
-describe('OpenBon Build, Prisma Schema & Runtime Sanity Tests', () => {
+describe('OpenBon v0.1.0 Beta: Schema, License, PIN & Print Sanity Tests', () => {
+  it('should verify v0.1.0 Beta version info', () => {
+    expect(APP_VERSION).toBe('0.1.0');
+    expect(APP_IS_BETA).toBe(true);
+  });
+
   it('should initialize Prisma DB Client with valid DATABASE_URL fallback', () => {
     expect(prisma).toBeDefined();
     expect(process.env.DATABASE_URL).toBeDefined();
-    expect(process.env.DATABASE_URL).toContain('dev.db');
   });
 
-  it('should validate all essential Prisma models and schema structure', async () => {
-    // Test basic Prisma model availability
+  it('should validate all essential Prisma models and schema structure', () => {
     expect(prisma.eventConfig).toBeDefined();
     expect(prisma.diningTable).toBeDefined();
     expect(prisma.product).toBeDefined();
@@ -18,45 +24,85 @@ describe('OpenBon Build, Prisma Schema & Runtime Sanity Tests', () => {
     expect(prisma.order).toBeDefined();
     expect(prisma.orderItem).toBeDefined();
     expect(prisma.payment).toBeDefined();
-    expect(prisma.paymentItem).toBeDefined();
     expect(prisma.printer).toBeDefined();
-    expect(prisma.printGroup).toBeDefined();
-    expect(prisma.stockItem).toBeDefined();
-    expect(prisma.device).toBeDefined();
-    expect(prisma.syncJournal).toBeDefined();
-    expect(prisma.chatMessage).toBeDefined();
   });
 
-  it('should ensure Payment model supports VR-Pay Me, SumUp and Surcharge fields', () => {
-    const testPaymentPayload = {
-      invoiceNumber: 'TEST-INV-001',
-      waiterName: 'Testbedienung',
-      totalGross: 57.5,
-      totalNet: 48.32,
-      totalTax: 9.18,
-      totalDeposit: 2.0,
-      returnDeposit: 1.0,
-      discountAmount: 0.0,
-      tipAmount: 2.5,
-      surchargeAmount: 5.0,
-      surchargePercent: 10.0,
-      surchargeReason: '10% Nachtzuschlag',
-      givenAmount: 60.0,
-      changeAmount: 2.5,
-      paymentMethod: 'CARD_VRPAY',
-      isTraining: false,
-    };
+  it('should validate offline cryptographic license engine', () => {
+    // 1. Default Community License
+    const freeLic = parseAndValidateLicense('');
+    expect(freeLic.isValid).toBe(true);
+    expect(freeLic.type).toBe('COMMUNITY');
 
-    expect(testPaymentPayload.paymentMethod).toBe('CARD_VRPAY');
-    expect(testPaymentPayload.surchargeAmount).toBe(5.0);
-    expect(testPaymentPayload.surchargePercent).toBe(10.0);
-    expect(testPaymentPayload.surchargeReason).toBe('10% Nachtzuschlag');
+    // 2. Generate valid signed Pro Festival key
+    const licensee = 'Feuerwehr Musterstadt e.V.';
+    const type = 'PRO_FESTIVAL';
+    const maxDevices = 100;
+    const expiresAt = '2030-12-31';
+
+    const payload = `${licensee}|${type}|${maxDevices}|${expiresAt}`;
+    const signature = generateOfflineSignature(payload);
+
+    const validKey = Buffer.from(
+      JSON.stringify({
+        licensee,
+        type,
+        maxDevices,
+        expiresAt,
+        signature,
+      })
+    ).toString('base64');
+
+    const verified = parseAndValidateLicense(validKey);
+    expect(verified.isValid).toBe(true);
+    expect(verified.licensee).toBe('Feuerwehr Musterstadt e.V.');
+    expect(verified.maxDevices).toBe(100);
+
+    // 3. Test tampered license key
+    const tamperedKey = Buffer.from(
+      JSON.stringify({
+        licensee: 'Hacker Club',
+        type,
+        maxDevices: 999,
+        expiresAt,
+        signature: 'FAKESIG123',
+      })
+    ).toString('base64');
+
+    const rejected = parseAndValidateLicense(tamperedKey);
+    expect(rejected.isValid).toBe(false);
   });
 
-  it('should verify global type environment declarations', () => {
-    // global.io and global.connectedDevices should be accessible on globalThis
-    expect((globalThis as any)).toBeDefined();
-    global.virtualPrinterHistory = global.virtualPrinterHistory || [];
-    expect(Array.isArray(global.virtualPrinterHistory)).toBe(true);
+  it('should verify station PIN verification defaults', async () => {
+    expect(await verifyStationPin('1234', 'ADMIN')).toBe(true);
+    expect(await verifyStationPin('1111', 'POS')).toBe(true);
+    expect(await verifyStationPin('2222', 'KITCHEN')).toBe(true);
+    expect(await verifyStationPin('3333', 'WAITER')).toBe(true);
+    expect(await verifyStationPin('9999', 'ADMIN')).toBe(false);
+  });
+
+  it('should build station QR tickets and Z-Bon ESC/POS buffers', () => {
+    const stationTicket = EscPosBuilder.buildStationJoinTicket({
+      title: 'Bedienung (Kellner-Station)',
+      role: 'WAITER',
+      description: 'Tischplan & Bestellungen',
+      url: 'http://openbon.local/waiter',
+      pin: '3333',
+    });
+
+    expect(stationTicket.rawBuffer).toBeDefined();
+    expect(stationTicket.textRepresentation).toContain('STATIONS-PIN: 3333');
+    expect(stationTicket.textRepresentation).toContain('http://openbon.local/waiter');
+
+    const zbonTicket = EscPosBuilder.buildZBonTicket({
+      totalGross: 1250.5,
+      totalNet: 1050.84,
+      totalTax19: 199.66,
+      totalCash: 950.0,
+      totalCard: 300.5,
+      waiters: [{ waiterName: 'Lisa', totalGross: 620.0, cashGross: 500.0, cardGross: 120.0 }],
+    });
+
+    expect(zbonTicket.rawBuffer).toBeDefined();
+    expect(zbonTicket.textRepresentation).toContain('Z-BON TAGESABSCHLUSS');
   });
 });

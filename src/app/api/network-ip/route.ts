@@ -18,12 +18,14 @@ export async function GET() {
       }
     }
 
+    const portSuffix = port === '80' ? '' : `:${port}`;
+
     return NextResponse.json({
       ip: localIp,
       port,
-      ipBaseUrl: `http://${localIp}:${port}`,
-      localDomainUrl: `http://openbon.local:${port}`,
-      baseUrl: `http://${localIp}:${port}`,
+      ipBaseUrl: `http://${localIp}${portSuffix}`,
+      localDomainUrl: `http://openbon.local${portSuffix}`,
+      baseUrl: `http://${localIp}${portSuffix}`,
       hostName: os.hostname(),
     });
   } catch (error: any) {

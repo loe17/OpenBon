@@ -3,14 +3,27 @@ import prisma from '@/lib/db';
 
 export async function GET() {
   try {
-    const stockItems = await prisma.stockItem.findMany({
-      include: {
-        product: {
-          include: { category: true },
-        },
+    const products = await prisma.product.findMany({
+      where: {
+        trackStock: true,
+        status: { not: 'HIDDEN' },
       },
+      include: {
+        category: true,
+      },
+      orderBy: { name: 'asc' },
     });
-    return NextResponse.json(stockItems);
+
+    const formatted = products.map((p) => ({
+      id: p.id,
+      productId: p.id,
+      product: p,
+      currentQuantity: p.stockQuantity,
+      alertThreshold: p.stockAlertThreshold,
+      isSoldOut: p.isSoldOut,
+    }));
+
+    return NextResponse.json(formatted);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -19,52 +32,33 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { productId, currentQuantity, alertThreshold, isAutoDeactivate, addQuantity } = body;
+    const { productId, addQuantity, setQuantity, alertThreshold, isSoldOut } = body;
 
-    let updated;
+    const prod = await prisma.product.findUnique({ where: { id: productId } });
+    if (!prod) return NextResponse.json({ error: 'Artikel nicht gefunden' }, { status: 404 });
+
+    let nextQty = prod.stockQuantity;
     if (addQuantity !== undefined) {
-      updated = await prisma.stockItem.upsert({
-        where: { productId },
-        update: {
-          currentQuantity: { increment: parseInt(addQuantity, 10) },
-        },
-        create: {
-          productId,
-          initialQuantity: parseInt(addQuantity, 10),
-          currentQuantity: parseInt(addQuantity, 10),
-          alertThreshold: 10,
-        },
-        include: { product: true },
-      });
-    } else {
-      updated = await prisma.stockItem.upsert({
-        where: { productId },
-        update: {
-          currentQuantity: parseInt(currentQuantity, 10),
-          alertThreshold: parseInt(alertThreshold, 10),
-          isAutoDeactivate: isAutoDeactivate ?? true,
-        },
-        create: {
-          productId,
-          initialQuantity: parseInt(currentQuantity, 10),
-          currentQuantity: parseInt(currentQuantity, 10),
-          alertThreshold: parseInt(alertThreshold, 10),
-          isAutoDeactivate: isAutoDeactivate ?? true,
-        },
-        include: { product: true },
-      });
+      nextQty += parseInt(addQuantity, 10);
+    } else if (setQuantity !== undefined) {
+      nextQty = parseInt(setQuantity, 10);
     }
 
-    // Re-activate product if quantity > 0
-    if (updated.currentQuantity > 0) {
-      await prisma.product.update({
-        where: { id: productId },
-        data: { status: 'ACTIVE' },
-      });
-    }
+    const updated = await prisma.product.update({
+      where: { id: productId },
+      data: {
+        stockQuantity: nextQty,
+        stockAlertThreshold: alertThreshold !== undefined ? parseInt(alertThreshold, 10) : prod.stockAlertThreshold,
+        isSoldOut: isSoldOut !== undefined ? isSoldOut : (nextQty <= 0 ? true : false),
+      },
+      include: {
+        category: true,
+      },
+    });
 
     if (global.io) {
       global.io.emit('stock:updated', updated);
+      global.io.emit('product:updated', updated);
     }
 
     return NextResponse.json(updated);

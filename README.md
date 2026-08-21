@@ -1,108 +1,65 @@
-# OpenBon - Plattformunabhängiges Fest- & Gastronomie-Kassensystem
+# OpenBon - Kassen- & Bestellsystem (v0.1.0 Beta)
 
-> **Modernes, offenes Kassen-, Bestell- und Küchensystem für Vereinsfeste, Gastronomie & Events**  
-> Entwickelt für 100% Offline-LAN-Betrieb, Dual-Server-Hochverfügbarkeit, PIN-Sicherheit, QR-Code Beitritt und flexible Kartenzahlung.
-
----
-
-## Hauptfunktionen
-
-- **100% Plattformunabhängig & Zero-Config mDNS**: Zugriff wahlweise über **`http://openbon.local:3000`** oder die lokale WLAN-IP auf allen Geräten (iOS Safari, Android Chrome, Windows, Mac, Linux).
-- **Admin Command Center (`/admin/dashboard`)**: Zentraler Echtzeit-Leitstand für Live-Umsätze, offene Tische, Küchenauslastung, Gerätegesundheit und Schnellaktionen.
-- **Intelligente Trend- & Bedarfsvorhersage (`/admin/reports`)**:
-  - Interaktive SVG-Grafiken für stündlichen Umsatzverlauf (Peak Hours) und Warengruppen-Umsatzanteile
-  - Statistische Hochrechnung des Tagesumsatzes zum Schichtende
-  - Automatische Stoßzeiten-Erkennung & Lager-Nachschubwarnungen
-- **Rollen-Sicherheit & PIN-Schutz**: 4-stelliger Admin-PIN schützt Preislisten, Einstellungen und Berichte. Helfer-Smartphones werden in ihrer Station arretiert.
-- **QR-Code Beitritts-Center**: Helfer treten Stationen (Bedienung, Kasse, Küche) blitzschnell per Scan bei. QR-Codes können direkt auf Thermobondruckern ausgedruckt werden.
-- **2-Rechner-Hochverfügbarkeit (HA Failover)**: Primär- und Ersatzserver spiegeln Transaktionen in Echtzeit (<3s automatischer Failover bei PC-Ausfall).
-- **100% Offline-Fähig & Flexible Kartenzahldienste**: Funktioniert im autarken Festzelt-WLAN ohne Internet. Unterstützt **Bargeld**, **VR-Pay Me** (Volksbanken / Raiffeisenbanken), **SumUp** (Air/Solo) und **EC-Terminals**.
-- **Aufschlag-Funktion**: Beliebige prozentuale Aufschläge (z. B. Nacht-/Feiertagszuschlag) oder Festbeträge (z. B. Pauschale / Kartengebühr) beim Kassieren mit Ausweisung auf dem Beleg.
-- **Kellner-Leistungsmetriken & Rangliste**: Echtzeit-Verfolgung der Bestellungen und Umsätze der letzten 60 Minuten pro Bedienung.
-- **Autostart-Steuerung**: Systemd-Autostart bei Serverboot direkt über das Web-Adminmenü aktivier- und deaktivierbar.
-- **[Hardwareempfehlungen & Mindestanforderungen](docs/HARDWARE_EMPFEHLUNGEN.md)**: Kompletter Hardware-Leitfaden für Server (Raspberry Pi, Mini-PC, Laptop), Mobilteile, Thermodrucker und Router.
-- **Schnelle Kellner-Bestellmaske**:
-  - Tischübersicht mit Live-Farbcodierung und Offenbeträgen
-  - 1-Klick-Sonderwünsche (z. B. *"ohne Zwiebeln"*, *"extra Soße"*)
-  - Rechnungs-Splitting (Teilzahlung pro Gast)
-  - Pfandrückgabe (Leergutverrechnung) & Wechselgeld-Rechner
-- **Bonkasse / Theken-Express**:
-  - Wertmarken- & Gutschein-Bons mit fortlaufender Abholnummer (#101, #102...)
-  - Synchroner Gegenbon für die Küchenausgabe
-  - Automatische Kassenladen-Öffnung bei Barzahlung
-- **Küchenmonitor (KDS)**:
-  - Live-Bestellspalten mit FIFO- und Tischanordnung
-  - Farbcodierte Dringlichkeits-Ampel (Wartezeit-Alarm)
-  - Live-Rückstandsanzeige (*"Noch 18x Pommes"*)
-  - Akustischer Audio-Gong bei neuen Bons
-- **Live-Geräteübersicht & Akku-Monitor**:
-  - Echtzeit-Akkustand % aller Kellner-Smartphones
-  - Uptime & Schichtdauer
-  - **Suchton (Find My Device)**: Löst auf verlegten Smartphones einen lauten Signalton & Vibration aus
-- **ESC/POS Thermodrucker & Bon-Splitting**:
-  - Ansteuerung über TCP-Port 9100
-  - Native deutsche Zeichentabelle `CP858` (äöüÄÖÜß€)
-  - Automatisches Splitten nach Druckgruppen (Küche, Schenke) und Tablett-Limits
-  - Integrierter **Virtueller Drucker-Simulator** im Browser
-- **Auswertungen & Buchhaltung**:
-  - Kellner-Schichtabrechnung (Z-Bon pro Kellner)
-  - Renner-/Penner-Statistik
-  - 1-Klick CSV-Export (Excel)
-  - JSON-Backup & Wiederherstellung
-- **Trainingsmodus (Übungsmodus)**:
-  - Helfer können gefahrlos üben, ohne echte Bons zu drucken oder Umsätze zu verfälschen
+> **Modernes Kassen-, Bestell- und Küchenmanagementsystem für Vereinsfeste, Gastronomie & Events**  
+> *Hinweis: OpenBon v0.1.0 befindet sich im Beta-Status. Die Nutzung erfolgt auf eigene Verantwortung ohne Gewähr.*
 
 ---
 
-## Schnellstart
+## 📌 Hauptfunktionen
 
-### 1. Headless Linux & Raspberry Pi (1-Line Online Installer)
+- **Plattformunabhängig & mDNS-Netzwerkdienst**: Zugriff über **`http://openbon.local`** oder die lokale Netzwerk-IP (iOS Safari, Android Chrome, Windows, Mac, Linux).
+- **Helles Design & Darkmode**: Tageslichttaugliche, kontrastreiche helle Ansicht für Festzelte, mit umschaltbarem Darkmode.
+- **Admin Command Center (`/admin/dashboard`)**: Zentraler Leitstand für Live-Umsätze, offene Tische, Küchenauslastung und Schnellaktionen.
+- **Statistiken & Z-Bon Tagesabschluss (`/admin/reports`)**:
+  - Grafiken für stündlichen Umsatzverlauf und Warengruppen-Anteile
+  - Automatische Hochrechnung des Tagesumsatzes
+  - Offizieller Z-Bon Belegdruck (Thermodrucker & PDF) mit Aufschlüsselung nach Bar, SumUp, VR-Pay Me, Terminal und Steuersätzen
+- **Tischplan Designer & PDF-Export (`/admin/tables`)**:
+  - Tische im Raster anordnen, einzeln aktivieren oder deaktivieren
+  - Druckfertige Tischübersicht und Tischkarten als PDF
+- **Warenbestand & 1-Klick Ausverkauft-Sperre (`/admin/products` & `/admin/inventory`)**:
+  - Bestandsüberwachung direkt am Artikel mit automatischem Abzug bei jeder Bestellung
+  - Automatische Sperre bei Bestand 0 und Schnelltasten für Fasswechsel (`+10`, `+50`, `+100`)
+- **Stations-PINs & Sicherheit**: Einstellbarer PIN-Schutz für Admin (`1234`), Kasse (`1111`), Küche (`2222`) und Service (`3333`).
+- **QR-Code Beitritts-Center (`/admin/qr-codes`)**: Stationen per QR-Code mit Smartphone scannen, inkl. PIN-Anzeige und Belegdruck.
+- **Druckersuche & ESC/POS Routing (`/admin/printers`)**:
+  - Automatische Suche nach Netzwerk-Bondruckern im lokalen Subnetz (Port 9100)
+  - Bon-Splitting nach Küche und Schenke mit CP858-Umlauten (äöüß€)
+  - Deaktivierbare virtuelle Testdrucker
+- **Kartenzahlungs-Optionen & TSE**: Konfiguration für SumUp, VR-Pay Me und KassenSichV TSE (Swissbit / Fiskaltrust).
+- **Offline-Lizenzsystem**: Lizenzprüfung über kryptografische Signaturen ohne Internetverbindung.
+- **2-Server Hochverfügbarkeit (HA Failover)**: Primär- und Standby-Server synchronisieren Bestellungen in Echtzeit mit Verbindungsanzeige.
+- **Team-Funk (`/chat`)**: Automatische Erkennung der sendenden Station (z. B. *"Bedienung Lisa"* oder *"Bonkasse"*).
+- **[Hardware-Empfehlungen](docs/HARDWARE_EMPFEHLUNGEN.md)**: Empfohlene Server, Tablets, Bondrucker und Netzwerk-Router.
+
+---
+
+## 🚀 Installation & Schnellstart
+
+### 1. Headless Linux / Raspberry Pi (1-Klick Installer)
 ```bash
 curl -fsSL https://raw.githubusercontent.com/loe17/OpenBon/master/install-headless.sh | sudo bash
 ```
+Der Installer richtet Node.js, Avahi-mDNS, die Datenbank und den automatischen Systemdienst auf Port 80 ein.
 
-### 2. Manuelle Installation
+### 2. Manueller Start (Entwickler / Windows)
 ```bash
-git clone https://github.com/loe17/OpenBon.git
-cd openbon
+# Abhängigkeiten installieren
 npm install
-npx prisma db push
-node prisma/seed.js
+
+# Datenbank initialisieren
+npm run db:push
+npm run db:seed
+
+# Tests ausführen
+npm test
+
+# Server starten
+npm run dev
 ```
-
-### 3. Starten (Windows 1-Klick)
-- **Hauptserver**: Doppelklick auf `start-primary.bat`
-- **Ersatzserver (Hot-Standby)**: Doppelklick auf `start-standby.bat`
-
-### 4. Starten (Linux / macOS / Docker)
-```bash
-./start-primary.sh
-
-# Oder mit Docker Compose (Dual-Server)
-docker compose up -d --build
-```
-
-Öffne im Browser: `http://localhost:3000` bzw. die IP-Adresse im Festzelt-WLAN.
 
 ---
 
-## Ausführliche Dokumentation
-
-- [Installationsanleitung für alle Plattformen (docs/INSTALLATION.md)](./docs/INSTALLATION.md)
-- [Bedienungsanleitung für Service & Küche (docs/ANLEITUNG.md)](./docs/ANLEITUNG.md)
-- [Rollen-Sicherheit & PIN-Schutz (docs/ROLLEN_PIN_SICHERHEIT.md)](./docs/ROLLEN_PIN_SICHERHEIT.md)
-- [QR-Code Beitritts-Center (docs/QR_CODE_BEITRITT.md)](./docs/QR_CODE_BEITRITT.md)
-- [Router- & Netzwerkkonfiguration mit Kartenzahlung (docs/NETZWERK_ROUTER.md)](./docs/NETZWERK_ROUTER.md)
-- [Hochverfügbarkeit & Replikations-Setup (docs/HOCHVERFUEGBARKEIT.md)](./docs/HOCHVERFUEGBARKEIT.md)
-- [ESC/POS Thermodrucker-Einrichtung (docs/DRUCKER_SETUP.md)](./docs/DRUCKER_SETUP.md)
-
----
-
-## Technologie-Stack
-
-- **Frontend & Backend**: Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, Lucide Icons
-- **Echtzeit-Synchronisation**: Socket.io WebSocket Hub & Custom Node Server
-- **Datenbank**: SQLite mit WAL-Mode & Prisma ORM
-- **Drucker-Treiber**: Natives ESC/POS Raw Socket Protokoll (Port 9100) mit `iconv-lite` CP858
-- **Testing**: Vitest Automated Test Suite
-- **Lizenz**: MIT
+## 📄 Lizenz & Haftungsausschluss
+OpenBon steht unter der [MIT-Lizenz](LICENSE).  
+*Haftungsausschluss: OpenBon v0.1.0 Beta wird ohne Gewähr bereitgestellt. Vor dem produktiven Einsatz im gewerblichen Bereich sind lokale steuerrechtliche Vorgaben (GoBD / KassenSichV) eigenverantwortlich zu prüfen.*

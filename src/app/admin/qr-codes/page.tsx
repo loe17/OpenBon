@@ -13,12 +13,10 @@ import {
   RefreshCw,
   ExternalLink,
   ShieldCheck,
-  Layers,
-  Sparkles,
   Globe,
-  Wifi,
+  Lock,
+  FileDown,
 } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 
 interface StationQR {
@@ -27,6 +25,7 @@ interface StationQR {
   role: string;
   path: string;
   description: string;
+  pin: string;
   icon: any;
   qrDataUrl?: string;
   fullUrl?: string;
@@ -38,7 +37,14 @@ export default function QrCodesPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [printers, setPrinters] = useState<any[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = useState('');
-  const [useDomainUrl, setUseDomainUrl] = useState(false); // true: openbon.local, false: IP
+  const [useDomainUrl, setUseDomainUrl] = useState(false);
+  const [pins, setPins] = useState({
+    adminPin: '1234',
+    posPin: '1111',
+    kitchenPin: '2222',
+    waiterPin: '3333',
+  });
+
   const [stations, setStations] = useState<StationQR[]>([
     {
       id: 'waiter',
@@ -46,6 +52,7 @@ export default function QrCodesPage() {
       role: 'WAITER',
       path: '/waiter',
       description: 'Tischplan, mobile Bestellaufnahme, Sonderwünsche und Rechnungs-Splitting',
+      pin: '3333',
       icon: Smartphone,
     },
     {
@@ -54,6 +61,7 @@ export default function QrCodesPage() {
       role: 'POS_CASHIER',
       path: '/pos',
       description: 'Direktverkauf, Wertmarken, Abholnummern und Kassenladen-Steuerung',
+      pin: '1111',
       icon: CreditCard,
     },
     {
@@ -62,7 +70,17 @@ export default function QrCodesPage() {
       role: 'KITCHEN',
       path: '/kitchen',
       description: 'Echtzeit-Auftragsanzeige mit Wartezeit-Ampel, Rückstandszähler und Gong',
+      pin: '2222',
       icon: ChefHat,
+    },
+    {
+      id: 'admin',
+      title: 'Admin Command Center',
+      role: 'ADMIN',
+      path: '/admin/dashboard',
+      description: 'Zentrale Verwaltung, Artikel, Berichte, TSE, Drucker und Systemstatus',
+      pin: '1234',
+      icon: ShieldCheck,
     },
     {
       id: 'printer',
@@ -70,18 +88,21 @@ export default function QrCodesPage() {
       role: 'ADMIN',
       path: '/virtual-printer',
       description: 'Live-Vorschau aller ESC/POS Thermobelege im Browser',
+      pin: '1234',
       icon: Printer,
     },
   ]);
 
   const fetchNetworkAndGenerate = async (preferDomain = useDomainUrl) => {
     try {
-      const [ipRes, prnRes] = await Promise.all([
+      const [ipRes, prnRes, cfgRes] = await Promise.all([
         fetch('/api/network-ip'),
         fetch('/api/printers'),
+        fetch('/api/config'),
       ]);
       const ipData = await ipRes.json();
       const prnData = await prnRes.json();
+      const cfgData = await cfgRes.json();
 
       setNetworkInfo(ipData);
       if (Array.isArray(prnData)) {
@@ -89,19 +110,32 @@ export default function QrCodesPage() {
         if (prnData.length > 0) setSelectedPrinterId(prnData[0].id);
       }
 
+      const activePins = {
+        adminPin: cfgData?.adminPin || '1234',
+        posPin: cfgData?.posPin || '1111',
+        kitchenPin: cfgData?.kitchenPin || '2222',
+        waiterPin: cfgData?.waiterPin || '3333',
+      };
+      setPins(activePins);
+
       const baseUrl = preferDomain
         ? ipData.localDomainUrl || 'http://openbon.local:3000'
         : ipData.ipBaseUrl || ipData.baseUrl || window.location.origin;
 
       const generated = await Promise.all(
         stations.map(async (s) => {
+          let sPin = activePins.adminPin;
+          if (s.id === 'waiter') sPin = activePins.waiterPin;
+          else if (s.id === 'pos') sPin = activePins.posPin;
+          else if (s.id === 'kitchen') sPin = activePins.kitchenPin;
+
           const targetUrl = `${baseUrl}${s.path}`;
           const qrDataUrl = await QRCode.toDataURL(targetUrl, {
             width: 320,
             margin: 1.5,
             color: { dark: '#000000', light: '#ffffff' },
           });
-          return { ...s, qrDataUrl, fullUrl: targetUrl };
+          return { ...s, pin: sPin, qrDataUrl, fullUrl: targetUrl };
         })
       );
 
@@ -131,16 +165,33 @@ export default function QrCodesPage() {
     }
 
     try {
-      await fetch('/api/printers', {
+      const res = await fetch('/api/printers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'TEST_PRINT', printerId: selectedPrinterId }),
+        body: JSON.stringify({
+          action: 'PRINT_STATION_TICKET',
+          printerId: selectedPrinterId,
+          title: station.title,
+          role: station.role,
+          description: station.description,
+          url: station.fullUrl,
+          pin: station.pin,
+        }),
       });
 
-      alert(`Beitritts-Bon für "${station.title}" an den Drucker gesendet!`);
-    } catch (e) {
-      alert('Druckfehler');
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Beitritts-Bon für "${station.title}" erfolgreich gedruckt!`);
+      } else {
+        alert(`Druckfehler: ${data.error || 'Unbekannt'}`);
+      }
+    } catch {
+      alert('Verbindungsfehler zum Drucker');
     }
+  };
+
+  const handleBrowserPrint = () => {
+    window.print();
   };
 
   return (
@@ -160,153 +211,168 @@ export default function QrCodesPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Domain vs IP Switcher */}
-          <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 p-1 rounded-2xl">
-            <button
-              onClick={() => {
-                triggerHapticFeedback();
-                setUseDomainUrl(false);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                !useDomainUrl ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Wifi className="w-3.5 h-3.5" />
-              <span>WLAN-IP</span>
-            </button>
-            <button
-              onClick={() => {
-                triggerHapticFeedback();
-                setUseDomainUrl(true);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                useDomainUrl ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Globe className="w-3.5 h-3.5" />
-              <span>openbon.local</span>
-            </button>
-          </div>
-
-          {printers.length > 0 && (
-            <select
-              value={selectedPrinterId}
-              onChange={(e) => setSelectedPrinterId(e.target.value)}
-              className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 focus:outline-none"
-            >
-              {printers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  Drucker: {p.name}
-                </option>
-              ))}
-            </select>
-          )}
+          <button
+            onClick={handleBrowserPrint}
+            className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition shadow"
+          >
+            <FileDown className="w-4 h-4" />
+            <span>Alle QR-Codes drucken / PDF</span>
+          </button>
 
           <button
             onClick={() => fetchNetworkAndGenerate(useDomainUrl)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-semibold text-slate-300 transition"
+            className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-bold transition"
           >
             <RefreshCw className="w-4 h-4" />
-            <span>Neu laden</span>
+            <span>Aktualisieren</span>
           </button>
         </div>
       </div>
 
-      {/* Network Server Banner */}
-      <div className="p-4 rounded-3xl bg-slate-900 border border-slate-800 mb-6 flex flex-wrap items-center justify-between gap-4 shadow-xl">
-        <div className="space-y-1">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
-            Aktive Server-Adresse:
-          </span>
-          <div className="text-xl sm:text-3xl font-mono font-black text-blue-400 flex items-center gap-3">
-            <span>{useDomainUrl ? networkInfo?.localDomainUrl || 'http://openbon.local:3000' : networkInfo?.ipBaseUrl || 'http://127.0.0.1:3000'}</span>
-            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-              {useDomainUrl ? 'mDNS Bonjour' : 'IPv4 Direct'}
-            </span>
+      {/* Domain / IP Toggle Bar */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-6 flex flex-wrap items-center justify-between gap-4 shadow-md">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-slate-800 rounded-xl text-blue-400">
+            <Globe className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-slate-300">Netzwerk-Zugriffsmodus</div>
+            <div className="text-xs text-slate-400">
+              Aktuell:{' '}
+              <span className="text-white font-mono font-bold">
+                {useDomainUrl
+                  ? networkInfo?.localDomainUrl || 'http://openbon.local:3000'
+                  : networkInfo?.ipBaseUrl || 'IP-Adresse'}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="text-xs text-slate-400 max-w-sm">
-          Alle Smartphones im selben WLAN können diese QR-Codes mit der Standard-Kamera scannen und starten sofort ohne Passwort.
+        <div className="flex items-center gap-3">
+          <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <button
+              onClick={() => setUseDomainUrl(false)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                !useDomainUrl ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              IP-Adresse ({networkInfo?.localIp || '192.168.x.x'})
+            </button>
+            <button
+              onClick={() => setUseDomainUrl(true)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                useDomainUrl ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              mDNS Name (openbon.local)
+            </button>
+          </div>
+
+          {/* Printer Selector */}
+          {printers.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Printer className="w-4 h-4 text-slate-400" />
+              <select
+                value={selectedPrinterId}
+                onChange={(e) => setSelectedPrinterId(e.target.value)}
+                className="bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                {printers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} {p.isVirtual ? '(Virtuell)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Stations QR Grid */}
-      {loading ? (
-        <div className="flex items-center justify-center h-48 text-slate-400">
-          <RefreshCw className="w-6 h-6 animate-spin mr-2" />
-          <span>Erzeuge QR-Codes...</span>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {stations.map((st) => {
-            const Icon = st.icon;
-            const isCopied = copiedId === st.id;
-
-            return (
-              <div
-                key={st.id}
-                className="p-5 rounded-3xl bg-slate-900 border border-slate-800 flex flex-col justify-between items-center text-center shadow-xl hover:border-slate-700 transition"
-              >
-                <div className="w-full flex flex-col items-center">
-                  {/* Icon & Title */}
-                  <div className="w-12 h-12 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-blue-400 mb-3 shadow-inner">
-                    <Icon className="w-6 h-6" />
-                  </div>
-                  <h3 className="font-bold text-base text-white mb-1">{st.title}</h3>
-                  <p className="text-xs text-slate-400 mb-4 min-h-[32px]">{st.description}</p>
-
-                  {/* QR Image */}
-                  <div className="p-3 bg-white rounded-2xl border-4 border-slate-800 shadow-md mb-4 group cursor-pointer">
-                    {st.qrDataUrl && (
-                      <img
-                        src={st.qrDataUrl}
-                        alt={`QR Code für ${st.title}`}
-                        className="w-44 h-44 object-contain rounded-lg group-hover:scale-105 transition-transform"
-                      />
-                    )}
-                  </div>
-
-                  {/* URL Text Pill */}
-                  <div className="w-full bg-slate-950 p-2 rounded-xl border border-slate-800 font-mono text-[11px] text-slate-300 truncate mb-4 text-center">
-                    {st.fullUrl}
-                  </div>
+      {/* Grid of Stations */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {stations.map((station) => {
+          const Icon = station.icon;
+          return (
+            <div
+              key={station.id}
+              className="bg-slate-900 border border-slate-800 rounded-3xl p-5 flex flex-col items-center text-center shadow-lg hover:border-slate-700 transition"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <div className="p-2 bg-blue-950 text-blue-400 rounded-xl border border-blue-800">
+                  <Icon className="w-5 h-5" />
                 </div>
-
-                {/* Action Buttons */}
-                <div className="w-full space-y-2">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleCopy(st.id, st.fullUrl || '')}
-                      className="flex-1 py-2 px-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border border-slate-700"
-                    >
-                      {isCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                      <span>{isCopied ? 'Kopiert!' : 'Link kopieren'}</span>
-                    </button>
-                    <a
-                      href={st.fullUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="p-2 bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white rounded-xl text-xs transition border border-slate-700"
-                      title="Öffnen"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                  </div>
-
-                  <button
-                    onClick={() => handlePrintQrTicket(st)}
-                    className="w-full py-2 bg-blue-600/20 hover:bg-blue-600 active:scale-95 text-blue-300 hover:text-white border border-blue-500/40 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
-                  >
-                    <Printer className="w-3.5 h-3.5" />
-                    <span>Auf Bon drucken</span>
-                  </button>
-                </div>
+                <h3 className="font-bold text-base text-white">{station.title}</h3>
               </div>
-            );
-          })}
-        </div>
-      )}
+
+              <p className="text-xs text-slate-400 mb-4 min-h-[32px]">{station.description}</p>
+
+              {/* Station PIN Badge */}
+              <div className="w-full bg-slate-950 border border-slate-800 rounded-xl py-1.5 px-3 mb-4 flex items-center justify-between">
+                <span className="text-[11px] text-slate-400 flex items-center gap-1 font-semibold">
+                  <Lock className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Stations-PIN:</span>
+                </span>
+                <span className="font-mono font-black text-amber-300 text-sm tracking-widest">
+                  {station.pin}
+                </span>
+              </div>
+
+              {/* QR Code */}
+              <div className="bg-white p-3 rounded-2xl shadow-inner mb-4 flex items-center justify-center">
+                {station.qrDataUrl ? (
+                  <img
+                    src={station.qrDataUrl}
+                    alt={`QR Code ${station.title}`}
+                    className="w-44 h-44 object-contain"
+                  />
+                ) : (
+                  <div className="w-44 h-44 flex items-center justify-center text-slate-400">
+                    <RefreshCw className="w-6 h-6 animate-spin" />
+                  </div>
+                )}
+              </div>
+
+              {/* URL Display */}
+              <div className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 mb-4 flex items-center justify-between gap-2 text-left">
+                <span className="text-[11px] font-mono text-slate-300 truncate">
+                  {station.fullUrl}
+                </span>
+                <button
+                  onClick={() => handleCopy(station.id, station.fullUrl || '')}
+                  className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 transition shrink-0"
+                  title="URL kopieren"
+                >
+                  {copiedId === station.id ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="w-full grid grid-cols-2 gap-2 mt-auto">
+                <a
+                  href={station.fullUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-slate-700"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Öffnen</span>
+                </a>
+                <button
+                  onClick={() => handlePrintQrTicket(station)}
+                  className="py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Bon drucken</span>
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

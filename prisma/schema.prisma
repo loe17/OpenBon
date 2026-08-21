@@ -8,21 +8,31 @@ generator client {
 }
 
 model EventConfig {
-  id              String   @id @default("default")
-  name            String   @default("Vereinsfest 2026")
-  currency        String   @default("EUR")
-  taxRateNormal   Float    @default(19.0)
-  taxRateReduced  Float    @default(7.0)
-  trainingMode    Boolean  @default(false)
-  adminPin        String   @default("1234")
-  haRole          String   @default("PRIMARY") // PRIMARY, STANDBY
-  haPartnerUrl    String?  @default("http://192.168.1.101:3000")
-  haAutoFailover  Boolean  @default(true)
-  tokenSequence   Int      @default(1)
-  invoiceSequence Int      @default(1)
-  orderSequence   Int      @default(1)
-  updatedAt       DateTime @updatedAt
-  createdAt       DateTime @default(now())
+  id                    String   @id @default("default")
+  name                  String   @default("Vereinsfest 2026")
+  currency              String   @default("EUR")
+  taxRateNormal         Float    @default(19.0)
+  taxRateReduced        Float    @default(7.0)
+  trainingMode          Boolean  @default(false)
+  adminPin              String   @default("1234")
+  posPin                String   @default("1111")
+  kitchenPin            String   @default("2222")
+  waiterPin             String   @default("3333")
+  enableVirtualPrinters Boolean  @default(true)
+  sumupMerchantCode     String?
+  sumupAppId            String?
+  vrPayTerminalId       String?
+  tseProvider           String   @default("NONE") // NONE, SWISSBIT_USB, FISKALTRUST_CLOUD
+  tseSerialNumber       String?
+  licenseKey            String   @default("OPENBON-COMMUNITY-FREE")
+  haRole                String   @default("PRIMARY") // PRIMARY, STANDBY
+  haPartnerUrl          String?  @default("http://192.168.1.101:3000")
+  haAutoFailover        Boolean  @default(true)
+  tokenSequence         Int      @default(1)
+  invoiceSequence       Int      @default(1)
+  orderSequence         Int      @default(1)
+  updatedAt             DateTime @updatedAt
+  createdAt             DateTime @default(now())
 }
 
 model ProductCategory {
@@ -43,6 +53,11 @@ model Product {
   taxRate               Float             @default(19.0)
   buttonColor           String?           @default("#3b82f6")
   status                String            @default("ACTIVE") // ACTIVE, INACTIVE, HIDDEN
+  isSoldOut             Boolean           @default(false)
+  trackStock            Boolean           @default(false)
+  stockQuantity         Int               @default(0)
+  stockAlertThreshold   Int               @default(10)
+  subCategory           String?           // BIER, WEIN, ALKOHOLFREI, HEISS, BAR
   sortIndex             Int               @default(0)
   categoryId            String
   category              ProductCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -60,6 +75,7 @@ model ProductVariant {
   product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   name       String
   priceDelta Float    @default(0.0)
+  isSoldOut  Boolean  @default(false)
   sortIndex  Int      @default(0)
 }
 
@@ -86,6 +102,7 @@ model DiningTable {
   gridX            Int       @default(0)
   gridY            Int       @default(0)
   status           String    @default("FREE") // FREE, OCCUPIED, HIDDEN, INACTIVE
+  isActive         Boolean   @default(true)
   activeWaiterName String?
   orders           Order[]
   payments         Payment[]

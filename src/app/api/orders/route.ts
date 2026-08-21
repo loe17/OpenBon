@@ -184,6 +184,27 @@ export async function POST(req: Request) {
       });
     }
 
+    // Deduct stock for tracked products
+    for (const item of order.items) {
+      if (item.product.trackStock) {
+        const newQty = Math.max(0, item.product.stockQuantity - item.quantity);
+        const autoSoldOut = newQty === 0;
+        const updatedProd = await prisma.product.update({
+          where: { id: item.productId },
+          data: {
+            stockQuantity: newQty,
+            isSoldOut: autoSoldOut ? true : item.product.isSoldOut,
+          },
+        });
+        if (global.io) {
+          global.io.emit('product:updated', updatedProd);
+          if (autoSoldOut) {
+            global.io.emit('stock:sold_out', { productId: item.productId, name: item.product.name });
+          }
+        }
+      }
+    }
+
     // 4. Trigger Ticket Routing & ESC/POS Printing
     try {
       await TicketSplitter.routeAndPrintOrder({

@@ -6,7 +6,6 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     const body = await req.json();
     const productId = params.id;
 
-    // Delete existing variants/options and replace if provided
     if (body.variants) {
       await prisma.productVariant.deleteMany({ where: { productId } });
     }
@@ -18,12 +17,17 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       where: { id: productId },
       data: {
         name: body.name,
-        alternativeTicketName: body.alternativeTicketName || null,
+        alternativeTicketName: body.alternativeTicketName !== undefined ? body.alternativeTicketName : undefined,
         price: body.price !== undefined ? parseFloat(body.price) : undefined,
         deposit: body.deposit !== undefined ? parseFloat(body.deposit) : undefined,
         taxRate: body.taxRate !== undefined ? parseFloat(body.taxRate) : undefined,
         buttonColor: body.buttonColor,
         status: body.status,
+        isSoldOut: body.isSoldOut !== undefined ? body.isSoldOut : undefined,
+        trackStock: body.trackStock !== undefined ? body.trackStock : undefined,
+        stockQuantity: body.stockQuantity !== undefined ? parseInt(body.stockQuantity, 10) : undefined,
+        stockAlertThreshold: body.stockAlertThreshold !== undefined ? parseInt(body.stockAlertThreshold, 10) : undefined,
+        subCategory: body.subCategory !== undefined ? body.subCategory : undefined,
         sortIndex: body.sortIndex,
         categoryId: body.categoryId,
         printGroupId: body.printGroupId !== undefined ? body.printGroupId : undefined,
@@ -32,6 +36,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
               create: body.variants.map((v: any, idx: number) => ({
                 name: v.name,
                 priceDelta: parseFloat(v.priceDelta || 0),
+                isSoldOut: v.isSoldOut ?? false,
                 sortIndex: idx,
               })),
             }
@@ -49,8 +54,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       include: {
         variants: true,
         options: true,
-        stockItem: true,
         printGroup: true,
+        category: true,
       },
     });
 
@@ -66,7 +71,6 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   try {
-    // Soft-delete: mark as HIDDEN to preserve order history
     const updated = await prisma.product.update({
       where: { id: params.id },
       data: { status: 'HIDDEN' },

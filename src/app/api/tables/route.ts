@@ -3,9 +3,18 @@ import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
 import { TicketData } from '@/lib/printer/types';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const includeInactive = searchParams.get('all') === 'true';
+
+    const where: any = {};
+    if (!includeInactive) {
+      where.isActive = true;
+    }
+
     const tables = await prisma.diningTable.findMany({
+      where: includeInactive ? {} : { isActive: true },
       orderBy: { tableNumber: 'asc' },
       include: {
         orders: {
@@ -45,6 +54,7 @@ export async function GET() {
         gridX: t.gridX,
         gridY: t.gridY,
         status,
+        isActive: t.isActive,
         activeWaiterName: t.activeWaiterName,
         openGrossAmount,
         openItemCount,
@@ -81,6 +91,7 @@ export async function POST(req: Request) {
               gridX: c,
               gridY: r,
               status: 'FREE',
+              isActive: true,
             },
           });
           createdTables.push(table);
@@ -127,6 +138,7 @@ export async function POST(req: Request) {
         gridX: body.gridX || 0,
         gridY: body.gridY || 0,
         status: body.status || 'FREE',
+        isActive: body.isActive ?? true,
       },
     });
 
@@ -143,7 +155,7 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
-    // Batch update positions or single table update
+
     if (Array.isArray(body.tables)) {
       for (const t of body.tables) {
         await prisma.diningTable.update({
@@ -153,6 +165,7 @@ export async function PUT(req: Request) {
             gridY: t.gridY,
             label: t.label,
             status: t.status,
+            isActive: t.isActive ?? true,
           },
         });
       }
@@ -169,6 +182,7 @@ export async function PUT(req: Request) {
         gridX: body.gridX,
         gridY: body.gridY,
         status: body.status,
+        isActive: body.isActive !== undefined ? body.isActive : undefined,
       },
     });
 
@@ -177,6 +191,22 @@ export async function PUT(req: Request) {
     }
 
     return NextResponse.json(updated);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'Tisch-ID fehlt' }, { status: 400 });
+
+    await prisma.diningTable.delete({ where: { id } });
+    if (global.io) {
+      global.io.emit('tables:updated_all');
+    }
+    return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -46,6 +46,54 @@ class NetworkSpooler {
     }
   }
 
+  public async sendRawBuffer(
+    printer: { id?: string; name: string; ipAddress: string; port: number; isVirtual: boolean; paperWidth?: number },
+    rawBuffer: Buffer,
+    textRepresentation?: string
+  ): Promise<{ success: boolean; isVirtual: boolean; error?: string }> {
+    if (printer.isVirtual) {
+      const record: VirtualTicketRecord = {
+        id: Math.random().toString(36).substring(2, 9),
+        printerName: printer.name,
+        printerIp: printer.ipAddress,
+        ticketData: { title: 'Druckauftrag', items: [] },
+        rawText: textRepresentation || '[ESC/POS Binärdaten]',
+        printedAt: new Date().toISOString(),
+      };
+
+      if (!global.virtualPrinterHistory) global.virtualPrinterHistory = [];
+      global.virtualPrinterHistory.unshift(record);
+      if (global.virtualPrinterHistory.length > 100) global.virtualPrinterHistory.pop();
+
+      if (global.io) {
+        global.io.emit('virtual_printer:new_ticket', record);
+      }
+      return { success: true, isVirtual: true };
+    }
+
+    return new Promise((resolve) => {
+      const client = new net.Socket();
+      client.setTimeout(5000);
+
+      client.connect(printer.port || 9100, printer.ipAddress, () => {
+        client.write(rawBuffer, () => {
+          client.end();
+          resolve({ success: true, isVirtual: false });
+        });
+      });
+
+      client.on('error', (err) => {
+        client.destroy();
+        resolve({ success: false, isVirtual: false, error: err.message });
+      });
+
+      client.on('timeout', () => {
+        client.destroy();
+        resolve({ success: false, isVirtual: false, error: `Timeout bei ${printer.ipAddress}:${printer.port}` });
+      });
+    });
+  }
+
   private async processVirtualPrint(job: SpoolJob): Promise<{ success: boolean; isVirtual: boolean }> {
     const { textRepresentation } = EscPosBuilder.buildTicket(job.ticketData, job.paperWidth);
     
@@ -58,21 +106,15 @@ class NetworkSpooler {
       printedAt: new Date().toISOString(),
     };
 
-    // Store in global history (max 100 tickets)
     if (!global.virtualPrinterHistory) global.virtualPrinterHistory = [];
     global.virtualPrinterHistory.unshift(record);
     if (global.virtualPrinterHistory.length > 100) {
       global.virtualPrinterHistory.pop();
     }
 
-    // Broadcast to browser clients via Socket.io
     if (global.io) {
       global.io.emit('virtual_printer:new_ticket', record);
     }
-
-    console.log(`[VIRTUELLER DRUCKER: ${job.printerName}]`);
-    console.log(textRepresentation);
-    console.log(`--------------------------------------------------`);
 
     return { success: true, isVirtual: true };
   }
@@ -92,10 +134,8 @@ class NetworkSpooler {
     } catch (err: any) {
       console.error(`[ERROR] Fehler beim Drucken auf ${job.printerName} (${job.printerIp}):`, err.message);
       
-      // Auto retry up to 3 times before error alert
       if (job.retries < 3) {
         job.retries++;
-        console.log(`[RETRY] Wiederhole Druckauftrag fuer ${job.printerName} (Versuch ${job.retries}/3)...`);
         this.queue.push(job);
       } else {
         if (global.io) {
