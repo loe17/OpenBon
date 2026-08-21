@@ -12,6 +12,12 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('[OPENBON] Starte Initialisierung der Demo-Daten...');
 
+  const existingTables = await prisma.diningTable.count();
+  if (existingTables > 0) {
+    console.log('[OK] Datenbank enthält bereits Daten. Seeding übersprungen.');
+    return;
+  }
+
   // 1. Event-Konfiguration
   await prisma.eventConfig.upsert({
     where: { id: 'default' },
