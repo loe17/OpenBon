@@ -3,7 +3,7 @@
 /.pnp
 .pnp.js
 
-# Testing
+# Testing & Coverage
 /coverage
 
 # Next.js build output
@@ -28,11 +28,22 @@ prisma/*.db-shm
 .env
 .env*.local
 
-# Debug logs
+# Logs & Temp files
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.tmp
+
+# AI / Assistant / Internal Planning Files
+IMPLEMENTIERUNGSPLAN.md
+IMPLEMENTIERUNGSPLAN*.md
+implementation_plan.md
+walkthrough.md
+.gemini/
+.system_generated/
+scratch/
 
 # Vercel & IDE
 .vercel

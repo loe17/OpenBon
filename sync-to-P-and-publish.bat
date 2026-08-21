@@ -21,7 +21,7 @@ if not exist "%TARGET_DIR%" (
 
 REM 2. Synchronisiere alle Dateien von C: nach P: (ohne temporaere Cache-Ordner)
 echo [2/4] Kopiere geaenderte Projektdateien nach P:\Projekte\OpenBon...
-robocopy "%SOURCE_DIR%." "%TARGET_DIR%." /E /XD node_modules .next .git .system_generated .gemini /XF dev.db dev.db-journal *.log /NDL /NFL /NJH /NJS /nc /ns /np
+robocopy "%SOURCE_DIR%." "%TARGET_DIR%." /E /XD node_modules .next .git .system_generated .gemini /XF dev.db dev.db-journal *.log IMPLEMENTIERUNGSPLAN*.md implementation_plan.md walkthrough.md *.tmp /NDL /NFL /NJH /NJS /nc /ns /np
 
 REM 3. In P:\Projekte\OpenBon wechseln und Git konfigurieren
 echo [3/4] Wechsle nach %TARGET_DIR% und konfiguriere Git...
