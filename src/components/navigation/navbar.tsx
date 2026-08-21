@@ -88,7 +88,7 @@ export default function Navbar() {
     if (newRole === 'WAITER') router.push('/waiter');
     else if (newRole === 'POS_CASHIER') router.push('/pos');
     else if (newRole === 'KITCHEN') router.push('/kitchen');
-    else if (newRole === 'ADMIN') router.push('/admin/products');
+    else if (newRole === 'ADMIN') router.push('/admin/dashboard');
   };
 
   const handleLinkClick = (e: React.MouseEvent, href: string) => {
@@ -119,6 +119,7 @@ export default function Navbar() {
   };
 
   const navLinks = [
+    { href: '/admin/dashboard', label: 'Admin Command Center', icon: LayoutDashboard, roles: ['ADMIN'] },
     { href: '/waiter', label: 'Bedienung (Tische)', icon: Smartphone, roles: ['WAITER', 'ADMIN'] },
     { href: '/pos', label: 'Bonkasse (Theke)', icon: CreditCard, roles: ['POS_CASHIER', 'ADMIN'] },
     { href: '/kitchen', label: 'Küchenmonitor', icon: ChefHat, roles: ['KITCHEN', 'ADMIN'] },
@@ -130,7 +131,7 @@ export default function Navbar() {
     { href: '/admin/devices', label: 'Geräteübersicht', icon: Users, roles: ['ADMIN'] },
     { href: '/admin/qr-codes', label: 'QR-Code Beitritts-Center', icon: QrCode, roles: ['ADMIN'] },
     { href: '/admin/inventory', label: 'Lagerbestand', icon: HardDrive, roles: ['ADMIN'] },
-    { href: '/admin/reports', label: 'Auswertungen & Z-Bon', icon: BarChart3, roles: ['ADMIN'] },
+    { href: '/admin/reports', label: 'Auswertungen & Vorhersagen', icon: BarChart3, roles: ['ADMIN'] },
     { href: '/admin/system-update', label: 'System-Update & Konsole', icon: Terminal, roles: ['ADMIN'] },
     { href: '/admin/settings', label: 'Einstellungen & Backup', icon: Settings, roles: ['ADMIN'] },
   ];

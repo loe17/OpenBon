@@ -15,6 +15,8 @@ import {
   ShieldCheck,
   Layers,
   Sparkles,
+  Globe,
+  Wifi,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
@@ -36,6 +38,7 @@ export default function QrCodesPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [printers, setPrinters] = useState<any[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = useState('');
+  const [useDomainUrl, setUseDomainUrl] = useState(false); // true: openbon.local, false: IP
   const [stations, setStations] = useState<StationQR[]>([
     {
       id: 'waiter',
@@ -71,7 +74,7 @@ export default function QrCodesPage() {
     },
   ]);
 
-  const fetchNetworkAndGenerate = async () => {
+  const fetchNetworkAndGenerate = async (preferDomain = useDomainUrl) => {
     try {
       const [ipRes, prnRes] = await Promise.all([
         fetch('/api/network-ip'),
@@ -86,7 +89,9 @@ export default function QrCodesPage() {
         if (prnData.length > 0) setSelectedPrinterId(prnData[0].id);
       }
 
-      const baseUrl = ipData.baseUrl || window.location.origin;
+      const baseUrl = preferDomain
+        ? ipData.localDomainUrl || 'http://openbon.local:3000'
+        : ipData.ipBaseUrl || ipData.baseUrl || window.location.origin;
 
       const generated = await Promise.all(
         stations.map(async (s) => {
@@ -109,8 +114,8 @@ export default function QrCodesPage() {
   };
 
   useEffect(() => {
-    fetchNetworkAndGenerate();
-  }, []);
+    fetchNetworkAndGenerate(useDomainUrl);
+  }, [useDomainUrl]);
 
   const handleCopy = (id: string, text: string) => {
     triggerHapticFeedback();
@@ -126,20 +131,6 @@ export default function QrCodesPage() {
     }
 
     try {
-      const printer = printers.find((p) => p.id === selectedPrinterId);
-      if (!printer) return;
-
-      const ticketData = {
-        title: 'STATIONS-BEITRITT',
-        tableLabel: station.title.toUpperCase(),
-        waiterName: 'OpenBon Admin',
-        items: [
-          { name: `Rolle: ${station.role}`, quantity: 1, unitPrice: 0.0 },
-          { name: `URL: ${station.fullUrl}`, quantity: 1, unitPrice: 0.0 },
-        ],
-        footerText: 'QR-Code mit Smartphone-Kamera scannen zum Beitreten!',
-      };
-
       await fetch('/api/printers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -157,18 +148,46 @@ export default function QrCodesPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-800">
         <div className="flex items-center gap-3">
-          <div className="bg-blue-600 text-white p-2.5 rounded-2xl">
+          <div className="bg-blue-600 text-white p-2.5 rounded-2xl shadow">
             <QrCode className="w-6 h-6" />
           </div>
           <div>
             <h1 className="text-2xl font-black">QR-Code Beitritts-Center</h1>
             <p className="text-xs text-slate-400">
-              Scanne QR-Codes mit Smartphone oder Tablet, um Geräte direkt mit der passenden Rolle einzubinden
+              Scanne QR-Codes mit Smartphone oder Tablet, um Geräte direkt in der passenden Rolle einzubinden
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Domain vs IP Switcher */}
+          <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700 p-1 rounded-2xl">
+            <button
+              onClick={() => {
+                triggerHapticFeedback();
+                setUseDomainUrl(false);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                !useDomainUrl ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Wifi className="w-3.5 h-3.5" />
+              <span>WLAN-IP</span>
+            </button>
+            <button
+              onClick={() => {
+                triggerHapticFeedback();
+                setUseDomainUrl(true);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                useDomainUrl ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>openbon.local</span>
+            </button>
+          </div>
+
           {printers.length > 0 && (
             <select
               value={selectedPrinterId}
@@ -184,29 +203,31 @@ export default function QrCodesPage() {
           )}
 
           <button
-            onClick={fetchNetworkAndGenerate}
+            onClick={() => fetchNetworkAndGenerate(useDomainUrl)}
             className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-semibold text-slate-300 transition"
           >
             <RefreshCw className="w-4 h-4" />
-            <span>Neu generieren</span>
+            <span>Neu laden</span>
           </button>
         </div>
       </div>
 
       {/* Network Server Banner */}
-      <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">
-            Server-Adresse im Festzelt-WLAN:
+      <div className="p-4 rounded-3xl bg-slate-900 border border-slate-800 mb-6 flex flex-wrap items-center justify-between gap-4 shadow-xl">
+        <div className="space-y-1">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
+            Aktive Server-Adresse:
           </span>
-          <div className="text-xl sm:text-2xl font-mono font-black text-blue-400">
-            {networkInfo?.baseUrl || 'http://127.0.0.1:3000'}
+          <div className="text-xl sm:text-3xl font-mono font-black text-blue-400 flex items-center gap-3">
+            <span>{useDomainUrl ? networkInfo?.localDomainUrl || 'http://openbon.local:3000' : networkInfo?.ipBaseUrl || 'http://127.0.0.1:3000'}</span>
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+              {useDomainUrl ? 'mDNS Bonjour' : 'IPv4 Direct'}
+            </span>
           </div>
         </div>
 
         <div className="text-xs text-slate-400 max-w-sm">
-          Alle Geräte im selben WLAN können diese QR-Codes mit der Standard-Kamera-App scannen und starten sofort in
-          der gewählten Rolle.
+          Alle Smartphones im selben WLAN können diese QR-Codes mit der Standard-Kamera scannen und starten sofort ohne Passwort.
         </div>
       </div>
 

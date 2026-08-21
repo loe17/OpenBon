@@ -157,7 +157,7 @@ export default function HomePage() {
 
         {/* Card 4: Administration & Setup (PIN Protected) */}
         <button
-          onClick={() => selectRole('ADMIN', '/admin/products')}
+          onClick={() => selectRole('ADMIN', '/admin/dashboard')}
           className="pos-touch-btn flex flex-col text-left p-6 rounded-3xl bg-slate-900 border border-slate-700 hover:border-purple-500 shadow-xl transition-all group min-h-[220px] justify-between"
         >
           <div>
@@ -165,15 +165,15 @@ export default function HomePage() {
               <ShieldCheck className="w-7 h-7" />
             </div>
             <h2 className="text-xl font-black text-white mb-1.5 group-hover:text-purple-400 transition-colors flex items-center gap-2">
-              <span>Verwaltung & Setup</span>
+              <span>Admin Command Center</span>
               <Lock className="w-4 h-4 text-purple-400" />
             </h2>
             <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
-              Preislisten, Tischplan-Designer, ESC/POS-Druckergruppen, Lagerbestand und Z-Bon Berichte.
+              Echtzeit-Leitstand, Umsatzprognosen, Preislisten, Tischplan-Designer, Drucker und Z-Bon.
             </p>
           </div>
           <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between text-xs font-bold text-purple-400 w-full">
-            <span>Verwaltung (PIN) →</span>
+            <span>Leitstand öffnen (PIN) →</span>
             <span className="bg-purple-950 px-2.5 py-1 rounded-lg border border-purple-800 text-[11px]">Admin</span>
           </div>
         </button>

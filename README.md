@@ -7,7 +7,12 @@
 
 ## Hauptfunktionen
 
-- **100% Plattformunabhängig (PWA)**: Läuft auf jedem Gerät im Webbrowser (iOS Safari, Android Chrome, Windows, Mac, Linux) – keine App-Store-Downloads erforderlich.
+- **100% Plattformunabhängig & Zero-Config mDNS**: Zugriff wahlweise über **`http://openbon.local:3000`** oder die lokale WLAN-IP auf allen Geräten (iOS Safari, Android Chrome, Windows, Mac, Linux).
+- **Admin Command Center (`/admin/dashboard`)**: Zentraler Echtzeit-Leitstand für Live-Umsätze, offene Tische, Küchenauslastung, Gerätegesundheit und Schnellaktionen.
+- **Intelligente Trend- & Bedarfsvorhersage (`/admin/reports`)**:
+  - Interaktive SVG-Grafiken für stündlichen Umsatzverlauf (Peak Hours) und Warengruppen-Umsatzanteile
+  - Statistische Hochrechnung des Tagesumsatzes zum Schichtende
+  - Automatische Stoßzeiten-Erkennung & Lager-Nachschubwarnungen
 - **Rollen-Sicherheit & PIN-Schutz**: 4-stelliger Admin-PIN schützt Preislisten, Einstellungen und Berichte. Helfer-Smartphones werden in ihrer Station arretiert.
 - **QR-Code Beitritts-Center**: Helfer treten Stationen (Bedienung, Kasse, Küche) blitzschnell per Scan bei. QR-Codes können direkt auf Thermobondruckern ausgedruckt werden.
 - **2-Rechner-Hochverfügbarkeit (HA Failover)**: Primär- und Ersatzserver spiegeln Transaktionen in Echtzeit (<3s automatischer Failover bei PC-Ausfall).

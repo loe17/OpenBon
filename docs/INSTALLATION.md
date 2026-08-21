@@ -80,14 +80,14 @@ OpenBon ist als moderne **Progressive Web App (PWA)** konzipiert. Es ist kein Do
 
 ### Apple iOS (iPhone & iPad):
 1. Verbinde das Gerät mit dem Festzelt-WLAN.
-2. Öffne Safari und rufe die Server-Adresse auf (z. B. `http://192.168.1.100:3000`).
+2. Öffne Safari und rufe **`http://openbon.local:3000`** oder die Server-IP auf (z. B. `http://192.168.1.100:3000`).
 3. Alternativ: Scanne den QR-Code aus dem **QR-Code Beitritts-Center** (`/admin/qr-codes`).
 4. Tippe unten in Safari auf das **Teilen-Symbol** (Viereck mit Pfeil nach oben).
 5. Wähle **"Zum Home-Bildschirm"**.
 6. OpenBon startet fortan als **echte Vollbild-App** ohne Browser-Leisten!
 
 ### Android (Smartphones & Tablets):
-1. Öffne Google Chrome und rufe die Kassen-URL auf (oder scanne den Stations-QR-Code).
+1. Öffne Google Chrome und rufe **`http://openbon.local:3000`** oder die Server-IP auf (oder scanne den Stations-QR-Code).
 2. Tippe oben rechts auf die 3 Punkte und wähle **"App installieren"** oder **"Zum Startbildschirm hinzufügen"**.
 3. Die App wird als native WebAPK installiert und läuft im echten Vollbildmodus.
 

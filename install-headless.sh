@@ -21,9 +21,11 @@ fi
 INSTALL_DIR="/opt/openbon"
 SERVICE_USER="${SUDO_USER:-$USER}"
 
-echo "[1/6] Aktualisiere Paketquellen & installiere Basis-Tools..."
+echo "[1/6] Aktualisiere Paketquellen & installiere Basis-Tools & mDNS (avahi)..."
 apt-get update -y
-apt-get install -y curl git build-essential
+apt-get install -y curl git build-essential avahi-daemon avahi-utils
+systemctl enable avahi-daemon 2>/dev/null || true
+systemctl restart avahi-daemon 2>/dev/null || true
 
 # 2. Node.js 20+ installieren, falls nicht vorhanden
 if ! command -v node &> /dev/null || [ "$(node -v | cut -d'.' -f1 | tr -d 'v')" -lt 18 ]; then

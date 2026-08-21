@@ -1,24 +1,29 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { computeHourlySales, computeForecast } from '@/lib/forecast';
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const format = searchParams.get('format'); // 'json' or 'csv'
 
-    // 1. Fetch all real (non-training) completed payments
-    const payments = await prisma.payment.findMany({
-      where: { isCancelled: false, isTraining: false },
-      include: {
-        table: true,
-        items: true,
-      },
-    });
-
-    // 2. Fetch all orders to compute item sales counts
-    const orderItems = await prisma.orderItem.findMany({
-      where: { isCancelled: false, order: { isTraining: false } },
-    });
+    // 1. Fetch all real (non-training) completed payments & orders
+    const [payments, orders, products, categories] = await Promise.all([
+      prisma.payment.findMany({
+        where: { isCancelled: false, isTraining: false },
+        include: { table: true, items: true },
+      }),
+      prisma.order.findMany({
+        where: { isCancelled: false, isTraining: false },
+        include: { items: true },
+      }),
+      prisma.product.findMany({
+        include: { stockItem: true, category: true, orderItems: true },
+      }),
+      prisma.productCategory.findMany({
+        include: { products: { include: { orderItems: true } } },
+      }),
+    ]);
 
     // Aggregate totals
     let totalGross = 0;
@@ -27,6 +32,7 @@ export async function GET(req: Request) {
     let totalTax7 = 0;
     let totalCash = 0;
     let totalCard = 0;
+    let totalStaff = 0;
     let totalDepositCharged = 0;
     let totalDepositReturned = 0;
     let totalTips = 0;
@@ -47,7 +53,7 @@ export async function GET(req: Request) {
     for (const p of payments) {
       totalGross += p.totalGross;
       totalNet += p.totalNet;
-      totalTax19 += (p.totalTax || 0);
+      totalTax19 += p.totalTax || 0;
       totalDepositCharged += p.totalDeposit;
       totalDepositReturned += p.returnDeposit;
       totalTips += p.tipAmount;
@@ -57,6 +63,8 @@ export async function GET(req: Request) {
         totalCash += p.totalGross;
       } else if (p.paymentMethod.startsWith('CARD')) {
         totalCard += p.totalGross;
+      } else if (p.paymentMethod.startsWith('NON_PAID')) {
+        totalStaff += p.totalGross;
       }
 
       // Waiter breakdown
@@ -85,16 +93,45 @@ export async function GET(req: Request) {
 
     // Top selling items
     const productStats = new Map<string, { name: string; quantity: number; revenue: number }>();
-    for (const item of orderItems) {
-      if (!productStats.has(item.productName)) {
-        productStats.set(item.productName, { name: item.productName, quantity: 0, revenue: 0 });
+    for (const ord of orders) {
+      for (const item of ord.items) {
+        if (item.isCancelled) continue;
+        if (!productStats.has(item.productName)) {
+          productStats.set(item.productName, { name: item.productName, quantity: 0, revenue: 0 });
+        }
+        const s = productStats.get(item.productName)!;
+        s.quantity += item.quantity;
+        s.revenue += (item.unitPrice + (item.deposit || 0)) * item.quantity;
       }
-      const s = productStats.get(item.productName)!;
-      s.quantity += item.quantity;
-      s.revenue += (item.unitPrice + (item.deposit || 0)) * item.quantity;
     }
 
     const topProducts = Array.from(productStats.values()).sort((a, b) => b.quantity - a.quantity);
+
+    // Hourly Sales & Forecast Analysis
+    const hourlySales = computeHourlySales(orders);
+    const forecast = computeForecast(hourlySales, totalGross, [], products);
+
+    // Category Breakdown
+    const categoryBreakdown = categories.map((c) => {
+      let revenue = 0;
+      let count = 0;
+      for (const p of c.products) {
+        for (const itm of p.orderItems || []) {
+          if (!itm.isCancelled) {
+            revenue += (itm.unitPrice + (itm.deposit || 0)) * itm.quantity;
+            count += itm.quantity;
+          }
+        }
+      }
+      return {
+        id: c.id,
+        name: c.name,
+        color: c.color || '#3b82f6',
+        revenue: Math.round(revenue * 100) / 100,
+        count,
+        percent: totalGross > 0 ? Math.round((revenue / totalGross) * 1000) / 10 : 0,
+      };
+    });
 
     const summary = {
       totalGross,
@@ -103,26 +140,54 @@ export async function GET(req: Request) {
       totalTax7,
       totalCash,
       totalCard,
+      totalStaff,
       totalDepositCharged,
       totalDepositReturned,
+      netDepositBalance: totalDepositCharged - totalDepositReturned,
       totalTips,
       totalDiscounts,
-      totalTransactions: payments.length,
+      transactionCount: payments.length,
+      ordersCount: orders.length,
       waiters: Array.from(waiterMap.values()),
       topProducts,
+      hourlySales,
+      categoryBreakdown,
+      forecast,
+      exportedAt: new Date().toISOString(),
     };
 
     if (format === 'csv') {
-      // Generate CSV
-      let csv = 'Beleg-Nr;Datum;Uhrzeit;Bedienung;Tisch;Zahlart;Brutto;Netto;MwSt;Pfand_Ein;Rueckpfand;Trinkgeld\n';
-      for (const p of payments) {
-        const d = new Date(p.createdAt);
-        csv += `${p.invoiceNumber};${d.toLocaleDateString('de-DE')};${d.toLocaleTimeString('de-DE')};"${p.waiterName}";"${p.table?.label || 'Direkt'}";${p.paymentMethod};${p.totalGross.toFixed(2)};${p.totalNet.toFixed(2)};${p.totalTax.toFixed(2)};${p.totalDeposit.toFixed(2)};${p.returnDeposit.toFixed(2)};${p.tipAmount.toFixed(2)}\n`;
+      const csvLines: string[] = [];
+      csvLines.push('OpenBon Kassenabschluss & Z-Bon Bericht');
+      csvLines.push(`Export-Datum;${new Date().toLocaleString('de-DE')}`);
+      csvLines.push('');
+      csvLines.push('KENNZAHL;WERT');
+      csvLines.push(`Gesamtumsatz Brutto;${totalGross.toFixed(2)} EUR`);
+      csvLines.push(`Gesamtumsatz Netto;${totalNet.toFixed(2)} EUR`);
+      csvLines.push(`MwSt 19%;${totalTax19.toFixed(2)} EUR`);
+      csvLines.push(`Bargeld (Ist);${totalCash.toFixed(2)} EUR`);
+      csvLines.push(`Kartenzahlung;${totalCard.toFixed(2)} EUR`);
+      csvLines.push(`Personal / Bewirtung;${totalStaff.toFixed(2)} EUR`);
+      csvLines.push(`Ausgezahlter Rueckpfand;${totalDepositReturned.toFixed(2)} EUR`);
+      csvLines.push(`Erhaltenes Kellner-Trinkgeld;${totalTips.toFixed(2)} EUR`);
+      csvLines.push(`Anzahl Belege;${payments.length}`);
+      csvLines.push('');
+      csvLines.push('KELLNER;BAR-UMSATZ;KARTEN-UMSATZ;TRINKGELD;RUECKPFAND;BELEGE');
+      for (const w of summary.waiters) {
+        csvLines.push(
+          `${w.waiterName};${w.cashGross.toFixed(2)};${w.cardGross.toFixed(2)};${w.tips.toFixed(2)};${w.depositReturned.toFixed(2)};${w.transactionCount}`
+        );
       }
-      return new Response(csv, {
+      csvLines.push('');
+      csvLines.push('ARTIKEL;MENGE;UMSATZ BRUTTO');
+      for (const p of topProducts) {
+        csvLines.push(`${p.name};${p.quantity};${p.revenue.toFixed(2)}`);
+      }
+
+      return new Response(csvLines.join('\n'), {
         headers: {
           'Content-Type': 'text/csv; charset=utf-8',
-          'Content-Disposition': `attachment; filename="Kassenbericht_${new Date().toISOString().slice(0, 10)}.csv"`,
+          'Content-Disposition': `attachment; filename="OpenBon_Z-Bon_${new Date().toISOString().slice(0, 10)}.csv"`,
         },
       });
     }

@@ -121,9 +121,52 @@ app.prepare().then(() => {
     console.log(`\n==================================================`);
     console.log(`[OPENBON] KASSENSYSTEM SERVER GESTARTET`);
     console.log(`[HTTP]    Lokale URL:   http://localhost:${port}`);
+    console.log(`[mDNS]    Domain-URL:   http://openbon.local:${port}`);
     console.log(`[NETZ]    Netzwerk-URL: http://${hostname}:${port}`);
     console.log(`[MODE]    Modus:        ${dev ? 'Entwicklung' : 'Produktion'}`);
     console.log(`[HA]      HA-Rolle:     ${process.env.HA_ROLE || 'PRIMARY'}`);
     console.log(`==================================================\n`);
+
+    // Start lightweight Zero-Config mDNS responder for openbon.local
+    try {
+      const dgram = require('dgram');
+      const os = require('os');
+      const mdnsSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+      
+      let localIp = '127.0.0.1';
+      const ifaces = os.networkInterfaces();
+      for (const name of Object.keys(ifaces)) {
+        for (const iface of ifaces[name] || []) {
+          if (!iface.internal && iface.family === 'IPv4') {
+            localIp = iface.address;
+            break;
+          }
+        }
+      }
+
+      mdnsSocket.on('message', (msg) => {
+        try {
+          const str = msg.toString('binary');
+          if (str.includes('openbon') && str.includes('local')) {
+            const ipParts = localIp.split('.').map((p) => parseInt(p, 10));
+            if (ipParts.length === 4) {
+              const resp = Buffer.from([
+                0x00, 0x00, 0x84, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+                0x07, 0x6f, 0x70, 0x65, 0x6e, 0x62, 0x6f, 0x6e, 0x05, 0x6c, 0x6f, 0x63, 0x61, 0x6c, 0x00,
+                0x00, 0x01, 0x80, 0x01, 0x00, 0x00, 0x00, 0x78, 0x00, 0x04,
+                ipParts[0], ipParts[1], ipParts[2], ipParts[3],
+              ]);
+              mdnsSocket.send(resp, 0, resp.length, 5353, '224.0.0.251');
+            }
+          }
+        } catch {}
+      });
+
+      mdnsSocket.bind(5353, () => {
+        try {
+          mdnsSocket.addMembership('224.0.0.251');
+        } catch {}
+      });
+    } catch {}
   });
 });
