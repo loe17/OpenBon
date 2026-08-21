@@ -17,7 +17,7 @@ Für Server ohne grafische Oberfläche (Ubuntu Server, Debian, DietPi, Raspberry
 
 ```bash
 # 1-Line Online Setup (inkl. systemd Dienst & Boot-Autostart)
-curl -fsSL https://raw.githubusercontent.com/openbon-pos/openbon/master/install-headless.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/loe17/OpenBon/master/install-headless.sh | sudo bash
 ```
 
 ### Manueller Start des Installers:
@@ -40,7 +40,7 @@ sudo bash install-headless.sh
 1. Installiere [Node.js 20 LTS für Windows](https://nodejs.org/).
 2. Repository herunterladen oder klonen:
    ```cmd
-   git clone https://github.com/openbon-pos/openbon.git
+   git clone https://github.com/loe17/OpenBon.git
    cd openbon
    npm install
    ```
@@ -55,7 +55,7 @@ sudo bash install-headless.sh
 
 ```bash
 # Repository klonen & installieren
-git clone https://github.com/openbon-pos/openbon.git
+git clone https://github.com/loe17/OpenBon.git
 cd openbon
 npm install
 

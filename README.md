@@ -55,12 +55,12 @@
 
 ### 1. Headless Linux & Raspberry Pi (1-Line Online Installer)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/openbon-pos/openbon/master/install-headless.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/loe17/OpenBon/master/install-headless.sh | sudo bash
 ```
 
 ### 2. Manuelle Installation
 ```bash
-git clone https://github.com/openbon-pos/openbon.git
+git clone https://github.com/loe17/OpenBon.git
 cd openbon
 npm install
 npx prisma db push

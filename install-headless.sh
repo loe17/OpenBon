@@ -2,6 +2,7 @@
 # ==============================================================================
 # OpenBon - Headless Linux & Raspberry Pi Auto-Installer
 # Unterstützt: Ubuntu, Debian, DietPi, Raspberry Pi OS (ARM64, ARMv7, x86_64)
+# Repository: https://github.com/loe17/OpenBon
 # ==============================================================================
 
 set -e
@@ -36,15 +37,17 @@ else
   echo "[2/6] Node.js bereits installiert: $(node -v)"
 fi
 
-# 3. Quellcode klonen oder aktualisieren
+# 3. Quellcode klonen oder aktualisieren von https://github.com/loe17/OpenBon.git
 echo "[3/6] Richte OpenBon unter $INSTALL_DIR ein..."
 if [ -d "$INSTALL_DIR/.git" ]; then
   echo "  -> Aktualisiere bestehendes Repository..."
   cd "$INSTALL_DIR"
+  git config --global --add safe.directory * >nul 2>nul || true
   git pull origin master || true
 else
+  echo "  -> Klone OpenBon von https://github.com/loe17/OpenBon.git..."
   mkdir -p "$INSTALL_DIR"
-  cp -r ./* "$INSTALL_DIR/" 2>/dev/null || true
+  git clone https://github.com/loe17/OpenBon.git "$INSTALL_DIR"
   cd "$INSTALL_DIR"
 fi
 
@@ -52,7 +55,7 @@ chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 
 # 4. Abhängigkeiten & Datenbank initialisieren
 echo "[4/6] Installiere npm-Abhängigkeiten & initialisiere Datenbank..."
-sudo -u "$SERVICE_USER" npm install --production=false
+sudo -u "$SERVICE_USER" npm install
 sudo -u "$SERVICE_USER" npx prisma db push --skip-generate
 sudo -u "$SERVICE_USER" node prisma/seed.js
 
@@ -87,16 +90,17 @@ systemctl enable openbon.service
 systemctl restart openbon.service
 
 # Lokale IP ermitteln
-IP_ADDR=$(hostname -I | awk '{print $1}')
+IP_ADDR=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1")
 
 echo ""
 echo "======================================================================"
 echo " [ERFOLG] OpenBon wurde erfolgreich als Hintergrunddienst installiert!"
 echo "======================================================================"
 echo ""
-echo "  -> Server-Status: systemctl status openbon"
-echo "  -> Web-Zugriff:   http://$IP_ADDR:3000"
-echo "  -> Admin-PIN:     1234 (in Einstellungen aenderbar)"
-echo "  -> Autostart:     Aktiviert (Startet automatisch bei Serverboot)"
+echo "  -> Web-Zugriff (mDNS): http://openbon.local:3000"
+echo "  -> Web-Zugriff (IP):   http://$IP_ADDR:3000"
+echo "  -> Server-Status:      systemctl status openbon"
+echo "  -> Admin-PIN:          1234 (in Einstellungen aenderbar)"
+echo "  -> Autostart:          Aktiviert (Startet automatisch bei Serverboot)"
 echo ""
 echo "======================================================================"
