@@ -30,24 +30,30 @@ export async function GET() {
     let latestReleaseBody: string | null = null;
     let latestReleaseUrl: string | null = null;
 
-    // 1. Prüfe offizielle GitHub Releases via GitHub API
+    // 1. Prüfe offizielle GitHub Tags & Releases via GitHub API
     try {
-      const ghRes = await fetch('https://api.github.com/repos/loe17/OpenBon/releases/latest', {
+      const ghTagsRes = await fetch('https://api.github.com/repos/loe17/OpenBon/tags', {
         headers: { 'User-Agent': 'OpenBon-POS-System' },
         signal: AbortSignal.timeout(4000),
       });
 
-      if (ghRes.ok) {
-        const releaseData = await ghRes.json();
-        if (releaseData && releaseData.tag_name) {
-          const remoteTag = releaseData.tag_name.replace(/^v/i, '');
-          latestReleaseVersion = remoteTag;
-          latestReleaseName = releaseData.name || `Release v${remoteTag}`;
-          latestReleaseBody = releaseData.body || '';
-          latestReleaseUrl = releaseData.html_url || GITHUB_REPO_URL;
+      if (ghTagsRes.ok) {
+        const tagsData = await ghTagsRes.json();
+        if (Array.isArray(tagsData) && tagsData.length > 0) {
+          const sorted = tagsData
+            .map((t: any) => (t.name || '').replace(/^v/i, ''))
+            .filter((v: string) => /^\d+\.\d+\.\d+/.test(v))
+            .sort((a: string, b: string) => compareSemver(b, a));
 
-          if (compareSemver(remoteTag, APP_VERSION) > 0) {
-            isNewRelease = true;
+          if (sorted.length > 0) {
+            const topTag = sorted[0];
+            latestReleaseVersion = topTag;
+            latestReleaseName = `Release v${topTag}`;
+            latestReleaseUrl = `https://github.com/loe17/OpenBon/releases/tag/v${topTag}`;
+
+            if (compareSemver(topTag, APP_VERSION) > 0) {
+              isNewRelease = true;
+            }
           }
         }
       }
