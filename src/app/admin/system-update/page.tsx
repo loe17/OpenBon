@@ -14,22 +14,31 @@ import {
   Play,
   RotateCcw,
   Trash2,
+  Tag,
+  ExternalLink,
+  ShieldCheck,
 } from 'lucide-react';
 import { APP_VERSION, GITHUB_REPO_URL } from '@/lib/version';
 import { triggerHapticFeedback } from '@/lib/socket-client';
+
 interface SystemInfo {
   currentVersion?: string;
+  version?: string;
   latestVersion?: string;
-  behindBy?: number;
   branch?: string;
   localCommit?: string;
   remoteStatus?: string;
   nodeVersion?: string;
   arch?: string;
   uptime?: number;
-  commits?: { hash: string; message: string; date: string; author?: string }[];
   hasUpdate?: boolean;
-  message?: string;
+  updateType?: 'RELEASE' | 'HOTFIX' | 'NONE';
+  isNewRelease?: boolean;
+  latestReleaseVersion?: string | null;
+  latestReleaseName?: string | null;
+  latestReleaseBody?: string | null;
+  latestReleaseUrl?: string | null;
+  pendingCommits?: string[];
 }
 
 interface TerminalLog {
@@ -66,13 +75,19 @@ export default function AdminSystemUpdatePage() {
       const res = await fetch('/api/system/update');
       const data = await res.json();
       setSysInfo(data);
-      if (data.pendingCommits && data.pendingCommits.length > 0) {
+
+      if (data.updateType === 'RELEASE') {
         addTerminalLog(
-          `[STATUS] ${data.pendingCommits.length} Update(s) auf GitHub verfügbar:\n${data.pendingCommits.join('\n')}`,
+          `[RELEASE-UPDATE] Neues offizielles Release v${data.latestReleaseVersion} (${data.latestReleaseName || ''}) auf GitHub verfügbar!\nAktuell installiert: v${APP_VERSION}`,
+          false
+        );
+      } else if (data.pendingCommits && data.pendingCommits.length > 0) {
+        addTerminalLog(
+          `[PATCH-UPDATE] ${data.pendingCommits.length} Hotfix-Commit(s) auf GitHub verfügbar:\n${data.pendingCommits.join('\n')}`,
           false
         );
       } else {
-        addTerminalLog(`[STATUS] Branch: ${data.branch || 'master'} | Commit: ${data.localCommit || '-'} | Remote: Aktuell`);
+        addTerminalLog(`[STATUS] System ist auf dem neuesten Stand (v${APP_VERSION}, Commit: ${data.localCommit || '-'})`);
       }
     } catch (e) {
       addTerminalLog(`Fehler bei Statusprüfung: ${e instanceof Error ? e.message : String(e)}`, true);
@@ -140,26 +155,39 @@ export default function AdminSystemUpdatePage() {
         body: JSON.stringify({ action: 'RESTART' }),
       });
       const data = await res.json();
-      if (data.success) {
-        addTerminalLog(data.stdout, false);
-      }
-    } catch {
-      // Ignore network break during restart
-    }
 
-    addTerminalLog('[NEUSTART] Server startet neu. Seite lädt in 3 Sekunden neu...', false);
-    setTimeout(() => {
-      window.location.reload();
-    }, 3500);
+      if (data.success) {
+        addTerminalLog(data.stdout || '[INFO] Neustart initiiert...', false);
+        addTerminalLog('[INFO] Bitte warte 3-5 Sekunden während der Dienst neu anläuft...', false);
+        setTimeout(() => {
+          window.location.reload();
+        }, 4000);
+      } else {
+        addTerminalLog(data.error || 'Fehler beim Neustarten', true);
+      }
+    } catch (e) {
+      addTerminalLog(`Netzwerkfehler: ${e instanceof Error ? e.message : String(e)}`, true);
+    }
   };
 
   const handleInstallUpdate = async () => {
-    if (updating) return;
-    if (!confirm('Möchtest du das neueste Update von GitHub jetzt herunterladen und installieren?')) return;
+    if (!sysInfo?.hasUpdate) return;
+
+    const label = sysInfo.updateType === 'RELEASE'
+      ? `Release v${sysInfo.latestReleaseVersion}`
+      : `${sysInfo.pendingCommits?.length || 1} neue(n) Commit(s)`;
+
+    if (
+      !confirm(
+        `OpenBon jetzt auf ${label} aktualisieren?\n\nDer Server lädt den neuesten Stand von GitHub, migriert die Datenbank, kompiliert den Build neu und startet sich automatisch wieder.`
+      )
+    ) {
+      return;
+    }
 
     triggerHapticFeedback();
     setUpdating(true);
-    addTerminalLog(`[START] Starte vollständigen Update-Prozess von GitHub (${GITHUB_REPO_URL})...`);
+    addTerminalLog(`[UPDATE-START] Starte Update auf ${label}...`, false);
 
     try {
       const res = await fetch('/api/system/update', {
@@ -170,16 +198,16 @@ export default function AdminSystemUpdatePage() {
       const data = await res.json();
 
       if (data.success) {
-        addTerminalLog(data.logs, false);
-        addTerminalLog('[NEUSTART] Server startet jetzt mit der neuen Version neu. Seite lädt in Kürze neu...', false);
+        addTerminalLog(data.logs || '[INFO] Update erfolgreich!', false);
+        addTerminalLog('[INFO] Der Server startet jetzt neu. Die Seite lädt sich in Kürze automatisch neu...', false);
         setTimeout(() => {
           window.location.reload();
-        }, 4000);
+        }, 5000);
       } else {
-        addTerminalLog(`[UPDATE FEHLGESCHLAGEN]: ${data.error}`, true);
+        addTerminalLog(data.logs || data.error || 'Fehler beim Update-Vorgang', true);
       }
     } catch (e) {
-      addTerminalLog(`[FEHLER]: ${e instanceof Error ? e.message : String(e)}`, true);
+      addTerminalLog(`Update-Fehler: ${e instanceof Error ? e.message : String(e)}`, true);
     } finally {
       setUpdating(false);
     }
@@ -190,11 +218,11 @@ export default function AdminSystemUpdatePage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white p-3 sm:p-6 max-w-6xl mx-auto w-full">
-      {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-800">
+    <div className="flex-1 flex flex-col h-full bg-slate-950 text-white p-3 sm:p-6 overflow-hidden">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="bg-blue-600 text-white p-2.5 rounded-2xl shadow">
+          <div className="p-2.5 rounded-2xl bg-blue-600/20 text-blue-400 border border-blue-500/30">
             <Terminal className="w-6 h-6" />
           </div>
           <div>
@@ -215,7 +243,8 @@ export default function AdminSystemUpdatePage() {
           <button
             onClick={fetchSystemStatus}
             disabled={checking}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-200 border border-slate-700 transition"
+            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-200 border border-slate-700 transition active:scale-95"
+            title="Auf GitHub nach neuen Releases und Commits suchen"
           >
             <RefreshCw className={`w-4 h-4 ${checking ? 'animate-spin' : ''}`} />
             <span>Prüfen</span>
@@ -223,32 +252,99 @@ export default function AdminSystemUpdatePage() {
 
           <button
             onClick={handleRestartServer}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-amber-950/60 hover:border-amber-700 text-amber-300 rounded-xl text-xs font-bold border border-slate-700 transition shadow"
+            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-amber-950/60 hover:border-amber-700 text-amber-300 rounded-xl text-xs font-bold border border-slate-700 transition shadow active:scale-95"
             title="Startet den Server-Prozess im Hintergrunddienst neu"
           >
             <RotateCcw className="w-4 h-4" />
             <span>Server neu starten</span>
           </button>
 
+          {/* Intelligenter Update-Button (Option C) */}
           <button
             onClick={handleInstallUpdate}
-            disabled={updating}
+            disabled={updating || !sysInfo?.hasUpdate}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black shadow-lg transition ${
               updating
                 ? 'bg-amber-600 text-white cursor-wait'
-                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/50'
+                : !sysInfo?.hasUpdate
+                ? 'bg-slate-900 border border-slate-800 text-slate-500 cursor-not-allowed opacity-60 shadow-none'
+                : sysInfo.updateType === 'RELEASE'
+                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/50 animate-pulse active:scale-95'
+                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-950/50 active:scale-95'
             }`}
+            title={
+              !sysInfo?.hasUpdate
+                ? 'Das System ist auf dem neuesten Stand. Kein Update erforderlich.'
+                : 'Klicken, um das Update von GitHub zu laden und zu installieren.'
+            }
           >
-            <DownloadCloud className={`w-4 h-4 ${updating ? 'animate-bounce' : ''}`} />
-            <span>{updating ? 'Installiert Update...' : 'Update installieren'}</span>
+            {updating ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Installiert Update...</span>
+              </>
+            ) : !sysInfo?.hasUpdate ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                <span>System ist aktuell (v{APP_VERSION})</span>
+              </>
+            ) : sysInfo.updateType === 'RELEASE' ? (
+              <>
+                <DownloadCloud className="w-4 h-4 animate-bounce" />
+                <span>Update auf v{sysInfo.latestReleaseVersion} installieren</span>
+              </>
+            ) : (
+              <>
+                <DownloadCloud className="w-4 h-4" />
+                <span>Patch installieren ({sysInfo.pendingCommits?.length} Commits)</span>
+              </>
+            )}
           </button>
         </div>
       </div>
 
+      {/* Release Banner if new official release is available */}
+      {sysInfo?.isNewRelease && sysInfo.latestReleaseVersion && (
+        <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 border-2 border-emerald-500/80 rounded-2xl p-4 mb-4 flex items-center justify-between shadow-xl animate-in slide-in-from-top">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/40">
+              <Tag className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-sm text-white">
+                  Neues offizielles Release verfügbar: v{sysInfo.latestReleaseVersion}
+                </span>
+                <span className="text-[10px] bg-emerald-900/80 text-emerald-300 font-mono font-bold px-2 py-0.5 rounded border border-emerald-700">
+                  Empfohlen
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5 line-clamp-1">
+                {sysInfo.latestReleaseName || 'Neue Funktionen & Stabilitätsverbesserungen'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {sysInfo.latestReleaseUrl && (
+              <a
+                href={sysInfo.latestReleaseUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="hidden sm:flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 transition"
+              >
+                <span>Release-Notes</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Status Info Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 shrink-0">
         <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800 flex items-center gap-3">
-          <GitBranch className="w-5 h-5 text-blue-400" />
+          <GitBranch className="w-5 h-5 text-blue-400 shrink-0" />
           <div className="min-w-0">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Branch & Commit</span>
             <span className="text-xs font-mono font-bold text-slate-200 truncate block">
@@ -258,7 +354,7 @@ export default function AdminSystemUpdatePage() {
         </div>
 
         <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800 flex items-center gap-3">
-          <Cpu className="w-5 h-5 text-emerald-400" />
+          <Cpu className="w-5 h-5 text-emerald-400 shrink-0" />
           <div className="min-w-0">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Umgebung</span>
             <span className="text-xs font-mono font-bold text-slate-200 truncate block">
@@ -268,7 +364,7 @@ export default function AdminSystemUpdatePage() {
         </div>
 
         <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800 flex items-center gap-3">
-          <Clock className="w-5 h-5 text-amber-400" />
+          <Clock className="w-5 h-5 text-amber-400 shrink-0" />
           <div className="min-w-0">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Server-Uptime</span>
             <span className="text-xs font-mono font-bold text-slate-200 truncate block">
@@ -279,9 +375,9 @@ export default function AdminSystemUpdatePage() {
 
         <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800 flex items-center gap-3">
           {sysInfo?.hasUpdate ? (
-            <AlertTriangle className="w-5 h-5 text-amber-400" />
+            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
           ) : (
-            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           )}
           <div className="min-w-0">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">GitHub-Status</span>
@@ -297,9 +393,9 @@ export default function AdminSystemUpdatePage() {
       </div>
 
       {/* Terminal View Container */}
-      <div className="flex-1 flex flex-col bg-black border border-slate-800 rounded-3xl overflow-hidden shadow-2xl font-mono text-xs">
+      <div className="flex-1 flex flex-col bg-black border border-slate-800 rounded-3xl overflow-hidden shadow-2xl font-mono text-xs min-h-0">
         {/* Terminal Header */}
-        <div className="px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between">
+        <div className="px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-rose-500/80 inline-block" />
             <span className="w-3 h-3 rounded-full bg-amber-500/80 inline-block" />
@@ -338,7 +434,7 @@ export default function AdminSystemUpdatePage() {
         </div>
 
         {/* Command Input Bar */}
-        <form onSubmit={handleExecuteCommand} className="p-3 bg-slate-950 border-t border-slate-800 flex items-center gap-2">
+        <form onSubmit={handleExecuteCommand} className="p-3 bg-slate-950 border-t border-slate-800 flex items-center gap-2 shrink-0">
           <span className="text-emerald-400 font-black pl-2">$</span>
           <input
             type="text"

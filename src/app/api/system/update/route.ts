@@ -1,19 +1,61 @@
 import { NextResponse } from 'next/server';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import path from 'path';
 import { APP_VERSION, GITHUB_REPO_URL } from '@/lib/version';
 
 const execAsync = promisify(exec);
 const projectRoot = process.cwd();
 
+function compareSemver(vA: string, vB: string): number {
+  const cleanA = vA.replace(/^v/i, '').split('.').map((p) => parseInt(p, 10) || 0);
+  const cleanB = vB.replace(/^v/i, '').split('.').map((p) => parseInt(p, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    const a = cleanA[i] || 0;
+    const b = cleanB[i] || 0;
+    if (a > b) return 1;
+    if (a < b) return -1;
+  }
+  return 0;
+}
+
 export async function GET() {
   try {
     let localCommit = 'Unbekannt';
     let branch = 'master';
-    let remoteStatus = 'System ist auf dem neuesten Stand';
     let pendingCommits: string[] = [];
 
+    let isNewRelease = false;
+    let latestReleaseVersion: string | null = null;
+    let latestReleaseName: string | null = null;
+    let latestReleaseBody: string | null = null;
+    let latestReleaseUrl: string | null = null;
+
+    // 1. Prüfe offizielle GitHub Releases via GitHub API
+    try {
+      const ghRes = await fetch('https://api.github.com/repos/loe17/OpenBon/releases/latest', {
+        headers: { 'User-Agent': 'OpenBon-POS-System' },
+        signal: AbortSignal.timeout(4000),
+      });
+
+      if (ghRes.ok) {
+        const releaseData = await ghRes.json();
+        if (releaseData && releaseData.tag_name) {
+          const remoteTag = releaseData.tag_name.replace(/^v/i, '');
+          latestReleaseVersion = remoteTag;
+          latestReleaseName = releaseData.name || `Release v${remoteTag}`;
+          latestReleaseBody = releaseData.body || '';
+          latestReleaseUrl = releaseData.html_url || GITHUB_REPO_URL;
+
+          if (compareSemver(remoteTag, APP_VERSION) > 0) {
+            isNewRelease = true;
+          }
+        }
+      }
+    } catch {
+      // Offline oder API-Ratelimit -> ignorieren und via Git prüfen
+    }
+
+    // 2. Prüfe Git-Commits auf master
     try {
       const { stdout: bOut } = await execAsync('git rev-parse --abbrev-ref HEAD', { cwd: projectRoot });
       branch = bOut.trim();
@@ -21,25 +63,34 @@ export async function GET() {
       const { stdout: cOut } = await execAsync('git rev-parse --short HEAD', { cwd: projectRoot });
       localCommit = cOut.trim();
 
-      // Configure safe directory if needed
+      // Configure safe directory
       await execAsync('git config --global --add safe.directory *', { cwd: projectRoot }).catch(() => {});
 
       // Fetch from remote
-      await execAsync('git fetch origin master', { cwd: projectRoot, timeout: 8000 }).catch(() => {});
+      await execAsync('git fetch origin master', { cwd: projectRoot, timeout: 6000 }).catch(() => {});
 
       const { stdout: diffOut } = await execAsync(`git log HEAD..origin/${branch} --oneline`, {
         cwd: projectRoot,
-        timeout: 5000,
+        timeout: 4000,
       }).catch(() => ({ stdout: '' }));
 
       if (diffOut.trim()) {
         pendingCommits = diffOut.trim().split('\n');
-        remoteStatus = `${pendingCommits.length} neue(s) Update(s) auf GitHub verfügbar`;
-      } else {
-        remoteStatus = 'System ist auf dem neuesten Stand';
       }
-    } catch (e) {
-      remoteStatus = 'System ist auf dem neuesten Stand';
+    } catch {}
+
+    const hasUpdate = isNewRelease || pendingCommits.length > 0;
+    const updateType: 'RELEASE' | 'HOTFIX' | 'NONE' = isNewRelease
+      ? 'RELEASE'
+      : pendingCommits.length > 0
+      ? 'HOTFIX'
+      : 'NONE';
+
+    let remoteStatus = 'System ist auf dem neuesten Stand';
+    if (updateType === 'RELEASE') {
+      remoteStatus = `Neues offizielles Release v${latestReleaseVersion} verfügbar`;
+    } else if (updateType === 'HOTFIX') {
+      remoteStatus = `${pendingCommits.length} neue(r) Hotfix-Commit(s) verfügbar`;
     }
 
     return NextResponse.json({
@@ -49,7 +100,13 @@ export async function GET() {
       branch,
       localCommit,
       remoteStatus,
-      hasUpdate: pendingCommits.length > 0,
+      hasUpdate,
+      updateType,
+      isNewRelease,
+      latestReleaseVersion,
+      latestReleaseName,
+      latestReleaseBody,
+      latestReleaseUrl,
       pendingCommits,
       nodeVersion: process.version,
       platform: process.platform,
@@ -103,7 +160,6 @@ export async function POST(req: Request) {
           duration,
         });
       } catch (err) {
-        // exec-Fehler tragen stdout/stderr als Zusatzfelder am Error-Objekt
         const execErr = err as { stdout?: string; stderr?: string };
         return NextResponse.json({
           success: false,
@@ -150,7 +206,6 @@ export async function POST(req: Request) {
         const duration = Math.round((Date.now() - startTime) / 1000);
         logs.push(`[ERFOLG] Update in ${duration}s abgeschlossen! Server startet automatisch neu...`);
 
-        // Trigger graceful process exit so systemd restarts the server with the new build
         setTimeout(() => {
           console.log('[UPDATE] Server startet neu, um die neue Version zu laden...');
           process.exit(0);
