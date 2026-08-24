@@ -830,6 +830,32 @@ export default function AdminSettingsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
                 <div>
+                  <div className="text-xs font-bold text-white">Gäste-Tischbestellung (BYOD QR)</div>
+                  <div className="text-[11px] text-slate-400">Gäste bestellen per QR-Code am Tisch selbst (/guest/table/1)</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={config.enableGuestSelfOrder ?? true}
+                  onChange={(e) => setConfig({ ...config, enableGuestSelfOrder: e.target.checked })}
+                  className="w-4 h-4 rounded text-blue-600"
+                />
+              </label>
+
+              <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
+                <div>
+                  <div className="text-xs font-bold text-white">SB-Kiosk Bestellterminal</div>
+                  <div className="text-[11px] text-slate-400">Selbstbedienungs-Terminal für Gäste (/kiosk)</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={config.enableKioskMode ?? false}
+                  onChange={(e) => setConfig({ ...config, enableKioskMode: e.target.checked })}
+                  className="w-4 h-4 rounded text-indigo-600"
+                />
+              </label>
+
+              <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
+                <div>
                   <div className="text-xs font-bold text-white">Gänge-Verwaltung (Gang 1, 2, 3)</div>
                   <div className="text-[11px] text-slate-400">Gänge-Auswahl auf Mobilteilen & Kasse anzeigen</div>
                 </div>

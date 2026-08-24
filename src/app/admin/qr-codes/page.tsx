@@ -16,6 +16,8 @@ import {
   Globe,
   Lock,
   FileDown,
+  Utensils,
+  LayoutGrid,
 } from 'lucide-react';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import type { LucideIcon } from 'lucide-react';
@@ -83,6 +85,24 @@ export default function QrCodesPage() {
       icon: ChefHat,
     },
     {
+      id: 'guest',
+      title: 'Gäste-Tischbestellung (BYOD)',
+      role: 'GUEST',
+      path: '/guest/table/1',
+      description: 'Gäste scannen den QR-Code am Tisch (z. B. Tisch 1) und bestellen direkt ohne Login',
+      pin: 'Kein PIN (Öffentlich)',
+      icon: Utensils,
+    },
+    {
+      id: 'kiosk',
+      title: 'SB-Bestellkiosk (Kiosk-Terminal)',
+      role: 'KIOSK',
+      path: '/kiosk',
+      description: 'Selbstbedienungs-Terminal für Gäste mit automatischer Abholnummer',
+      pin: 'Kein PIN (Öffentlich)',
+      icon: LayoutGrid,
+    },
+    {
       id: 'admin',
       title: 'Admin Command Center',
       role: 'ADMIN',
@@ -137,6 +157,7 @@ export default function QrCodesPage() {
           if (s.id === 'waiter') sPin = activePins.waiterPin;
           else if (s.id === 'pos') sPin = activePins.posPin;
           else if (s.id === 'kitchen') sPin = activePins.kitchenPin;
+          else if (s.id === 'guest' || s.id === 'kiosk') sPin = 'Kein PIN (Öffentlich)';
 
           const targetUrl = `${baseUrl}${s.path}`;
           const qrDataUrl = await QRCode.toDataURL(targetUrl, {
