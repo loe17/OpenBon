@@ -1,7 +1,4 @@
-# OpenBon - Professionelles Kassen-, Bestell- & Festmanagementsystem (v0.2.1)
-
-> **Moderne, hochverfügbare und 100% offlinefähige Kassen- & Bestellsoftware für Vereinsfeste, Gastronomie, Theken & Events.**  
-> *Keine Cloud-Abhängigkeit, keine laufenden Monatsgebühren, volle Datenhoheit im lokalen WLAN.*
+# OpenBon - Kassen-, Bestell- & Festmanagementsystem
 
 ---
 
@@ -41,8 +38,8 @@ npm install
 # 2. Datenbank synchronisieren
 npx prisma db push
 
-# 3. Testsuite ausführen (88 Tests)
-npx vitest run
+# 3. Testsuite ausführen
+npm test
 
 # 4. Server starten (Port 3000)
 node server.js
@@ -52,9 +49,9 @@ npm run dev
 
 ---
 
-## 📱 Stationszugriff im lokalen WLAN
+## 📱 Stationszugriff im lokalen Netzwerk
 
-Jedes Smartphone, Tablet, PC oder Touchterminal kann ohne App-Installation direkt im Webbrowser geöffnet werden:
+Jedes Smartphone, Tablet, PC oder Touchterminal kann direkt im Webbrowser geöffnet werden:
 
 | Station | URL | Standard-PIN | Zweck |
 | :--- | :--- | :---: | :--- |
@@ -69,7 +66,7 @@ Jedes Smartphone, Tablet, PC oder Touchterminal kann ohne App-Installation direk
 
 ---
 
-## ✨ Funktionsübersicht & Neuerungen in v0.2.1
+## ✨ Funktionsübersicht
 
 ### 🍽️ Gast-Bestellung & Self-Service
 - **BYOD QR-Tischbestellung (`/guest/table/[nr]`)**: Gäste scannen den QR-Code am Tisch und bestellen direkt vom Smartphone; Bons werden automatisch an Küche und Schanktheke gedruckt.
@@ -79,7 +76,7 @@ Jedes Smartphone, Tablet, PC oder Touchterminal kann ohne App-Installation direk
 ### 💰 Kasse, Abrechnung & Trinkgeld
 - **Flexible Trinkgeld-Profile & Bereiche (`/admin/tips`)**: Standard 100% an die Bedienung; frei konfigurierbare Pool-Verteilung (z. B. Theke 20%, Küche 10%, Service 70%) und Zuordnung je Kellner.
 - **Wertmarken- & Token-System (`/admin/tokens`)**: Verkauf, Einlösung und Rückkauf von Verzehrbons, Pfandmarken und Getränkechips mit digitalem Kassenjournal und Umlaufsaldo.
-- **Kartenzahlung & EC-Terminals**: Integrierte Unterstützung für ZVT-over-IP Netzwerkkassen, SumUp App-to-App, VR-Pay Me und Sparkasse S-POS.
+- **Kartenzahlung & EC-Terminals**: Integrierte Unterstützung für ZVT-over-IP Netzwerkkassen, SumUp App-to-App, VR-Pay Me und Sparkasse S-POS (nur aktiv bei hinterlegten Zugangsdaten).
 - **Kassenbuch & Barverkehr (`/admin/cashbook`)**: Z-Bons, Wechselgeld-Einlagen und Tresor-Entnahmen mit GoBD-konformer Protokollierung.
 
 ### ⚖️ Jugendschutz, Allergene & Bestandsführung
@@ -89,7 +86,7 @@ Jedes Smartphone, Tablet, PC oder Touchterminal kann ohne App-Installation direk
 - **Meldebestand-Warnung & Warndrucker**: Warnhinweis auf Kasse und Admin bei Unterschreitung des Mindestbestands; optionaler automatischer Warnzettel-Ausdruck auf Netzwerkdrucker.
 
 ### 📑 Buchhaltung & Finanzamts-Compliance
-- **DATEV Kassenbuch-Export (`/admin/accounting`)**: 1-Klick Download standardkonformer DATEV EXTF 700 Buchungsstapel mit Kontenrahmen (19% Erlöse `8400`, 7% `8300`, Kasse `1000`, Geldtransit `1360`).
+- **DATEV Kassenbuch-Export (`/admin/accounting`)**: Download standardkonformer DATEV EXTF 700 Buchungsstapel mit Kontenrahmen (19% Erlöse `8400`, 7% `8300`, Kasse `1000`, Geldtransit `1360`).
 - **DSFinV-K & TSE Prüfer-Export (`/admin/fiscal`)**: Standardisierter DSFinV-K 2.3+ Export (`bonkopf.csv`, `bonpos.csv`, `bonpos_preise.csv`, `tse_transaktionen.csv`) mit SHA-256 Prüfsumme für Kassennachschauen nach KassenSichV.
 
 ### 🖨️ Hochverfügbarkeit & Druckersteuerung
@@ -113,11 +110,11 @@ Ausführliche Anleitungen und Empfehlungen befinden sich im Ordner [`docs/`](doc
 
 Die Codebase verfügt über eine umfassende automatisierte Testsuite:
 ```bash
-npx vitest run
+npm test
 ```
 ```
-Test Files: 15 passed (15)
-Tests:      88 passed (88)
+Test Files: 17 passed (17)
+Tests:      106 passed (106)
 ```
 
 ---
