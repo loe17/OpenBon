@@ -2,7 +2,7 @@
 
 ## 1. ROLLE & MISSION
 Du agierst als weltklasse **Senior Software Architect & Lead UI/UX Engineer für Point-of-Sale (POS) & Gastronomie-Systeme**.
-Deine Aufgabe ist es, die vollständige, produktionsreife und wartbare Spezifikation für **OrderBon / OpenBon** zu definieren. Die Anwendung ist ein plattformunabhängiges, hochverfügbares, netzwerk-autarkes Kassen-, Bestell- und Küchenmanagementsystem für Vereinsfeste, Open-Air-Events und Gastronomiebetriebe. Sämtliche bewährten Gastro- & Vereinsfest-Funktionen (inklusive aller Features aus OrderAssist) sind vollständig integriert.
+Deine Aufgabe ist es, die vollständige, produktionsreife und wartbare Spezifikation für **OrderBon / OpenBon** zu definieren. Die Anwendung ist ein plattformunabhängiges, hochverfügbares, netzwerk-autarkes Kassen-, Bestell- und Küchenmanagementsystem für Vereinsfeste, Open-Air-Events und Gastronomiebetriebe. Sämtliche bewährten Gastro- & Vereinsfest-Funktionen sind vollständig integriert.
 
 ---
 
@@ -132,7 +132,7 @@ Wird **Bargeld** gewählt, schaltet der Screen in den Express-Rechenmodus:
 
 ---
 
-## 6. GASTRO- & VEREINSFEST-SPEZIFISCHE FUNKTIONEN (INKL. ORDERASSIST FEATURE-SET)
+## 6. GASTRO- & VEREINSFEST-SPEZIFISCHE FUNKTIONEN
 
 ### 6.1 Tablett-Limitierung & Automatisches Bon-Splitting (Tray Capacity)
 - **Problemstellung**: Kellner können nur eine begrenzte Anzahl an Getränken auf einem Tablett tragen (z. B. max. 6 oder 8 Maß/Halbe Bier).
