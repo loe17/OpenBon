@@ -17,6 +17,8 @@ import {
   Tag,
   ExternalLink,
   ShieldCheck,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { APP_VERSION, GITHUB_REPO_URL } from '@/lib/version';
 import { triggerHapticFeedback } from '@/lib/socket-client';
@@ -56,6 +58,20 @@ export default function AdminSystemUpdatePage() {
   const [commandInput, setCommandInput] = useState('');
   const [executing, setExecuting] = useState(false);
   const [terminalHistory, setTerminalHistory] = useState<TerminalLog[]>([]);
+  const [copiedAll, setCopiedAll] = useState(false);
+
+  const copyAllLogs = () => {
+    triggerHapticFeedback();
+    const text = terminalHistory
+      .map((l) => (l.command ? `$ ${l.command} [${l.timestamp}]\n${l.text}` : l.text))
+      .join('\n\n');
+
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedAll(true);
+      setTimeout(() => setCopiedAll(false), 2500);
+    }
+  };
 
   const addTerminalLog = (text: string, isError = false, command?: string) => {
     const newLog: TerminalLog = {
@@ -402,28 +418,50 @@ export default function AdminSystemUpdatePage() {
             <span className="w-3 h-3 rounded-full bg-emerald-500/80 inline-block" />
             <span className="text-slate-400 font-bold ml-2 text-[11px]">Server-Konsole & Git-Runner</span>
           </div>
-          <button
-            onClick={clearTerminal}
-            className="text-slate-400 hover:text-white p-1 rounded transition"
-            title="Terminal leeren"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={copyAllLogs}
+              disabled={terminalHistory.length === 0}
+              className="flex items-center gap-1 text-slate-300 hover:text-white px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 transition text-[11px] font-bold border border-slate-700 disabled:opacity-40 active:scale-95"
+              title="Gesamte Konsolenausgabe in Zwischenablage kopieren"
+            >
+              {copiedAll ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-emerald-400">Kopiert!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Kopieren</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={clearTerminal}
+              className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+              title="Terminal leeren"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
         {/* Terminal Output Log Area */}
-        <div className="flex-1 p-4 overflow-y-auto space-y-3 font-mono">
+        <div className="flex-1 p-4 overflow-y-auto space-y-3 font-mono select-text selection:bg-blue-600 selection:text-white cursor-text">
           {terminalHistory.map((log) => (
-            <div key={log.id} className="space-y-1">
+            <div key={log.id} className="space-y-1 select-text">
               {log.command && (
-                <div className="text-emerald-400 font-bold flex items-center gap-2">
-                  <span className="text-slate-500">$</span>
-                  <span>{log.command}</span>
-                  <span className="text-[10px] text-slate-600 font-normal ml-auto">{log.timestamp}</span>
+                <div className="text-emerald-400 font-bold flex items-center gap-2 select-text">
+                  <span className="text-slate-500 select-none">$</span>
+                  <span className="select-text">{log.command}</span>
+                  <span className="text-[10px] text-slate-600 font-normal ml-auto select-none">{log.timestamp}</span>
                 </div>
               )}
               <pre
-                className={`whitespace-pre-wrap leading-relaxed ${
+                className={`whitespace-pre-wrap leading-relaxed select-text cursor-text font-mono ${
                   log.isError ? 'text-rose-400 font-bold' : 'text-slate-300'
                 }`}
               >
