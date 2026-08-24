@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
+import { EscPosBuilder } from '@/lib/printer/escpos-builder';
 import { TicketData } from '@/lib/printer/types';
 
 export async function GET(req: Request) {
@@ -108,23 +109,26 @@ export async function POST(req: Request) {
 
     // Action: Print Table Markers on thermal printer
     if (body.action === 'PRINT_MARKERS') {
-      const { printerId, startNumber, endNumber } = body;
+      const { printerId, startNumber, endNumber, includeQr } = body;
       const printer = await prisma.printer.findUnique({ where: { id: printerId } });
       if (!printer) {
         return NextResponse.json({ error: 'Drucker nicht gefunden' }, { status: 404 });
       }
 
+      const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
+      const baseUrl = config?.baseUrl || 'http://openbon.local';
+      const guestOrderEnabled = Boolean(config?.enableGuestSelfOrder);
+
       const start = parseInt(startNumber, 10);
       const end = parseInt(endNumber, 10);
 
       for (let i = start; i <= end; i++) {
-        const ticket: TicketData = {
-          title: 'TISCHMARKE',
-          tableLabel: `TISCH ${i}`,
-          items: [],
-          footerText: 'OpenBon Kassensystem',
-        };
-        await networkSpooler.printTicket(printer, ticket);
+        const qrUrl = (includeQr && guestOrderEnabled) ? `${baseUrl}/guest/table/${i}` : null;
+        const { rawBuffer, textRepresentation } = EscPosBuilder.buildTableMarkerTicket(
+          { tableNumber: i, label: `TISCH ${i}`, qrUrl, eventName: config?.name },
+          printer.paperWidth || 80
+        );
+        await networkSpooler.sendRawBuffer(printer, rawBuffer, textRepresentation);
       }
 
       return NextResponse.json({ success: true, printedCount: end - start + 1 });

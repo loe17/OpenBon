@@ -50,6 +50,7 @@ export default function AdminTablesPage() {
   const [selectedPrinterId, setSelectedPrinterId] = useState('');
   const [markerStart, setMarkerStart] = useState(1);
   const [markerEnd, setMarkerEnd] = useState(24);
+  const [includeQr, setIncludeQr] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
 
   const fetchTablesAndPrinters = async () => {
@@ -152,6 +153,7 @@ export default function AdminTablesPage() {
           printerId: selectedPrinterId,
           startNumber: markerStart,
           endNumber: markerEnd,
+          includeQr,
         }),
       });
       alert('Tischmarken wurden an den Drucker gesendet!');
@@ -461,6 +463,19 @@ export default function AdminTablesPage() {
                   />
                 </div>
               </div>
+
+              <label className="flex items-center gap-2 p-2.5 bg-slate-950 rounded-xl border border-slate-800 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeQr}
+                  onChange={(e) => setIncludeQr(e.target.checked)}
+                  className="w-4 h-4 rounded text-blue-600"
+                />
+                <div>
+                  <span className="text-xs font-bold text-slate-200 block">QR-Code für Gäste-Tischbestellung</span>
+                  <span className="text-[10px] text-slate-400 block">Druckt Smartphone-Bestellcode mit auf die Tischmarke</span>
+                </div>
+              </label>
 
               <div className="flex justify-end gap-2 pt-2">
                 <button

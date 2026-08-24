@@ -43,6 +43,7 @@ import {
   Monitor,
   ChevronDown,
   Sparkles,
+  Activity,
 } from 'lucide-react';
 
 interface NavItem {
@@ -205,6 +206,7 @@ export default function Navbar() {
       icon: Settings,
       items: [
         { href: '/admin/dashboard', label: 'Admin Command Center', icon: LayoutDashboard, roles: ['ADMIN'] },
+        { href: '/admin/diagnostics', label: 'Testbetrieb & Hardware-Diagnose', icon: Activity, roles: ['ADMIN'] },
         { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['ADMIN'] },
         { href: '/admin/settings', label: 'Grundeinstellungen & Bon-Design', icon: Settings, roles: ['ADMIN'] },
         { href: '/admin/system-update', label: 'System-Update & Konsole', icon: HardDrive, roles: ['ADMIN'] },

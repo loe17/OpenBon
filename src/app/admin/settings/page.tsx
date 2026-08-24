@@ -308,6 +308,19 @@ export default function AdminSettingsPage() {
                 />
               </div>
             </div>
+
+            <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-white block">MwSt.-Ausweis auf Belegen (Umsatzsteuer)</span>
+                <span className="text-[11px] text-slate-400 block">Deaktivieren für steuerbefreite Vereine / Kleinunternehmer nach §19 UStG</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={config.enableTax ?? true}
+                onChange={(e) => setConfig({ ...config, enableTax: e.target.checked })}
+                className="w-4 h-4 rounded text-emerald-600"
+              />
+            </div>
           </div>
 
           {/* Card 2: Stations-PINs */}
@@ -626,18 +639,48 @@ export default function AdminSettingsPage() {
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="text-xs font-bold text-slate-400 block mb-1">
-                      Tischnummer Schriftgröße auf Küchen- & Ausschank-Bons:
+                    <label className="text-xs font-bold text-slate-400 block mb-1.5">
+                      Tischnummer-Größe auf Bons (Stufenlos 1–5):
                     </label>
-                    <select
-                      value={config.receiptTableFontSize || 'NORMAL'}
-                      onChange={(e) => setConfig({ ...config, receiptTableFontSize: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                    >
-                      <option value="NORMAL">Normal (Standard einzeilig)</option>
-                      <option value="LARGE">Groß (Doppelte Höhe)</option>
-                      <option value="EXTRA_LARGE">Extra Groß (Doppelte Höhe & Doppelte Breite)</option>
-                    </select>
+                    <div className="flex items-center gap-3 bg-slate-950 p-2 rounded-2xl border border-slate-700 w-fit">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const cur = typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : (config.receiptTableFontSize === 'EXTRA_LARGE' ? 3 : config.receiptTableFontSize === 'LARGE' ? 2 : 1);
+                          setConfig({ ...config, receiptTableFontSize: Math.max(1, cur - 1) });
+                        }}
+                        className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-white font-black text-xl flex items-center justify-center border border-slate-700"
+                        title="Kleiner"
+                      >
+                        −
+                      </button>
+                      <div className="text-center min-w-[130px]">
+                        <span className="font-mono font-black text-lg text-amber-300">
+                          Stufe {typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : (config.receiptTableFontSize === 'EXTRA_LARGE' ? 3 : config.receiptTableFontSize === 'LARGE' ? 2 : 1)} / 5
+                        </span>
+                        <span className="block text-[10px] text-slate-400 font-bold">
+                          {(() => {
+                            const lvl = typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : (config.receiptTableFontSize === 'EXTRA_LARGE' ? 3 : config.receiptTableFontSize === 'LARGE' ? 2 : 1);
+                            if (lvl === 1) return 'Normal (Einzeilig)';
+                            if (lvl === 2) return 'Groß (Doppelte Höhe)';
+                            if (lvl === 3) return 'Sehr Groß (2x Breit & Hoch)';
+                            if (lvl === 4) return 'Extra Groß (Invertiert)';
+                            return 'Maximal (Hervorgehoben)';
+                          })()}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const cur = typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : (config.receiptTableFontSize === 'EXTRA_LARGE' ? 3 : config.receiptTableFontSize === 'LARGE' ? 2 : 1);
+                          setConfig({ ...config, receiptTableFontSize: Math.min(5, cur + 1) });
+                        }}
+                        className="w-10 h-10 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black text-xl flex items-center justify-center shadow"
+                        title="Größer"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
 
                   <div className="sm:col-span-2">
@@ -713,20 +756,41 @@ export default function AdminSettingsPage() {
                   </div>
 
                   <div className="border-t border-b border-slate-400 py-1 my-1">
-                    {/* Tischnummer mit konfigurierter Größe */}
+                    {/* Tischnummer mit stufenloser Skalierung 1..5 */}
                     {(config.receiptShowTable ?? true) && (
                       <div className="text-center">
-                        {config.receiptTableFontSize === 'EXTRA_LARGE' ? (
-                          <div className="font-black text-lg text-slate-950 tracking-wider my-1 bg-amber-200/60 py-0.5 rounded">
-                            TISCH 14
-                          </div>
-                        ) : config.receiptTableFontSize === 'LARGE' ? (
-                          <div className="font-bold text-base text-slate-950 my-0.5">
-                            TISCH 14
-                          </div>
-                        ) : (
-                          <div className="font-bold text-xs">Tisch: 14</div>
-                        )}
+                        {(() => {
+                          const lvl = typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : (config.receiptTableFontSize === 'EXTRA_LARGE' ? 3 : config.receiptTableFontSize === 'LARGE' ? 2 : 1);
+                          if (lvl === 5) {
+                            return (
+                              <div className="font-black text-2xl text-amber-950 bg-amber-300 py-1.5 rounded-lg border-2 border-slate-900 tracking-wider shadow my-1">
+                                *** TISCH 14 ***
+                              </div>
+                            );
+                          }
+                          if (lvl === 4) {
+                            return (
+                              <div className="font-black text-xl text-amber-950 bg-amber-300 py-1 rounded tracking-widest my-1">
+                                TISCH 14
+                              </div>
+                            );
+                          }
+                          if (lvl === 3) {
+                            return (
+                              <div className="font-black text-lg text-slate-950 tracking-wider my-1 bg-amber-200/60 py-0.5 rounded">
+                                TISCH 14
+                              </div>
+                            );
+                          }
+                          if (lvl === 2) {
+                            return (
+                              <div className="font-bold text-base text-slate-950 my-0.5">
+                                TISCH 14
+                              </div>
+                            );
+                          }
+                          return <div className="font-bold text-xs">Tisch: 14</div>;
+                        })()}
                       </div>
                     )}
 
@@ -761,7 +825,7 @@ export default function AdminSettingsPage() {
                   </div>
                   <div className="flex justify-between text-[10px] text-slate-600">
                     <span>Zahlart: Barzahlung</span>
-                    <span>MwSt 19%: 2,12 EUR</span>
+                    {(config.enableTax ?? true) && <span>MwSt 19%: 2,12 EUR</span>}
                   </div>
 
                   {config.receiptFooterText && (

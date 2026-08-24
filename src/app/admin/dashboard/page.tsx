@@ -289,6 +289,17 @@ export default function AdminDashboardPage() {
                 <h3 className="text-base font-bold text-white mb-2">Schnellzugriff</h3>
 
                 <Link
+                  href="/admin/diagnostics"
+                  className="w-full p-3 bg-blue-950/60 hover:bg-blue-900/60 rounded-2xl flex items-center justify-between text-xs font-bold text-blue-200 transition border border-blue-700/60 shadow-sm"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Activity className="w-4 h-4 text-blue-400" />
+                    <span>Testbetrieb & Hardware-Check</span>
+                  </div>
+                  <ArrowUpRight className="w-4 h-4 text-blue-400" />
+                </Link>
+
+                <Link
                   href="/admin/qr-codes"
                   className="w-full p-3 bg-slate-800 hover:bg-slate-700 rounded-2xl flex items-center justify-between text-xs font-bold text-slate-200 transition border border-slate-700"
                 >

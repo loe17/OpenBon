@@ -58,19 +58,22 @@
   * {
     @apply border-slate-700;
     -webkit-tap-highlight-color: transparent;
-    user-select: none;
   }
   body {
     @apply bg-slate-950 text-slate-100;
     font-feature-settings: "rlig" 1, "calt" 1;
-    overscroll-behavior-y: none;
-    touch-action: manipulation;
   }
 }
 
 /* ==========================================================================
    Themes: Dunkel, Hell, Kontrastreich, Modern, Minimalistisch, Schlicht
    ========================================================================== */
+
+/* 🌙 Theme: Dunkel (Standard Deep Midnight Slate) */
+html.dark body, html[data-theme="dark"] body {
+  background-color: #020617 !important;
+  color: #f8fafc !important;
+}
 
 /* ☀️ Theme: Hell (Light - Klares Tageslicht, 100% lesbare Schriften) */
 html.light body, html[data-theme="light"] body {
@@ -91,74 +94,75 @@ html.light .text-slate-300, html.light .text-slate-400, html[data-theme="light"]
 html.light .text-slate-500, html[data-theme="light"] .text-slate-500 { color: #475569 !important; }
 html.light input, html.light select, html.light textarea, html[data-theme="light"] input, html[data-theme="light"] select, html[data-theme="light"] textarea { background-color: #ffffff !important; color: #0f172a !important; border-color: #94a3b8 !important; }
 
-/* ⚡ Theme: Kontrastreich (Sauberer Solarized-Look mit Gelb/Amber-Akzenten für Festzelte) */
-html[data-theme="contrast"] body {
-  background-color: #0b0f19 !important;
+/* ⚡ Theme: Kontrastreich (Pures Schwarz mit extremem Gold/Gelb-Kontrast für helle Festzelte) */
+html.contrast body, html[data-theme="contrast"] body {
+  background-color: #000000 !important;
   color: #ffffff !important;
 }
-html[data-theme="contrast"] header, html[data-theme="contrast"] nav {
-  background-color: #111827 !important;
+html.contrast header, html.contrast nav, html[data-theme="contrast"] header, html[data-theme="contrast"] nav {
+  background-color: #050505 !important;
   border-color: #f59e0b !important;
 }
-html[data-theme="contrast"] .bg-slate-950 { background-color: #030712 !important; }
-html[data-theme="contrast"] .bg-slate-900 { background-color: #111827 !important; border-color: #374151 !important; }
-html[data-theme="contrast"] .bg-slate-800 { background-color: #1f2937 !important; border-color: #4b5563 !important; }
-html[data-theme="contrast"] .border-slate-800, html[data-theme="contrast"] .border-slate-700 { border-color: #374151 !important; }
-html[data-theme="contrast"] .text-white { color: #ffffff !important; font-weight: 700 !important; }
-html[data-theme="contrast"] .text-slate-400, html[data-theme="contrast"] .text-slate-500 { color: #cbd5e1 !important; }
-html[data-theme="contrast"] .text-amber-400, html[data-theme="contrast"] .text-amber-300 { color: #fbbf24 !important; font-weight: 800 !important; }
+html.contrast .bg-slate-950, html[data-theme="contrast"] .bg-slate-950 { background-color: #000000 !important; border-color: #d97706 !important; }
+html.contrast .bg-slate-900, html[data-theme="contrast"] .bg-slate-900 { background-color: #0a0a0a !important; border-color: #f59e0b !important; }
+html.contrast .bg-slate-800, html[data-theme="contrast"] .bg-slate-800 { background-color: #171717 !important; border-color: #b45309 !important; }
+html.contrast .border-slate-800, html.contrast .border-slate-700, html[data-theme="contrast"] .border-slate-800, html[data-theme="contrast"] .border-slate-700 { border-color: #d97706 !important; }
+html.contrast .text-white, html[data-theme="contrast"] .text-white { color: #ffffff !important; font-weight: 800 !important; }
+html.contrast .text-slate-400, html.contrast .text-slate-500, html[data-theme="contrast"] .text-slate-400, html[data-theme="contrast"] .text-slate-500 { color: #fde68a !important; font-weight: 700 !important; }
+html.contrast .text-amber-400, html.contrast .text-amber-300, html[data-theme="contrast"] .text-amber-400, html[data-theme="contrast"] .text-amber-300 { color: #fbbf24 !important; font-weight: 900 !important; }
+html.contrast button, html[data-theme="contrast"] button { font-weight: 800 !important; }
 
-/* 💎 Theme: Modern (Indigo Glassmorphism & abgerundete 3xl Akzente) */
-html[data-theme="modern"] body {
-  background-color: #070b14 !important;
+/* 💎 Theme: Modern (Kosmisches Violett/Indigo & Glassmorphism) */
+html.modern body, html[data-theme="modern"] body {
+  background-color: #070314 !important;
   color: #f8fafc !important;
 }
-html[data-theme="modern"] header, html[data-theme="modern"] nav {
-  background-color: rgba(15, 23, 42, 0.85) !important;
-  backdrop-filter: blur(12px) !important;
-  border-color: rgba(99, 102, 241, 0.25) !important;
+html.modern header, html.modern nav, html[data-theme="modern"] header, html[data-theme="modern"] nav {
+  background-color: rgba(20, 10, 45, 0.85) !important;
+  backdrop-filter: blur(16px) !important;
+  border-color: rgba(139, 92, 246, 0.4) !important;
 }
-html[data-theme="modern"] .bg-slate-950 { background-color: #0b1120 !important; }
-html[data-theme="modern"] .bg-slate-900 { background-color: rgba(19, 29, 51, 0.75) !important; backdrop-filter: blur(8px) !important; border-color: rgba(99, 102, 241, 0.2) !important; }
-html[data-theme="modern"] .bg-slate-800 { background-color: #1e293b !important; border-color: rgba(99, 102, 241, 0.2) !important; }
-html[data-theme="modern"] .border-slate-800, html[data-theme="modern"] .border-slate-700 { border-color: rgba(99, 102, 241, 0.2) !important; }
-html[data-theme="modern"] .rounded-2xl, html[data-theme="modern"] .rounded-3xl { border-radius: 1.5rem !important; }
+html.modern .bg-slate-950, html[data-theme="modern"] .bg-slate-950 { background-color: #0b0520 !important; }
+html.modern .bg-slate-900, html[data-theme="modern"] .bg-slate-900 { background-color: rgba(28, 16, 60, 0.8) !important; backdrop-filter: blur(12px) !important; border-color: rgba(167, 139, 250, 0.35) !important; }
+html.modern .bg-slate-800, html[data-theme="modern"] .bg-slate-800 { background-color: #24144a !important; border-color: rgba(167, 139, 250, 0.3) !important; }
+html.modern .border-slate-800, html.modern .border-slate-700, html[data-theme="modern"] .border-slate-800, html[data-theme="modern"] .border-slate-700 { border-color: rgba(139, 92, 246, 0.35) !important; }
+html.modern .rounded-2xl, html[data-theme="modern"] .rounded-2xl { border-radius: 1.25rem !important; }
+html.modern .rounded-3xl, html[data-theme="modern"] .rounded-3xl { border-radius: 1.75rem !important; }
 
-/* ◽ Theme: Minimalistisch (Monochrome Zinc, Flat, kompakte Rundungen) */
-html[data-theme="minimal"] body {
+/* ◽ Theme: Minimalistisch (Monochrome Flat Carbon, klare Linien) */
+html.minimal body, html[data-theme="minimal"] body {
   background-color: #09090b !important;
   color: #fafafa !important;
 }
-html[data-theme="minimal"] header, html[data-theme="minimal"] nav {
-  background-color: #18181b !important;
+html.minimal header, html.minimal nav, html[data-theme="minimal"] header, html[data-theme="minimal"] nav {
+  background-color: #121215 !important;
   border-color: #27272a !important;
   box-shadow: none !important;
 }
-html[data-theme="minimal"] .bg-slate-950 { background-color: #09090b !important; }
-html[data-theme="minimal"] .bg-slate-900 { background-color: #18181b !important; box-shadow: none !important; }
-html[data-theme="minimal"] .bg-slate-800 { background-color: #27272a !important; }
-html[data-theme="minimal"] .border-slate-800, html[data-theme="minimal"] .border-slate-700 { border-color: #27272a !important; }
-html[data-theme="minimal"] .rounded-2xl, html[data-theme="minimal"] .rounded-3xl { border-radius: 0.75rem !important; }
+html.minimal .bg-slate-950, html[data-theme="minimal"] .bg-slate-950 { background-color: #09090b !important; border-color: #27272a !important; box-shadow: none !important; }
+html.minimal .bg-slate-900, html[data-theme="minimal"] .bg-slate-900 { background-color: #121215 !important; border-color: #27272a !important; box-shadow: none !important; }
+html.minimal .bg-slate-800, html[data-theme="minimal"] .bg-slate-800 { background-color: #1c1c21 !important; border-color: #3f3f46 !important; }
+html.minimal .border-slate-800, html.minimal .border-slate-700, html[data-theme="minimal"] .border-slate-800, html[data-theme="minimal"] .border-slate-700 { border-color: #27272a !important; }
+html.minimal .rounded-2xl, html.minimal .rounded-3xl, html[data-theme="minimal"] .rounded-2xl, html[data-theme="minimal"] .rounded-3xl { border-radius: 0.5rem !important; }
 
 /* ☕ Theme: Schlicht (Klassischer ruhiger Kassen-Schieferlook) */
-html[data-theme="plain"] body {
-  background-color: #1a1a1e !important;
-  color: #f4f4f5 !important;
+html.plain body, html[data-theme="plain"] body {
+  background-color: #1c1e24 !important;
+  color: #f1f5f9 !important;
 }
-html[data-theme="plain"] header, html[data-theme="plain"] nav {
-  background-color: #242429 !important;
-  border-color: #38383f !important;
+html.plain header, html.plain nav, html[data-theme="plain"] header, html[data-theme="plain"] nav {
+  background-color: #262932 !important;
+  border-color: #3b404d !important;
 }
-html[data-theme="plain"] .bg-slate-950 { background-color: #161619 !important; }
-html[data-theme="plain"] .bg-slate-900 { background-color: #242429 !important; }
-html[data-theme="plain"] .bg-slate-800 { background-color: #32323a !important; }
-html[data-theme="plain"] .border-slate-800, html[data-theme="plain"] .border-slate-700 { border-color: #38383f !important; }
+html.plain .bg-slate-950, html[data-theme="plain"] .bg-slate-950 { background-color: #16181d !important; }
+html.plain .bg-slate-900, html[data-theme="plain"] .bg-slate-900 { background-color: #262932 !important; }
+html.plain .bg-slate-800, html[data-theme="plain"] .bg-slate-800 { background-color: #333845 !important; }
+html.plain .border-slate-800, html.plain .border-slate-700, html[data-theme="plain"] .border-slate-800, html[data-theme="plain"] .border-slate-700 { border-color: #3b404d !important; }
 
-/* Global Mobile Scroll Protection */
+/* Global Scrollable Setup */
 html, body {
   max-width: 100vw;
   overflow-x: hidden;
-  touch-action: pan-y;
 }
 
 /* Spec 3.3: Ueberschriften und Buttons in Plus Jakarta Sans */

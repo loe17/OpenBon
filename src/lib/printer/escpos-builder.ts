@@ -213,9 +213,14 @@ export class EscPosBuilder {
     }
 
     if (data.tableLabel) {
-      if (data.tableFontSize === 'EXTRA_LARGE') {
+      const fs = data.tableFontSize;
+      if (fs === 5 || fs === '5') {
+        builder.align('center').invert(true).size(true, true).bold(true).textLine(` *** TISCH ${data.tableLabel} *** `).size(false, false).invert(false).bold(false).align('left');
+      } else if (fs === 4 || fs === '4') {
+        builder.invert(true).size(true, true).bold(true).textLine(` TISCH ${data.tableLabel} `).size(false, false).invert(false).bold(false);
+      } else if (fs === 3 || fs === '3' || fs === 'EXTRA_LARGE') {
         builder.size(true, true).bold(true).textLine(`TISCH: ${data.tableLabel}`).size(false, false).bold(false);
-      } else if (data.tableFontSize === 'LARGE') {
+      } else if (fs === 2 || fs === '2' || fs === 'LARGE') {
         builder.size(false, true).bold(true).textLine(`TISCH: ${data.tableLabel}`).size(false, false).bold(false);
       } else {
         builder.bold(true).textLine(`Tisch: ${data.tableLabel}`).bold(false);
@@ -322,23 +327,25 @@ export class EscPosBuilder {
         addText(`davon Trinkgeld: ${data.tipAmount.toFixed(2)} EUR`);
       }
 
-      // Spec 6.7: MwSt-Splits (19 % / 7 % / 0 %) statt pauschaler 19 %
-      if (data.taxSplits && data.taxSplits.length > 0) {
-        builder.divider('.');
-        addText('.'.repeat(paperWidth === 58 ? 32 : 42));
-        builder.bold(true).textLine('MWST-AUFSCHLUESSELUNG').bold(false);
-        addText('MWST-AUFSCHLUESSELUNG');
-        for (const split of data.taxSplits) {
-          const label = `${split.rate.toFixed(0)}% auf ${split.base.toFixed(2)}`;
-          builder.twoColumn(label, `${split.tax.toFixed(2)} EUR`);
-          addText(`${label}  ${split.tax.toFixed(2)} EUR`);
+      // Spec 6.7: MwSt-Splits (19 % / 7 % / 0 %) statt pauschaler 19 % (nur wenn enableTax aktiv)
+      if (data.enableTax !== false) {
+        if (data.taxSplits && data.taxSplits.length > 0) {
+          builder.divider('.');
+          addText('.'.repeat(paperWidth === 58 ? 32 : 42));
+          builder.bold(true).textLine('MWST-AUFSCHLUESSELUNG').bold(false);
+          addText('MWST-AUFSCHLUESSELUNG');
+          for (const split of data.taxSplits) {
+            const label = `${split.rate.toFixed(0)}% auf ${split.base.toFixed(2)}`;
+            builder.twoColumn(label, `${split.tax.toFixed(2)} EUR`);
+            addText(`${label}  ${split.tax.toFixed(2)} EUR`);
+          }
+          builder.twoColumn('Netto gesamt:', `${(data.totalNet ?? 0).toFixed(2)} EUR`);
+          addText(`Netto gesamt: ${(data.totalNet ?? 0).toFixed(2)} EUR`);
+        } else if (data.totalNet !== undefined && data.totalTax !== undefined) {
+          builder.divider('.');
+          builder.twoColumn('Netto:', `${data.totalNet.toFixed(2)} EUR`);
+          builder.twoColumn('MwSt (enthalten):', `${data.totalTax.toFixed(2)} EUR`);
         }
-        builder.twoColumn('Netto gesamt:', `${(data.totalNet ?? 0).toFixed(2)} EUR`);
-        addText(`Netto gesamt: ${(data.totalNet ?? 0).toFixed(2)} EUR`);
-      } else if (data.totalNet !== undefined && data.totalTax !== undefined) {
-        builder.divider('.');
-        builder.twoColumn('Netto:', `${data.totalNet.toFixed(2)} EUR`);
-        builder.twoColumn('MwSt (enthalten):', `${data.totalTax.toFixed(2)} EUR`);
       }
     }
 
@@ -390,6 +397,48 @@ export class EscPosBuilder {
         `STATIONS-PIN: ${station.pin}`,
         `URL: ${station.url}`,
       ].join('\n'),
+    };
+  }
+
+  public static buildTableMarkerTicket(
+    data: {
+      tableNumber: number | string;
+      label?: string;
+      qrUrl?: string | null;
+      eventName?: string;
+    },
+    paperWidth = 80
+  ): { rawBuffer: Buffer; textRepresentation: string } {
+    const builder = new EscPosBuilder(paperWidth);
+    const label = data.label || `TISCH ${data.tableNumber}`;
+
+    builder.align('center');
+    builder.lineFeed(1);
+    builder.bold(true).size(true, true).textLine('========================');
+    builder.lineFeed(1);
+    builder.invert(true).bold(true).size(true, true).textLine(`   ${label.toUpperCase()}   `).size(false, false).invert(false).bold(false);
+    builder.lineFeed(1);
+    builder.bold(true).size(true, true).textLine('========================').size(false, false).bold(false);
+
+    if (data.qrUrl) {
+      builder.lineFeed(1);
+      builder.align('center').qrCode(data.qrUrl, paperWidth === 58 ? 5 : 7);
+      builder.lineFeed(1);
+      builder.bold(true).textLine('HIER MIT DEM HANDY SCANNEN');
+      builder.textLine('und direkt am Tisch bestellen');
+    }
+
+    builder.lineFeed(2);
+    builder.cut();
+
+    return {
+      rawBuffer: builder.build(),
+      textRepresentation: [
+        '========================',
+        `   ${label.toUpperCase()}   `,
+        '========================',
+        data.qrUrl ? `QR-Code: ${data.qrUrl}` : '',
+      ].filter(Boolean).join('\n'),
     };
   }
 

@@ -20,13 +20,14 @@ model EventConfig {
   kitchenPin                    String   @default("2222")
   waiterPin                     String   @default("3333")
   enableVirtualPrinters         Boolean  @default(false)
+  enableTax                     Boolean  @default(true) // MwSt-Ausweis global aktivieren/deaktivieren
   
   // V2/V3 Schalter & Features
   enableCourses                 Boolean  @default(false)
   enableDigitalReceipt          Boolean  @default(false)
   enableAgeVerificationAlerts   Boolean  @default(true)
   enableDigitalReceiptQr        Boolean  @default(false)
-  enableGuestSelfOrder          Boolean  @default(true)
+  enableGuestSelfOrder          Boolean  @default(false) // Standardmäßig deaktiviert
   enableKioskMode               Boolean  @default(false)
   activeTheme                   String   @default("dark") // dark, light, contrast, modern, minimal, plain
   lowStockAlertPrinterId        String?
@@ -39,6 +40,7 @@ model EventConfig {
   receiptShowWaiter             Boolean  @default(true)
   receiptShowTable              Boolean  @default(true)
   receiptShowTse                Boolean  @default(true)
+  receiptTableFontSize          Int      @default(2) // Stufenlose Skalierung 1..5
 
   // Kartenzahlungs-IDs
   sumupMerchantCode             String?

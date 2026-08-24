@@ -46,14 +46,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const applyTheme = (t: Theme) => {
     document.documentElement.setAttribute('data-theme', t);
-    // Backward compatibility for .light / .dark classes
-    if (t === 'light' || t === 'contrast') {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.classList.add('light');
-    } else {
-      document.documentElement.classList.remove('light');
-      document.documentElement.classList.add('dark');
-    }
+    document.documentElement.classList.remove('dark', 'light', 'contrast', 'modern', 'minimal', 'plain');
+    document.documentElement.classList.add(t);
   };
 
   const setTheme = (newTheme: Theme) => {

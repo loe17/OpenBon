@@ -159,6 +159,13 @@ export default function CustomerDisplayPage() {
     };
   }, [socket, selectedStation]);
 
+  // Sofortige Abfrage des aktuellen Warenkorbs beim Stationswechsel
+  useEffect(() => {
+    if (socket) {
+      socket.emit('pos:request_cart_state', { stationId: selectedStation });
+    }
+  }, [selectedStation, socket]);
+
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-950 text-white overflow-hidden select-none">
       {/* Top Station Bar / Config Toggle (wird im Vollbildmodus ausgeblendet) */}
@@ -172,7 +179,7 @@ export default function CustomerDisplayPage() {
               <h1 className="font-black text-base tracking-tight text-white flex items-center gap-2">
                 <span>Kundendisplay</span>
                 <span className="text-xs text-blue-400 font-mono font-bold bg-blue-950/80 px-2 py-0.5 rounded-lg border border-blue-800">
-                  {selectedStation === 'ALL' ? 'Alle Kassen' : `Station: ${selectedStation}`}
+                  {state.stationName || (selectedStation === 'ALL' ? 'Alle Kassen' : selectedStation)}
                 </span>
               </h1>
             </div>
@@ -307,7 +314,7 @@ export default function CustomerDisplayPage() {
                         <span className="font-extrabold text-base sm:text-lg text-white block">
                           {item.name}
                         </span>
-                        {item.variantName && (
+                        {item.variantName && !item.name.toLowerCase().includes(item.variantName.toLowerCase()) && (
                           <span className="text-xs text-blue-300 font-semibold block">
                             {item.variantName}
                           </span>

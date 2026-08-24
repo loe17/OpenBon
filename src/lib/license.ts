@@ -23,12 +23,12 @@ export function parseAndValidateLicense(keyString: string): LicenseData {
     licensee: 'OpenBon Community (Kostenlos)',
     licenseKey: 'OPENBON-COMMUNITY-FREE',
     type: 'COMMUNITY',
-    maxDevices: 50,
+    maxDevices: 9999,
     expiresAt: null,
     features: ['ALL_STANDARD_FEATURES', 'HA_FAILOVER', 'KDS', 'OFFLINE_MODE'],
     issuedAt: '2026-01-01',
     isValid: true,
-    message: 'Kostenlose Community-Lizenz aktiv (Alle Kernfunktionen freigeschaltet)',
+    message: 'Kostenlose Community-Lizenz aktiv (Unbegrenzte Geräte & Offline-Betrieb)',
   };
 
   if (!keyString || keyString.trim() === '' || keyString === 'OPENBON-COMMUNITY-FREE') {

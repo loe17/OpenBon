@@ -62,6 +62,21 @@ export default function PosCounterPage() {
   const minBirth16 = calculateMinBirthdate(16);
   const minBirth18 = calculateMinBirthdate(18);
 
+  const [stationName, setStationName] = useState<string>('Bonkasse 1');
+  const [stationId, setStationId] = useState<string>('POS_1');
+  const [showStationModal, setShowStationModal] = useState(false);
+  const [editStationName, setEditStationName] = useState('Bonkasse 1');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedName = localStorage.getItem('openbon_pos_name') || 'Bonkasse 1';
+      const savedId = localStorage.getItem('openbon_pos_id') || 'POS_1';
+      setStationName(savedName);
+      setEditStationName(savedName);
+      setStationId(savedId);
+    }
+  }, []);
+
   const totalGross = cart.reduce((sum, item) => sum + (item.price + item.deposit) * item.quantity, 0);
   const totalDeposit = cart.reduce((sum, item) => sum + item.deposit * item.quantity, 0);
 
@@ -70,10 +85,10 @@ export default function PosCounterPage() {
     if (!socket) return;
     if (cart.length > 0) {
       socket.emit('pos:cart_updated', {
-        stationId: 'POS_MAIN',
-        stationName: 'Hauptkasse',
+        stationId,
+        stationName,
         items: cart.map((i) => ({
-          name: i.variantName ? `${i.name} (${i.variantName})` : i.name,
+          name: i.name,
           quantity: i.quantity,
           price: i.price,
           deposit: i.deposit,
@@ -84,9 +99,38 @@ export default function PosCounterPage() {
         totalDeposit,
       });
     } else {
-      socket.emit('pos:cart_cleared', { stationId: 'POS_MAIN' });
+      socket.emit('pos:cart_cleared', { stationId, stationName });
     }
-  }, [cart, totalGross, totalDeposit, socket]);
+  }, [cart, totalGross, totalDeposit, socket, stationId, stationName]);
+
+  // Sofortiges Antworten auf Nachfragen vom Kundendisplay
+  useEffect(() => {
+    if (!socket) return;
+    const handleCartRequest = (req?: { stationId?: string }) => {
+      if (!req?.stationId || req.stationId === 'ALL' || req.stationId === stationId) {
+        if (cart.length > 0) {
+          socket.emit('pos:cart_updated', {
+            stationId,
+            stationName,
+            items: cart.map((i) => ({
+              name: i.name,
+              quantity: i.quantity,
+              price: i.price,
+              deposit: i.deposit,
+              variantName: i.variantName,
+              selectedOptions: i.selectedOptions,
+            })),
+            totalGross,
+            totalDeposit,
+          });
+        }
+      }
+    };
+    socket.on('pos:request_cart_state', handleCartRequest);
+    return () => {
+      socket.off('pos:request_cart_state', handleCartRequest);
+    };
+  }, [socket, cart, totalGross, totalDeposit, stationId, stationName]);
 
   useEffect(() => {
     fetch('/api/config')
@@ -309,7 +353,20 @@ export default function PosCounterPage() {
             <Ticket className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="font-black text-lg sm:text-xl">Bonkasse & Thekenverkauf</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-black text-lg sm:text-xl">Bonkasse & Thekenverkauf</h2>
+              <button
+                onClick={() => {
+                  setEditStationName(stationName);
+                  setShowStationModal(true);
+                }}
+                className="bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-emerald-300 px-2 py-0.5 rounded-lg text-[11px] font-black flex items-center gap-1 transition"
+                title="Kassenname ändern"
+              >
+                <span>🏪 {stationName}</span>
+                <span className="text-[9px] text-emerald-400 opacity-70 underline">Ändern</span>
+              </button>
+            </div>
             <p className="text-xs text-slate-400 font-semibold">
               {mode === 'DIRECT'
                 ? 'Direktverkauf (Theke / Bar ohne Küchenbon)'
@@ -859,6 +916,54 @@ export default function PosCounterPage() {
                 className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-black shadow-lg shadow-emerald-950/50"
               >
                 In den Korb
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Station Name Modal */}
+      {showStationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <h3 className="font-black text-base text-white">🏪 Bonkasse benennen</h3>
+              <button onClick={() => setShowStationModal(false)} className="text-slate-400 hover:text-white text-sm">
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              Vergib einen individuellen Namen für dieses Terminal (z. B. <em>Bonkasse 1</em>, <em>Theke Hauptzelt</em>, <em>Grillkasse</em>). Dieser Name erscheint auch im Kundendisplay.
+            </p>
+            <input
+              type="text"
+              value={editStationName}
+              onChange={(e) => setEditStationName(e.target.value)}
+              placeholder="z. B. Bonkasse 2, Grillkasse"
+              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-bold"
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowStationModal(false)}
+                className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-bold"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const clean = editStationName.trim() || 'Bonkasse 1';
+                  const cleanId = clean.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'pos_1';
+                  setStationName(clean);
+                  setStationId(cleanId);
+                  localStorage.setItem('openbon_pos_name', clean);
+                  localStorage.setItem('openbon_pos_id', cleanId);
+                  setShowStationModal(false);
+                }}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow"
+              >
+                Speichern
               </button>
             </div>
           </div>

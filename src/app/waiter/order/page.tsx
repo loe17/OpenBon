@@ -560,9 +560,9 @@ function WaiterOrderContent() {
       )}
 
       {/* 50/50 Split Screen: Oben Artikelkacheln, Unten Dauerhaft Tischbestellung */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* OBERE HÄLFTE: Artikel Kacheln (~50% Höhe) */}
-        <div className="h-[48%] overflow-y-auto p-2.5 sm:p-3 border-b-2 border-slate-800">
+      <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+        {/* OBERE HÄLFTE: Artikel Kacheln (~50% Höhe, freies Scrolling) */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3 border-b-2 border-slate-800">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
             {displayedProducts?.map((product) => {
               const hasVariants = product.variants && product.variants.length > 0;
@@ -636,8 +636,8 @@ function WaiterOrderContent() {
           </div>
         </div>
 
-        {/* UNTERE HÄLFTE: Aktuelle Tischbestellung (~52% Höhe, Dauerhaft sichtbar) */}
-        <div className="flex-1 flex flex-col justify-between bg-slate-900 p-3 shadow-2xl overflow-hidden">
+        {/* UNTERE HÄLFTE: Aktuelle Tischbestellung (~50% Höhe, Dauerhaft sichtbar) */}
+        <div className="flex-1 min-h-0 flex flex-col justify-between bg-slate-900 p-3 shadow-2xl">
           {/* Cart Header */}
           <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-800 shrink-0">
             <span className="text-xs font-black uppercase tracking-wider text-slate-300">
@@ -654,7 +654,7 @@ function WaiterOrderContent() {
           </div>
 
           {/* Cart Items List (Scrollbar innerhalb des unteren Bereichs) */}
-          <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
             {cart.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center text-xs text-slate-500 font-medium">
                 <span>Tippe oben auf Artikel, um sie zur Bestellung hinzuzufügen.</span>
@@ -728,18 +728,18 @@ function WaiterOrderContent() {
             )}
           </div>
 
-          {/* Direct Bestellen Action Button */}
-          <div className="pt-2 border-t border-slate-800 shrink-0">
+          {/* Direct Bestellen Action Button (Extra Groß & Prominent) */}
+          <div className="pt-2.5 border-t border-slate-800 shrink-0">
             <button
               disabled={cart.length === 0 || isSubmitting}
               onClick={submitOrder}
-              className={`pos-touch-btn w-full h-13 sm:h-14 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-2xl transition ${
+              className={`pos-touch-btn w-full min-h-[58px] py-4 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-3 shadow-2xl transition ${
                 cart.length > 0 && !isSubmitting
-                  ? 'bg-blue-600 hover:bg-blue-500 active:scale-95 text-white shadow-blue-950/60'
+                  ? 'bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white shadow-emerald-950/80 border-2 border-emerald-400'
                   : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
               }`}
             >
-              <Send className="w-5 h-5" />
+              <Send className="w-6 h-6" />
               <span>
                 {isSubmitting ? 'Wird gesendet & gedruckt...' : `Tischbestellung abschicken (${formatCurrency(totalAmount)})`}
               </span>

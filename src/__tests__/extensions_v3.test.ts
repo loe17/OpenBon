@@ -2,6 +2,8 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import prisma from '../lib/db';
 import { deductTapVolumeForItems } from '../lib/tap-manager';
 import { playOrderReadyChime, playKitchenGong, playVoidAlert } from '../lib/audio-feedback';
+import { EscPosBuilder } from '../lib/printer/escpos-builder';
+import { parseAndValidateLicense } from '../lib/license';
 
 describe('OpenBon Erweiterungs-Paket: Neue Systemfunktionen', () => {
   let tableAId: string;
@@ -202,5 +204,74 @@ describe('OpenBon Erweiterungs-Paket: Neue Systemfunktionen', () => {
     expect(() => playOrderReadyChime()).not.toThrow();
     expect(() => playKitchenGong()).not.toThrow();
     expect(() => playVoidAlert()).not.toThrow();
+  });
+
+  // TEST 7: Stufenlose Tischnummerngröße 1..5 in ESC/POS
+  it('7. sollte stufenlose Tischnummerngrößen 1 bis 5 in ESC/POS korrekt rendern', () => {
+    // Level 1: Normal
+    const res1 = EscPosBuilder.buildTicket({
+      title: 'KÜCHENBON',
+      tableLabel: '42',
+      tableFontSize: 1,
+      items: [{ name: 'Schnitzel', quantity: 1, unitPrice: 10.0 }],
+    });
+    expect(res1.textRepresentation).toContain('Tisch: 42');
+
+    // Level 5: Maximal
+    const res5 = EscPosBuilder.buildTicket({
+      title: 'KÜCHENBON',
+      tableLabel: '42',
+      tableFontSize: 5,
+      items: [{ name: 'Schnitzel', quantity: 1, unitPrice: 10.0 }],
+    });
+    expect(res5.textRepresentation).toContain('Tisch: 42');
+    expect(res5.rawBuffer.length).toBeGreaterThan(0);
+  });
+
+  // TEST 8: MwSt-Deaktivierung auf Bons
+  it('8. sollte MwSt.-Aufschlüsselung ausblenden wenn enableTax false ist', () => {
+    // Mit MwSt
+    const resTax = EscPosBuilder.buildTicket({
+      title: 'BELEG',
+      totalGross: 11.90,
+      totalNet: 10.00,
+      totalTax: 1.90,
+      taxSplits: [{ rate: 19, base: 10.00, tax: 1.90, gross: 11.90 }],
+      items: [{ name: 'Bier', quantity: 1, unitPrice: 11.90 }],
+      enableTax: true,
+    });
+    expect(resTax.textRepresentation).toContain('MWST-AUFSCHLUESSELUNG');
+
+    // Ohne MwSt (Kleinunternehmer / Verein)
+    const resNoTax = EscPosBuilder.buildTicket({
+      title: 'BELEG',
+      totalGross: 11.90,
+      totalNet: 10.00,
+      totalTax: 1.90,
+      taxSplits: [{ rate: 19, base: 10.00, tax: 1.90, gross: 11.90 }],
+      items: [{ name: 'Bier', quantity: 1, unitPrice: 11.90 }],
+      enableTax: false,
+    });
+    expect(resNoTax.textRepresentation).not.toContain('MWST-AUFSCHLUESSELUNG');
+  });
+
+  // TEST 9: Tischmarken-Druck mit riesiger Tischnummer & optionalem QR-Code
+  it('9. sollte saubere Tischmarken mit großer Nummer und optionalem QR generieren', () => {
+    const res = EscPosBuilder.buildTableMarkerTicket({
+      tableNumber: 14,
+      qrUrl: 'http://openbon.local/guest/table/14',
+    });
+    expect(res.textRepresentation).toContain('TISCH 14');
+    expect(res.textRepresentation).toContain('QR-Code: http://openbon.local/guest/table/14');
+    expect(res.rawBuffer.length).toBeGreaterThan(0);
+  });
+
+  // TEST 10: Community Lizenz: Unbegrenzte Geräte (9999)
+  it('10. sollte in der kostenlosen Community-Lizenz unbegrenzte Geräte (9999) zulassen', () => {
+    const lic = parseAndValidateLicense('OPENBON-COMMUNITY-FREE');
+
+    expect(lic.isValid).toBe(true);
+    expect(lic.maxDevices).toBe(9999);
+    expect(lic.type).toBe('COMMUNITY');
   });
 });

@@ -27,7 +27,6 @@ export default function AdminProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCatId, setSelectedCatId] = useState<string>('');
-  const [selectedSubCat, setSelectedSubCat] = useState<string>('ALL');
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
@@ -226,7 +225,6 @@ export default function AdminProductsPage() {
 
   const filteredProducts = products.filter((p) => {
     if (selectedCatId && p.categoryId !== selectedCatId) return false;
-    if (selectedSubCat !== 'ALL' && p.subCategory !== selectedSubCat) return false;
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -263,7 +261,6 @@ export default function AdminProductsPage() {
             key={cat.id}
             onClick={() => {
               setSelectedCatId(cat.id);
-              setSelectedSubCat('ALL');
             }}
             className={`px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider transition whitespace-nowrap border ${
               selectedCatId === cat.id
@@ -272,31 +269,6 @@ export default function AdminProductsPage() {
             }`}
           >
             {cat.name}
-          </button>
-        ))}
-      </div>
-
-      {/* Beverage Subcategory Quick Filter */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-4 text-xs">
-        <span className="text-slate-500 font-bold text-[11px] uppercase mr-1">Getränkefilter:</span>
-        {[
-          { id: 'ALL', label: 'Alle' },
-          { id: 'BIER', label: 'Bier & Radler' },
-          { id: 'WEIN', label: 'Wein & Schorle' },
-          { id: 'ALKOHOLFREI', label: 'Alkoholfrei / Soft' },
-          { id: 'HEISS', label: 'Kaffee & Tee' },
-          { id: 'BAR', label: 'Bar & Spirituosen' },
-        ].map((sub) => (
-          <button
-            key={sub.id}
-            onClick={() => setSelectedSubCat(sub.id)}
-            className={`px-3 py-1 rounded-xl text-xs font-bold transition border ${
-              selectedSubCat === sub.id
-                ? 'bg-slate-800 text-amber-300 border-amber-500/50'
-                : 'bg-slate-950 text-slate-500 border-slate-800 hover:text-slate-300'
-            }`}
-          >
-            {sub.label}
           </button>
         ))}
       </div>

@@ -54,6 +54,7 @@ export interface EventConfigDTO {
   kitchenPin: string;
   waiterPin: string;
   enableVirtualPrinters: boolean;
+  enableTax?: boolean;
   enableCourses?: boolean;
   enableDigitalReceipt?: boolean;
   receiptHeader?: string | null;
@@ -63,7 +64,7 @@ export interface EventConfigDTO {
   receiptShowWaiter?: boolean;
   receiptShowTable?: boolean;
   receiptShowTse?: boolean;
-  receiptTableFontSize?: string | null;
+  receiptTableFontSize?: number | string | null;
   activeTheme?: string;
   enableAgeVerificationAlerts?: boolean;
   enableDigitalReceiptQr?: boolean;

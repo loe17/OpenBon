@@ -444,8 +444,8 @@ function WaiterPaymentContent() {
         )}
       </div>
 
-      {/* Spec 12: Gast-Sicht Widget im oberen Drittel des Mobilteils */}
-      <div className="bg-slate-900/95 border-b border-slate-800 p-2.5 px-4 flex items-center justify-between shrink-0 shadow-inner">
+      {/* Spec 12: Gast-Sicht Widget im oberen Drittel des Mobilteils (Permanent fixiert) */}
+      <div className="bg-slate-900 border-b border-slate-800 p-2.5 px-4 flex items-center justify-between shrink-0 shadow-md sticky top-0 z-30">
         <button
           onClick={() => {
             haptic();
@@ -467,9 +467,10 @@ function WaiterPaymentContent() {
               haptic();
               setGuestFacingRotated(!guestFacingRotated);
             }}
-            className="text-xs font-bold text-blue-300 bg-blue-950/80 border border-blue-800 px-2.5 py-1 rounded-lg"
+            className="text-xs font-bold text-blue-300 bg-blue-950/80 border border-blue-800 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow"
           >
-            🔄 180° {guestFacingRotated ? 'Gedreht' : 'Normal'}
+            <span>🔄 180°</span>
+            <span>{guestFacingRotated ? 'Gedreht (Zum Gast)' : 'Normal (Zu mir)'}</span>
           </button>
         ) : (
           <span className="text-xs text-slate-400 font-mono font-bold">
@@ -478,26 +479,28 @@ function WaiterPaymentContent() {
         )}
       </div>
 
-      {/* Gast-Display Banner im oberen Drittel (Richtung Gast) */}
+      {/* XXL Gast-Display Banner (Doppelt so groß, permanent fixiert im oberen Bereich) */}
       {guestFacingMode && (
         <div
-          className={`p-4 bg-gradient-to-r from-blue-950 via-slate-900 to-blue-950 border-b-2 border-blue-500 transition-transform ${
+          className={`p-6 sm:p-8 bg-gradient-to-br from-blue-950 via-slate-950 to-blue-950 border-b-4 border-blue-500 shadow-2xl transition-transform shrink-0 ${
             guestFacingRotated ? 'rotate-180 origin-center' : ''
           }`}
         >
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-center sm:text-left">
             <div>
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-300 block">
-                Für den Gast • Zu zahlender Betrag
+              <span className="text-xs font-mono font-extrabold uppercase tracking-widest text-blue-300 block mb-1">
+                FÜR DEN GAST • GESAMTBETRAG
               </span>
-              <span className="text-3xl font-mono font-black text-white">
+              <span className="text-5xl sm:text-6xl font-mono font-black text-white tracking-tight drop-shadow-md">
                 {formatCurrency(checkout.amountDueWithTip)}
               </span>
             </div>
             {checkout.tipAmount > 0 && (
-              <span className="text-xs text-emerald-400 font-bold bg-emerald-950/80 px-2.5 py-1 rounded-xl border border-emerald-800">
-                inkl. {formatCurrency(checkout.tipAmount)} Trinkgeld
-              </span>
+              <div className="sm:self-center">
+                <span className="text-sm sm:text-base text-emerald-300 font-black bg-emerald-950/90 px-4 py-2 rounded-2xl border border-emerald-600 shadow inline-block">
+                  inkl. {formatCurrency(checkout.tipAmount)} Trinkgeld
+                </span>
+              </div>
             )}
           </div>
         </div>
