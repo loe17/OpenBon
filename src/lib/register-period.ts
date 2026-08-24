@@ -70,9 +70,14 @@ export async function computePeriodTotals(filter: PeriodFilter = {}): Promise<Pe
     isTraining: false,
   };
   if (filter.periodId) {
-    paymentWhere.periodId = filter.includeUnassigned
-      ? { in: [filter.periodId, null] }
-      : filter.periodId;
+    if (filter.includeUnassigned) {
+      paymentWhere.OR = [
+        { periodId: filter.periodId },
+        { periodId: null },
+      ];
+    } else {
+      paymentWhere.periodId = filter.periodId;
+    }
   }
   if (filter.waiterName) {
     paymentWhere.waiterName = filter.waiterName;
