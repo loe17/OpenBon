@@ -28,6 +28,13 @@ export async function POST(req: Request) {
 
     if (global.io) {
       global.io.emit('chat:incoming', created);
+      if (body.isUrgent || body.broadcastAlert) {
+        global.io.emit('broadcast:alert', {
+          message: created.message,
+          sender: created.senderName,
+          timestamp: created.createdAt,
+        });
+      }
     }
 
     return NextResponse.json(created);

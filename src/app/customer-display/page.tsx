@@ -70,9 +70,21 @@ export default function CustomerDisplayPage() {
     fetchDevices();
 
     if (socket) {
+      const isMatch = (stationId?: string) => {
+        if (!stationId || selectedStation === 'ALL') return true;
+        if (stationId === selectedStation) return true;
+        if (
+          (stationId === 'MAIN_CASH' || stationId === 'POS_MAIN') &&
+          (selectedStation === 'POS_MAIN' || selectedStation === 'MAIN_CASH')
+        ) {
+          return true;
+        }
+        return false;
+      };
+
       // Höre auf Live-Warenkorb Aktualisierungen von der Kasse
       socket.on('pos:cart_updated', (payload: any) => {
-        if (selectedStation !== 'ALL' && payload.stationId && payload.stationId !== selectedStation) return;
+        if (!isMatch(payload.stationId)) return;
         setState({
           stationId: payload.stationId || 'ALL',
           stationName: payload.stationName || 'Kasse',
@@ -85,7 +97,7 @@ export default function CustomerDisplayPage() {
 
       // Höre auf Bezahlungsabschluss
       socket.on('payment:completed', (payment: any) => {
-        if (selectedStation !== 'ALL' && payment.deviceId && payment.deviceId !== selectedStation) return;
+        if (!isMatch(payment.deviceId || payment.stationId)) return;
         const receiptUrl = payment.digitalReceiptUrl || (payment.digitalReceiptCode ? `http://openbon.local/receipt/${payment.digitalReceiptCode}` : null);
         
         setState((prev) => ({
@@ -114,7 +126,7 @@ export default function CustomerDisplayPage() {
 
       // Korb geleert / Abbruch
       socket.on('pos:cart_cleared', (payload: any) => {
-        if (selectedStation !== 'ALL' && payload?.stationId && payload.stationId !== selectedStation) return;
+        if (!isMatch(payload?.stationId)) return;
         setState((prev) => ({
           ...prev,
           status: 'IDLE',

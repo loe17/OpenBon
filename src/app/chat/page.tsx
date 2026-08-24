@@ -121,16 +121,42 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Sender Name Identifier Pill */}
-        <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-700 px-3 py-1.5 rounded-xl text-xs">
-          <User className="w-3.5 h-3.5 text-blue-400" />
-          <input
-            type="text"
-            value={senderName}
-            onChange={(e) => setSenderName(e.target.value)}
-            className="bg-transparent border-none text-white font-bold text-xs focus:outline-none w-28 sm:w-36"
-            title="Klicke zum Ändern deines Funk-Namens"
-          />
+        {/* Sender Name Identifier Pill & Broadcast Button */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              const text = prompt('🚨 Eildurchsage an alle Bedienungsansichten eingeben:');
+              if (text && text.trim()) {
+                fetch('/api/chat', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    senderName: senderName.trim() || 'Leitung / Theke',
+                    message: text.trim(),
+                    isUrgent: true,
+                    broadcastAlert: true,
+                  }),
+                });
+              }
+            }}
+            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-lg shadow-rose-950/60 transition active:scale-95 animate-pulse"
+            title="Sendet sofort ein lautes Pop-up an alle Bedienungs-Mobilteile"
+          >
+            <Radio className="w-3.5 h-3.5" />
+            <span>🚨 Eildurchsage</span>
+          </button>
+
+          <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-700 px-3 py-1.5 rounded-xl text-xs">
+            <User className="w-3.5 h-3.5 text-blue-400" />
+            <input
+              type="text"
+              value={senderName}
+              onChange={(e) => setSenderName(e.target.value)}
+              className="bg-transparent border-none text-white font-bold text-xs focus:outline-none w-24 sm:w-32"
+              title="Klicke zum Ändern deines Funk-Namens"
+            />
+          </div>
         </div>
       </div>
 

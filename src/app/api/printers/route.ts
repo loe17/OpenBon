@@ -105,3 +105,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'Drucker-ID fehlt' }, { status: 400 });
+
+    // PrintGroup Referenzen lösen
+    await prisma.printGroup.updateMany({
+      where: { printerId: id },
+      data: { printerId: null },
+    });
+
+    await prisma.printer.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
+  }
+}

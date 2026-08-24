@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSocket } from '../providers/socket-provider';
-import { useTheme } from '../providers/theme-provider';
+import { useTheme, AVAILABLE_THEMES } from '../providers/theme-provider';
 import FullscreenButton from '../ui/fullscreen-button';
 import PinModal from '../auth/pin-modal';
 import { APP_VERSION, APP_IS_BETA } from '@/lib/version';
@@ -41,19 +41,54 @@ import {
   Beer,
   Truck,
   Monitor,
+  ChevronDown,
+  Sparkles,
 } from 'lucide-react';
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: any;
+  roles: string[];
+}
+
+interface NavGroup {
+  id: string;
+  label: string;
+  icon: any;
+  items: NavItem[];
+}
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { isConnected } = useSocket();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [role, setRole] = useState('WAITER');
   const [trainingMode, setTrainingMode] = useState(false);
   const [haStatus, setHaStatus] = useState<'CONNECTED' | 'DISCONNECTED' | 'STANDALONE'>('STANDALONE');
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinTarget, setPinTarget] = useState<'ADMIN' | 'POS_CASHIER' | 'KITCHEN' | 'WAITER' | string>('ADMIN');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showThemePicker, setShowThemePicker] = useState(false);
+
+  // Expanded Group State in Admin Drawer
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    inventory: true,
+    finance: true,
+    hardware: true,
+    system: true,
+  });
+
+  // Track Fullscreen state
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   useEffect(() => {
     const savedRole = localStorage.getItem('pos_user_role') || 'WAITER';
@@ -65,7 +100,6 @@ export default function Navbar() {
         if (data) {
           if (data.trainingMode !== undefined) setTrainingMode(data.trainingMode);
           if (data.haPartnerUrl && data.haPartnerUrl.trim() !== '') {
-            // Check heartbeat
             fetch('/api/sync/heartbeat')
               .then((r) => r.json())
               .then((hb) => {
@@ -80,25 +114,22 @@ export default function Navbar() {
       .catch(() => {});
   }, [pathname]);
 
+  // Bei jedem Stationswechsel PIN immer abfragen
   const handleRoleSelection = (targetRole: string) => {
+    if (targetRole === role) return;
+
     if (targetRole === 'ADMIN') {
-      if (sessionStorage.getItem('admin_pin_verified') !== 'true') {
-        setPinTarget('ADMIN');
-        setShowPinModal(true);
-        return;
-      }
+      setPinTarget('ADMIN');
+      setShowPinModal(true);
+      return;
     } else if (targetRole === 'POS_CASHIER') {
-      if (sessionStorage.getItem('pos_pin_verified') !== 'true') {
-        setPinTarget('POS_CASHIER');
-        setShowPinModal(true);
-        return;
-      }
+      setPinTarget('POS_CASHIER');
+      setShowPinModal(true);
+      return;
     } else if (targetRole === 'KITCHEN') {
-      if (sessionStorage.getItem('kitchen_pin_verified') !== 'true') {
-        setPinTarget('KITCHEN');
-        setShowPinModal(true);
-        return;
-      }
+      setPinTarget('KITCHEN');
+      setShowPinModal(true);
+      return;
     }
     applyRole(targetRole);
   };
@@ -113,76 +144,100 @@ export default function Navbar() {
     else if (newRole === 'ADMIN') router.push('/admin/dashboard');
   };
 
-  const handleLinkClick = (e: React.MouseEvent, href: string) => {
-    if (href.startsWith('/admin')) {
-      if (sessionStorage.getItem('admin_pin_verified') !== 'true') {
-        e.preventDefault();
-        setPinTarget(href);
-        setShowPinModal(true);
-        return;
-      }
-    } else if (href === '/pos') {
-      if (sessionStorage.getItem('pos_pin_verified') !== 'true') {
-        e.preventDefault();
-        setPinTarget('/pos');
-        setShowPinModal(true);
-        return;
-      }
-    } else if (href === '/kitchen') {
-      if (sessionStorage.getItem('kitchen_pin_verified') !== 'true') {
-        e.preventDefault();
-        setPinTarget('/kitchen');
-        setShowPinModal(true);
-        return;
-      }
-    }
-    setIsOpen(false);
-  };
-
   const handlePinSuccess = () => {
     setShowPinModal(false);
-    if (pinTarget === 'ADMIN' || pinTarget.startsWith('/admin')) {
-      sessionStorage.setItem('admin_pin_verified', 'true');
-      if (pinTarget === 'ADMIN') applyRole('ADMIN');
-      else {
-        setIsOpen(false);
-        router.push(pinTarget);
-      }
-    } else if (pinTarget === 'POS_CASHIER' || pinTarget === '/pos') {
-      sessionStorage.setItem('pos_pin_verified', 'true');
+    if (pinTarget === 'ADMIN') {
+      applyRole('ADMIN');
+    } else if (pinTarget === 'POS_CASHIER') {
       applyRole('POS_CASHIER');
-    } else if (pinTarget === 'KITCHEN' || pinTarget === '/kitchen') {
-      sessionStorage.setItem('kitchen_pin_verified', 'true');
+    } else if (pinTarget === 'KITCHEN') {
       applyRole('KITCHEN');
     }
   };
 
-  const navLinks = [
-    { href: '/admin/dashboard', label: 'Admin Command Center', icon: LayoutDashboard, roles: ['ADMIN'] },
-    { href: '/waiter', label: 'Bedienung (Tische)', icon: Smartphone, roles: ['WAITER', 'ADMIN'] },
-    { href: '/pos', label: 'Bonkasse (Theke)', icon: CreditCard, roles: ['POS_CASHIER', 'ADMIN'] },
-    { href: '/customer-display', label: 'Kundendisplay (Zweitschirm)', icon: Monitor, roles: ['POS_CASHIER', 'ADMIN'] },
-    { href: '/taps', label: 'Fass- & Schankmonitor', icon: Beer, roles: ['POS_CASHIER', 'ADMIN'] },
-    { href: '/kiosk', label: 'SB-Terminal (Kiosk)', icon: Terminal, roles: ['POS_CASHIER', 'ADMIN'] },
-    { href: '/kitchen', label: 'Küchenmonitor', icon: ChefHat, roles: ['KITCHEN', 'ADMIN'] },
-    { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['WAITER', 'POS_CASHIER', 'KITCHEN', 'ADMIN'] },
-    { href: '/admin/qr-codes', label: 'QR Beitritts-Center', icon: QrCode, roles: ['ADMIN'] },
-    { href: '/admin/products', label: 'Artikel & Warengruppen', icon: Utensils, roles: ['ADMIN'] },
-    { href: '/admin/procurement', label: 'Lieferanten-Bestellvorschlag', icon: Truck, roles: ['ADMIN'] },
-    { href: '/admin/tokens', label: 'Wertmarken & Bons', icon: Ticket, roles: ['ADMIN'] },
-    { href: '/admin/tips', label: 'Trinkgeld-Matrix', icon: Coins, roles: ['ADMIN'] },
-    { href: '/admin/inventory', label: 'Warenbestand & Lager', icon: Package, roles: ['ADMIN'] },
-    { href: '/admin/tables', label: 'Tischplan Designer', icon: Grid, roles: ['ADMIN'] },
-    { href: '/admin/printers', label: 'Drucker & Druckgruppen', icon: Printer, roles: ['ADMIN'] },
-    { href: '/admin/reports', label: 'Statistik & Z-Bon', icon: BarChart3, roles: ['ADMIN'] },
-    { href: '/admin/cashbook', label: 'Kassenbuch & Barverkehr', icon: Wallet, roles: ['ADMIN'] },
-    { href: '/admin/accounting', label: 'DATEV Kassenbuch Export', icon: BookOpen, roles: ['ADMIN'] },
-    { href: '/admin/fiscal', label: 'DSFinV-K & TSE Archiv', icon: ShieldCheck, roles: ['ADMIN'] },
-    { href: '/docs', label: 'Handbuch & Anleitungen', icon: BookOpen, roles: ['WAITER', 'POS_CASHIER', 'KITCHEN', 'ADMIN'] },
-    { href: '/admin/devices', label: 'Geräte-Manager', icon: Users, roles: ['ADMIN'] },
-    { href: '/admin/system-update', label: 'System-Update', icon: HardDrive, roles: ['ADMIN'] },
-    { href: '/admin/settings', label: 'Grundeinstellungen & TSE', icon: Settings, roles: ['ADMIN'] },
+  // Navigationsgruppen für den Admin-Bereich
+  const adminGroups: NavGroup[] = [
+    {
+      id: 'inventory',
+      label: 'Sortiment & Warenwirtschaft',
+      icon: Package,
+      items: [
+        { href: '/admin/products', label: 'Artikel & Speisekarte', icon: Utensils, roles: ['ADMIN'] },
+        { href: '/admin/inventory', label: 'Warenbestand & Lager', icon: Package, roles: ['ADMIN'] },
+        { href: '/admin/procurement', label: 'Lieferanten-Bestellvorschlag', icon: Truck, roles: ['ADMIN'] },
+        { href: '/taps', label: 'Fass- & Schankmonitor', icon: Beer, roles: ['ADMIN'] },
+      ],
+    },
+    {
+      id: 'finance',
+      label: 'Kasse, Abrechnung & Finanzen',
+      icon: Wallet,
+      items: [
+        { href: '/admin/reports', label: 'Statistik & Z-Bon', icon: BarChart3, roles: ['ADMIN'] },
+        { href: '/admin/cashbook', label: 'Kassenbuch & Barverkehr', icon: Wallet, roles: ['ADMIN'] },
+        { href: '/admin/accounting', label: 'DATEV Kassenbuch Export', icon: BookOpen, roles: ['ADMIN'] },
+        { href: '/admin/fiscal', label: 'DSFinV-K & TSE Archiv', icon: ShieldCheck, roles: ['ADMIN'] },
+        { href: '/admin/tips', label: 'Trinkgeld-Matrix', icon: Coins, roles: ['ADMIN'] },
+        { href: '/admin/tokens', label: 'Wertmarken & Bons', icon: Ticket, roles: ['ADMIN'] },
+      ],
+    },
+    {
+      id: 'hardware',
+      label: 'Geräte, Tische & Hardware',
+      icon: Grid,
+      items: [
+        { href: '/admin/tables', label: 'Tischplan Designer', icon: Grid, roles: ['ADMIN'] },
+        { href: '/admin/printers', label: 'Drucker & Druckgruppen', icon: Printer, roles: ['ADMIN'] },
+        { href: '/customer-display', label: 'Kundendisplay (Monitor)', icon: Monitor, roles: ['ADMIN'] },
+        { href: '/admin/devices', label: 'Geräte-Manager', icon: Users, roles: ['ADMIN'] },
+        { href: '/admin/qr-codes', label: 'QR Beitritts-Center', icon: QrCode, roles: ['ADMIN'] },
+      ],
+    },
+    {
+      id: 'system',
+      label: 'System & Konfiguration',
+      icon: Settings,
+      items: [
+        { href: '/admin/dashboard', label: 'Admin Command Center', icon: LayoutDashboard, roles: ['ADMIN'] },
+        { href: '/admin/settings', label: 'Grundeinstellungen & Bon-Design', icon: Settings, roles: ['ADMIN'] },
+        { href: '/admin/system-update', label: 'System-Update & Konsole', icon: HardDrive, roles: ['ADMIN'] },
+        { href: '/docs', label: 'Handbuch & Anleitungen', icon: BookOpen, roles: ['ADMIN'] },
+      ],
+    },
   ];
+
+  // Einzel-Links für nicht-Admin Rollen
+  const nonAdminLinks: Record<string, NavItem[]> = {
+    WAITER: [
+      { href: '/waiter', label: 'Bedienung (Tischübersicht)', icon: Smartphone, roles: ['WAITER'] },
+      { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['WAITER'] },
+      { href: '/docs', label: 'Handbuch & Anleitungen', icon: BookOpen, roles: ['WAITER'] },
+    ],
+    POS_CASHIER: [
+      { href: '/pos', label: 'Bonkasse (Thekenverkauf)', icon: CreditCard, roles: ['POS_CASHIER'] },
+      { href: '/customer-display', label: 'Kundendisplay', icon: Monitor, roles: ['POS_CASHIER'] },
+      { href: '/taps', label: 'Fass- & Schankmonitor', icon: Beer, roles: ['POS_CASHIER'] },
+      { href: '/kiosk', label: 'SB-Terminal (Kiosk)', icon: Terminal, roles: ['POS_CASHIER'] },
+      { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['POS_CASHIER'] },
+      { href: '/docs', label: 'Handbuch & Anleitungen', icon: BookOpen, roles: ['POS_CASHIER'] },
+    ],
+    KITCHEN: [
+      { href: '/kitchen', label: 'Küchenmonitor', icon: ChefHat, roles: ['KITCHEN'] },
+      { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['KITCHEN'] },
+      { href: '/docs', label: 'Handbuch & Anleitungen', icon: BookOpen, roles: ['KITCHEN'] },
+    ],
+  };
+
+  // Header im Vollbildmodus oder auf dedizierten Monitor-Displays ausblenden
+  const isDedicatedMonitorPage =
+    pathname === '/customer-display' ||
+    pathname === '/taps' ||
+    pathname === '/kiosk' ||
+    pathname === '/kitchen';
+
+  if (isFullscreen && isDedicatedMonitorPage) {
+    return null;
+  }
 
   return (
     <>
@@ -218,15 +273,45 @@ export default function Navbar() {
           </div>
 
           {/* Controls: Theme Switcher, Fullscreen, HA Status, Role */}
-          <div className="flex items-center gap-2 sm:gap-3 text-xs">
-            {/* Theme Switcher */}
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition active:scale-95"
-              title={theme === 'dark' ? 'Helles Design aktivieren' : 'Dunkles Design aktivieren'}
-            >
-              {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-blue-300" />}
-            </button>
+          <div className="flex items-center gap-2 sm:gap-3 text-xs relative">
+            {/* Theme Picker Dropdown Toggle */}
+            <div className="relative">
+              <button
+                onClick={() => setShowThemePicker(!showThemePicker)}
+                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition active:scale-95 flex items-center gap-1"
+                title="Farbschema wechseln"
+              >
+                <Sun className="w-4 h-4 text-amber-400" />
+              </button>
+
+              {showThemePicker && (
+                <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-700 rounded-2xl p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2.5 py-1 mb-1">
+                    Design / Theme wählen
+                  </div>
+                  {AVAILABLE_THEMES.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        setTheme(t.id);
+                        setShowThemePicker(false);
+                      }}
+                      className={`w-full p-2 rounded-xl text-left text-xs font-bold flex items-center justify-between transition ${
+                        theme === t.id
+                          ? 'bg-blue-600 text-white shadow'
+                          : 'text-slate-300 hover:bg-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>{t.icon}</span>
+                        <span>{t.label}</span>
+                      </div>
+                      {theme === t.id && <span>✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Fullscreen Button */}
             <FullscreenButton />
@@ -271,7 +356,7 @@ export default function Navbar() {
         <div className="fixed inset-0 z-50 flex animate-in fade-in duration-150">
           <div className="fixed inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
 
-          <div className="relative w-80 max-w-[85vw] bg-slate-900 text-white h-full shadow-2xl flex flex-col z-10 border-r border-slate-700 animate-in slide-in-from-left duration-200">
+          <div className="relative w-84 max-w-[88vw] bg-slate-900 text-white h-full shadow-2xl flex flex-col z-10 border-r border-slate-700 animate-in slide-in-from-left duration-200">
             {/* Header */}
             <div className="p-4 border-b border-slate-800 flex items-center justify-between">
               <div>
@@ -281,7 +366,7 @@ export default function Navbar() {
                     v{APP_VERSION} Beta
                   </span>
                 </div>
-                <p className="text-xs text-slate-400">OpenBon Kassen- & Bestellsystem</p>
+                <p className="text-xs text-slate-400">OpenBon Kassen- &amp; Bestellsystem</p>
               </div>
               <button onClick={() => setIsOpen(false)} className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800">
                 <X className="w-5 h-5" />
@@ -315,40 +400,88 @@ export default function Navbar() {
               </div>
             </div>
 
-            {/* Navigation Links */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-1">
-              <div className="px-3 py-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                Funktionsbereiche
-              </div>
-              {navLinks.map((link) => {
-                const Icon = link.icon;
-                const isActive = pathname === link.href;
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={(e) => handleLinkClick(e, link.href)}
-                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition ${
-                      isActive
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                      <span>{link.label}</span>
+            {/* Navigation Links by Role */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+              {role === 'ADMIN' ? (
+                /* Admin Grouped Hubs */
+                adminGroups.map((group) => {
+                  const isExpanded = openGroups[group.id] !== false;
+                  return (
+                    <div key={group.id} className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOpenGroups((prev) => ({ ...prev, [group.id]: !isExpanded }))
+                        }
+                        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider text-slate-400 hover:text-white transition"
+                      >
+                        <div className="flex items-center gap-2">
+                          <group.icon className="w-3.5 h-3.5 text-blue-400" />
+                          <span>{group.label}</span>
+                        </div>
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+
+                      {isExpanded && (
+                        <div className="space-y-0.5 pl-1.5 border-l-2 border-slate-800 ml-2">
+                          {group.items.map((link) => {
+                            const Icon = link.icon;
+                            const isActive = pathname === link.href;
+                            return (
+                              <Link
+                                key={link.href}
+                                href={link.href}
+                                onClick={() => setIsOpen(false)}
+                                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                                  isActive
+                                    ? 'bg-blue-600 text-white shadow-md'
+                                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                                }`}
+                              >
+                                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                                <span>{link.label}</span>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                    {(link.href.startsWith('/admin') || link.href === '/pos' || link.href === '/kitchen') && (
-                      <Lock className="w-3.5 h-3.5 text-slate-500" />
-                    )}
-                  </Link>
-                );
-              })}
+                  );
+                })
+              ) : (
+                /* Non-Admin Direct Clean Links */
+                <div className="space-y-1">
+                  <div className="px-3 py-1 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    Funktionen für {role === 'WAITER' ? 'Bedienung' : role === 'POS_CASHIER' ? 'Bonkasse' : 'Küche'}
+                  </div>
+                  {(nonAdminLinks[role] || []).map((link) => {
+                    const Icon = link.icon;
+                    const isActive = pathname === link.href;
+                    return (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setIsOpen(false)}
+                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition ${
+                          isActive
+                            ? 'bg-blue-600 text-white shadow-md'
+                            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                        }`}
+                      >
+                        <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                        <span>{link.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Footer */}
             <div className="p-3 border-t border-slate-800 bg-slate-950 text-center text-[11px] text-slate-500">
-              OpenBon v{APP_VERSION} Beta (Nutzung ohne Gewähr)
+              OpenBon v{APP_VERSION} Beta • Offline Kassennetzwerk
             </div>
           </div>
         </div>
@@ -358,16 +491,16 @@ export default function Navbar() {
       <PinModal
         isOpen={showPinModal}
         title={
-          pinTarget === 'ADMIN' || pinTarget.startsWith('/admin')
+          pinTarget === 'ADMIN'
             ? 'Administrator PIN eingeben'
-            : pinTarget === 'POS_CASHIER' || pinTarget === '/pos'
+            : pinTarget === 'POS_CASHIER'
             ? 'Bonkassen PIN eingeben'
             : 'Küchen PIN eingeben'
         }
         stationType={
-          pinTarget === 'ADMIN' || pinTarget.startsWith('/admin')
+          pinTarget === 'ADMIN'
             ? 'ADMIN'
-            : pinTarget === 'POS_CASHIER' || pinTarget === '/pos'
+            : pinTarget === 'POS_CASHIER'
             ? 'POS'
             : 'KITCHEN'
         }

@@ -57,6 +57,9 @@ _to_delete/
 scratch/
 
 # Vercel & IDE
+license-generator.html
+*license-generator*.html
+/licenses/
 .vercel
 .idea
 .vscode

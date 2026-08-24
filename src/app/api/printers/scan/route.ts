@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import net from 'net';
 import os from 'os';
+import prisma from '@/lib/db';
 
 function testTcpPort(ip: string, port = 9100, timeout = 350): Promise<boolean> {
   return new Promise((resolve) => {
@@ -87,6 +88,9 @@ export async function GET(req: Request) {
       }
     }
 
+    const existingPrinters = await prisma.printer.findMany({ select: { ipAddress: true, name: true } });
+    const existingIps = new Set(existingPrinters.map((p) => p.ipAddress));
+
     return NextResponse.json({
       subnet,
       detectedCount: detectedIps.length,
@@ -96,6 +100,7 @@ export async function GET(req: Request) {
         port: 9100,
         paperWidth: 80,
         characterSet: 'CP858',
+        alreadyExists: existingIps.has(ip),
       })),
     });
   } catch (error) {

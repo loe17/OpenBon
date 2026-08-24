@@ -54,6 +54,16 @@ export interface EventConfigDTO {
   kitchenPin: string;
   waiterPin: string;
   enableVirtualPrinters: boolean;
+  enableCourses?: boolean;
+  enableDigitalReceipt?: boolean;
+  receiptHeader?: string | null;
+  receiptSubHeader?: string | null;
+  receiptFooterText?: string | null;
+  receiptShowTimestamp?: boolean;
+  receiptShowWaiter?: boolean;
+  receiptShowTable?: boolean;
+  receiptShowTse?: boolean;
+  activeTheme?: string;
   enableAgeVerificationAlerts?: boolean;
   enableDigitalReceiptQr?: boolean;
   enableGuestSelfOrder?: boolean;

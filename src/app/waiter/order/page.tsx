@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSocket } from '@/components/providers/socket-provider';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -19,6 +20,8 @@ import {
   Sparkles,
   Filter,
   AlertCircle,
+  Check,
+  BellRing,
 } from 'lucide-react';
 import { SubCategoryIcon } from '@/components/ui/subcategory-icon';
 import { COURSES } from '@/types/domain';
@@ -30,12 +33,25 @@ import type {
   ProductDTO,
   ProductVariantDTO,
 } from '@/types/domain';
-import { playConfirm } from '@/lib/audio-feedback';
+import { playConfirm, playVoidAlert } from '@/lib/audio-feedback';
+
+const parseWordsList = (raw: any): string[] => {
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      return raw.split(',').map((w: string) => w.trim()).filter(Boolean);
+    }
+  }
+  return [];
+};
 
 interface WordGroup {
   id: string;
   name: string;
-  words: string;
+  words: any;
 }
 
 interface CartItem {
@@ -82,6 +98,48 @@ function WaiterOrderContent() {
   const [activeCourse, setActiveCourse] = useState<number>(1);
   const [holdNext, setHoldNext] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [enableCourses, setEnableCourses] = useState(false);
+  const [productWithOptions, setProductWithOptions] = useState<ProductDTO | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariantDTO | null>(null);
+  const [activeOptionNames, setActiveOptionNames] = useState<string[]>([]);
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    fetch('/api/config')
+      .then((r) => r.json())
+      .then((cfg) => {
+        if (cfg) {
+          setEnableCourses(Boolean(cfg.enableCourses));
+          setEnableAgeAlerts(Boolean(cfg.enableAgeVerificationAlerts ?? true));
+        }
+      })
+      .catch(() => {});
+
+    if (socket) {
+      const handleAlert = (data: { message: string; sender?: string }) => {
+        playVoidAlert();
+        triggerHapticFeedback();
+        alert(`🚨 EILDURCHSAGE VON ${data.sender || 'KASSE / LEITUNG'}:\n\n${data.message}`);
+      };
+
+      const handleInventory = () => {
+        fetch('/api/categories')
+          .then((r) => r.json())
+          .then((data) => {
+            if (Array.isArray(data)) setCategories(data);
+          })
+          .catch(() => {});
+      };
+
+      socket.on('broadcast:alert', handleAlert);
+      socket.on('inventory:updated', handleInventory);
+
+      return () => {
+        socket.off('broadcast:alert', handleAlert);
+        socket.off('inventory:updated', handleInventory);
+      };
+    }
+  }, [socket]);
 
   useEffect(() => {
     const savedWaiter = waiterFromUrl || localStorage.getItem('pos_waiter_name') || 'Bedienung';
@@ -152,15 +210,32 @@ function WaiterOrderContent() {
     }
   }, [tableId, waiterFromUrl, searchParams]);
 
-  const addToCart = (product: ProductDTO, variant?: ProductVariantDTO) => {
+  const handleProductClick = (product: ProductDTO, variant?: ProductVariantDTO) => {
+    const hasOptions = product.options && product.options.length > 0;
+    if (hasOptions && !variant) {
+      setProductWithOptions(product);
+      setSelectedVariant(product.variants && product.variants.length > 0 ? product.variants[0] : null);
+      setActiveOptionNames([]);
+      return;
+    }
+    addToCart(product, variant, []);
+  };
+
+  const addToCart = (product: ProductDTO, variant?: ProductVariantDTO | null, optionsList: string[] = []) => {
     if (product.isSoldOut || (variant && variant.isSoldOut)) {
       setNotice(`Artikel "${product.name}" ist derzeit ausverkauft.`);
       return;
     }
 
     triggerHapticFeedback();
-    const unitPrice = product.price + (variant ? variant.priceDelta : 0);
-    const lineId = `${product.id}_${variant ? variant.name : 'default'}_g${activeCourse}${holdNext ? '_h' : ''}`;
+    const optionsDelta = (product.options || [])
+      .filter((o) => optionsList.includes(o.name))
+      .reduce((sum, o) => sum + (o.priceDelta || 0), 0);
+
+    const { price: effectivePrice } = getEffectiveProductPrice(product as any);
+    const unitPrice = effectivePrice + (variant ? variant.priceDelta : 0) + optionsDelta;
+    const optionsKey = optionsList.slice().sort().join('|');
+    const lineId = `${product.id}_${variant ? variant.name : 'default'}_${optionsKey}_g${activeCourse}${holdNext ? '_h' : ''}`;
 
     setCart((prev) => {
       const existing = prev.find((i) => i.id === lineId && !i.customizationText);
@@ -177,7 +252,7 @@ function WaiterOrderContent() {
           deposit: product.deposit || 0,
           quantity: 1,
           variantName: variant ? variant.name : undefined,
-          selectedOptions: [],
+          selectedOptions: optionsList,
           courseNumber: activeCourse,
           isHold: holdNext,
         },
@@ -453,42 +528,44 @@ function WaiterOrderContent() {
         ))}
       </div>
 
-      {/* Spec 6.5: Gang-Steuerung & Zurückhalten für neu gebuchte Artikel */}
-      <div className="bg-slate-900 px-3 py-2 border-b border-slate-800 flex items-center gap-2 overflow-x-auto">
-        <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider shrink-0">
-          Buchen auf
-        </span>
-        {COURSES.map((c) => (
+      {/* Spec 6.5: Gang-Steuerung & Zurückhalten für neu gebuchte Artikel (nur wenn aktiv) */}
+      {enableCourses && (
+        <div className="bg-slate-900 px-3 py-2 border-b border-slate-800 flex items-center gap-2 overflow-x-auto">
+          <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider shrink-0">
+            Buchen auf
+          </span>
+          {COURSES.map((c) => (
+            <button
+              key={c.number}
+              onClick={() => {
+                triggerHapticFeedback();
+                setActiveCourse(c.number);
+              }}
+              className={`touch-target px-3 rounded-2xl text-xs font-bold whitespace-nowrap border transition ${
+                activeCourse === c.number
+                  ? 'bg-violet-600 text-white border-violet-500'
+                  : 'bg-slate-800 text-slate-400 border-slate-700'
+              }`}
+            >
+              Gang {c.number}
+            </button>
+          ))}
           <button
-            key={c.number}
             onClick={() => {
               triggerHapticFeedback();
-              setActiveCourse(c.number);
+              setHoldNext((v) => !v);
             }}
-            className={`touch-target px-3 rounded-2xl text-xs font-bold whitespace-nowrap border transition ${
-              activeCourse === c.number
-                ? 'bg-violet-600 text-white border-violet-500'
+            className={`touch-target px-3 rounded-2xl text-xs font-bold whitespace-nowrap border transition flex items-center gap-1.5 ml-auto shrink-0 ${
+              holdNext
+                ? 'bg-amber-600 text-white border-amber-500'
                 : 'bg-slate-800 text-slate-400 border-slate-700'
             }`}
           >
-            Gang {c.number}
+            {holdNext ? <PauseCircle className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
+            <span>{holdNext ? 'HOLD aktiv' : 'Zurückhalten'}</span>
           </button>
-        ))}
-        <button
-          onClick={() => {
-            triggerHapticFeedback();
-            setHoldNext((v) => !v);
-          }}
-          className={`touch-target px-3 rounded-2xl text-xs font-bold whitespace-nowrap border transition flex items-center gap-1.5 ml-auto shrink-0 ${
-            holdNext
-              ? 'bg-amber-600 text-white border-amber-500'
-              : 'bg-slate-800 text-slate-400 border-slate-700'
-          }`}
-        >
-          {holdNext ? <PauseCircle className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
-          <span>{holdNext ? 'HOLD aktiv' : 'Zurückhalten'}</span>
-        </button>
-      </div>
+        </div>
+      )}
 
       {notice && (
         <div className="px-4 py-2.5 bg-amber-950 border-b border-amber-800 text-amber-200 text-xs font-bold flex items-center justify-between gap-2">
@@ -506,6 +583,7 @@ function WaiterOrderContent() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-3">
             {displayedProducts?.map((product) => {
               const hasVariants = product.variants && product.variants.length > 0;
+              const hasOptions = product.options && product.options.length > 0;
               const isOut = product.isSoldOut;
               const { price: effectivePrice, isHappyHour } = getEffectiveProductPrice(product as any);
 
@@ -561,7 +639,7 @@ function WaiterOrderContent() {
                           <button
                             key={variant.id}
                             disabled={vOut}
-                            onClick={() => addToCart(product, variant)}
+                            onClick={() => (hasOptions ? handleProductClick(product, variant) : addToCart(product, variant))}
                             className={`pos-touch-btn py-2 px-2.5 rounded-xl text-xs font-bold flex items-center justify-between border transition ${
                               vOut
                                 ? 'bg-slate-950 text-slate-600 border-slate-900 line-through'
@@ -579,7 +657,7 @@ function WaiterOrderContent() {
                   ) : (
                     <button
                       disabled={isOut}
-                      onClick={() => addToCart(product)}
+                      onClick={() => handleProductClick(product)}
                       className={`pos-touch-btn w-full mt-2 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1 shadow-md transition ${
                         isOut
                           ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
@@ -591,7 +669,7 @@ function WaiterOrderContent() {
                       ) : (
                         <>
                           <Plus className="w-4 h-4" />
-                          <span>Buchen</span>
+                          <span>{hasOptions ? 'Optionen' : 'Buchen'}</span>
                         </>
                       )}
                     </button>
@@ -640,6 +718,11 @@ function WaiterOrderContent() {
                             </span>
                           )}
                         </div>
+                        {item.selectedOptions && item.selectedOptions.length > 0 && (
+                          <div className="text-[11px] text-emerald-400 font-medium">
+                            + {item.selectedOptions.join(', ')}
+                          </div>
+                        )}
                         <div className="text-xs font-mono font-bold text-slate-400">
                           {formatCurrency((item.price + item.deposit) * item.quantity)}
                         </div>
@@ -684,40 +767,42 @@ function WaiterOrderContent() {
                       </button>
                     </div>
 
-                    {/* Spec 6.5: Gang und HOLD je Position ändern */}
-                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
-                      <div className="flex items-center gap-1">
-                        {COURSES.map((c) => (
-                          <button
-                            key={c.number}
-                            onClick={() => setLineCourse(item.id, c.number)}
-                            title={c.label}
-                            className={`w-8 h-8 rounded-lg text-[11px] font-black border transition ${
-                              item.courseNumber === c.number
-                                ? 'bg-violet-600 text-white border-violet-500'
-                                : 'bg-slate-900 text-slate-500 border-slate-800'
-                            }`}
-                          >
-                            G{c.number}
-                          </button>
-                        ))}
+                    {/* Spec 6.5: Gang und HOLD je Position ändern (nur wenn Gänge aktiv) */}
+                    {enableCourses && (
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
+                        <div className="flex items-center gap-1">
+                          {COURSES.map((c) => (
+                            <button
+                              key={c.number}
+                              onClick={() => setLineCourse(item.id, c.number)}
+                              title={c.label}
+                              className={`w-8 h-8 rounded-lg text-[11px] font-black border transition ${
+                                item.courseNumber === c.number
+                                  ? 'bg-violet-600 text-white border-violet-500'
+                                  : 'bg-slate-900 text-slate-500 border-slate-800'
+                              }`}
+                            >
+                              G{c.number}
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          onClick={() => toggleLineHold(item.id)}
+                          className={`text-[11px] font-bold flex items-center gap-1 px-2 py-1 rounded-lg border transition ${
+                            item.isHold
+                              ? 'bg-amber-950 text-amber-300 border-amber-700'
+                              : 'bg-slate-900 text-slate-500 border-slate-800'
+                          }`}
+                        >
+                          {item.isHold ? (
+                            <PauseCircle className="w-3.5 h-3.5" />
+                          ) : (
+                            <PlayCircle className="w-3.5 h-3.5" />
+                          )}
+                          <span>{item.isHold ? 'Zurückgehalten' : 'Sofort'}</span>
+                        </button>
                       </div>
-                      <button
-                        onClick={() => toggleLineHold(item.id)}
-                        className={`text-[11px] font-bold flex items-center gap-1 px-2 py-1 rounded-lg border transition ${
-                          item.isHold
-                            ? 'bg-amber-950 text-amber-300 border-amber-700'
-                            : 'bg-slate-900 text-slate-500 border-slate-800'
-                        }`}
-                      >
-                        {item.isHold ? (
-                          <PauseCircle className="w-3.5 h-3.5" />
-                        ) : (
-                          <PlayCircle className="w-3.5 h-3.5" />
-                        )}
-                        <span>{item.isHold ? 'Zurückgehalten' : 'Sofort'}</span>
-                      </button>
-                    </div>
+                    )}
                   </div>
                 ))
               )}
@@ -744,6 +829,127 @@ function WaiterOrderContent() {
         </div>
       </div>
 
+      {/* Options / Variant Selection Modal */}
+      {productWithOptions && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div>
+                <span className="text-xs text-blue-400 font-bold uppercase">Auswahl & Zusätze</span>
+                <h3 className="text-lg font-black text-white">{productWithOptions.name}</h3>
+              </div>
+              <button
+                onClick={() => setProductWithOptions(null)}
+                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Varianten / Sorten wenn vorhanden */}
+            {productWithOptions.variants && productWithOptions.variants.length > 0 && (
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                  Sorte / Variante wählen:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {productWithOptions.variants.map((v) => {
+                    const active = selectedVariant?.name === v.name;
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => setSelectedVariant(v)}
+                        className={`p-3 rounded-2xl text-xs font-bold border text-left transition ${
+                          active
+                            ? 'bg-blue-600 border-blue-400 text-white shadow'
+                            : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-600'
+                        }`}
+                      >
+                        <div className="truncate font-black">{v.name}</div>
+                        <div className="text-[11px] opacity-80 mt-0.5 font-mono">
+                          {v.priceDelta > 0 ? `+${formatCurrency(v.priceDelta)}` : 'Standard'}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Zusätze / Extras wenn vorhanden */}
+            {productWithOptions.options && productWithOptions.options.length > 0 && (
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                  Zusätze & Extras wählen:
+                </label>
+                <div className="space-y-1.5 max-h-[30vh] overflow-y-auto">
+                  {productWithOptions.options.map((opt) => {
+                    const checked = activeOptionNames.includes(opt.name);
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveOptionNames((prev) =>
+                            checked ? prev.filter((n) => n !== opt.name) : [...prev, opt.name]
+                          );
+                        }}
+                        className={`w-full p-3 rounded-2xl text-xs font-bold border flex items-center justify-between transition ${
+                          checked
+                            ? 'bg-emerald-950/60 border-emerald-500 text-emerald-200 shadow-sm'
+                            : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`w-4 h-4 rounded-md flex items-center justify-center border text-[10px] ${
+                              checked
+                                ? 'bg-emerald-500 text-white border-emerald-400'
+                                : 'border-slate-700'
+                            }`}
+                          >
+                            {checked && '✓'}
+                          </span>
+                          <span>{opt.name}</span>
+                        </div>
+                        {opt.priceDelta && opt.priceDelta > 0 ? (
+                          <span className="font-mono text-emerald-400">+{formatCurrency(opt.priceDelta)}</span>
+                        ) : (
+                          <span className="text-slate-500 text-[10px]">Inklusive</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setProductWithOptions(null)}
+                className="flex-1 h-12 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-bold"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (productWithOptions) {
+                    addToCart(productWithOptions, selectedVariant, activeOptionNames);
+                    setProductWithOptions(null);
+                  }
+                }}
+                className="flex-1 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-black shadow-lg shadow-blue-950/50"
+              >
+                In den Korb
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Customization Popup Modal */}
       {customizingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
@@ -764,12 +970,7 @@ function WaiterOrderContent() {
             {/* Word Groups Blocks */}
             <div className="space-y-3 max-h-[45vh] overflow-y-auto pr-1">
               {wordGroups.map((group) => {
-                let words: string[] = [];
-                try {
-                  words = JSON.parse(group.words);
-                } catch {
-                  words = group.words.split(',').map((w: string) => w.trim());
-                }
+                const words = parseWordsList(group.words);
 
                 const isPrefixGroup =
                   group.name.toLowerCase().includes('zusatz') ||

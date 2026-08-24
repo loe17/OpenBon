@@ -19,14 +19,26 @@ model EventConfig {
   posPin                        String   @default("1111")
   kitchenPin                    String   @default("2222")
   waiterPin                     String   @default("3333")
-  enableVirtualPrinters         Boolean  @default(true)
+  enableVirtualPrinters         Boolean  @default(false)
   
-  // V2 Schalter & Features
+  // V2/V3 Schalter & Features
+  enableCourses                 Boolean  @default(false)
+  enableDigitalReceipt          Boolean  @default(false)
   enableAgeVerificationAlerts   Boolean  @default(true)
-  enableDigitalReceiptQr        Boolean  @default(true)
+  enableDigitalReceiptQr        Boolean  @default(false)
   enableGuestSelfOrder          Boolean  @default(true)
   enableKioskMode               Boolean  @default(false)
+  activeTheme                   String   @default("dark") // dark, light, contrast, modern, minimal, plain
   lowStockAlertPrinterId        String?
+
+  // Beleg- & Bon-Druck Layout
+  receiptHeader                 String?  @default("Vereinsfest 2026")
+  receiptSubHeader              String?  @default("Freiwillige Feuerwehr e.V.")
+  receiptFooterText             String?  @default("Vielen Dank für Ihren Besuch!")
+  receiptShowTimestamp          Boolean  @default(true)
+  receiptShowWaiter             Boolean  @default(true)
+  receiptShowTable              Boolean  @default(true)
+  receiptShowTse                Boolean  @default(true)
 
   // Kartenzahlungs-IDs
   sumupMerchantCode             String?

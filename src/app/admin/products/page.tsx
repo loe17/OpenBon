@@ -628,6 +628,140 @@ export default function AdminProductsPage() {
                 )}
               </div>
 
+              {/* Sorten & Varianten */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <Layers className="w-4 h-4 text-blue-400" />
+                    <span>Sorten & Varianten (z. B. Helles Weizen, Colaweizen, Russ)</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        variants: [...formData.variants, { name: '', priceDelta: 0.0, isSoldOut: false }],
+                      })
+                    }
+                    className="px-2.5 py-1 bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white rounded-lg text-xs font-bold transition border border-blue-500/30 flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Variante</span>
+                  </button>
+                </div>
+
+                {formData.variants.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-slate-800">
+                    {formData.variants.map((v, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Variantenname (z. B. Colaweizen)"
+                          value={v.name}
+                          onChange={(e) => {
+                            const updated = [...formData.variants];
+                            updated[idx].name = e.target.value;
+                            setFormData({ ...formData, variants: updated });
+                          }}
+                          className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
+                        />
+                        <div className="flex items-center gap-1">
+                          <span className="text-[11px] text-slate-400 font-mono">+/- €</span>
+                          <input
+                            type="number"
+                            step="0.10"
+                            value={v.priceDelta}
+                            onChange={(e) => {
+                              const updated = [...formData.variants];
+                              updated[idx].priceDelta = parseFloat(e.target.value) || 0.0;
+                              setFormData({ ...formData, variants: updated });
+                            }}
+                            className="w-20 bg-slate-900 border border-slate-700 rounded-xl px-2 py-1.5 text-xs text-white font-mono"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = formData.variants.filter((_, i) => i !== idx);
+                            setFormData({ ...formData, variants: updated });
+                          }}
+                          className="p-1.5 text-slate-500 hover:text-rose-400"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Zusatz-Optionen & Extras */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <Plus className="w-4 h-4 text-emerald-400" />
+                    <span>Zusätze & Extras (z. B. Ketchup, Mayonnaise, Extra Käse)</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        options: [...formData.options, { name: '', priceDelta: 0.5 }],
+                      })
+                    }
+                    className="px-2.5 py-1 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded-lg text-xs font-bold transition border border-emerald-500/30 flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Zusatz</span>
+                  </button>
+                </div>
+
+                {formData.options.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-slate-800">
+                    {formData.options.map((o, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Zusatzname (z. B. Mayonnaise)"
+                          value={o.name}
+                          onChange={(e) => {
+                            const updated = [...formData.options];
+                            updated[idx].name = e.target.value;
+                            setFormData({ ...formData, options: updated });
+                          }}
+                          className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
+                        />
+                        <div className="flex items-center gap-1">
+                          <span className="text-[11px] text-slate-400 font-mono">+ €</span>
+                          <input
+                            type="number"
+                            step="0.10"
+                            value={o.priceDelta}
+                            onChange={(e) => {
+                              const updated = [...formData.options];
+                              updated[idx].priceDelta = parseFloat(e.target.value) || 0.0;
+                              setFormData({ ...formData, options: updated });
+                            }}
+                            className="w-20 bg-slate-900 border border-slate-700 rounded-xl px-2 py-1.5 text-xs text-white font-mono"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = formData.options.filter((_, i) => i !== idx);
+                            setFormData({ ...formData, options: updated });
+                          }}
+                          className="p-1.5 text-slate-500 hover:text-rose-400"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Wertmarken / Gutschein Checkbox */}
               <div className="flex items-center gap-2 p-3 bg-slate-950 rounded-2xl border border-slate-800">
                 <input

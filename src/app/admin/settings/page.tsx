@@ -577,14 +577,174 @@ export default function AdminSettingsPage() {
             </div>
           </div>
 
-          {/* Card 4b: Spec V2 Zusatzmodule & Automatisierung */}
+          {/* Card 4b: Bon-Druck & Beleg-Layout */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-lg space-y-4">
+            <h2 className="text-base font-extrabold text-white flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-emerald-400" />
+              <span>Bon-Druck &amp; Beleg-Layout Konfiguration</span>
+            </h2>
+            <p className="text-xs text-slate-400">
+              Passe die Kopf- und Fußzeilen sowie gedruckte Felder für Thermodrucker und Gast-Bons an.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">
+                  Festname / Kopfzeile
+                </label>
+                <input
+                  type="text"
+                  placeholder="z. B. Vereins- & Feuerwehrfest 2026"
+                  value={config.receiptHeader || ''}
+                  onChange={(e) => setConfig({ ...config, receiptHeader: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">
+                  Verein / Unterzeile / Steuernummer
+                </label>
+                <input
+                  type="text"
+                  placeholder="z. B. Freiwillige Feuerwehr e.V. • St.-Nr. 12/345/67890"
+                  value={config.receiptSubHeader || ''}
+                  onChange={(e) => setConfig({ ...config, receiptSubHeader: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="text-xs font-bold text-slate-400 block mb-1">
+                  Freitext Fußzeile (Dankestext / Schlusshinweis)
+                </label>
+                <input
+                  type="text"
+                  placeholder="z. B. Vielen Dank für Ihren Besuch! Wir wünschen einen guten Heimweg."
+                  value={config.receiptFooterText || ''}
+                  onChange={(e) => setConfig({ ...config, receiptFooterText: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <label className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between cursor-pointer">
+                <span className="text-xs font-bold text-slate-300">Datum &amp; Uhrzeit</span>
+                <input
+                  type="checkbox"
+                  checked={config.receiptShowTimestamp ?? true}
+                  onChange={(e) => setConfig({ ...config, receiptShowTimestamp: e.target.checked })}
+                  className="w-4 h-4 rounded text-blue-600"
+                />
+              </label>
+
+              <label className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between cursor-pointer">
+                <span className="text-xs font-bold text-slate-300">Bedienungsname</span>
+                <input
+                  type="checkbox"
+                  checked={config.receiptShowWaiter ?? true}
+                  onChange={(e) => setConfig({ ...config, receiptShowWaiter: e.target.checked })}
+                  className="w-4 h-4 rounded text-blue-600"
+                />
+              </label>
+
+              <label className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between cursor-pointer">
+                <span className="text-xs font-bold text-slate-300">Tischnummer</span>
+                <input
+                  type="checkbox"
+                  checked={config.receiptShowTable ?? true}
+                  onChange={(e) => setConfig({ ...config, receiptShowTable: e.target.checked })}
+                  className="w-4 h-4 rounded text-blue-600"
+                />
+              </label>
+
+              <label className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between cursor-pointer">
+                <span className="text-xs font-bold text-slate-300">TSE Fiskalblock</span>
+                <input
+                  type="checkbox"
+                  checked={config.receiptShowTse ?? true}
+                  onChange={(e) => setConfig({ ...config, receiptShowTse: e.target.checked })}
+                  className="w-4 h-4 rounded text-blue-600"
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Card 4c: Design & Themenauswahl */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-lg space-y-4">
+            <h2 className="text-base font-extrabold text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span>Erscheinungsbild &amp; Farbschema (Themes)</span>
+            </h2>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                { id: 'dark', name: '🌙 Dunkel', desc: 'Deep Slate / Nachtmodus (Standard)' },
+                { id: 'light', name: '☀️ Hell', desc: 'Klares Tageslicht & hoher Kontrast' },
+                { id: 'contrast', name: '⚡ Kontrastreich', desc: 'Extremer Kontrast für Festzelte' },
+                { id: 'modern', name: '💎 Modern', desc: 'Vibrantes Indigo & Glassmorphism' },
+                { id: 'minimal', name: '◽ Minimalistisch', desc: 'Monochromes reines Design' },
+                { id: 'plain', name: '☕ Schlicht', desc: 'Klassisches unaufgeregtes Kassen-Design' },
+              ].map((t) => {
+                const active = (config.activeTheme || 'dark') === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      setConfig({ ...config, activeTheme: t.id });
+                      document.documentElement.setAttribute('data-theme', t.id);
+                      localStorage.setItem('openbon_theme', t.id);
+                    }}
+                    className={`p-3.5 rounded-2xl border text-left transition ${
+                      active
+                        ? 'bg-blue-600/20 border-blue-500 text-white shadow-md'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                    }`}
+                  >
+                    <div className="font-black text-sm text-white">{t.name}</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">{t.desc}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Card 4d: Zusatzmodule & Schalter */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-lg space-y-4">
             <h2 className="text-base font-extrabold text-white flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-purple-400" />
-              <span>Erweiterungen &amp; Automatisierung (v0.2.1)</span>
+              <span>Funktionen &amp; Schalter</span>
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
+                <div>
+                  <div className="text-xs font-bold text-white">Gänge-Verwaltung (Gang 1, 2, 3)</div>
+                  <div className="text-[11px] text-slate-400">Gänge-Auswahl auf Mobilteilen & Kasse anzeigen</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={config.enableCourses ?? false}
+                  onChange={(e) => setConfig({ ...config, enableCourses: e.target.checked })}
+                  className="w-4 h-4 rounded text-purple-600"
+                />
+              </label>
+
+              <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
+                <div>
+                  <div className="text-xs font-bold text-white">Digitaler E-Bon (QR-Code)</div>
+                  <div className="text-[11px] text-slate-400">Papierloser Belegabruf aktivieren</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={config.enableDigitalReceipt ?? false}
+                  onChange={(e) => setConfig({ ...config, enableDigitalReceipt: e.target.checked, enableDigitalReceiptQr: e.target.checked })}
+                  className="w-4 h-4 rounded text-emerald-600"
+                />
+              </label>
+
               <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
                 <div>
                   <div className="text-xs font-bold text-white">Jugendschutz-Altersprüfung</div>
@@ -600,39 +760,13 @@ export default function AdminSettingsPage() {
 
               <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
                 <div>
-                  <div className="text-xs font-bold text-white">Digitaler E-Bon QR-Code</div>
-                  <div className="text-[11px] text-slate-400">Papierloser Belegabruf nach §33 KassenSichV (§5.2)</div>
+                  <div className="text-xs font-bold text-white">Virtuelle Drucker (Simulation)</div>
+                  <div className="text-[11px] text-slate-400">Druckersimulation im Browser ohne Hardware</div>
                 </div>
                 <input
                   type="checkbox"
-                  checked={config.enableDigitalReceiptQr ?? true}
-                  onChange={(e) => setConfig({ ...config, enableDigitalReceiptQr: e.target.checked })}
-                  className="w-4 h-4 rounded text-emerald-600"
-                />
-              </label>
-
-              <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
-                <div>
-                  <div className="text-xs font-bold text-white">Gäste-Selbstbestellung (BYOD)</div>
-                  <div className="text-[11px] text-slate-400">QR-Code Tischbestellungen freischalten (§4.1)</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={config.enableGuestSelfOrder ?? true}
-                  onChange={(e) => setConfig({ ...config, enableGuestSelfOrder: e.target.checked })}
-                  className="w-4 h-4 rounded text-blue-600"
-                />
-              </label>
-
-              <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
-                <div>
-                  <div className="text-xs font-bold text-white">SB-Kiosk Terminal Modus</div>
-                  <div className="text-[11px] text-slate-400">Eigenständiges Kiosk-Bestellterminal (§4.2)</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={config.enableKioskMode ?? true}
-                  onChange={(e) => setConfig({ ...config, enableKioskMode: e.target.checked })}
+                  checked={config.enableVirtualPrinters ?? false}
+                  onChange={(e) => setConfig({ ...config, enableVirtualPrinters: e.target.checked })}
                   className="w-4 h-4 rounded text-amber-600"
                 />
               </label>
@@ -640,7 +774,7 @@ export default function AdminSettingsPage() {
 
             <div className="pt-2">
               <label className="text-xs font-bold text-slate-400 block mb-1">
-                Warndrucker für Meldebestand-Unterschreitung (optional, Spec V2 §6.3):
+                Warndrucker für Meldebestand-Unterschreitung (optional):
               </label>
               <select
                 value={config.lowStockAlertPrinterId || ''}

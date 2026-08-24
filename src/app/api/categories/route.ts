@@ -20,7 +20,27 @@ export async function GET() {
         },
       },
     });
-    return NextResponse.json(categories);
+
+    // Deduplizieren nach Name falls durch Seeding/Import Duplikate entstanden sind
+    const uniqueMap = new Map<string, (typeof categories)[0]>();
+    for (const cat of categories) {
+      const key = cat.name.trim().toLowerCase();
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, { ...cat, products: [...cat.products] });
+      } else {
+        const existing = uniqueMap.get(key)!;
+        // Produkte zusammenführen ohne Duplikate
+        const existingProdIds = new Set(existing.products.map((p) => p.id));
+        for (const p of cat.products) {
+          if (!existingProdIds.has(p.id)) {
+            existing.products.push(p);
+            existingProdIds.add(p.id);
+          }
+        }
+      }
+    }
+
+    return NextResponse.json(Array.from(uniqueMap.values()));
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
@@ -38,6 +58,19 @@ export async function POST(req: Request) {
       },
     });
     return NextResponse.json(created);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'ID fehlt' }, { status: 400 });
+
+    await prisma.productCategory.delete({ where: { id } });
+    return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }

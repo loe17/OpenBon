@@ -25,6 +25,7 @@ import {
   QrCode,
   Coins,
   Package,
+  X,
 } from 'lucide-react';
 import { SubCategoryIcon } from '@/components/ui/subcategory-icon';
 import { calculateMinBirthdate, EU_ALLERGENS, filterProductsByExcludedAllergens } from '@/lib/compliance';
@@ -48,6 +49,10 @@ export default function PosCounterPage() {
   const [selectedProductInfo, setSelectedProductInfo] = useState<any | null>(null);
   const [lowStockWarning, setLowStockWarning] = useState<string | null>(null);
 
+  const [productWithOptions, setProductWithOptions] = useState<ProductDTO | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariantDTO | null>(null);
+  const [activeOptionNames, setActiveOptionNames] = useState<string[]>([]);
+
   const minBirth16 = calculateMinBirthdate(16);
   const minBirth18 = calculateMinBirthdate(18);
 
@@ -59,7 +64,7 @@ export default function PosCounterPage() {
     if (!socket) return;
     if (cart.length > 0) {
       socket.emit('pos:cart_updated', {
-        stationId: 'MAIN_CASH',
+        stationId: 'POS_MAIN',
         stationName: 'Hauptkasse',
         items: cart.map((i) => ({
           name: i.variantName ? `${i.name} (${i.variantName})` : i.name,
@@ -71,7 +76,7 @@ export default function PosCounterPage() {
         totalDeposit,
       });
     } else {
-      socket.emit('pos:cart_cleared', { stationId: 'MAIN_CASH' });
+      socket.emit('pos:cart_cleared', { stationId: 'POS_MAIN' });
     }
   }, [cart, totalGross, totalDeposit, socket]);
 
@@ -85,18 +90,49 @@ export default function PosCounterPage() {
         }
       })
       .catch(() => {});
-  }, []);
 
-  const addToCart = (product: ProductDTO, variant?: ProductVariantDTO) => {
+    if (socket) {
+      const handleInventory = () => {
+        fetch('/api/categories')
+          .then((r) => r.json())
+          .then((data) => {
+            if (Array.isArray(data)) setCategories(data);
+          })
+          .catch(() => {});
+      };
+      socket.on('inventory:updated', handleInventory);
+      return () => {
+        socket.off('inventory:updated', handleInventory);
+      };
+    }
+  }, [socket]);
+
+  const handleProductClick = (product: ProductDTO, variant?: ProductVariantDTO) => {
+    const hasOptions = (product.options && product.options.length > 0) || (product.variants && product.variants.length > 1 && !variant);
+    if (hasOptions && !variant) {
+      setProductWithOptions(product);
+      setSelectedVariant(product.variants && product.variants.length > 0 ? product.variants[0] : null);
+      setActiveOptionNames([]);
+      return;
+    }
+    addToCart(product, variant, []);
+  };
+
+  const addToCart = (product: ProductDTO, variant?: ProductVariantDTO | null, optionsList: string[] = []) => {
     if (product.isSoldOut || (variant && variant.isSoldOut)) {
       alert(`Artikel "${product.name}" ist derzeit ausverkauft / gesperrt.`);
       return;
     }
 
     triggerHapticFeedback();
+    const optionsDelta = (product.options || [])
+      .filter((o) => optionsList.includes(o.name))
+      .reduce((sum, o) => sum + (o.priceDelta || 0), 0);
+
     const { price: effectivePrice } = getEffectiveProductPrice(product as any);
-    const unitPrice = effectivePrice + (variant ? variant.priceDelta : 0);
-    const lineId = `${product.id}_${variant ? variant.name : 'def'}`;
+    const unitPrice = effectivePrice + (variant ? variant.priceDelta : 0) + optionsDelta;
+    const optionsKey = optionsList.slice().sort().join('|');
+    const lineId = `${product.id}_${variant ? variant.name : 'def'}_${optionsKey}`;
 
     // Pruefe Meldebestand-Warnung
     if (product.trackStock && product.stockQuantity <= ((product as any).minStockAlert || 10)) {
@@ -120,6 +156,7 @@ export default function PosCounterPage() {
           deposit: product.deposit || 0,
           quantity: 1,
           variantName: variant ? variant.name : undefined,
+          selectedOptions: optionsList,
         },
       ];
     });
@@ -423,7 +460,7 @@ export default function PosCounterPage() {
                 <button
                   key={prod.id}
                   disabled={isOut}
-                  onClick={() => addToCart(prod)}
+                  onClick={() => handleProductClick(prod)}
                   className={`pos-touch-btn relative flex flex-col justify-between p-4 rounded-3xl border-2 shadow-lg text-left min-h-[120px] transition ${
                     isOut
                       ? 'bg-slate-950/60 border-rose-900/40 opacity-40 cursor-not-allowed line-through'
@@ -694,6 +731,127 @@ export default function PosCounterPage() {
             >
               Schließen
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Options / Variant Selection Modal */}
+      {productWithOptions && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div>
+                <span className="text-xs text-emerald-400 font-bold uppercase">Auswahl & Zusätze</span>
+                <h3 className="text-lg font-black text-white">{productWithOptions.name}</h3>
+              </div>
+              <button
+                onClick={() => setProductWithOptions(null)}
+                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Varianten / Sorten wenn vorhanden */}
+            {productWithOptions.variants && productWithOptions.variants.length > 0 && (
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                  Sorte / Variante wählen:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {productWithOptions.variants.map((v) => {
+                    const active = selectedVariant?.name === v.name;
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => setSelectedVariant(v)}
+                        className={`p-3 rounded-2xl text-xs font-bold border text-left transition ${
+                          active
+                            ? 'bg-emerald-600 border-emerald-400 text-white shadow'
+                            : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-600'
+                        }`}
+                      >
+                        <div className="truncate font-black">{v.name}</div>
+                        <div className="text-[11px] opacity-80 mt-0.5 font-mono">
+                          {v.priceDelta > 0 ? `+${formatCurrency(v.priceDelta)}` : 'Standard'}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Zusätze / Extras wenn vorhanden */}
+            {productWithOptions.options && productWithOptions.options.length > 0 && (
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                  Zusätze & Extras wählen:
+                </label>
+                <div className="space-y-1.5 max-h-[30vh] overflow-y-auto">
+                  {productWithOptions.options.map((opt) => {
+                    const checked = activeOptionNames.includes(opt.name);
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveOptionNames((prev) =>
+                            checked ? prev.filter((n) => n !== opt.name) : [...prev, opt.name]
+                          );
+                        }}
+                        className={`w-full p-3 rounded-2xl text-xs font-bold border flex items-center justify-between transition ${
+                          checked
+                            ? 'bg-emerald-950/60 border-emerald-500 text-emerald-200 shadow-sm'
+                            : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`w-4 h-4 rounded-md flex items-center justify-center border text-[10px] ${
+                              checked
+                                ? 'bg-emerald-500 text-white border-emerald-400'
+                                : 'border-slate-700'
+                            }`}
+                          >
+                            {checked && '✓'}
+                          </span>
+                          <span>{opt.name}</span>
+                        </div>
+                        {opt.priceDelta && opt.priceDelta > 0 ? (
+                          <span className="font-mono text-emerald-400">+{formatCurrency(opt.priceDelta)}</span>
+                        ) : (
+                          <span className="text-slate-500 text-[10px]">Inklusive</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setProductWithOptions(null)}
+                className="flex-1 h-12 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-bold"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (productWithOptions) {
+                    addToCart(productWithOptions, selectedVariant, activeOptionNames);
+                    setProductWithOptions(null);
+                  }
+                }}
+                className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-black shadow-lg shadow-emerald-950/50"
+              >
+                In den Korb
+              </button>
+            </div>
           </div>
         </div>
       )}

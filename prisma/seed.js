@@ -29,7 +29,14 @@ async function main() {
       taxRateNormal: 19.0,
       taxRateReduced: 7.0,
       trainingMode: false,
-      trayMaxItems: 6, // Spec 6.1: globales Tablett-Limit
+      trayMaxItems: 6,
+      enableCourses: false,
+      enableDigitalReceipt: false,
+      enableDigitalReceiptQr: false,
+      enableVirtualPrinters: false,
+      receiptHeader: 'Großes Vereins- & Feuerwehrfest 2026',
+      receiptSubHeader: 'Freiwillige Feuerwehr e.V.',
+      receiptFooterText: 'Vielen Dank für Ihren Besuch!',
       baseUrl: 'http://openbon.local',
       zvtPort: 20007,
       haRole: 'PRIMARY',
@@ -44,7 +51,7 @@ async function main() {
     await prisma.registerPeriod.create({ data: { periodNumber: 1 } });
   }
 
-  // 2. Drucker anlegen (Virtuelle Drucker für Tests)
+  // 2. Drucker anlegen (Standardmäßig deaktiviert & real)
   const kitchenPrinter = await prisma.printer.create({
     data: {
       name: 'Küche (Grill & Warmspeisen)',
@@ -52,8 +59,8 @@ async function main() {
       port: 9100,
       paperWidth: 80,
       characterSet: 'CP858',
-      isVirtual: true,
-      isActive: true,
+      isVirtual: false,
+      isActive: false,
     },
   });
 
@@ -64,8 +71,8 @@ async function main() {
       port: 9100,
       paperWidth: 80,
       characterSet: 'CP858',
-      isVirtual: true,
-      isActive: true,
+      isVirtual: false,
+      isActive: false,
     },
   });
 
@@ -76,8 +83,8 @@ async function main() {
       port: 9100,
       paperWidth: 80,
       characterSet: 'CP858',
-      isVirtual: true,
-      isActive: true,
+      isVirtual: false,
+      isActive: false,
     },
   });
 
