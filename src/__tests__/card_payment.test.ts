@@ -20,7 +20,13 @@ import {
   extractAuthCode,
   ZVT_CONTROL,
 } from '../lib/payment/zvt-client';
-import { PAYMENT_METHODS, getPaymentColor, getPaymentLabel } from '../lib/payment/methods';
+import {
+  PAYMENT_METHODS,
+  getPaymentColor,
+  getPaymentLabel,
+  isPaymentMethodAvailable,
+  hasAnyCardPaymentConfigured,
+} from '../lib/payment/methods';
 
 const ctx = {
   amount: 12.5,
@@ -188,5 +194,43 @@ describe('ZVT protocol (Spec 4.3.2)', () => {
     const frames = parseFrames(apdu);
     expect(frames).toHaveLength(1);
     expect(frames[0].data.length).toBe(300);
+  });
+
+  describe('Payment Method Activation based on Admin Config', () => {
+    it('should allow Cash and NonPaid when no terminal config is set', () => {
+      const emptyConfig: any = {
+        sumupMerchantCode: null,
+        sumupAppId: null,
+        vrPayTerminalId: null,
+        sparkasseMerchantId: null,
+        zvtHost: null,
+      };
+
+      expect(isPaymentMethodAvailable('CASH', emptyConfig)).toBe(true);
+      expect(isPaymentMethodAvailable('NON_PAID_STAFF', emptyConfig)).toBe(true);
+      expect(isPaymentMethodAvailable('CARD_SUMUP', emptyConfig)).toBe(false);
+      expect(isPaymentMethodAvailable('CARD_VRPAY', emptyConfig)).toBe(false);
+      expect(isPaymentMethodAvailable('CARD_SPARKASSE', emptyConfig)).toBe(false);
+      expect(isPaymentMethodAvailable('CARD_TERMINAL', emptyConfig)).toBe(false);
+      expect(hasAnyCardPaymentConfigured(emptyConfig)).toBe(false);
+    });
+
+    it('should activate SumUp only when merchant code or appId is set', () => {
+      const sumupConfig: any = {
+        sumupMerchantCode: 'SUMUP-1234',
+      };
+      expect(isPaymentMethodAvailable('CARD_SUMUP', sumupConfig)).toBe(true);
+      expect(isPaymentMethodAvailable('CARD_VRPAY', sumupConfig)).toBe(false);
+      expect(hasAnyCardPaymentConfigured(sumupConfig)).toBe(true);
+    });
+
+    it('should activate ZVT EC-Terminal when zvtHost is set', () => {
+      const zvtConfig: any = {
+        zvtHost: '192.168.178.50',
+      };
+      expect(isPaymentMethodAvailable('CARD_TERMINAL', zvtConfig)).toBe(true);
+      expect(isPaymentMethodAvailable('CARD_SUMUP', zvtConfig)).toBe(false);
+      expect(hasAnyCardPaymentConfigured(zvtConfig)).toBe(true);
+    });
   });
 });

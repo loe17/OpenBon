@@ -5,9 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { formatCurrency } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import { computeCheckout, CASH_QUICK_NOTES } from '@/lib/pricing';
-import { PAYMENT_METHODS } from '@/lib/payment/methods';
+import { PAYMENT_METHODS, isPaymentMethodAvailable } from '@/lib/payment/methods';
 import { playPaymentSuccess, playPaymentFailure } from '@/lib/audio-feedback';
-import type { DiningTableDTO, OrderDTO, PaymentMethod } from '@/types/domain';
+import type { DiningTableDTO, OrderDTO, PaymentMethod, EventConfigDTO } from '@/types/domain';
 import {
   ArrowLeft,
   Check,
@@ -52,6 +52,7 @@ function WaiterPaymentContent() {
   const tableId = searchParams.get('tableId');
 
   const [stage, setStage] = useState<Stage>('SPLIT');
+  const [config, setConfig] = useState<EventConfigDTO | null>(null);
   const [table, setTable] = useState<DiningTableDTO | null>(null);
   const [items, setItems] = useState<PayableItem[]>([]);
 
@@ -122,6 +123,13 @@ function WaiterPaymentContent() {
   }, [tableId]);
 
   useEffect(() => {
+    fetch('/api/config')
+      .then((r) => r.json())
+      .then((cfg) => {
+        if (cfg) setConfig(cfg);
+      })
+      .catch(() => {});
+
     if (!tableId) return;
     fetch('/api/tables')
       .then((r) => r.json())
@@ -758,7 +766,7 @@ function WaiterPaymentContent() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-3xl w-full mx-auto">
-            {PAYMENT_METHODS.map((m) => {
+            {PAYMENT_METHODS.filter((m) => isPaymentMethodAvailable(m.id, config)).map((m) => {
               const Icon = m.icon;
               return (
                 <button

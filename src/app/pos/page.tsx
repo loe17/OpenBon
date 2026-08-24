@@ -31,10 +31,12 @@ import {
 import { SubCategoryIcon } from '@/components/ui/subcategory-icon';
 import { calculateMinBirthdate, EU_ALLERGENS, filterProductsByExcludedAllergens } from '@/lib/compliance';
 import { getEffectiveProductPrice } from '@/lib/pricing';
-import type { ProductDTO, ProductVariantDTO, OrderItemDTO, ProductCategoryDTO } from '@/types/domain';
+import { hasAnyCardPaymentConfigured } from '@/lib/payment/methods';
+import type { ProductDTO, ProductVariantDTO, OrderItemDTO, ProductCategoryDTO, EventConfigDTO } from '@/types/domain';
 
 export default function PosCounterPage() {
   const { socket } = useSocket();
+  const [config, setConfig] = useState<EventConfigDTO | null>(null);
   const [categories, setCategories] = useState<ProductCategoryDTO[]>([]);
   const [selectedCatId, setSelectedCatId] = useState<string>('');
   const [selectedSubCat, setSelectedSubCat] = useState<string>('ALL');
@@ -91,6 +93,7 @@ export default function PosCounterPage() {
       .then((r) => r.json())
       .then((cfg) => {
         if (cfg) {
+          setConfig(cfg);
           setEnableDigitalReceipt(Boolean(cfg.enableDigitalReceipt || cfg.enableDigitalReceiptQr));
         }
       })
@@ -572,7 +575,7 @@ export default function PosCounterPage() {
             </div>
 
             {/* Payment Method Selector */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+            <div className={`grid ${hasAnyCardPaymentConfigured(config) ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2'} gap-2 mb-3`}>
               <button
                 type="button"
                 onClick={() => setPaymentMethod('CASH')}
@@ -585,18 +588,20 @@ export default function PosCounterPage() {
                 <Banknote className="w-4 h-4" />
                 <span>Bargeld</span>
               </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('CARD_TERMINAL')}
-                className={`py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition ${
-                  paymentMethod === 'CARD_TERMINAL'
-                    ? 'bg-purple-600 text-white border-purple-500 shadow-md'
-                    : 'bg-slate-800 text-slate-300 border-slate-700'
-                }`}
-              >
-                <CreditCard className="w-4 h-4" />
-                <span>EC / Karte</span>
-              </button>
+              {hasAnyCardPaymentConfigured(config) && (
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('CARD_TERMINAL')}
+                  className={`py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition ${
+                    paymentMethod === 'CARD_TERMINAL'
+                      ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                      : 'bg-slate-800 text-slate-300 border-slate-700'
+                  }`}
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>EC / Karte</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setPaymentMethod('TOKEN')}

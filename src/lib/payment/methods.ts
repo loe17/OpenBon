@@ -1,5 +1,5 @@
 import { CreditCard, Banknote, Smartphone, HeartHandshake, Percent, type LucideIcon } from 'lucide-react';
-import type { PaymentMethod } from '@/types/domain';
+import type { PaymentMethod, EventConfigDTO } from '@/types/domain';
 
 /**
  * Spec 3.1 / 5.2: Signal-Farbleitsystem der Zahlarten.
@@ -86,4 +86,47 @@ export function getPaymentLabel(id: string): string {
 
 export function getPaymentColor(id: string): string {
   return getPaymentMethod(id)?.color ?? '#64748B';
+}
+
+/**
+ * Prüft ob eine Zahlart gemäß hinterlegter Terminal- und Händler-Konfiguration im Adminbereich aktiv ist.
+ */
+export function isPaymentMethodAvailable(
+  methodId: PaymentMethod,
+  config?: EventConfigDTO | null
+): boolean {
+  if (!config) {
+    return methodId === 'CASH' || methodId === 'NON_PAID_STAFF' || methodId === 'DISCOUNT';
+  }
+
+  if (methodId === 'CARD_SUMUP') {
+    return Boolean(
+      (config.sumupMerchantCode && config.sumupMerchantCode.trim() !== '') ||
+      (config.sumupAppId && config.sumupAppId.trim() !== '')
+    );
+  }
+  if (methodId === 'CARD_VRPAY') {
+    return Boolean(config.vrPayTerminalId && config.vrPayTerminalId.trim() !== '');
+  }
+  if (methodId === 'CARD_SPARKASSE') {
+    return Boolean(config.sparkasseMerchantId && config.sparkasseMerchantId.trim() !== '');
+  }
+  if (methodId === 'CARD_TERMINAL') {
+    return Boolean(config.zvtHost && config.zvtHost.trim() !== '');
+  }
+  return true;
+}
+
+/**
+ * Prüft ob mindestens eine Kartenzahlungsmethode im Adminbereich konfiguriert ist.
+ */
+export function hasAnyCardPaymentConfigured(config?: EventConfigDTO | null): boolean {
+  if (!config) return false;
+  return Boolean(
+    (config.sumupMerchantCode && config.sumupMerchantCode.trim() !== '') ||
+    (config.sumupAppId && config.sumupAppId.trim() !== '') ||
+    (config.vrPayTerminalId && config.vrPayTerminalId.trim() !== '') ||
+    (config.sparkasseMerchantId && config.sparkasseMerchantId.trim() !== '') ||
+    (config.zvtHost && config.zvtHost.trim() !== '')
+  );
 }
