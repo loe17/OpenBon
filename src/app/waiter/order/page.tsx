@@ -498,16 +498,16 @@ function WaiterOrderContent() {
         </div>
       )}
 
-      {/* Kategorien-Leiste (Eindeutig oben) */}
-      <div className="bg-slate-900 px-2.5 py-1.5 border-b border-slate-800 flex items-center gap-2 overflow-x-auto shrink-0">
+      {/* Kategorien-Leiste (Eindeutig oben - Extra groß & touchfreundlich) */}
+      <div className="bg-slate-900 px-3 py-2.5 border-b border-slate-800 flex items-center gap-2.5 overflow-x-auto shrink-0 shadow-inner">
         {categories.map((cat) => (
           <button
             key={cat.id}
             onClick={() => setSelectedCatId(cat.id)}
-            className={`pos-touch-btn px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all border ${
+            className={`pos-touch-btn px-5 py-3 rounded-2xl text-sm sm:text-base font-black whitespace-nowrap transition-all border-2 shadow-sm ${
               selectedCatId === cat.id
-                ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-950/50'
-                : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-white'
+                ? 'bg-blue-600 text-white border-blue-400 shadow-md shadow-blue-950/60 scale-[1.02]'
+                : 'bg-slate-800/90 text-slate-300 border-slate-700 hover:bg-slate-700 hover:text-white'
             }`}
           >
             {cat.name}
@@ -707,44 +707,44 @@ function WaiterOrderContent() {
                 cart.map((item) => (
                   <div
                     key={item.id}
-                    className="p-2.5 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col gap-1.5 shadow-sm"
+                    className="p-3 bg-slate-900 border-2 border-slate-800 rounded-2xl flex flex-col gap-2 shadow-sm"
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0 pr-2">
-                        <div className="font-extrabold text-xs sm:text-sm text-white truncate">
+                      <div className="flex-1 min-w-0 pr-3">
+                        <div className="font-black text-sm sm:text-base text-white truncate leading-snug">
                           {item.name}
                           {item.variantName && (
-                            <span className="ml-1 text-xs text-blue-400 font-normal">
+                            <span className="ml-1.5 text-xs text-blue-400 font-bold">
                               ({item.variantName})
                             </span>
                           )}
                         </div>
                         {item.selectedOptions && item.selectedOptions.length > 0 && (
-                          <div className="text-[11px] text-emerald-400 font-medium">
+                          <div className="text-xs text-emerald-400 font-bold mt-0.5">
                             + {item.selectedOptions.join(', ')}
                           </div>
                         )}
-                        <div className="text-xs font-mono font-bold text-slate-400">
+                        <div className="text-sm font-mono font-black text-amber-300 mt-1">
                           {formatCurrency((item.price + item.deposit) * item.quantity)}
                         </div>
                       </div>
 
                       {/* Quantity Controls */}
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0">
                         <button
                           onClick={() => updateQuantity(item.id, -1)}
-                          className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center font-black active:scale-95 border border-slate-700"
+                          className="w-10 h-10 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-100 flex items-center justify-center font-black active:scale-95 border border-slate-700 text-lg"
                         >
-                          <Minus className="w-3.5 h-3.5" />
+                          <Minus className="w-4 h-4" />
                         </button>
-                        <span className="w-6 text-center font-black text-sm font-mono">
+                        <span className="w-8 text-center font-black text-base font-mono text-white">
                           {item.quantity}
                         </span>
                         <button
                           onClick={() => updateQuantity(item.id, 1)}
-                          className="w-8 h-8 rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center font-black active:scale-95 shadow"
+                          className="w-10 h-10 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center font-black active:scale-95 shadow-md shadow-blue-950 text-lg"
                         >
-                          <Plus className="w-3.5 h-3.5" />
+                          <Plus className="w-4 h-4" />
                         </button>
                       </div>
                     </div>

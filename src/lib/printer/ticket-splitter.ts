@@ -69,12 +69,13 @@ export class TicketSplitter {
 
     const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
     const globalTrayLimit = config?.trayMaxItems ?? 0;
-    const singleSlips = config?.receiptSingleItemKitchenSlips ?? true;
+    const singleFoodSlips = config?.receiptSingleItemFoodSlips ?? config?.receiptSingleItemKitchenSlips ?? true;
+    const singleDrinkSlips = config?.receiptSingleItemDrinkSlips ?? config?.receiptSingleItemKitchenSlips ?? true;
     const tableFontSize = config?.receiptTableFontSize ?? 3;
 
     const products = await prisma.product.findMany({
       where: { id: { in: candidates.map((i) => i.productId) } },
-      include: { printGroup: { include: { printer: true } } },
+      include: { category: true, printGroup: { include: { printer: true } } },
     });
     const productMap = new Map(products.map((p) => [p.id, p]));
 
@@ -87,12 +88,25 @@ export class TicketSplitter {
       const printer = printGroup?.printer;
       if (!printGroup || !printer || !printer.isActive) continue;
 
+      const groupNameLower = printGroup.name.toLowerCase();
+      const catNameLower = (prod?.category?.name || '').toLowerCase();
+      const isFood =
+        prod?.subCategory === 'SPEISE' ||
+        catNameLower.includes('speis') ||
+        catNameLower.includes('grill') ||
+        catNameLower.includes('essen') ||
+        groupNameLower.includes('küche') ||
+        groupNameLower.includes('kueche') ||
+        groupNameLower.includes('grill') ||
+        groupNameLower.includes('speis');
+
+      const isSingleSlip = isFood ? singleFoodSlips : singleDrinkSlips;
+
       if (!buckets.has(printGroup.id)) {
         buckets.set(printGroup.id, {
           printGroupId: printGroup.id,
           printGroupName: printGroup.name,
-          // Wenn Einzelbon-Druck aktiv ist, ist das Limit 1, sonst Gruppenlimit oder globales Limit
-          maxItemsPerTicket: singleSlips
+          maxItemsPerTicket: isSingleSlip
             ? 1
             : (printGroup.maxItemsPerTicket && printGroup.maxItemsPerTicket > 0
                 ? printGroup.maxItemsPerTicket

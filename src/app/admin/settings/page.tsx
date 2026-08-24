@@ -47,7 +47,7 @@ export default function AdminSettingsPage() {
   // License State
   const [licenseKeyInput, setLicenseKeyInput] = useState('');
   const [licenseInfo, setLicenseInfo] = useState<LicenseData | null>(null);
-  const [previewMode, setPreviewMode] = useState<'RECEIPT' | 'KITCHEN_SINGLE'>('RECEIPT');
+  const [previewMode, setPreviewMode] = useState<'RECEIPT' | 'FOOD_SINGLE' | 'DRINK_SINGLE'>('RECEIPT');
 
   // Selective Backup Scopes State
   const [backupScopes, setBackupScopes] = useState({
@@ -320,6 +320,19 @@ export default function AdminSettingsPage() {
                 checked={config.enableTax ?? false}
                 onChange={(e) => setConfig({ ...config, enableTax: e.target.checked })}
                 className="w-4 h-4 rounded text-emerald-600"
+              />
+            </div>
+
+            <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-white block">Gastansicht beim Kassieren (Kunden-Display im Smartphone)</span>
+                <span className="text-[11px] text-slate-400 block">Zeigt der Bedienung beim Kassieren ein großes, für den Gast lesbares Preisschild</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={config.enableGuestFacingDisplay ?? false}
+                onChange={(e) => setConfig({ ...config, enableGuestFacingDisplay: e.target.checked })}
+                className="w-4 h-4 rounded text-blue-600"
               />
             </div>
           </div>
@@ -642,11 +655,19 @@ export default function AdminSettingsPage() {
                   <div className="sm:col-span-2">
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-xs font-bold text-slate-400">
-                        Tischnummer-Schriftgröße (Stufenlos 1–10):
+                        Tischnummer-Schriftgröße (Stufenlos anpassbar):
                       </label>
-                      <span className="font-mono font-black text-sm text-amber-300">
-                        Größe {typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : 3} / 10
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400">Skalierung:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="50"
+                          value={typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : 3}
+                          onChange={(e) => setConfig({ ...config, receiptTableFontSize: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                          className="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-0.5 text-xs text-amber-300 font-mono font-bold text-center"
+                        />
+                      </div>
                     </div>
                     <div className="flex items-center gap-3 bg-slate-950 p-2.5 rounded-2xl border border-slate-700">
                       <button
@@ -663,8 +684,8 @@ export default function AdminSettingsPage() {
                       <input
                         type="range"
                         min="1"
-                        max="10"
-                        value={typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : 3}
+                        max="20"
+                        value={Math.min(20, typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : 3)}
                         onChange={(e) => setConfig({ ...config, receiptTableFontSize: parseInt(e.target.value, 10) || 1 })}
                         className="flex-1 accent-blue-500 cursor-pointer h-2 bg-slate-800 rounded-lg"
                       />
@@ -672,7 +693,7 @@ export default function AdminSettingsPage() {
                         type="button"
                         onClick={() => {
                           const cur = typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : 3;
-                          setConfig({ ...config, receiptTableFontSize: Math.min(10, cur + 1) });
+                          setConfig({ ...config, receiptTableFontSize: cur + 1 });
                         }}
                         className="w-9 h-9 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black text-lg flex items-center justify-center shadow"
                         title="Größer"
@@ -738,67 +759,133 @@ export default function AdminSettingsPage() {
                   </label>
                 </div>
 
-                {/* Sub-Section: Einzelbon-Druck für Speisen & Getränke */}
+                {/* Sub-Section 1: Einzelbon-Druck für Speisen (Küche) */}
                 <div className="pt-3 border-t border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between bg-slate-950 p-3 rounded-2xl border border-slate-800">
                     <div>
-                      <span className="text-xs font-bold text-white block">Einzelbon-Druck für Küche &amp; Ausschank</span>
-                      <span className="text-[11px] text-slate-400 block">Druckt jeden bestellten Artikel als separaten Küchen-/Ausschankbon</span>
+                      <span className="text-xs font-bold text-white block">🍳 Speisen-Einzelbon (Küche &amp; Grill)</span>
+                      <span className="text-[11px] text-slate-400 block">Druckt jedes bestellte Essen als separaten Zubereitungsbon</span>
                     </div>
                     <input
                       type="checkbox"
-                      checked={config.receiptSingleItemKitchenSlips ?? true}
-                      onChange={(e) => setConfig({ ...config, receiptSingleItemKitchenSlips: e.target.checked })}
-                      className="w-4 h-4 rounded text-blue-600"
+                      checked={config.receiptSingleItemFoodSlips ?? true}
+                      onChange={(e) => setConfig({ ...config, receiptSingleItemFoodSlips: e.target.checked })}
+                      className="w-4 h-4 rounded text-amber-500"
                     />
                   </div>
 
-                  {(config.receiptSingleItemKitchenSlips ?? true) && (
-                    <div className="grid grid-cols-2 gap-2 pl-3 border-l-2 border-blue-500/40 text-xs pt-1">
+                  {(config.receiptSingleItemFoodSlips ?? true) && (
+                    <div className="grid grid-cols-2 gap-2 pl-3 border-l-2 border-amber-500/40 text-xs pt-1">
                       <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={config.receiptKitchenShowHeader ?? true}
-                          onChange={(e) => setConfig({ ...config, receiptKitchenShowHeader: e.target.checked })}
-                          className="w-3.5 h-3.5 rounded text-blue-600"
+                          checked={config.receiptFoodShowHeader ?? true}
+                          onChange={(e) => setConfig({ ...config, receiptFoodShowHeader: e.target.checked })}
+                          className="w-3.5 h-3.5 rounded text-amber-500"
                         />
-                        <span>Station/Kopfzeile</span>
+                        <span>Kopfzeile (Küche)</span>
                       </label>
                       <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={config.receiptKitchenShowTable ?? true}
-                          onChange={(e) => setConfig({ ...config, receiptKitchenShowTable: e.target.checked })}
-                          className="w-3.5 h-3.5 rounded text-blue-600"
+                          checked={config.receiptFoodShowTable ?? true}
+                          onChange={(e) => setConfig({ ...config, receiptFoodShowTable: e.target.checked })}
+                          className="w-3.5 h-3.5 rounded text-amber-500"
                         />
                         <span>Große Tischnummer</span>
                       </label>
                       <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={config.receiptKitchenShowWaiter ?? true}
-                          onChange={(e) => setConfig({ ...config, receiptKitchenShowWaiter: e.target.checked })}
-                          className="w-3.5 h-3.5 rounded text-blue-600"
+                          checked={config.receiptFoodShowWaiter ?? true}
+                          onChange={(e) => setConfig({ ...config, receiptFoodShowWaiter: e.target.checked })}
+                          className="w-3.5 h-3.5 rounded text-amber-500"
                         />
                         <span>Bedienung &amp; Bon-Nr.</span>
                       </label>
                       <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={config.receiptKitchenShowTimestamp ?? true}
-                          onChange={(e) => setConfig({ ...config, receiptKitchenShowTimestamp: e.target.checked })}
-                          className="w-3.5 h-3.5 rounded text-blue-600"
+                          checked={config.receiptFoodShowTimestamp ?? true}
+                          onChange={(e) => setConfig({ ...config, receiptFoodShowTimestamp: e.target.checked })}
+                          className="w-3.5 h-3.5 rounded text-amber-500"
                         />
                         <span>Uhrzeit</span>
                       </label>
                       <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={config.receiptKitchenShowOptions ?? true}
-                          onChange={(e) => setConfig({ ...config, receiptKitchenShowOptions: e.target.checked })}
-                          className="w-3.5 h-3.5 rounded text-blue-600"
+                          checked={config.receiptFoodShowOptions ?? true}
+                          onChange={(e) => setConfig({ ...config, receiptFoodShowOptions: e.target.checked })}
+                          className="w-3.5 h-3.5 rounded text-amber-500"
                         />
                         <span>Sorten &amp; Sonderwünsche</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sub-Section 2: Einzelbon-Druck für Getränke (Ausschank) */}
+                <div className="pt-3 border-t border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                    <div>
+                      <span className="text-xs font-bold text-white block">🍺 Getränke-Einzelbon (Ausschank &amp; Bar)</span>
+                      <span className="text-[11px] text-slate-400 block">Druckt jedes bestellte Getränk als separaten Ausschankbon</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={config.receiptSingleItemDrinkSlips ?? true}
+                      onChange={(e) => setConfig({ ...config, receiptSingleItemDrinkSlips: e.target.checked })}
+                      className="w-4 h-4 rounded text-blue-500"
+                    />
+                  </div>
+
+                  {(config.receiptSingleItemDrinkSlips ?? true) && (
+                    <div className="grid grid-cols-2 gap-2 pl-3 border-l-2 border-blue-500/40 text-xs pt-1">
+                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={config.receiptDrinkShowHeader ?? true}
+                          onChange={(e) => setConfig({ ...config, receiptDrinkShowHeader: e.target.checked })}
+                          className="w-3.5 h-3.5 rounded text-blue-500"
+                        />
+                        <span>Kopfzeile (Ausschank)</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={config.receiptDrinkShowTable ?? true}
+                          onChange={(e) => setConfig({ ...config, receiptDrinkShowTable: e.target.checked })}
+                          className="w-3.5 h-3.5 rounded text-blue-500"
+                        />
+                        <span>Große Tischnummer</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={config.receiptDrinkShowWaiter ?? true}
+                          onChange={(e) => setConfig({ ...config, receiptDrinkShowWaiter: e.target.checked })}
+                          className="w-3.5 h-3.5 rounded text-blue-500"
+                        />
+                        <span>Bedienung &amp; Bon-Nr.</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={config.receiptDrinkShowTimestamp ?? true}
+                          onChange={(e) => setConfig({ ...config, receiptDrinkShowTimestamp: e.target.checked })}
+                          className="w-3.5 h-3.5 rounded text-blue-500"
+                        />
+                        <span>Uhrzeit</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={config.receiptDrinkShowOptions ?? true}
+                          onChange={(e) => setConfig({ ...config, receiptDrinkShowOptions: e.target.checked })}
+                          className="w-3.5 h-3.5 rounded text-blue-500"
+                        />
+                        <span>Sorten &amp; Details</span>
                       </label>
                     </div>
                   )}
@@ -822,14 +909,25 @@ export default function AdminSettingsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPreviewMode('KITCHEN_SINGLE')}
+                    onClick={() => setPreviewMode('FOOD_SINGLE')}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                      previewMode === 'KITCHEN_SINGLE'
+                      previewMode === 'FOOD_SINGLE'
                         ? 'bg-amber-600 text-white shadow'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    🍳 Küchen-Einzelbon
+                    🍳 Speisen-Bon
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode('DRINK_SINGLE')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                      previewMode === 'DRINK_SINGLE'
+                        ? 'bg-teal-600 text-white shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    🍺 Getränke-Bon
                   </button>
                 </div>
 
@@ -844,40 +942,23 @@ export default function AdminSettingsPage() {
                     </div>
 
                     <div className="border-t border-b border-slate-400 py-1 my-1">
-                      {/* Tischnummer mit stufenloser Skalierung 1..10 ohne Sternchen */}
+                      {/* Tischnummer mit stufenloser Skalierung */}
                       {(config.receiptShowTable ?? true) && (
                         <div className="text-center">
                           {(() => {
                             const lvl = typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : 3;
-                            if (lvl >= 7) {
-                              return (
-                                <div className="font-black text-2xl text-amber-950 bg-amber-300 py-1.5 rounded-lg border-2 border-slate-900 tracking-wider shadow my-1">
-                                  TISCH 14
-                                </div>
-                              );
-                            }
-                            if (lvl >= 4) {
-                              return (
-                                <div className="font-black text-xl text-amber-950 bg-amber-300 py-1 rounded tracking-widest my-1">
-                                  TISCH 14
-                                </div>
-                              );
-                            }
-                            if (lvl >= 3) {
-                              return (
-                                <div className="font-black text-lg text-slate-950 tracking-wider my-1 bg-amber-200/60 py-0.5 rounded">
-                                  TISCH 14
-                                </div>
-                              );
-                            }
-                            if (lvl >= 2) {
-                              return (
-                                <div className="font-bold text-base text-slate-950 my-0.5">
-                                  TISCH 14
-                                </div>
-                              );
-                            }
-                            return <div className="font-bold text-xs">Tisch: 14</div>;
+                            const dynamicStyle = {
+                              fontSize: `${Math.max(12, Math.min(36, 12 + lvl * 2.5))}px`,
+                              lineHeight: '1.2',
+                            };
+                            return (
+                              <div
+                                style={dynamicStyle}
+                                className="font-black text-amber-950 bg-amber-300 py-1 rounded tracking-wider shadow my-1"
+                              >
+                                TISCH 14
+                              </div>
+                            );
                           })()}
                         </div>
                       )}
@@ -928,16 +1009,16 @@ export default function AdminSettingsPage() {
                       </div>
                     )}
                   </div>
-                ) : (
-                  /* Single Item Kitchen Slip Simulator */
+                ) : previewMode === 'FOOD_SINGLE' ? (
+                  /* Speisen-Einzelbon Simulator */
                   <div className="w-full max-w-[320px] bg-amber-50 text-slate-900 font-mono text-[11px] p-4 rounded-xl shadow-2xl border-2 border-dashed border-amber-400 select-none space-y-2 animate-in fade-in">
-                    {(config.receiptKitchenShowHeader ?? true) && (
+                    {(config.receiptFoodShowHeader ?? true) && (
                       <div className="text-center font-black text-xs pb-1 border-b border-slate-400">
-                        === KÜCHE / ESSENSAUSGABE ===
+                        === KÜCHE / SPEISEN ===
                       </div>
                     )}
 
-                    {(config.receiptKitchenShowTable ?? true) && (
+                    {(config.receiptFoodShowTable ?? true) && (
                       <div className="text-center my-1">
                         <div className="font-black text-xl text-amber-950 bg-amber-300 py-1 rounded tracking-widest">
                           TISCH 14
@@ -946,11 +1027,11 @@ export default function AdminSettingsPage() {
                     )}
 
                     <div className="flex justify-between text-[10px] text-slate-700 py-0.5">
-                      {(config.receiptKitchenShowWaiter ?? true) && <span>Bedienung: Anna</span>}
+                      {(config.receiptFoodShowWaiter ?? true) && <span>Bedienung: Anna</span>}
                       <span>Bon #1042</span>
                     </div>
 
-                    {(config.receiptKitchenShowTimestamp ?? true) && (
+                    {(config.receiptFoodShowTimestamp ?? true) && (
                       <div className="text-[10px] text-slate-500 pb-1 border-b border-slate-300">
                         Uhrzeit: {new Date().toLocaleTimeString('de-DE')}
                       </div>
@@ -963,7 +1044,7 @@ export default function AdminSettingsPage() {
                       <div className="font-bold text-xs text-slate-700 pl-2">
                         Sorte: Mit Pommes frites
                       </div>
-                      {(config.receiptKitchenShowOptions ?? true) && (
+                      {(config.receiptFoodShowOptions ?? true) && (
                         <div className="text-[11px] font-bold text-emerald-800 pl-2">
                           + Ketchup &amp; Mayo
                         </div>
@@ -974,7 +1055,50 @@ export default function AdminSettingsPage() {
                     </div>
 
                     <div className="text-center text-[10px] text-slate-500 pt-1 border-t border-slate-400 italic">
-                      (Position 1 von 3)
+                      (Speisenbon 1 von 2)
+                    </div>
+                  </div>
+                ) : (
+                  /* Getränke-Einzelbon Simulator */
+                  <div className="w-full max-w-[320px] bg-amber-50 text-slate-900 font-mono text-[11px] p-4 rounded-xl shadow-2xl border-2 border-dashed border-teal-400 select-none space-y-2 animate-in fade-in">
+                    {(config.receiptDrinkShowHeader ?? true) && (
+                      <div className="text-center font-black text-xs pb-1 border-b border-slate-400 text-teal-950">
+                        === AUSSCHANK / GETRÄNKE ===
+                      </div>
+                    )}
+
+                    {(config.receiptDrinkShowTable ?? true) && (
+                      <div className="text-center my-1">
+                        <div className="font-black text-xl text-teal-950 bg-teal-200 py-1 rounded tracking-widest">
+                          TISCH 14
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between text-[10px] text-slate-700 py-0.5">
+                      {(config.receiptDrinkShowWaiter ?? true) && <span>Bedienung: Anna</span>}
+                      <span>Bon #1042</span>
+                    </div>
+
+                    {(config.receiptDrinkShowTimestamp ?? true) && (
+                      <div className="text-[10px] text-slate-500 pb-1 border-b border-slate-300">
+                        Uhrzeit: {new Date().toLocaleTimeString('de-DE')}
+                      </div>
+                    )}
+
+                    <div className="py-2 space-y-1">
+                      <div className="font-black text-base text-slate-950">
+                        1x Helles Festbier 0,5l
+                      </div>
+                      {(config.receiptDrinkShowOptions ?? true) && (
+                        <div className="text-xs text-slate-700 pl-2">
+                          Glas: Steinkrug (Pfand: 2,00 EUR)
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="text-center text-[10px] text-slate-500 pt-1 border-t border-slate-400 italic">
+                      (Getränkebon 2 von 2)
                     </div>
                   </div>
                 )}

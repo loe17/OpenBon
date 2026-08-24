@@ -83,6 +83,61 @@ export default function WaiterTablesPage() {
   const [showWaiterPrompt, setShowWaiterPrompt] = useState(false);
   const [inputWaiterName, setInputWaiterName] = useState('');
 
+  // Direkte Tischnummer-Eingabe
+  const [directTableNumber, setDirectTableNumber] = useState('');
+  const [isCreatingTable, setIsCreatingTable] = useState(false);
+
+  const handleDirectTableOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const raw = directTableNumber.trim();
+    if (!raw) return;
+
+    triggerHapticFeedback();
+    const num = parseInt(raw, 10);
+
+    // 1. Suche nach existierendem Tisch
+    let target = tables.find(
+      (t) =>
+        t.tableNumber === num ||
+        t.label.toLowerCase() === raw.toLowerCase() ||
+        t.label.toLowerCase() === `tisch ${raw}`.toLowerCase()
+    );
+
+    if (target) {
+      router.push(`/waiter/order?tableId=${target.id}`);
+      return;
+    }
+
+    // 2. Tisch on-the-fly erstellen wenn Nummer noch nicht existiert
+    if (isNaN(num) || num <= 0) {
+      showToast('err', 'Bitte eine gültige Tischnummer eingeben');
+      return;
+    }
+
+    setIsCreatingTable(true);
+    try {
+      const res = await fetch('/api/tables', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tableNumber: num,
+          label: `Tisch ${num}`,
+          status: 'FREE',
+        }),
+      });
+      const newTable = await res.json();
+      if (newTable && newTable.id) {
+        router.push(`/waiter/order?tableId=${newTable.id}`);
+      } else {
+        showToast('err', 'Tisch konnte nicht angelegt werden');
+      }
+    } catch {
+      showToast('err', 'Netzwerkfehler beim Anlegen des Tisches');
+    } finally {
+      setIsCreatingTable(false);
+    }
+  };
+
   const fetchTables = async () => {
     try {
       const res = await fetch('/api/tables');
@@ -311,8 +366,45 @@ export default function WaiterTablesPage() {
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950">
+      {/* Quick Order by Table Number Input Bar (Direkteingabe) */}
+      <div className="bg-gradient-to-r from-blue-950/80 via-slate-900 to-indigo-950/80 px-3 sm:px-4 py-2.5 border-b border-blue-800/60 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shadow-lg shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black shadow shrink-0">
+            <PlusCircle className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-xs font-black text-white block leading-tight">Direkt-Bestellung nach Tischnummer</span>
+            <span className="text-[10px] text-slate-400">Tischnummer eingeben und sofort bestellen</span>
+          </div>
+        </div>
+
+        <form onSubmit={handleDirectTableOrder} className="flex items-center gap-2">
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            placeholder="Tischnr. eingeben..."
+            value={directTableNumber}
+            onChange={(e) => setDirectTableNumber(e.target.value)}
+            className="flex-1 sm:w-48 bg-slate-950 border-2 border-blue-500/80 rounded-xl px-3 py-1.5 text-base font-mono font-black text-amber-300 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center"
+          />
+          <button
+            type="submit"
+            disabled={!directTableNumber.trim() || isCreatingTable}
+            className="pos-touch-btn px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-950/60 transition active:scale-95 shrink-0"
+          >
+            {isCreatingTable ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <PlusCircle className="w-3.5 h-3.5" />
+            )}
+            <span>Bestellen</span>
+          </button>
+        </form>
+      </div>
+
       {/* Top Waiter Bar & Search Bar */}
-      <div className="p-3 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 shadow-md">
+      <div className="p-2.5 sm:p-3 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2.5 shadow-md shrink-0">
         {/* Waiter Pill */}
         <button
           onClick={() => {

@@ -66,6 +66,18 @@ export interface EventConfigDTO {
   receiptShowTse?: boolean;
   receiptTableFontSize?: number | string | null;
   receiptSingleItemKitchenSlips?: boolean;
+  receiptSingleItemFoodSlips?: boolean;
+  receiptSingleItemDrinkSlips?: boolean;
+  receiptFoodShowHeader?: boolean;
+  receiptFoodShowTable?: boolean;
+  receiptFoodShowWaiter?: boolean;
+  receiptFoodShowTimestamp?: boolean;
+  receiptFoodShowOptions?: boolean;
+  receiptDrinkShowHeader?: boolean;
+  receiptDrinkShowTable?: boolean;
+  receiptDrinkShowWaiter?: boolean;
+  receiptDrinkShowTimestamp?: boolean;
+  receiptDrinkShowOptions?: boolean;
   receiptKitchenShowHeader?: boolean;
   receiptKitchenShowTable?: boolean;
   receiptKitchenShowWaiter?: boolean;
@@ -75,6 +87,7 @@ export interface EventConfigDTO {
   enableAgeVerificationAlerts?: boolean;
   enableDigitalReceiptQr?: boolean;
   enableGuestSelfOrder?: boolean;
+  enableGuestFacingDisplay?: boolean;
   enableKioskMode?: boolean;
   lowStockAlertPrinterId?: string | null;
   datevConsultantNumber?: string | null;
@@ -456,4 +469,14 @@ export interface CartLine {
   courseNumber: number;
   isHold: boolean;
   subCategory?: string | null;
+}
+
+export interface ActionLogDTO {
+  id: string;
+  action: string;
+  category: string;
+  actor: string;
+  details: string;
+  metadata?: string | null;
+  createdAt: string;
 }

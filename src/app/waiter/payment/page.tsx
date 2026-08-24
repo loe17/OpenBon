@@ -77,7 +77,7 @@ function WaiterPaymentContent() {
   const [completedInvoice, setCompletedInvoice] = useState<string | null>(null);
   const [completedPaymentId, setCompletedPaymentId] = useState<string | null>(null);
   const [receiptPrinted, setReceiptPrinted] = useState(false);
-  const [guestFacingMode, setGuestFacingMode] = useState(true);
+  const [guestFacingMode, setGuestFacingMode] = useState(false);
   const [guestFacingRotated, setGuestFacingRotated] = useState(true);
   const [requestId] = useState(() =>
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -126,7 +126,12 @@ function WaiterPaymentContent() {
     fetch('/api/config')
       .then((r) => r.json())
       .then((cfg) => {
-        if (cfg) setConfig(cfg);
+        if (cfg) {
+          setConfig(cfg);
+          if (cfg.enableGuestFacingDisplay !== undefined) {
+            setGuestFacingMode(Boolean(cfg.enableGuestFacingDisplay));
+          }
+        }
       })
       .catch(() => {});
 
@@ -525,8 +530,13 @@ function WaiterPaymentContent() {
                 Zu zahlende Posten wählen (Rechnung teilen)
               </div>
               {/* Quick Split Buttons */}
-              <div className="flex items-center gap-1.5 text-xs">
-                <span className="text-slate-500 text-[10px] font-bold">Split:</span>
+              <div className="flex items-center gap-1.5 text-xs flex-wrap">
+                <button
+                  onClick={() => toggleSelectAll(true)}
+                  className="px-2.5 py-1 rounded-xl bg-blue-600/30 border border-blue-500/50 hover:bg-blue-600 text-white font-bold text-[11px] transition"
+                >
+                  Alles
+                </button>
                 {[2, 3, 4].map((n) => (
                   <button
                     key={n}
@@ -535,16 +545,22 @@ function WaiterPaymentContent() {
                       setItems((prev) =>
                         prev.map((i) => ({
                           ...i,
-                          selectedQty: Math.max(1, Math.round(i.totalUnpaidQty / n)),
+                          selectedQty: Math.max(0, Math.min(i.totalUnpaidQty, Math.ceil(i.totalUnpaidQty / n))),
                         }))
                       );
                     }}
-                    className="px-2 py-0.5 rounded-lg bg-slate-800 border border-slate-700 hover:border-blue-500 text-slate-300 font-mono font-bold text-[11px]"
+                    className="px-2.5 py-1 rounded-xl bg-slate-800 border border-slate-700 hover:border-blue-500 text-slate-300 font-mono font-bold text-[11px] transition"
                     title={`Auf ${n} Personen aufteilen`}
                   >
                     1/{n}
                   </button>
                 ))}
+                <button
+                  onClick={() => toggleSelectAll(false)}
+                  className="px-2.5 py-1 rounded-xl bg-slate-800 border border-slate-700 hover:bg-rose-950 text-slate-400 font-bold text-[11px] transition"
+                >
+                  Keine
+                </button>
               </div>
             </div>
 
@@ -649,68 +665,6 @@ function WaiterPaymentContent() {
                     +
                   </button>
                 </div>
-              </div>
-            </div>
-
-            {/* Aufschlag / Rabatt */}
-            <div className="p-4 rounded-3xl bg-slate-900 border border-slate-800">
-              <div className="flex items-center justify-between mb-2.5">
-                <span className="text-sm font-black text-purple-300 flex items-center gap-2">
-                  <PlusCircle className="w-5 h-5 text-purple-400" />
-                  <span>Aufschlag & Rabatt</span>
-                </span>
-                {(surchargeFixed > 0 || surchargePercent > 0 || discountAmount > 0) && (
-                  <button
-                    onClick={() => {
-                      setSurchargeFixed(0);
-                      setSurchargePercent(0);
-                      setSurchargeReason('');
-                      setDiscountAmount(0);
-                    }}
-                    className="text-xs text-rose-400 font-bold"
-                  >
-                    Entfernen
-                  </button>
-                )}
-              </div>
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                {[
-                  { label: '+5 %', percent: 5, fixed: 0, discount: 0, reason: '5 % Aufschlag' },
-                  { label: '+10 %', percent: 10, fixed: 0, discount: 0, reason: '10 % Aufschlag' },
-                  { label: '+1,00 €', percent: 0, fixed: 1, discount: 0, reason: '1 € Pauschale' },
-                  { label: '+2,00 €', percent: 0, fixed: 2, discount: 0, reason: '2 € Pauschale' },
-                  { label: '−1,00 €', percent: 0, fixed: 0, discount: 1, reason: '' },
-                ].map((sc) => {
-                  const isActive =
-                    (sc.percent > 0 && surchargePercent === sc.percent) ||
-                    (sc.fixed > 0 && surchargeFixed === sc.fixed) ||
-                    (sc.discount > 0 && discountAmount === sc.discount);
-                  return (
-                    <button
-                      key={sc.label}
-                      onClick={() => {
-                        haptic();
-                        if (isActive) {
-                          setSurchargePercent(0);
-                          setSurchargeFixed(0);
-                          setDiscountAmount(0);
-                          return;
-                        }
-                        setSurchargePercent(sc.percent);
-                        setSurchargeFixed(sc.fixed);
-                        setDiscountAmount(sc.discount);
-                        setSurchargeReason(sc.reason);
-                      }}
-                      className={`touch-target rounded-2xl text-xs font-bold border transition ${
-                        isActive
-                          ? 'bg-purple-600 text-white border-purple-500'
-                          : 'bg-slate-800 text-slate-300 border-slate-700'
-                      }`}
-                    >
-                      {sc.label}
-                    </button>
-                  );
-                })}
               </div>
             </div>
           </div>
@@ -852,36 +806,6 @@ function WaiterPaymentContent() {
                 }}
               >
                 {formatCurrency(checkout.changeAmount)}
-              </div>
-            </div>
-
-            {/* Trinkgeld (Spec 6.9) */}
-            <div className="rounded-3xl bg-slate-900 border border-slate-800 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
-                  Trinkgeld
-                </span>
-                <span className="font-mono font-bold text-amber-400">
-                  {formatCurrency(tipAmount)}
-                </span>
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                {[0, 0.5, 1, 2].map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => {
-                      haptic();
-                      setTipAmount(t);
-                    }}
-                    className={`touch-target rounded-2xl text-xs font-bold border ${
-                      tipAmount === t
-                        ? 'bg-amber-600 text-white border-amber-500'
-                        : 'bg-slate-800 text-slate-300 border-slate-700'
-                    }`}
-                  >
-                    {t === 0 ? 'kein' : `${t.toFixed(2).replace('.', ',')} €`}
-                  </button>
-                ))}
               </div>
             </div>
 
@@ -1106,16 +1030,18 @@ function WaiterPaymentContent() {
               onClick={() => {
                 haptic();
                 setCompletedInvoice(null);
+                setCompletedPaymentId(null);
+                setReceiptPrinted(false);
                 setKeypadValue('');
                 setTipAmount(0);
                 setReturnDepositCount(0);
                 setStage('SPLIT');
                 void fetchTableOrders();
               }}
-              className="pos-touch-btn px-6 h-14 rounded-2xl bg-slate-900 border border-slate-700 text-slate-300 font-bold text-sm flex items-center gap-2"
+              className="pos-touch-btn w-full max-w-3xl h-16 rounded-3xl bg-amber-600 hover:bg-amber-500 text-white font-black text-base shadow-xl flex items-center justify-center gap-2.5 transition active:scale-95"
             >
-              <Receipt className="w-5 h-5" />
-              <span>Nächsten Gast am selben Tisch kassieren</span>
+              <RefreshCw className="w-5 h-5" />
+              <span>Nächsten Gast am selben Tisch kassieren (Rest abrechnen)</span>
             </button>
           )}
         </div>

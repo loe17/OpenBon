@@ -67,12 +67,26 @@ export default function CustomerDisplayPage() {
     return () => document.removeEventListener('fullscreenchange', handleFullscreen);
   }, []);
 
+  const [activeStations, setActiveStations] = useState<{ id: string; name: string }[]>([
+    { id: 'POS_1', name: 'Bonkasse 1' },
+    { id: 'POS_2', name: 'Bonkasse 2' },
+    { id: 'POS_3', name: 'Bonkasse 3' },
+    { id: 'POS_MAIN', name: 'Haupt-Bonkasse' },
+  ]);
+
   const fetchDevices = async () => {
     try {
       const res = await fetch('/api/devices');
       const data = await res.json();
       if (Array.isArray(data)) {
-        setDevices(data.map((d: any) => ({ id: d.id, name: d.name })));
+        const devs = data.map((d: any) => ({ id: d.id, name: d.name }));
+        setDevices(devs);
+        setActiveStations((prev) => {
+          const map = new Map<string, string>();
+          prev.forEach((p) => map.set(p.id, p.name));
+          devs.forEach((d) => map.set(d.id, d.name));
+          return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+        });
       }
     } catch {}
   };
@@ -81,10 +95,20 @@ export default function CustomerDisplayPage() {
     fetchDevices();
 
     if (socket) {
-      const isMatch = (stationId?: string) => {
+      const registerStation = (id?: string, name?: string) => {
+        if (!id) return;
+        setActiveStations((prev) => {
+          const existing = prev.find((s) => s.id === id);
+          if (existing && existing.name === (name || id)) return prev;
+          const filtered = prev.filter((s) => s.id !== id);
+          return [...filtered, { id, name: name || id }];
+        });
+      };
+
+      const isMatch = (stationId?: string, stationName?: string) => {
         if (selectedStation === 'ALL') return true;
-        if (!stationId) return false;
-        if (stationId === selectedStation) return true;
+        if (!stationId && !stationName) return false;
+        if (stationId === selectedStation || stationName === selectedStation) return true;
         if (
           (stationId === 'MAIN_CASH' || stationId === 'POS_MAIN') &&
           (selectedStation === 'POS_MAIN' || selectedStation === 'MAIN_CASH')
@@ -96,7 +120,8 @@ export default function CustomerDisplayPage() {
 
       // Höre auf Live-Warenkorb Aktualisierungen von der Kasse
       socket.on('pos:cart_updated', (payload: any) => {
-        if (!isMatch(payload.stationId)) return;
+        registerStation(payload.stationId, payload.stationName);
+        if (!isMatch(payload.stationId, payload.stationName)) return;
         setState({
           stationId: payload.stationId || 'ALL',
           stationName: payload.stationName || 'Kasse',
@@ -107,9 +132,13 @@ export default function CustomerDisplayPage() {
         });
       });
 
+      socket.on('pos:station_online', (payload: any) => {
+        registerStation(payload.stationId, payload.stationName);
+      });
+
       // Höre auf Bezahlungsabschluss
       socket.on('payment:completed', (payment: any) => {
-        if (!isMatch(payment.deviceId || payment.stationId)) return;
+        if (!isMatch(payment.deviceId || payment.stationId, payment.stationName)) return;
         const receiptUrl = payment.digitalReceiptUrl || (payment.digitalReceiptCode ? `http://openbon.local/receipt/${payment.digitalReceiptCode}` : null);
         
         setState((prev) => ({
@@ -138,7 +167,7 @@ export default function CustomerDisplayPage() {
 
       // Korb geleert / Abbruch
       socket.on('pos:cart_cleared', (payload: any) => {
-        if (!isMatch(payload?.stationId)) return;
+        if (!isMatch(payload?.stationId, payload?.stationName)) return;
         setState((prev) => ({
           ...prev,
           status: 'IDLE',
@@ -153,6 +182,7 @@ export default function CustomerDisplayPage() {
     return () => {
       if (socket) {
         socket.off('pos:cart_updated');
+        socket.off('pos:station_online');
         socket.off('payment:completed');
         socket.off('pos:cart_cleared');
       }
@@ -168,11 +198,10 @@ export default function CustomerDisplayPage() {
 
   const getStationLabel = (id: string) => {
     if (id === 'ALL') return '✨ Alle Stationen & Mobilteile (Global)';
-    if (id === 'POS_MAIN' || id === 'MAIN_CASH') return 'Haupt-Bonkasse';
-    if (id === 'POS_1') return 'Thekenkasse 1 (Bonkasse 1)';
-    if (id === 'POS_2') return 'Thekenkasse 2 (Bonkasse 2)';
+    const found = activeStations.find((s) => s.id === id);
+    if (found) return found.name;
     const dev = devices.find((d) => d.id === id);
-    if (dev) return `${dev.name} (${dev.id})`;
+    if (dev) return dev.name;
     return id;
   };
 
@@ -219,15 +248,12 @@ export default function CustomerDisplayPage() {
                 setSelectedStation(e.target.value);
                 setShowConfig(false);
               }}
-              className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+              className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
             >
               <option value="ALL">✨ Alle Stationen &amp; Mobilteile (Global)</option>
-              <option value="POS_MAIN">Haupt-Bonkasse</option>
-              <option value="POS_1">Thekenkasse 1 (Bonkasse 1)</option>
-              <option value="POS_2">Thekenkasse 2 (Bonkasse 2)</option>
-              {devices.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name} ({d.id})
+              {activeStations.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.id})
                 </option>
               ))}
             </select>

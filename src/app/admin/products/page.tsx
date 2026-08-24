@@ -1021,10 +1021,10 @@ export default function AdminProductsPage() {
               {/* Event Header */}
               <div className="text-center pb-6 mb-6 border-b-2 border-slate-900">
                 <h1 className="text-3xl sm:text-4xl font-black tracking-tight uppercase font-sans text-slate-950">
-                  {config?.eventName || 'OpenBon Event'}
+                  {config?.name || config?.receiptHeader || 'Speisen- & Getränkekarte'}
                 </h1>
                 <p className="text-sm font-sans text-slate-600 uppercase tracking-widest mt-1">
-                  Speisen- & Getränkekarte
+                  Offizielle Speisen- &amp; Getränkekarte
                 </p>
               </div>
 

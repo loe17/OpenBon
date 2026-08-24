@@ -266,6 +266,36 @@ export default function AdminPrintersPage() {
         </div>
       </div>
 
+      {/* Step-by-Step Info Box: Drucker & Druckgruppen Routing */}
+      <div className="bg-gradient-to-r from-blue-950/60 via-slate-900 to-indigo-950/60 border border-blue-800/60 rounded-3xl p-5 shadow-xl space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-black text-white flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-blue-400" />
+            <span>So funktioniert das automatische Bon-Routing (Drucker ➔ Druckgruppen ➔ Artikel)</span>
+          </h2>
+          <a
+            href="/admin/products"
+            className="text-xs font-bold text-blue-300 hover:text-white bg-blue-900/60 px-3 py-1 rounded-xl border border-blue-700 transition"
+          >
+            Zu den Artikeln ➔
+          </a>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-300">
+          <div className="p-3 bg-slate-950/70 rounded-2xl border border-slate-800">
+            <span className="font-bold text-blue-400 block mb-1">1. Drucker anlegen (unten links)</span>
+            Drucker mit Netzwerk-IP (z. B. 192.168.1.200) oder als &bdquo;Virtueller Drucker&ldquo; für Monitore/Testbetrieb anlegen.
+          </div>
+          <div className="p-3 bg-slate-950/70 rounded-2xl border border-slate-800">
+            <span className="font-bold text-purple-400 block mb-1">2. Druckgruppe zuweisen (unten rechts)</span>
+            Druckgruppe (z. B. &bdquo;Küche&ldquo;, &bdquo;Ausschank&ldquo;, &bdquo;Grill&ldquo;) erstellen und mit dem gewünschten Bondrucker verknüpfen.
+          </div>
+          <div className="p-3 bg-slate-950/70 rounded-2xl border border-slate-800">
+            <span className="font-bold text-emerald-400 block mb-1">3. Artikel zuordnen (in Artikelverwaltung)</span>
+            In der Artikelverwaltung bei jedem Artikel im Feld &bdquo;Druckgruppe&ldquo; wählen, wo der Bon ausgedruckt werden soll.
+          </div>
+        </div>
+      </div>
+
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Printers Column (2 Cols) */}
@@ -313,13 +343,13 @@ export default function AdminPrintersPage() {
                   {/* Web Interface Link Button */}
                   {p.isVirtual ? (
                     <a
-                      href="/kitchen"
+                      href={`/admin/virtual-printer?printerName=${encodeURIComponent(p.name)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-full py-1.5 px-3 bg-blue-950/60 hover:bg-blue-900/80 text-blue-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-blue-800/60"
                     >
                       <Globe className="w-3.5 h-3.5 text-blue-400" />
-                      <span>Virtueller Monitor (Browser)</span>
+                      <span>Virtueller Monitor (Browser) öffnen</span>
                       <ExternalLink className="w-3 h-3 opacity-70" />
                     </a>
                   ) : (

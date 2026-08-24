@@ -28,6 +28,7 @@ model EventConfig {
   enableAgeVerificationAlerts   Boolean  @default(true)
   enableDigitalReceiptQr        Boolean  @default(false)
   enableGuestSelfOrder          Boolean  @default(false) // Standardmäßig deaktiviert
+  enableGuestFacingDisplay      Boolean  @default(false) // Gastansicht beim Kassieren standardmäßig deaktiviert
   enableKioskMode               Boolean  @default(false)
   activeTheme                   String   @default("dark") // dark, light, contrast, modern, minimal, plain
   lowStockAlertPrinterId        String?
@@ -40,13 +41,20 @@ model EventConfig {
   receiptShowWaiter             Boolean  @default(true)
   receiptShowTable              Boolean  @default(true)
   receiptShowTse                Boolean  @default(true)
-  receiptTableFontSize          Int      @default(3) // Stufenlose Skalierung 1..10
-  receiptSingleItemKitchenSlips Boolean  @default(true) // Einzelbon fuer jeden Artikel an Speisen- und Getraenkekassen
-  receiptKitchenShowHeader      Boolean  @default(true)
-  receiptKitchenShowTable       Boolean  @default(true)
-  receiptKitchenShowWaiter      Boolean  @default(true)
-  receiptKitchenShowTimestamp   Boolean  @default(true)
-  receiptKitchenShowOptions     Boolean  @default(true)
+  receiptTableFontSize          Int      @default(3) // Stufenlose Skalierung
+  receiptSingleItemKitchenSlips Boolean  @default(true) // Legacy Fallback
+  receiptSingleItemFoodSlips    Boolean  @default(true) // Einzelbon fuer Speisen (Kueche)
+  receiptSingleItemDrinkSlips   Boolean  @default(true) // Einzelbon fuer Getraenke (Ausschank)
+  receiptFoodShowHeader         Boolean  @default(true)
+  receiptFoodShowTable          Boolean  @default(true)
+  receiptFoodShowWaiter         Boolean  @default(true)
+  receiptFoodShowTimestamp      Boolean  @default(true)
+  receiptFoodShowOptions        Boolean  @default(true)
+  receiptDrinkShowHeader        Boolean  @default(true)
+  receiptDrinkShowTable         Boolean  @default(true)
+  receiptDrinkShowWaiter        Boolean  @default(true)
+  receiptDrinkShowTimestamp     Boolean  @default(true)
+  receiptDrinkShowOptions       Boolean  @default(true)
 
   // Kartenzahlungs-IDs
   sumupMerchantCode             String?
@@ -491,4 +499,19 @@ model TapLine {
   isActive            Boolean  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @default(now()) @updatedAt
+}
+
+// System- und Revisionsprotokoll (Audit-Log aller Aktionen)
+model ActionLog {
+  id        String   @id @default(cuid())
+  action    String   // ORDER_CREATED, ITEM_VOIDED, PAYMENT_COMPLETED, SHIFT_SETTLED, CASH_MOVEMENT, CONFIG_CHANGED, DIAGNOSTICS_RUN, TABLE_TRANSFERRED, SYSTEM_EVENT
+  category  String   @default("GENERAL") // SALES, ORDERS, AUTH, CASHBOOK, SYSTEM, ADMIN
+  actor     String   @default("System")  // Waiter Name, Admin, POS Station ID
+  details   String   // Human readable description
+  metadata  String?  // JSON metadata string
+  createdAt DateTime @default(now())
+
+  @@index([action])
+  @@index([category])
+  @@index([createdAt])
 }

@@ -327,9 +327,35 @@ export async function POST(req: Request) {
         });
       }
 
+      // Schritt 6: Vollständige automatische Bereinigung aller Testdaten
+      try {
+        await prisma.orderItem.deleteMany({
+          where: { orderId: order.id },
+        });
+        await prisma.order.deleteMany({
+          where: { id: order.id },
+        });
+        await prisma.diningTable.deleteMany({
+          where: { tableNumber: 999 },
+        });
+        await prisma.product.deleteMany({
+          where: { name: 'TEST-ARTIKEL (Diagnose)' },
+        });
+        await prisma.productCategory.deleteMany({
+          where: { name: 'SYSTEM_DIAGNOSTIK' },
+        });
+        steps.push({
+          name: 'Testdaten-Bereinigung',
+          success: true,
+          details: 'Testartikel, Warengruppe und Testtisch #999 automatisch gelöscht',
+        });
+      } catch (cleanupErr: any) {
+        console.error('Diagnostics cleanup error:', cleanupErr);
+      }
+
       return NextResponse.json({
         success: true,
-        message: 'E2E Test-Bestellzyklus erfolgreich durchlaufen.',
+        message: 'E2E Test-Bestellzyklus erfolgreich durchlaufen und Testdaten bereinigt.',
         steps,
       });
     }

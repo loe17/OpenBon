@@ -195,6 +195,7 @@ export default function Navbar() {
       items: [
         { href: '/admin/tables', label: 'Tischplan Designer', icon: Grid, roles: ['ADMIN'] },
         { href: '/admin/printers', label: 'Drucker & Druckgruppen', icon: Printer, roles: ['ADMIN'] },
+        { href: '/admin/virtual-printer', label: 'Virtueller Drucker-Monitor', icon: Printer, roles: ['ADMIN'] },
         { href: '/customer-display', label: 'Kundendisplay (Monitor)', icon: Monitor, roles: ['ADMIN'] },
         { href: '/admin/devices', label: 'Geräte-Manager', icon: Users, roles: ['ADMIN'] },
         { href: '/admin/qr-codes', label: 'QR Beitritts-Center', icon: QrCode, roles: ['ADMIN'] },
@@ -206,6 +207,7 @@ export default function Navbar() {
       icon: Settings,
       items: [
         { href: '/admin/dashboard', label: 'Admin Command Center', icon: LayoutDashboard, roles: ['ADMIN'] },
+        { href: '/admin/logs', label: 'System- & Revisionsprotokoll', icon: BookOpen, roles: ['ADMIN'] },
         { href: '/admin/diagnostics', label: 'Testbetrieb & Hardware-Diagnose', icon: Activity, roles: ['ADMIN'] },
         { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['ADMIN'] },
         { href: '/admin/settings', label: 'Grundeinstellungen & Bon-Design', icon: Settings, roles: ['ADMIN'] },

@@ -93,6 +93,8 @@ export default function AdminTipsPage() {
     0.1: 0,
   });
 
+  const [isSettling, setIsSettling] = useState(false);
+
   const loadData = async () => {
     try {
       const [pRes, wRes, repRes] = await Promise.all([
@@ -100,18 +102,83 @@ export default function AdminTipsPage() {
         fetch('/api/waiters'),
         fetch('/api/reports'),
       ]);
+      let currentWaiters: Waiter[] = [];
       if (pRes.ok) setProfiles(await pRes.json());
-      if (wRes.ok) setWaiters(await wRes.json());
+      if (wRes.ok) {
+        currentWaiters = await wRes.json();
+        setWaiters(currentWaiters);
+      }
       if (repRes.ok) {
         const repData = await repRes.json();
+        const statMap = new Map<string, WaiterStat>();
         if (repData && Array.isArray(repData.waiterStats)) {
-          setWaiterStats(repData.waiterStats);
+          repData.waiterStats.forEach((ws: WaiterStat) => statMap.set(ws.waiterName, ws));
         }
+        // Alle registrierten Bedienungen ohne bisherige Umsätze ebenfalls anzeigen
+        currentWaiters.forEach((w) => {
+          if (!statMap.has(w.name)) {
+            statMap.set(w.name, {
+              waiterName: w.name,
+              totalGross: 0,
+              cashGross: 0,
+              cardGross: 0,
+              tips: 0,
+              depositReturned: 0,
+              transactionCount: 0,
+              ordersLastHour: 0,
+              salesLastHour: 0,
+            });
+          }
+        });
+        setWaiterStats(Array.from(statMap.values()));
       }
     } catch (err) {
       console.error('Fehler beim Laden:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSettleWaiter = async (stat: WaiterStat) => {
+    const prof = getWaiterProfile(stat.waiterName);
+    const waiterTipShare = (stat.tips * prof.waiterPercent) / 100;
+    const sollBar = Math.max(0, stat.cashGross - waiterTipShare);
+
+    const ok = confirm(
+      `Möchtest du die Schicht für "${stat.waiterName}" wirklich abrechnen und die Bedienung abmelden?\n\n` +
+      `• Umsatz: ${formatCurrency(stat.totalGross)}\n` +
+      `• Bar eingenommen: ${formatCurrency(stat.cashGross)}\n` +
+      `• Trinkgeld: ${formatCurrency(stat.tips)}\n` +
+      `• Abgabe Hauptkasse: ${formatCurrency(sollBar)}\n\n` +
+      `Die Bedienung wird anschließend abgemeldet und muss sich für eine neue Schicht neu anmelden.`
+    );
+    if (!ok) return;
+
+    setIsSettling(true);
+    try {
+      const res = await fetch('/api/waiters/settle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          waiterName: stat.waiterName,
+          totalGross: stat.totalGross,
+          cashGross: stat.cashGross,
+          tips: stat.tips,
+          handoverAmount: sollBar,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || `Bedienung ${stat.waiterName} erfolgreich abgerechnet!`);
+        setSelectedWaiterForKassensturz(null);
+        void loadData();
+      } else {
+        alert(data.error || 'Fehler bei der Schichtabrechnung');
+      }
+    } catch {
+      alert('Netzwerkfehler bei der Schichtabrechnung');
+    } finally {
+      setIsSettling(false);
     }
   };
 
@@ -451,27 +518,39 @@ export default function AdminTipsPage() {
                               {formatCurrency(cashToHandOver)}
                             </td>
                             <td className="py-3.5 text-center font-sans">
-                              <button
-                                onClick={() => {
-                                  setSelectedWaiterForKassensturz(w);
-                                  setCashCounts({
-                                    100: 0,
-                                    50: 0,
-                                    20: 0,
-                                    10: 0,
-                                    5: 0,
-                                    2: 0,
-                                    1: 0,
-                                    0.5: 0,
-                                    0.2: 0,
-                                    0.1: 0,
-                                  });
-                                }}
-                                className="px-3 py-1.5 bg-blue-950 text-blue-300 hover:bg-blue-900 border border-blue-800 rounded-xl text-xs font-bold transition flex items-center gap-1 mx-auto"
-                              >
-                                <Calculator className="w-3.5 h-3.5" />
-                                <span>Kassensturz</span>
-                              </button>
+                              <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                <button
+                                  onClick={() => {
+                                    setSelectedWaiterForKassensturz(w);
+                                    setCashCounts({
+                                      100: 0,
+                                      50: 0,
+                                      20: 0,
+                                      10: 0,
+                                      5: 0,
+                                      2: 0,
+                                      1: 0,
+                                      0.5: 0,
+                                      0.2: 0,
+                                      0.1: 0,
+                                    });
+                                  }}
+                                  className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1"
+                                  title="Geldzähler / Kassensturz öffnen"
+                                >
+                                  <Calculator className="w-3.5 h-3.5 text-blue-400" />
+                                  <span>Kassensturz</span>
+                                </button>
+                                <button
+                                  onClick={() => handleSettleWaiter(w)}
+                                  disabled={isSettling}
+                                  className="px-2.5 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800 text-emerald-300 rounded-xl text-xs font-bold transition flex items-center gap-1"
+                                  title="Schicht abrechnen und Kellner abmelden"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span>Abrechnen</span>
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -877,12 +956,20 @@ export default function AdminTipsPage() {
               );
             })()}
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+            <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-800">
               <button
                 onClick={() => setSelectedWaiterForKassensturz(null)}
-                className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-bold"
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition"
               >
-                Fertig
+                Schließen
+              </button>
+              <button
+                onClick={() => handleSettleWaiter(selectedWaiterForKassensturz)}
+                disabled={isSettling}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-950 flex items-center gap-2 transition"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Schicht abrechnen &amp; Bedienung abmelden</span>
               </button>
             </div>
           </div>

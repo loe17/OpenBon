@@ -121,6 +121,14 @@ app.prepare().then(() => {
       io.emit('pos:cart_cleared', payload);
     });
 
+    socket.on('pos:register_station', (payload) => {
+      io.emit('pos:station_online', payload);
+    });
+
+    socket.on('pos:request_cart_state', (payload) => {
+      socket.broadcast.emit('pos:request_cart_state', payload);
+    });
+
     socket.on('disconnect', () => {
       if (socket.deviceId && global.connectedDevices.has(socket.deviceId)) {
         const device = global.connectedDevices.get(socket.deviceId);
