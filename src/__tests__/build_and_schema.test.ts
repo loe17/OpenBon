@@ -5,9 +5,9 @@ import { parseAndValidateLicense, generateOfflineSignature } from '../lib/licens
 import { verifyStationPin } from '../lib/auth-pin';
 import { EscPosBuilder } from '../lib/printer/escpos-builder';
 
-describe('OpenBon v0.3.0: Schema, License, PIN & Print Sanity Tests', () => {
-  it('should verify v0.3.0 version info', () => {
-    expect(APP_VERSION).toBe('0.3.0');
+describe('OpenBon v0.3.1: Schema, License, PIN & Print Sanity Tests', () => {
+  it('should verify v0.3.1 version info', () => {
+    expect(APP_VERSION).toBe('0.3.1');
   });
 
   it('should initialize Prisma DB Client with valid DATABASE_URL fallback', () => {
