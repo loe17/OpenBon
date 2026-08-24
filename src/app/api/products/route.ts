@@ -94,6 +94,7 @@ export async function POST(req: Request) {
 
     if (global.io) {
       global.io.emit('product:updated', created);
+      global.io.emit('inventory:updated', { productId: created.id });
     }
 
     return NextResponse.json(created);

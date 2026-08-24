@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useSocket } from '@/components/providers/socket-provider';
+import QRCode from 'qrcode';
 import { formatCurrency } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import {
@@ -39,10 +40,13 @@ export default function PosCounterPage() {
   const [selectedSubCat, setSelectedSubCat] = useState<string>('ALL');
   const [selectedAllergens, setSelectedAllergens] = useState<string[]>([]);
   const [showAllergenFilter, setShowAllergenFilter] = useState(false);
+  const [enableDigitalReceipt, setEnableDigitalReceipt] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [cart, setCart] = useState<any[]>([]);
   const [mode, setMode] = useState<'DIRECT' | 'VOUCHER' | 'DUAL'>('DUAL');
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
   const [givenAmount, setGivenAmount] = useState<number>(0);
+  const [keypadInput, setKeypadInput] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastToken, setLastToken] = useState<number | null>(null);
   const [completedPayment, setCompletedPayment] = useState<any | null>(null);
@@ -71,6 +75,8 @@ export default function PosCounterPage() {
           quantity: i.quantity,
           price: i.price,
           deposit: i.deposit,
+          variantName: i.variantName,
+          selectedOptions: i.selectedOptions,
         })),
         totalGross,
         totalDeposit,
@@ -81,6 +87,15 @@ export default function PosCounterPage() {
   }, [cart, totalGross, totalDeposit, socket]);
 
   useEffect(() => {
+    fetch('/api/config')
+      .then((r) => r.json())
+      .then((cfg) => {
+        if (cfg) {
+          setEnableDigitalReceipt(Boolean(cfg.enableDigitalReceipt || cfg.enableDigitalReceiptQr));
+        }
+      })
+      .catch(() => {});
+
     fetch('/api/categories')
       .then((r) => r.json())
       .then((d) => {
@@ -101,8 +116,10 @@ export default function PosCounterPage() {
           .catch(() => {});
       };
       socket.on('inventory:updated', handleInventory);
+      socket.on('product:updated', handleInventory);
       return () => {
         socket.off('inventory:updated', handleInventory);
+        socket.off('product:updated', handleInventory);
       };
     }
   }, [socket]);
@@ -249,7 +266,14 @@ export default function PosCounterPage() {
 
       if (paymentRes.ok) {
         const payData = await paymentRes.json();
-        setCompletedPayment(payData);
+        if (enableDigitalReceipt && payData.digitalReceiptUrl) {
+          setCompletedPayment(payData);
+          QRCode.toDataURL(payData.digitalReceiptUrl, { width: 256, margin: 1 })
+            .then((url) => setQrDataUrl(url))
+            .catch(() => {});
+        } else {
+          setCompletedPayment(null);
+        }
         triggerHapticFeedback();
         setCart([]);
         setGivenAmount(0);
@@ -414,35 +438,6 @@ export default function PosCounterPage() {
             }`}
           >
             {cat.name}
-          </button>
-        ))}
-      </div>
-
-      {/* Beverage Filter Bar */}
-      <div className="bg-slate-950 px-3 py-1.5 border-b border-slate-800 flex items-center gap-1.5 overflow-x-auto text-xs">
-        {[
-          { id: 'ALL', label: 'Alle Artikel' },
-          { id: 'BIER', label: 'Bier' },
-          { id: 'WEIN', label: 'Wein' },
-          { id: 'ALKOHOLFREI', label: 'Alkoholfrei' },
-          { id: 'HEISS', label: 'Heißgetränke' },
-          { id: 'BAR', label: 'Bar' },
-        ].map((sub) => (
-          <button
-            key={sub.id}
-            onClick={() => setSelectedSubCat(sub.id)}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 whitespace-nowrap ${
-              selectedSubCat === sub.id
-                ? 'bg-slate-800 text-amber-300 border-amber-500/60'
-                : 'bg-transparent text-slate-500 border-transparent hover:text-slate-300'
-            }`}
-          >
-            {sub.id === 'ALL' ? (
-              <LayoutList className="w-4 h-4" />
-            ) : (
-              <SubCategoryIcon subCategory={sub.id} className="w-4 h-4" />
-            )}
-            <span>{sub.label}</span>
           </button>
         ))}
       </div>
@@ -663,22 +658,31 @@ export default function PosCounterPage() {
         </div>
       </div>
 
-      {/* Digital Receipt E-Bon Modal */}
-      {completedPayment?.digitalReceiptUrl && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 p-6 rounded-3xl max-w-sm w-full shadow-2xl text-center">
-            <div className="w-14 h-14 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-3 border border-emerald-500/30">
-              <QrCode className="w-8 h-8" />
-            </div>
+      {/* Digital Receipt E-Bon Modal (nur wenn aktiv) */}
+      {enableDigitalReceipt && completedPayment?.digitalReceiptUrl && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 p-6 rounded-3xl max-w-sm w-full shadow-2xl text-center space-y-3">
+            {qrDataUrl ? (
+              <div className="bg-white p-3 rounded-2xl w-48 h-48 mx-auto flex items-center justify-center shadow-lg border-2 border-slate-700">
+                <img src={qrDataUrl} alt="Digitaler E-Bon QR-Code" className="w-full h-full" />
+              </div>
+            ) : (
+              <div className="w-14 h-14 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-2 border border-emerald-500/30">
+                <QrCode className="w-8 h-8" />
+              </div>
+            )}
             <h3 className="text-lg font-bold text-white mb-1">Digitaler E-Bon (§33 KassenSichV)</h3>
-            <p className="text-xs text-slate-400 mb-4">Der Gast kann den Beleg per Smartphone abrufen:</p>
+            <p className="text-xs text-slate-400">Der Gast kann den Beleg per Smartphone abrufen:</p>
 
-            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 font-mono text-xs text-emerald-400 break-all select-all mb-4">
+            <div className="bg-slate-950 p-2.5 rounded-2xl border border-slate-800 font-mono text-xs text-emerald-400 break-all select-all">
               {completedPayment.digitalReceiptUrl}
             </div>
 
             <button
-              onClick={() => setCompletedPayment(null)}
+              onClick={() => {
+                setCompletedPayment(null);
+                setQrDataUrl(null);
+              }}
               className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl text-sm shadow-lg"
             >
               Fertig / Schließen

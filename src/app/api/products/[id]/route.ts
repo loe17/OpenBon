@@ -83,6 +83,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
     if (global.io) {
       global.io.emit('product:updated', updated);
+      global.io.emit('inventory:updated', { productId: updated.id });
     }
 
     return NextResponse.json(updated);
@@ -100,6 +101,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
 
     if (global.io) {
       global.io.emit('product:deleted', { id: params.id });
+      global.io.emit('inventory:updated', { productId: params.id });
     }
 
     return NextResponse.json({ success: true, product: updated });

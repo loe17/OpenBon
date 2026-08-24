@@ -10,12 +10,11 @@ import {
   QrCode,
   CheckCircle2,
   Sparkles,
-  Heart,
   ShoppingBag,
   CreditCard,
   Coins,
   Settings2,
-  Smile,
+  UtensilsCrossed,
 } from 'lucide-react';
 
 interface CartItem {
@@ -24,6 +23,8 @@ interface CartItem {
   quantity: number;
   price: number;
   deposit?: number;
+  variantName?: string;
+  selectedOptions?: string[];
 }
 
 interface CustomerDisplayState {
@@ -46,6 +47,7 @@ export default function CustomerDisplayPage() {
   const [showConfig, setShowConfig] = useState(false);
   const [devices, setDevices] = useState<{ id: string; name: string }[]>([]);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const [state, setState] = useState<CustomerDisplayState>({
     stationId: 'ALL',
@@ -55,6 +57,15 @@ export default function CustomerDisplayPage() {
     totalGross: 0,
     totalDeposit: 0,
   });
+
+  // Track Fullscreen state to auto-hide setup bar
+  useEffect(() => {
+    const handleFullscreen = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFullscreen);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreen);
+  }, []);
 
   const fetchDevices = async () => {
     try {
@@ -71,7 +82,8 @@ export default function CustomerDisplayPage() {
 
     if (socket) {
       const isMatch = (stationId?: string) => {
-        if (!stationId || selectedStation === 'ALL') return true;
+        if (selectedStation === 'ALL') return true;
+        if (!stationId) return false;
         if (stationId === selectedStation) return true;
         if (
           (stationId === 'MAIN_CASH' || stationId === 'POS_MAIN') &&
@@ -149,35 +161,37 @@ export default function CustomerDisplayPage() {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-950 text-white overflow-hidden select-none">
-      {/* Top Station Bar / Config Toggle */}
-      <div className="bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between shadow-md">
-        <div className="flex items-center gap-3">
-          <span className="bg-blue-600 text-white px-2.5 py-1 rounded-xl text-xs font-black tracking-wider uppercase shadow">
-            OB
-          </span>
-          <div>
-            <h1 className="font-black text-base tracking-tight text-white flex items-center gap-2">
-              <span>Kundendisplay</span>
-              <span className="text-xs text-blue-400 font-mono font-bold bg-blue-950/80 px-2 py-0.5 rounded-lg border border-blue-800">
-                {selectedStation === 'ALL' ? 'Alle Kassen' : `Station: ${selectedStation}`}
-              </span>
-            </h1>
+      {/* Top Station Bar / Config Toggle (wird im Vollbildmodus ausgeblendet) */}
+      {!isFullscreen && (
+        <div className="bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between shadow-md">
+          <div className="flex items-center gap-3">
+            <span className="bg-blue-600 text-white px-2.5 py-1 rounded-xl text-xs font-black tracking-wider uppercase shadow">
+              OB
+            </span>
+            <div>
+              <h1 className="font-black text-base tracking-tight text-white flex items-center gap-2">
+                <span>Kundendisplay</span>
+                <span className="text-xs text-blue-400 font-mono font-bold bg-blue-950/80 px-2 py-0.5 rounded-lg border border-blue-800">
+                  {selectedStation === 'ALL' ? 'Alle Kassen' : `Station: ${selectedStation}`}
+                </span>
+              </h1>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowConfig(!showConfig)}
+              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+              title="Kassen-Zuordnung ändern"
+            >
+              <Settings2 className="w-5 h-5" />
+            </button>
           </div>
         </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowConfig(!showConfig)}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
-            title="Kassen-Zuordnung ändern"
-          >
-            <Settings2 className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Station Selector Dropdown Panel */}
-      {showConfig && (
+      {showConfig && !isFullscreen && (
         <div className="bg-slate-900 border-b border-slate-700 p-4 animate-in slide-in-from-top">
           <div className="max-w-md mx-auto flex items-center gap-3">
             <label className="text-xs font-bold text-slate-400">Angezeigte Kasse:</label>
@@ -189,7 +203,7 @@ export default function CustomerDisplayPage() {
               }}
               className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
             >
-              <option value="ALL">✨ Alle Stationen & Mobilteile (Global)</option>
+              <option value="ALL">✨ Alle Stationen &amp; Mobilteile (Global)</option>
               <option value="POS_MAIN">Haupt-Bonkasse</option>
               <option value="POS_1">Thekenkasse 1</option>
               <option value="POS_2">Thekenkasse 2</option>
@@ -206,12 +220,12 @@ export default function CustomerDisplayPage() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {state.status === 'IDLE' ? (
-          /* Idle / Welcome Screen */
+          /* Idle / Welcome Screen (ohne hüpfende Animation) */
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-gradient-to-b from-slate-950 to-slate-900">
-            <div className="w-24 h-24 rounded-3xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 mb-6 shadow-2xl animate-bounce">
-              <Smile className="w-12 h-12" />
+            <div className="w-20 h-20 rounded-3xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 mb-6 shadow-2xl">
+              <UtensilsCrossed className="w-10 h-10" />
             </div>
-            <h2 className="text-3xl sm:text-5xl font-black tracking-tight mb-3">
+            <h2 className="text-3xl sm:text-5xl font-black tracking-tight mb-3 text-white">
               Herzlich willkommen!
             </h2>
             <p className="text-base sm:text-xl text-slate-400 max-w-lg font-medium">
@@ -293,8 +307,18 @@ export default function CustomerDisplayPage() {
                         <span className="font-extrabold text-base sm:text-lg text-white block">
                           {item.name}
                         </span>
+                        {item.variantName && (
+                          <span className="text-xs text-blue-300 font-semibold block">
+                            {item.variantName}
+                          </span>
+                        )}
+                        {item.selectedOptions && item.selectedOptions.length > 0 && (
+                          <span className="text-xs text-emerald-400 block font-medium">
+                            + {item.selectedOptions.join(', ')}
+                          </span>
+                        )}
                         {item.deposit && item.deposit > 0 ? (
-                          <span className="text-xs text-amber-400 font-medium">
+                          <span className="text-xs text-amber-400 font-medium block">
                             inkl. {formatCurrency(item.deposit * item.quantity)} Pfand
                           </span>
                         ) : null}

@@ -33,6 +33,7 @@ export default function ChatPage() {
   const [inputText, setInputText] = useState('');
   const [isUrgent, setIsUrgent] = useState(false);
   const [senderName, setSenderName] = useState('Bedienung');
+  const [userRole, setUserRole] = useState('WAITER');
 
   const fetchMessages = async () => {
     try {
@@ -49,6 +50,7 @@ export default function ChatPage() {
   useEffect(() => {
     const role = localStorage.getItem('pos_user_role') || 'WAITER';
     const waiter = localStorage.getItem('pos_waiter_name');
+    setUserRole(role);
 
     let defaultName = 'Bedienung';
     if (role === 'WAITER') {
@@ -123,29 +125,31 @@ export default function ChatPage() {
 
         {/* Sender Name Identifier Pill & Broadcast Button */}
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              const text = prompt('🚨 Eildurchsage an alle Bedienungsansichten eingeben:');
-              if (text && text.trim()) {
-                fetch('/api/chat', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    senderName: senderName.trim() || 'Leitung / Theke',
-                    message: text.trim(),
-                    isUrgent: true,
-                    broadcastAlert: true,
-                  }),
-                });
-              }
-            }}
-            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-lg shadow-rose-950/60 transition active:scale-95 animate-pulse"
-            title="Sendet sofort ein lautes Pop-up an alle Bedienungs-Mobilteile"
-          >
-            <Radio className="w-3.5 h-3.5" />
-            <span>🚨 Eildurchsage</span>
-          </button>
+          {userRole !== 'WAITER' && (
+            <button
+              type="button"
+              onClick={() => {
+                const text = prompt('🚨 Eildurchsage an alle Bedienungsansichten eingeben:');
+                if (text && text.trim()) {
+                  fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      senderName: senderName.trim() || 'Leitung / Theke',
+                      message: text.trim(),
+                      isUrgent: true,
+                      broadcastAlert: true,
+                    }),
+                  });
+                }
+              }}
+              className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-lg shadow-rose-950/60 transition active:scale-95 animate-pulse"
+              title="Sendet sofort ein lautes Pop-up an alle Bedienungs-Mobilteile"
+            >
+              <Radio className="w-3.5 h-3.5" />
+              <span>🚨 Eildurchsage</span>
+            </button>
+          )}
 
           <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-700 px-3 py-1.5 rounded-xl text-xs">
             <User className="w-3.5 h-3.5 text-blue-400" />

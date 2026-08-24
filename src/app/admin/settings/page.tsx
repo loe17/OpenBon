@@ -150,12 +150,17 @@ export default function AdminSettingsPage() {
 
   const handleDownloadBackup = () => {
     triggerHapticFeedback();
-    const activeScopes = Object.entries(backupScopes)
-      .filter(([_, v]) => v)
-      .map(([k]) => k)
-      .join(',');
+    const params = new URLSearchParams();
+    params.set('incConfig', backupScopes.config ? '1' : '0');
+    params.set('incProducts', backupScopes.products ? '1' : '0');
+    params.set('incWordGroups', backupScopes.wordGroups ? '1' : '0');
+    params.set('incTables', backupScopes.tables ? '1' : '0');
+    params.set('incPrinters', backupScopes.printers ? '1' : '0');
+    params.set('incStock', backupScopes.stock ? '1' : '0');
+    params.set('incOrders', backupScopes.orders ? '1' : '0');
+    params.set('incPayments', backupScopes.payments ? '1' : '0');
 
-    window.open(`/api/backup?scopes=${activeScopes}`, '_blank');
+    window.open(`/api/backup?${params.toString()}`, '_blank');
   };
 
   const handleRestoreBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -174,7 +179,10 @@ export default function AdminSettingsPage() {
       const res = await fetch('/api/backup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(json),
+        body: JSON.stringify({
+          data: json,
+          options: backupScopes,
+        }),
       });
 
       const result = await res.json();
@@ -584,90 +592,191 @@ export default function AdminSettingsPage() {
               <span>Bon-Druck &amp; Beleg-Layout Konfiguration</span>
             </h2>
             <p className="text-xs text-slate-400">
-              Passe die Kopf- und Fußzeilen sowie gedruckte Felder für Thermodrucker und Gast-Bons an.
+              Passe die Kopf- und Fußzeilen, Tischnummerngröße sowie gedruckte Felder für Thermodrucker und Gast-Bons an.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">
-                  Festname / Kopfzeile
-                </label>
-                <input
-                  type="text"
-                  placeholder="z. B. Vereins- & Feuerwehrfest 2026"
-                  value={config.receiptHeader || ''}
-                  onChange={(e) => setConfig({ ...config, receiptHeader: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left Column: Form Fields */}
+              <div className="lg:col-span-7 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 block mb-1">
+                      Festname / Kopfzeile
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="z. B. Vereins- & Feuerwehrfest 2026"
+                      value={config.receiptHeader || ''}
+                      onChange={(e) => setConfig({ ...config, receiptHeader: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 block mb-1">
+                      Verein / Unterzeile / Steuernummer
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="z. B. Freiwillige Feuerwehr e.V. • St.-Nr. 12/345/67890"
+                      value={config.receiptSubHeader || ''}
+                      onChange={(e) => setConfig({ ...config, receiptSubHeader: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-bold text-slate-400 block mb-1">
+                      Tischnummer Schriftgröße auf Küchen- & Ausschank-Bons:
+                    </label>
+                    <select
+                      value={config.receiptTableFontSize || 'NORMAL'}
+                      onChange={(e) => setConfig({ ...config, receiptTableFontSize: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                    >
+                      <option value="NORMAL">Normal (Standard einzeilig)</option>
+                      <option value="LARGE">Groß (Doppelte Höhe)</option>
+                      <option value="EXTRA_LARGE">Extra Groß (Doppelte Höhe & Doppelte Breite)</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-bold text-slate-400 block mb-1">
+                      Freitext Fußzeile (Dankestext / Schlusshinweis)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="z. B. Vielen Dank für Ihren Besuch! Wir wünschen einen guten Heimweg."
+                      value={config.receiptFooterText || ''}
+                      onChange={(e) => setConfig({ ...config, receiptFooterText: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-800 grid grid-cols-2 gap-3">
+                  <label className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between cursor-pointer">
+                    <span className="text-xs font-bold text-slate-300">Datum &amp; Uhrzeit</span>
+                    <input
+                      type="checkbox"
+                      checked={config.receiptShowTimestamp ?? true}
+                      onChange={(e) => setConfig({ ...config, receiptShowTimestamp: e.target.checked })}
+                      className="w-4 h-4 rounded text-blue-600"
+                    />
+                  </label>
+
+                  <label className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between cursor-pointer">
+                    <span className="text-xs font-bold text-slate-300">Bedienungsname</span>
+                    <input
+                      type="checkbox"
+                      checked={config.receiptShowWaiter ?? true}
+                      onChange={(e) => setConfig({ ...config, receiptShowWaiter: e.target.checked })}
+                      className="w-4 h-4 rounded text-blue-600"
+                    />
+                  </label>
+
+                  <label className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between cursor-pointer">
+                    <span className="text-xs font-bold text-slate-300">Tischnummer</span>
+                    <input
+                      type="checkbox"
+                      checked={config.receiptShowTable ?? true}
+                      onChange={(e) => setConfig({ ...config, receiptShowTable: e.target.checked })}
+                      className="w-4 h-4 rounded text-blue-600"
+                    />
+                  </label>
+
+                  <label className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between cursor-pointer">
+                    <span className="text-xs font-bold text-slate-300">TSE Fiskalblock</span>
+                    <input
+                      type="checkbox"
+                      checked={config.receiptShowTse ?? true}
+                      onChange={(e) => setConfig({ ...config, receiptShowTse: e.target.checked })}
+                      className="w-4 h-4 rounded text-blue-600"
+                    />
+                  </label>
+                </div>
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">
-                  Verein / Unterzeile / Steuernummer
-                </label>
-                <input
-                  type="text"
-                  placeholder="z. B. Freiwillige Feuerwehr e.V. • St.-Nr. 12/345/67890"
-                  value={config.receiptSubHeader || ''}
-                  onChange={(e) => setConfig({ ...config, receiptSubHeader: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                />
+              {/* Right Column: Interactive Live 80mm Receipt Simulator */}
+              <div className="lg:col-span-5 flex flex-col items-center">
+                <div className="text-xs font-mono font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                  🧾 Interaktive Bon-Livevorschau (80mm)
+                </div>
+
+                <div className="w-full max-w-[320px] bg-amber-50 text-slate-900 font-mono text-[11px] p-4 rounded-xl shadow-2xl border-2 border-dashed border-amber-300/80 select-none space-y-2">
+                  <div className="text-center">
+                    <div className="font-bold text-xs">=== BELEG / BON ===</div>
+                    <div className="font-black text-sm uppercase">{config.receiptHeader || config.name || 'FESTNAME'}</div>
+                    {config.receiptSubHeader && (
+                      <div className="text-[10px] text-slate-600">{config.receiptSubHeader}</div>
+                    )}
+                  </div>
+
+                  <div className="border-t border-b border-slate-400 py-1 my-1">
+                    {/* Tischnummer mit konfigurierter Größe */}
+                    {(config.receiptShowTable ?? true) && (
+                      <div className="text-center">
+                        {config.receiptTableFontSize === 'EXTRA_LARGE' ? (
+                          <div className="font-black text-lg text-slate-950 tracking-wider my-1 bg-amber-200/60 py-0.5 rounded">
+                            TISCH 14
+                          </div>
+                        ) : config.receiptTableFontSize === 'LARGE' ? (
+                          <div className="font-bold text-base text-slate-950 my-0.5">
+                            TISCH 14
+                          </div>
+                        ) : (
+                          <div className="font-bold text-xs">Tisch: 14</div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex justify-between text-[10px] text-slate-700">
+                      {(config.receiptShowWaiter ?? true) && <span>Bedienung: Anna</span>}
+                      <span>Bon #1042</span>
+                    </div>
+
+                    {(config.receiptShowTimestamp ?? true) && (
+                      <div className="text-[10px] text-slate-500">
+                        {new Date().toLocaleString('de-DE')}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Sample Items */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between font-bold">
+                      <span>2x Festbier 0,5l</span>
+                      <span>8,80 EUR</span>
+                    </div>
+                    <div className="flex justify-between font-bold">
+                      <span>1x Bratwurst m. Semmel</span>
+                      <span>4,50 EUR</span>
+                    </div>
+                    <div className="text-[10px] text-slate-600 pl-2">   + Senf, gut durch</div>
+                  </div>
+
+                  <div className="border-t border-slate-900 pt-1.5 flex justify-between font-black text-sm">
+                    <span>GESAMTBETRAG:</span>
+                    <span>13,30 EUR</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] text-slate-600">
+                    <span>Zahlart: Barzahlung</span>
+                    <span>MwSt 19%: 2,12 EUR</span>
+                  </div>
+
+                  {config.receiptFooterText && (
+                    <div className="text-center pt-2 border-t border-slate-400 text-[10px] italic">
+                      {config.receiptFooterText}
+                    </div>
+                  )}
+
+                  {(config.receiptShowTse ?? true) && (
+                    <div className="text-center pt-1 border-t border-slate-300 text-[8px] text-slate-500 break-all">
+                      TSE-SIG: a8f9c73e1b02d... §6 KassenSichV
+                    </div>
+                  )}
+                </div>
               </div>
-
-              <div className="sm:col-span-2">
-                <label className="text-xs font-bold text-slate-400 block mb-1">
-                  Freitext Fußzeile (Dankestext / Schlusshinweis)
-                </label>
-                <input
-                  type="text"
-                  placeholder="z. B. Vielen Dank für Ihren Besuch! Wir wünschen einen guten Heimweg."
-                  value={config.receiptFooterText || ''}
-                  onChange={(e) => setConfig({ ...config, receiptFooterText: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                />
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <label className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between cursor-pointer">
-                <span className="text-xs font-bold text-slate-300">Datum &amp; Uhrzeit</span>
-                <input
-                  type="checkbox"
-                  checked={config.receiptShowTimestamp ?? true}
-                  onChange={(e) => setConfig({ ...config, receiptShowTimestamp: e.target.checked })}
-                  className="w-4 h-4 rounded text-blue-600"
-                />
-              </label>
-
-              <label className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between cursor-pointer">
-                <span className="text-xs font-bold text-slate-300">Bedienungsname</span>
-                <input
-                  type="checkbox"
-                  checked={config.receiptShowWaiter ?? true}
-                  onChange={(e) => setConfig({ ...config, receiptShowWaiter: e.target.checked })}
-                  className="w-4 h-4 rounded text-blue-600"
-                />
-              </label>
-
-              <label className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between cursor-pointer">
-                <span className="text-xs font-bold text-slate-300">Tischnummer</span>
-                <input
-                  type="checkbox"
-                  checked={config.receiptShowTable ?? true}
-                  onChange={(e) => setConfig({ ...config, receiptShowTable: e.target.checked })}
-                  className="w-4 h-4 rounded text-blue-600"
-                />
-              </label>
-
-              <label className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between cursor-pointer">
-                <span className="text-xs font-bold text-slate-300">TSE Fiskalblock</span>
-                <input
-                  type="checkbox"
-                  checked={config.receiptShowTse ?? true}
-                  onChange={(e) => setConfig({ ...config, receiptShowTse: e.target.checked })}
-                  className="w-4 h-4 rounded text-blue-600"
-                />
-              </label>
             </div>
           </div>
 
@@ -869,6 +978,82 @@ export default function AdminSettingsPage() {
               >
                 {autostartInfo?.autostartEnabled ? 'Aktiviert' : 'Deaktiviert'}
               </button>
+            </div>
+
+            {/* Backup Scopes Selection */}
+            <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-extrabold text-white">Selektive Datensicherung (Bereiche wählen)</div>
+                  <div className="text-[11px] text-slate-400">Wähle, welche Daten exportiert und wiederhergestellt werden</div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setBackupScopes({
+                        config: true,
+                        products: true,
+                        wordGroups: true,
+                        tables: true,
+                        printers: true,
+                        stock: true,
+                        orders: true,
+                        payments: true,
+                      })
+                    }
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold"
+                  >
+                    Alles
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setBackupScopes({
+                        config: true,
+                        products: true,
+                        wordGroups: true,
+                        tables: true,
+                        printers: true,
+                        stock: true,
+                        orders: false,
+                        payments: false,
+                      })
+                    }
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold"
+                  >
+                    Nur Stammdaten
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                {[
+                  { id: 'config', label: 'Grundeinstellungen' },
+                  { id: 'products', label: 'Artikel & Kategorien' },
+                  { id: 'wordGroups', label: 'Sonderwünsche' },
+                  { id: 'tables', label: 'Tischplan & Tische' },
+                  { id: 'printers', label: 'Drucker & Gruppen' },
+                  { id: 'stock', label: 'Lagerbestände' },
+                  { id: 'orders', label: 'Bestellungen' },
+                  { id: 'payments', label: 'Zahlungen' },
+                ].map((scope) => (
+                  <label
+                    key={scope.id}
+                    className="flex items-center gap-2 p-2 bg-slate-900 rounded-xl border border-slate-800 text-xs font-semibold text-slate-300 cursor-pointer hover:border-slate-700"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={(backupScopes as any)[scope.id]}
+                      onChange={(e) =>
+                        setBackupScopes({ ...backupScopes, [scope.id]: e.target.checked })
+                      }
+                      className="w-3.5 h-3.5 rounded text-blue-600"
+                    />
+                    <span className="truncate">{scope.label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
             {/* Backup Scopes */}

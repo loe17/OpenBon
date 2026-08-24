@@ -16,6 +16,9 @@ import {
   Search,
   Wifi,
   Sparkles,
+  Edit2,
+  Check,
+  X,
 } from 'lucide-react';
 
 interface DeviceItem {
@@ -36,6 +39,23 @@ export default function AdminDevicesPage() {
   const [devices, setDevices] = useState<DeviceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+
+  const handleSaveName = async (deviceId: string) => {
+    if (!editName.trim()) return;
+    try {
+      await fetch('/api/devices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'SET_NAME', targetDeviceId: deviceId, newName: editName.trim() }),
+      });
+      setEditingId(null);
+      fetchDevices();
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchDevices = async () => {
     try {
@@ -216,19 +236,57 @@ export default function AdminDevicesPage() {
                 <div>
                   {/* Top Bar of Card */}
                   <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-200">
+                    <div className="flex items-center gap-2.5 flex-1 min-w-0 pr-2">
+                      <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-200 shrink-0">
                         <Smartphone className="w-5 h-5" />
                       </div>
-                      <div>
-                        <h4 className="font-bold text-base text-white">{device.name}</h4>
-                        <span className="text-xs font-mono text-slate-400">{device.ipAddress}</span>
+                      <div className="flex-1 min-w-0">
+                        {editingId === device.id ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              className="bg-slate-950 border border-blue-500 rounded-lg px-2 py-0.5 text-xs text-white w-full"
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => handleSaveName(device.id)}
+                              className="p-1 bg-emerald-600 hover:bg-emerald-500 rounded text-white"
+                              title="Speichern"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              className="p-1 bg-slate-800 hover:bg-slate-700 rounded text-slate-400"
+                              title="Abbrechen"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 group">
+                            <h4 className="font-bold text-base text-white truncate">{device.name}</h4>
+                            <button
+                              onClick={() => {
+                                setEditingId(device.id);
+                                setEditName(device.name);
+                              }}
+                              className="p-1 text-slate-500 hover:text-blue-400 transition opacity-80 group-hover:opacity-100"
+                              title="Bedienungsname ändern (Live-Sync)"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                        <span className="text-xs font-mono text-slate-400 block">{device.ipAddress}</span>
                       </div>
                     </div>
 
                     {/* Online Status Pill */}
                     <span
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold shrink-0 ${
                         isOnline
                           ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
                           : 'bg-slate-800 text-slate-400'

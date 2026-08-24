@@ -6,12 +6,19 @@ export async function GET() {
     const groups = await prisma.customizationWordGroup.findMany({
       orderBy: { sortIndex: 'asc' },
     });
-    return NextResponse.json(
-      groups.map((g) => ({
-        ...g,
-        words: JSON.parse(g.words || '[]'),
-      }))
-    );
+    const seenNames = new Set<string>();
+    const uniqueGroups: any[] = [];
+    for (const g of groups) {
+      const key = g.name.toLowerCase().trim();
+      if (!seenNames.has(key)) {
+        seenNames.add(key);
+        uniqueGroups.push({
+          ...g,
+          words: typeof g.words === 'string' ? JSON.parse(g.words || '[]') : g.words,
+        });
+      }
+    }
+    return NextResponse.json(uniqueGroups);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }

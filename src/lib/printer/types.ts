@@ -51,6 +51,7 @@ export interface TicketData {
   surchargeAmount?: number;
   surchargeReason?: string | null;
   cardAuthCode?: string | null;
+  tableFontSize?: 'NORMAL' | 'LARGE' | 'EXTRA_LARGE';
 }
 
 export interface VirtualTicketRecord {

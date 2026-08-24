@@ -88,6 +88,26 @@ export default function AdminReportsPage() {
     }
   };
 
+  /** X-Bon für eine einzelne Bedienung drucken */
+  const handlePrintWaiterXBon = async (waiterName: string) => {
+    triggerHapticFeedback();
+    try {
+      const res = await fetch('/api/reports/x-bon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ waiterName, printerId: selectedPrinterId || undefined }),
+      });
+      const body = await res.json();
+      if (res.ok) {
+        alert(`X-Bon Abrechnung für "${waiterName}" erfolgreich gedruckt!`);
+      } else {
+        alert(`Druckfehler: ${body.error || 'Unbekannt'}`);
+      }
+    } catch {
+      alert('Drucker nicht erreichbar.');
+    }
+  };
+
   /** Spec 6.7: Z-Bon-Dialog mit Vorschau der abzuschließenden Periode */
   const openCloseModal = async () => {
     triggerHapticFeedback();
@@ -590,7 +610,8 @@ export default function AdminReportsPage() {
                       <th className="pb-3 font-bold">Barumsatz</th>
                       <th className="pb-3 font-bold">Kartenzahlung</th>
                       <th className="pb-3 font-bold">Trinkgeld</th>
-                      <th className="pb-3 font-bold text-right">Belege</th>
+                      <th className="pb-3 font-bold">Belege</th>
+                      <th className="pb-3 font-bold text-right">Abrechnung</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
@@ -603,7 +624,17 @@ export default function AdminReportsPage() {
                         <td className="py-3 font-mono text-slate-300">{formatCurrency(w.cashGross)}</td>
                         <td className="py-3 font-mono text-slate-300">{formatCurrency(w.cardGross)}</td>
                         <td className="py-3 font-mono text-amber-400">+{formatCurrency(w.tips)}</td>
-                        <td className="py-3 font-mono text-right text-slate-300">{w.transactionCount}</td>
+                        <td className="py-3 font-mono text-slate-300">{w.transactionCount}</td>
+                        <td className="py-3 text-right">
+                          <button
+                            onClick={() => handlePrintWaiterXBon(w.waiterName)}
+                            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 hover:border-amber-500 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition"
+                            title="X-Bon Abrechnung für diese Bedienung drucken"
+                          >
+                            <Printer className="w-3.5 h-3.5 text-amber-400" />
+                            <span>X-Bon</span>
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

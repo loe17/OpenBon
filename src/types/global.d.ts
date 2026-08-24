@@ -9,6 +9,7 @@ export interface ConnectedDeviceInfo {
   id: string;
   socketId: string;
   name: string;
+  waiterName?: string;
   role: string;
   ipAddress: string;
   userAgent: string;

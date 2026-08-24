@@ -135,6 +135,28 @@ export class EscPosBuilder {
     return this;
   }
 
+  public qrCode(data: string, size = 6): this {
+    if (!data) return this;
+    const dataBuf = Buffer.from(data, 'utf-8');
+    const storeLen = dataBuf.length + 3;
+    const pL = storeLen % 256;
+    const pH = Math.floor(storeLen / 256);
+
+    // 1. Model: Model 2 (standard)
+    this.buffer.push(Buffer.from([GS, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00]));
+    // 2. Module size (1-16)
+    this.buffer.push(Buffer.from([GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, Math.min(16, Math.max(1, size))]));
+    // 3. Error correction: Level M (49)
+    this.buffer.push(Buffer.from([GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31]));
+    // 4. Store data
+    this.buffer.push(Buffer.from([GS, 0x28, 0x6b, pL, pH, 0x31, 0x50, 0x30]));
+    this.buffer.push(dataBuf);
+    // 5. Print QR symbol
+    this.buffer.push(Buffer.from([GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30]));
+    this.lineFeed(1);
+    return this;
+  }
+
   public cut(partial = false): this {
     this.lineFeed(4);
     this.buffer.push(Buffer.from([GS, 0x56, partial ? 1 : 0]));
@@ -191,7 +213,13 @@ export class EscPosBuilder {
     }
 
     if (data.tableLabel) {
-      builder.bold(true).textLine(`Tisch: ${data.tableLabel}`).bold(false);
+      if (data.tableFontSize === 'EXTRA_LARGE') {
+        builder.size(true, true).bold(true).textLine(`TISCH: ${data.tableLabel}`).size(false, false).bold(false);
+      } else if (data.tableFontSize === 'LARGE') {
+        builder.size(false, true).bold(true).textLine(`TISCH: ${data.tableLabel}`).size(false, false).bold(false);
+      } else {
+        builder.bold(true).textLine(`Tisch: ${data.tableLabel}`).bold(false);
+      }
       addText(`Tisch: ${data.tableLabel}`);
     }
 
@@ -347,7 +375,8 @@ export class EscPosBuilder {
     builder.textLine('URL im Smartphone-Browser oeffnen:');
     builder.bold(true).textLine(station.url).bold(false);
     builder.lineFeed(1);
-    builder.textLine('Oder scanne den QR-Code auf dem Bildschirm');
+    builder.align('center').qrCode(station.url, paperWidth === 58 ? 5 : 7);
+    builder.align('center').textLine('QR-Code mit Smartphone scannen');
     builder.textLine('Tipp: "Zum Home-Bildschirm" fuer Vollbild');
     builder.doubleDivider();
     builder.textLine(`Gedruckt: ${new Date().toLocaleString('de-DE')}`);

@@ -199,6 +199,7 @@ export default function Navbar() {
       icon: Settings,
       items: [
         { href: '/admin/dashboard', label: 'Admin Command Center', icon: LayoutDashboard, roles: ['ADMIN'] },
+        { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['ADMIN'] },
         { href: '/admin/settings', label: 'Grundeinstellungen & Bon-Design', icon: Settings, roles: ['ADMIN'] },
         { href: '/admin/system-update', label: 'System-Update & Konsole', icon: HardDrive, roles: ['ADMIN'] },
         { href: '/docs', label: 'Handbuch & Anleitungen', icon: BookOpen, roles: ['ADMIN'] },
@@ -211,7 +212,6 @@ export default function Navbar() {
     WAITER: [
       { href: '/waiter', label: 'Bedienung (Tischübersicht)', icon: Smartphone, roles: ['WAITER'] },
       { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['WAITER'] },
-      { href: '/docs', label: 'Handbuch & Anleitungen', icon: BookOpen, roles: ['WAITER'] },
     ],
     POS_CASHIER: [
       { href: '/pos', label: 'Bonkasse (Thekenverkauf)', icon: CreditCard, roles: ['POS_CASHIER'] },
@@ -228,14 +228,10 @@ export default function Navbar() {
     ],
   };
 
-  // Header im Vollbildmodus oder auf dedizierten Monitor-Displays ausblenden
-  const isDedicatedMonitorPage =
-    pathname === '/customer-display' ||
-    pathname === '/taps' ||
-    pathname === '/kiosk' ||
-    pathname === '/kitchen';
+  // Header im Vollbildmodus auf allen Nicht-Admin Seiten ausblenden
+  const isNonAdminFullscreen = isFullscreen && !pathname.startsWith('/admin');
 
-  if (isFullscreen && isDedicatedMonitorPage) {
+  if (isNonAdminFullscreen) {
     return null;
   }
 

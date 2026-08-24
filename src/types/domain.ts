@@ -63,6 +63,7 @@ export interface EventConfigDTO {
   receiptShowWaiter?: boolean;
   receiptShowTable?: boolean;
   receiptShowTse?: boolean;
+  receiptTableFontSize?: string | null;
   activeTheme?: string;
   enableAgeVerificationAlerts?: boolean;
   enableDigitalReceiptQr?: boolean;
