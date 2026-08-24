@@ -25,8 +25,7 @@ global.connectedDevices = global.connectedDevices || new Map();
 app.prepare().then(() => {
   const server = createServer(async (req, res) => {
     try {
-      const parsedUrl = parse(req.url, true);
-      await handle(req, res, parsedUrl);
+      await handle(req, res);
     } catch (err) {
       console.error('Error handling request:', err);
       res.statusCode = 500;
