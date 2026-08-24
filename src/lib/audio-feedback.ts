@@ -90,3 +90,11 @@ export function playVoidAlert(): void {
   playTone({ frequency: 440, durationMs: 140, type: 'sawtooth', gain: 0.1 });
   playTone({ frequency: 330, durationMs: 260, delayMs: 150, type: 'sawtooth', gain: 0.1 });
 }
+
+/** Melodischer Dreiklang-Chime für Bedienung wenn Bestellung abholbereit ist */
+export function playOrderReadyChime(): void {
+  playTone({ frequency: 523.25, durationMs: 140, gain: 0.2 }); // C5
+  playTone({ frequency: 659.25, durationMs: 160, delayMs: 120, gain: 0.22 }); // E5
+  playTone({ frequency: 783.99, durationMs: 300, delayMs: 240, gain: 0.25 }); // G5
+}
+

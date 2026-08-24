@@ -7,6 +7,7 @@ import { getOrCreateOpenPeriod } from '@/lib/register-period';
 import { getPaymentLabel } from '@/lib/payment/methods';
 import { generateDigitalReceiptCode, buildReceiptUrl } from '@/lib/digital-receipt';
 import { calculateTipDistribution } from '@/lib/tips';
+import { deductTapVolumeForItems } from '@/lib/tap-manager';
 import type { TicketData } from '@/lib/printer/types';
 
 export async function GET(req: Request) {
@@ -290,6 +291,21 @@ export async function POST(req: Request) {
 
         await networkSpooler.printTicket(receiptPrinter, ticketData);
       }
+    }
+
+    // 6. Schankvolumen von Zapfhähnen abziehen (Fassüberwachung)
+    const paidOrderItemIds = itemsToPay.map((i) => i.orderItemId).filter(Boolean) as string[];
+    if (paidOrderItemIds.length > 0) {
+      const orderItems = await prisma.orderItem.findMany({
+        where: { id: { in: paidOrderItemIds } },
+        select: { id: true, productId: true },
+      });
+      const prodMap = new Map(orderItems.map((oi) => [oi.id, oi.productId]));
+      await deductTapVolumeForItems(
+        itemsToPay
+          .filter((i) => i.orderItemId && prodMap.has(i.orderItemId))
+          .map((i) => ({ productId: prodMap.get(i.orderItemId!)!, quantity: i.quantityToPay }))
+      );
     }
 
     await haService.logMutation('PAYMENT', payment.id, 'INSERT', payment);

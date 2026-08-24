@@ -138,6 +138,7 @@ model Product {
   printGroup            PrintGroup?       @relation(fields: [printGroupId], references: [id], onDelete: SetNull)
   stockItem             StockItem?
   orderItems            OrderItem[]
+  tapLines              TapLine[]
 }
 
 model ProductVariant {
@@ -429,4 +430,22 @@ model SyncJournal {
   operation  String   // INSERT, UPDATE, DELETE
   payload    String   // JSON Snapshot
   createdAt  DateTime @default(now())
+}
+
+// Schank- & Fassüberwachung (Bierfässer, Premix, Schankverlust)
+model TapLine {
+  id                  String   @id @default(cuid())
+  tapNumber           Int      @default(1)
+  name                String   // z. B. "Hahn 1 - Helles Festbier"
+  kegVolumeLiters     Float    @default(50.0)
+  currentVolumeLiters Float    @default(50.0)
+  portionSizeLiters   Float    @default(0.5)
+  lossPercentage      Float    @default(3.0) // Schankverlust in % (Schaum/Zapfverlust)
+  warningLevelPercent Float    @default(10.0) // Warnung bei unter X %
+  kegsTapped          Int      @default(1)    // Anzahl angeschlagener Fässer heute
+  productId           String?
+  product             Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @default(now()) @updatedAt
 }

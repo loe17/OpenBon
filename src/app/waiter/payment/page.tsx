@@ -76,6 +76,8 @@ function WaiterPaymentContent() {
   const [completedInvoice, setCompletedInvoice] = useState<string | null>(null);
   const [completedPaymentId, setCompletedPaymentId] = useState<string | null>(null);
   const [receiptPrinted, setReceiptPrinted] = useState(false);
+  const [guestFacingMode, setGuestFacingMode] = useState(false);
+  const [guestFacingRotated, setGuestFacingRotated] = useState(true);
   const [requestId] = useState(() =>
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
@@ -434,6 +436,65 @@ function WaiterPaymentContent() {
         )}
       </div>
 
+      {/* Spec 12: Gast-Sicht Widget im oberen Drittel des Mobilteils */}
+      <div className="bg-slate-900/95 border-b border-slate-800 p-2.5 px-4 flex items-center justify-between shrink-0 shadow-inner">
+        <button
+          onClick={() => {
+            haptic();
+            setGuestFacingMode(!guestFacingMode);
+          }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
+            guestFacingMode
+              ? 'bg-blue-600 border-blue-400 text-white shadow-md'
+              : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+          }`}
+        >
+          <span>👀 Gast-Sicht</span>
+          <span className="text-[10px] opacity-75">{guestFacingMode ? '(Aktiv)' : ''}</span>
+        </button>
+
+        {guestFacingMode ? (
+          <button
+            onClick={() => {
+              haptic();
+              setGuestFacingRotated(!guestFacingRotated);
+            }}
+            className="text-xs font-bold text-blue-300 bg-blue-950/80 border border-blue-800 px-2.5 py-1 rounded-lg"
+          >
+            🔄 180° {guestFacingRotated ? 'Gedreht' : 'Normal'}
+          </button>
+        ) : (
+          <span className="text-xs text-slate-400 font-mono font-bold">
+            Auswahl: {formatCurrency(checkout.amountDueWithTip)}
+          </span>
+        )}
+      </div>
+
+      {/* Gast-Display Banner im oberen Drittel (Richtung Gast) */}
+      {guestFacingMode && (
+        <div
+          className={`p-4 bg-gradient-to-r from-blue-950 via-slate-900 to-blue-950 border-b-2 border-blue-500 transition-transform ${
+            guestFacingRotated ? 'rotate-180 origin-center' : ''
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-300 block">
+                Für den Gast • Zu zahlender Betrag
+              </span>
+              <span className="text-3xl font-mono font-black text-white">
+                {formatCurrency(checkout.amountDueWithTip)}
+              </span>
+            </div>
+            {checkout.tipAmount > 0 && (
+              <span className="text-xs text-emerald-400 font-bold bg-emerald-950/80 px-2.5 py-1 rounded-xl border border-emerald-800">
+                inkl. {formatCurrency(checkout.tipAmount)} Trinkgeld
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="px-4 py-2.5 bg-rose-950 border-b border-rose-800 text-rose-200 text-sm font-bold flex items-center gap-2 shrink-0">
           <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -445,8 +506,32 @@ function WaiterPaymentContent() {
       {stage === 'SPLIT' && (
         <>
           <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3">
-            <div className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
-              Zu zahlende Posten wählen (Rechnung teilen)
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
+                Zu zahlende Posten wählen (Rechnung teilen)
+              </div>
+              {/* Quick Split Buttons */}
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-slate-500 text-[10px] font-bold">Split:</span>
+                {[2, 3, 4].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => {
+                      haptic();
+                      setItems((prev) =>
+                        prev.map((i) => ({
+                          ...i,
+                          selectedQty: Math.max(1, Math.round(i.totalUnpaidQty / n)),
+                        }))
+                      );
+                    }}
+                    className="px-2 py-0.5 rounded-lg bg-slate-800 border border-slate-700 hover:border-blue-500 text-slate-300 font-mono font-bold text-[11px]"
+                    title={`Auf ${n} Personen aufteilen`}
+                  >
+                    1/{n}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {items.length === 0 ? (

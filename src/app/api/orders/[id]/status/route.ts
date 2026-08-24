@@ -21,10 +21,22 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       const allDone = allItems.every((i) => i.kdsStatus === 'COMPLETED' || i.isCancelled);
 
       if (allDone) {
-        await prisma.order.update({
+        const order = await prisma.order.update({
           where: { id: orderId },
           data: { status: 'READY' },
+          include: { table: true },
         });
+
+        if (global.io) {
+          global.io.emit('order:ready', {
+            orderId,
+            orderNumber: order.orderNumber,
+            tableNumber: order.table?.tableNumber,
+            tableLabel: order.table?.label,
+            waiterName: order.waiterName,
+            tokenNumber: order.tokenNumber,
+          });
+        }
       }
 
       if (global.io) {
@@ -39,7 +51,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       const updatedOrder = await prisma.order.update({
         where: { id: orderId },
         data: { status: body.orderStatus },
-        include: { items: true },
+        include: { items: true, table: true },
       });
 
       if (body.orderStatus === 'COMPLETED') {
@@ -51,6 +63,16 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
       if (global.io) {
         global.io.emit('kds:order_updated', updatedOrder);
+        if (body.orderStatus === 'READY' || body.orderStatus === 'COMPLETED') {
+          global.io.emit('order:ready', {
+            orderId,
+            orderNumber: updatedOrder.orderNumber,
+            tableNumber: updatedOrder.table?.tableNumber,
+            tableLabel: updatedOrder.table?.label,
+            waiterName: updatedOrder.waiterName,
+            tokenNumber: updatedOrder.tokenNumber,
+          });
+        }
       }
 
       return NextResponse.json(updatedOrder);

@@ -38,6 +38,9 @@ import {
   BookOpen,
   Ticket,
   Coins,
+  Beer,
+  Truck,
+  Monitor,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -158,11 +161,14 @@ export default function Navbar() {
     { href: '/admin/dashboard', label: 'Admin Command Center', icon: LayoutDashboard, roles: ['ADMIN'] },
     { href: '/waiter', label: 'Bedienung (Tische)', icon: Smartphone, roles: ['WAITER', 'ADMIN'] },
     { href: '/pos', label: 'Bonkasse (Theke)', icon: CreditCard, roles: ['POS_CASHIER', 'ADMIN'] },
+    { href: '/customer-display', label: 'Kundendisplay (Zweitschirm)', icon: Monitor, roles: ['POS_CASHIER', 'ADMIN'] },
+    { href: '/taps', label: 'Fass- & Schankmonitor', icon: Beer, roles: ['POS_CASHIER', 'ADMIN'] },
     { href: '/kiosk', label: 'SB-Terminal (Kiosk)', icon: Terminal, roles: ['POS_CASHIER', 'ADMIN'] },
     { href: '/kitchen', label: 'Küchenmonitor', icon: ChefHat, roles: ['KITCHEN', 'ADMIN'] },
     { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['WAITER', 'POS_CASHIER', 'KITCHEN', 'ADMIN'] },
     { href: '/admin/qr-codes', label: 'QR Beitritts-Center', icon: QrCode, roles: ['ADMIN'] },
     { href: '/admin/products', label: 'Artikel & Warengruppen', icon: Utensils, roles: ['ADMIN'] },
+    { href: '/admin/procurement', label: 'Lieferanten-Bestellvorschlag', icon: Truck, roles: ['ADMIN'] },
     { href: '/admin/tokens', label: 'Wertmarken & Bons', icon: Ticket, roles: ['ADMIN'] },
     { href: '/admin/tips', label: 'Trinkgeld-Matrix', icon: Coins, roles: ['ADMIN'] },
     { href: '/admin/inventory', label: 'Warenbestand & Lager', icon: Package, roles: ['ADMIN'] },

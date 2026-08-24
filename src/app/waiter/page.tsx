@@ -18,9 +18,13 @@ import {
   X,
   AlertTriangle,
   CheckCircle2,
+  ArrowRightLeft,
+  GitMerge,
+  Bell,
 } from 'lucide-react';
 import { VOID_REASONS, type OrderDTO } from '@/types/domain';
-import { playConfirm, playVoidAlert } from '@/lib/audio-feedback';
+import { playConfirm, playVoidAlert, playOrderReadyChime } from '@/lib/audio-feedback';
+import { triggerHapticFeedback } from '@/lib/socket-client';
 
 interface TableData {
   id: string;
@@ -69,6 +73,11 @@ export default function WaiterTablesPage() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [toast, setToast] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
+  // Spec 5: Tisch umbuchen & zusammenlegen
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferMode, setTransferMode] = useState<'TRANSFER' | 'MERGE'>('TRANSFER');
+  const [targetTableId, setTargetTableId] = useState('');
+
   // Waiter Identification
   const [waiterName, setWaiterName] = useState('Bedienung');
   const [showWaiterPrompt, setShowWaiterPrompt] = useState(false);
@@ -100,17 +109,28 @@ export default function WaiterTablesPage() {
 
     if (socket) {
       socket.on('table:updated', () => fetchTables());
+      socket.on('table:status_changed', () => fetchTables());
       socket.on('order:new', () => fetchTables());
       socket.on('payment:completed', () => fetchTables());
       socket.on('tables:regenerated', () => fetchTables());
+
+      // Spec 7: Küchen-Fertigmeldung mit Audio-Gong & Banner
+      socket.on('order:ready', (data: any) => {
+        playOrderReadyChime();
+        triggerHapticFeedback();
+        showToast('ok', `🔔 Bestellung #${data.orderNumber} für Tisch ${data.tableNumber || data.tableLabel || ''} ist abholbereit!`);
+        fetchTables();
+      });
     }
 
     return () => {
       if (socket) {
         socket.off('table:updated');
+        socket.off('table:status_changed');
         socket.off('order:new');
         socket.off('payment:completed');
         socket.off('tables:regenerated');
+        socket.off('order:ready');
       }
     };
   }, [socket]);
@@ -486,12 +506,138 @@ export default function WaiterTablesPage() {
               </button>
 
               <button
+                onClick={() => {
+                  setTransferMode('TRANSFER');
+                  setTargetTableId('');
+                  setShowTransferModal(true);
+                }}
+                disabled={busyAction !== null || selectedTable.openItemCount === 0}
+                className="touch-target h-14 bg-slate-800 border border-slate-700 hover:border-blue-500 text-slate-100 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
+                title="Bestellungen auf anderen Tisch verschieben"
+              >
+                <ArrowRightLeft className="w-4 h-4 text-blue-400" />
+                <span>Umbuchen</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setTransferMode('MERGE');
+                  setTargetTableId('');
+                  setShowTransferModal(true);
+                }}
+                disabled={busyAction !== null || selectedTable.openItemCount === 0}
+                className="touch-target h-14 bg-slate-800 border border-slate-700 hover:border-amber-500 text-slate-100 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
+                title="Tisch mit anderem Tisch zusammenlegen"
+              >
+                <GitMerge className="w-4 h-4 text-amber-400" />
+                <span>Zusammenlegen</span>
+              </button>
+
+              <button
                 onClick={() => void handleXBon()}
                 disabled={busyAction !== null}
                 className="touch-target h-14 bg-slate-800 border border-slate-700 hover:border-amber-500 text-slate-100 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
               >
                 <FileBarChart className="w-4 h-4 text-amber-400" />
                 <span>X-Bon Schicht</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Spec 5: Tisch Umbuchung / Zusammenlegung Modal */}
+      {showTransferModal && selectedTable && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border-t sm:border border-slate-700 rounded-t-3xl sm:rounded-3xl p-5 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-blue-600/20 text-blue-400 rounded-2xl border border-blue-700">
+                  {transferMode === 'TRANSFER' ? <ArrowRightLeft className="w-5 h-5" /> : <GitMerge className="w-5 h-5" />}
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-white">
+                    {transferMode === 'TRANSFER' ? 'Tisch umbuchen (Umzug)' : 'Tische zusammenlegen (Merge)'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Von: {selectedTable.label} ({selectedTable.openItemCount} offene Posten)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowTransferModal(false)}
+                className="touch-target p-2 text-slate-400 rounded-xl bg-slate-800 flex items-center justify-center"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div>
+              <label className="text-xs text-slate-400 font-bold block mb-1.5">
+                Zieltisch auswählen:
+              </label>
+              <select
+                value={targetTableId}
+                onChange={(e) => setTargetTableId(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-2xl p-3 text-white text-sm font-semibold"
+              >
+                <option value="">-- Bitte Zieltisch wählen --</option>
+                {tables
+                  .filter((t) => t.id !== selectedTable.id)
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      Tisch {t.tableNumber}: {t.label} ({t.openItemCount > 0 ? `${t.openItemCount} offene Posten` : 'Frei'})
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowTransferModal(false)}
+                className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white text-xs font-bold"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={async () => {
+                  if (!targetTableId) {
+                    showToast('err', 'Bitte einen Zieltisch auswählen.');
+                    return;
+                  }
+                  setBusyAction('transfer');
+                  try {
+                    const endpoint = transferMode === 'TRANSFER' ? '/api/tables/transfer' : '/api/tables/merge';
+                    const res = await fetch(endpoint, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        sourceTableId: selectedTable.id,
+                        targetTableId,
+                        waiterName,
+                      }),
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                      playConfirm();
+                      showToast('ok', data.message || 'Aktion erfolgreich durchgeführt.');
+                      setShowTransferModal(false);
+                      setSelectedTable(null);
+                      setTargetTableId('');
+                      fetchTables();
+                    } else {
+                      showToast('err', data.error || 'Aktion fehlgeschlagen.');
+                    }
+                  } catch {
+                    showToast('err', 'Verbindung zum Server fehlgeschlagen.');
+                  } finally {
+                    setBusyAction(null);
+                  }
+                }}
+                disabled={!targetTableId || busyAction !== null}
+                className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black px-5 py-2.5 rounded-xl text-xs transition shadow"
+              >
+                {transferMode === 'TRANSFER' ? 'Jetzt umbuchen' : 'Jetzt zusammenlegen'}
               </button>
             </div>
           </div>

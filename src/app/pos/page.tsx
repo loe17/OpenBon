@@ -32,6 +32,7 @@ import { getEffectiveProductPrice } from '@/lib/pricing';
 import type { ProductDTO, ProductVariantDTO, OrderItemDTO, ProductCategoryDTO } from '@/types/domain';
 
 export default function PosCounterPage() {
+  const { socket } = useSocket();
   const [categories, setCategories] = useState<ProductCategoryDTO[]>([]);
   const [selectedCatId, setSelectedCatId] = useState<string>('');
   const [selectedSubCat, setSelectedSubCat] = useState<string>('ALL');
@@ -49,6 +50,30 @@ export default function PosCounterPage() {
 
   const minBirth16 = calculateMinBirthdate(16);
   const minBirth18 = calculateMinBirthdate(18);
+
+  const totalGross = cart.reduce((sum, item) => sum + (item.price + item.deposit) * item.quantity, 0);
+  const totalDeposit = cart.reduce((sum, item) => sum + item.deposit * item.quantity, 0);
+
+  // Synchronisation mit Kundendisplay / Customer Screen
+  useEffect(() => {
+    if (!socket) return;
+    if (cart.length > 0) {
+      socket.emit('pos:cart_updated', {
+        stationId: 'MAIN_CASH',
+        stationName: 'Hauptkasse',
+        items: cart.map((i) => ({
+          name: i.variantName ? `${i.name} (${i.variantName})` : i.name,
+          quantity: i.quantity,
+          price: i.price,
+          deposit: i.deposit,
+        })),
+        totalGross,
+        totalDeposit,
+      });
+    } else {
+      socket.emit('pos:cart_cleared', { stationId: 'MAIN_CASH' });
+    }
+  }, [cart, totalGross, totalDeposit, socket]);
 
   useEffect(() => {
     fetch('/api/categories')

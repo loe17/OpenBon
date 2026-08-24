@@ -112,6 +112,15 @@ app.prepare().then(() => {
       io.emit('stock:change', stockData);
     });
 
+    // Kundendisplay / Customer Facing Screen
+    socket.on('pos:cart_updated', (payload) => {
+      io.emit('pos:cart_updated', payload);
+    });
+
+    socket.on('pos:cart_cleared', (payload) => {
+      io.emit('pos:cart_cleared', payload);
+    });
+
     socket.on('disconnect', () => {
       if (socket.deviceId && global.connectedDevices.has(socket.deviceId)) {
         const device = global.connectedDevices.get(socket.deviceId);

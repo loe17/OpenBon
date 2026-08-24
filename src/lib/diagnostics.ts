@@ -44,6 +44,7 @@ const REQUIRED_TABLES = [
   'RegisterPeriod',
   'CashMovement',
   'SyncJournal',
+  'TapLine',
 ];
 
 /** Prüfung 1: Datenbank-Integrität inkl. Reparatur verwaister Datensätze */
