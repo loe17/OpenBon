@@ -12,7 +12,7 @@ echo "  OPENBON KASSENSYSTEM - VERSION v0.2.1"
 echo "========================================================"
 echo ""
 echo "[1/2] Pruefe und synchronisiere Datenbank-Schema..."
-npx prisma db push --skip-generate
+npx prisma db push --accept-data-loss --skip-generate
 
 echo ""
 echo "[2/2] Starte OpenBon Server auf Port 3000..."

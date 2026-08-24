@@ -6,5 +6,5 @@ export HA_PARTNER_URL=http://127.0.0.1:3001
 echo "========================================================"
 echo "  OPENBON KASSENSYSTEM - HA PRIMARY MASTER"
 echo "========================================================"
-npx prisma db push --skip-generate
+npx prisma db push --accept-data-loss --skip-generate
 node server.js

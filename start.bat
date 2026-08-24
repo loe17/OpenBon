@@ -12,7 +12,7 @@ set PORT=3000
 set HA_ROLE=PRIMARY
 
 echo [1/2] Pruefe und synchronisiere Datenbank-Schema...
-call npx prisma db push --skip-generate
+call npx prisma db push --accept-data-loss --skip-generate
 if %ERRORLEVEL% neq 0 (
   echo Fehler beim Initialisieren der Datenbank!
   pause

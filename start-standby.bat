@@ -12,7 +12,7 @@ set HA_ROLE=STANDBY
 set HA_PARTNER_URL=http://127.0.0.1:3000
 
 echo Initialisiere Datenbank...
-call npx prisma db push --skip-generate
+call npx prisma db push --accept-data-loss --skip-generate
 echo.
 echo Starte Standby-Server auf Port 3001 mit Heartbeat-Ueberwachung...
 echo.

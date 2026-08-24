@@ -12,7 +12,7 @@ set HA_ROLE=PRIMARY
 set HA_PARTNER_URL=http://127.0.0.1:3001
 
 echo Initialisiere Datenbank...
-call npx prisma db push --skip-generate
+call npx prisma db push --accept-data-loss --skip-generate
 echo.
 echo Starte Server auf Port 3000...
 echo Oeffne im Browser: http://localhost:3000 oder die lokale WLAN-IP
