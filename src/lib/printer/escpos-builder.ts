@@ -213,14 +213,14 @@ export class EscPosBuilder {
     }
 
     if (data.tableLabel) {
-      const fs = data.tableFontSize;
-      if (fs === 5 || fs === '5') {
-        builder.align('center').invert(true).size(true, true).bold(true).textLine(` *** TISCH ${data.tableLabel} *** `).size(false, false).invert(false).bold(false).align('left');
-      } else if (fs === 4 || fs === '4') {
+      const fs = typeof data.tableFontSize === 'number' ? data.tableFontSize : (parseInt(data.tableFontSize as string, 10) || 3);
+      if (fs >= 5) {
+        builder.align('center').invert(true).size(true, true).bold(true).textLine(` TISCH ${data.tableLabel} `).size(false, false).invert(false).bold(false).align('left');
+      } else if (fs >= 4) {
         builder.invert(true).size(true, true).bold(true).textLine(` TISCH ${data.tableLabel} `).size(false, false).invert(false).bold(false);
-      } else if (fs === 3 || fs === '3' || fs === 'EXTRA_LARGE') {
+      } else if (fs >= 3 || data.tableFontSize === 'EXTRA_LARGE') {
         builder.size(true, true).bold(true).textLine(`TISCH: ${data.tableLabel}`).size(false, false).bold(false);
-      } else if (fs === 2 || fs === '2' || fs === 'LARGE') {
+      } else if (fs >= 2 || data.tableFontSize === 'LARGE') {
         builder.size(false, true).bold(true).textLine(`TISCH: ${data.tableLabel}`).size(false, false).bold(false);
       } else {
         builder.bold(true).textLine(`Tisch: ${data.tableLabel}`).bold(false);
@@ -439,6 +439,117 @@ export class EscPosBuilder {
         '========================',
         data.qrUrl ? `QR-Code: ${data.qrUrl}` : '',
       ].filter(Boolean).join('\n'),
+    };
+  }
+
+  /**
+   * Einzelbon-Druck fuer Speisen & Getraenke an Kuechen-/Ausschank-Stationen
+   */
+  public static buildSingleItemKitchenTicket(
+    item: PrintItem,
+    meta: {
+      title?: string;
+      tableLabel?: string | null;
+      orderNumber?: number;
+      waiterName?: string;
+      createdAt?: string | Date;
+      itemIndex?: number;
+      totalItems?: number;
+      courseNumber?: number;
+      isTraining?: boolean;
+      tableFontSize?: number | string | null;
+      showHeader?: boolean;
+      showTable?: boolean;
+      showWaiter?: boolean;
+      showTimestamp?: boolean;
+      showOptions?: boolean;
+    },
+    paperWidth = 80
+  ): { rawBuffer: Buffer; textRepresentation: string } {
+    const builder = new EscPosBuilder(paperWidth);
+    const lines: string[] = [];
+    const add = (t: string) => lines.push(t);
+
+    if (meta.isTraining) {
+      builder.align('center').bold(true).invert(true).textLine(' UEBUNGSBON - KEINE BEZAHLUNG ').invert(false).bold(false);
+      add('[ ÜBUNGSBON ]');
+    }
+
+    if (meta.showHeader !== false && meta.title) {
+      builder.align('center').bold(true).textLine(`=== ${meta.title.toUpperCase()} ===`).bold(false);
+      add(`=== ${meta.title} ===`);
+    }
+
+    if (meta.showTable !== false && meta.tableLabel) {
+      const fs = typeof meta.tableFontSize === 'number' ? meta.tableFontSize : (parseInt(meta.tableFontSize as string, 10) || 3);
+      if (fs >= 5) {
+        builder.align('center').invert(true).size(true, true).bold(true).textLine(` TISCH ${meta.tableLabel} `).size(false, false).invert(false).bold(false);
+      } else if (fs >= 4) {
+        builder.invert(true).size(true, true).bold(true).textLine(` TISCH ${meta.tableLabel} `).size(false, false).invert(false).bold(false);
+      } else if (fs >= 3) {
+        builder.size(true, true).bold(true).textLine(`TISCH: ${meta.tableLabel}`).size(false, false).bold(false);
+      } else if (fs >= 2) {
+        builder.size(false, true).bold(true).textLine(`TISCH: ${meta.tableLabel}`).size(false, false).bold(false);
+      } else {
+        builder.bold(true).textLine(`Tisch: ${meta.tableLabel}`).bold(false);
+      }
+      add(`Tisch: ${meta.tableLabel}`);
+    }
+
+    builder.align('left');
+    const leftInfo = meta.showWaiter !== false ? `Bedienung: ${meta.waiterName || 'Kasse'}` : '';
+    const rightInfo = meta.orderNumber ? `Bon #${meta.orderNumber}` : '';
+    if (leftInfo || rightInfo) {
+      builder.twoColumn(leftInfo, rightInfo);
+      add(`${leftInfo} | ${rightInfo}`);
+    }
+
+    if (meta.showTimestamp !== false) {
+      const dateStr = meta.createdAt ? new Date(meta.createdAt).toLocaleString('de-DE') : new Date().toLocaleString('de-DE');
+      builder.textLine(`Uhrzeit: ${dateStr}`);
+      add(`Uhrzeit: ${dateStr}`);
+    }
+
+    builder.divider();
+    add('-'.repeat(paperWidth === 58 ? 32 : 42));
+
+    if (meta.courseNumber && meta.courseNumber > 1) {
+      builder.bold(true).invert(true).textLine(` GANG ${meta.courseNumber} `).invert(false).bold(false);
+      add(`--- GANG ${meta.courseNumber} ---`);
+    }
+
+    // Haupt-Artikelzeile extra groß
+    const displayName = item.alternativeName || item.name;
+    builder.size(true, true).bold(true).textLine(`${item.quantity}x ${displayName}`).size(false, false).bold(false);
+    add(`${item.quantity}x ${displayName}`);
+
+    if (item.variantName) {
+      builder.size(false, true).bold(true).textLine(`   ${item.variantName}`).size(false, false).bold(false);
+      add(`   Sorte: ${item.variantName}`);
+    }
+
+    if (meta.showOptions !== false && item.selectedOptions && item.selectedOptions.length > 0) {
+      builder.bold(true).textLine(`   + ${item.selectedOptions.join(', ')}`).bold(false);
+      add(`   + ${item.selectedOptions.join(', ')}`);
+    }
+
+    if (item.customizationText) {
+      builder.lineFeed();
+      builder.invert(true).bold(true).textLine(` ! WUNSCH: ${item.customizationText} `).invert(false).bold(false);
+      add(` ! WUNSCH: ${item.customizationText}`);
+    }
+
+    if (meta.itemIndex && meta.totalItems) {
+      builder.lineFeed();
+      builder.textLine(`(Position ${meta.itemIndex} von ${meta.totalItems})`);
+    }
+
+    builder.lineFeed(2);
+    builder.cut();
+
+    return {
+      rawBuffer: builder.build(),
+      textRepresentation: lines.join('\n'),
     };
   }
 

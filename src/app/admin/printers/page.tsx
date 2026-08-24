@@ -18,6 +18,8 @@ import {
   Eye,
   EyeOff,
   Radio,
+  Globe,
+  ExternalLink,
 } from 'lucide-react';
 
 export default function AdminPrintersPage() {
@@ -307,28 +309,55 @@ export default function AdminPrintersPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 pt-3 border-t border-slate-800">
-                  <button
-                    onClick={() => handleTestPrint(p.id)}
-                    className="flex-1 py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-slate-700"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Testdruck</span>
-                  </button>
-                  <button
-                    onClick={() => handleOpenDrawer(p.id)}
-                    className="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-slate-700"
-                    title="Kassenlade öffnen"
-                  >
-                    <DoorOpen className="w-3.5 h-3.5 text-amber-400" />
-                  </button>
-                  <button
-                    onClick={() => handleDeletePrinter(p.id, p.name)}
-                    className="py-2 px-3 bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-rose-900/50"
-                    title="Drucker entfernen"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                <div className="space-y-2 pt-3 border-t border-slate-800">
+                  {/* Web Interface Link Button */}
+                  {p.isVirtual ? (
+                    <a
+                      href="/kitchen"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-1.5 px-3 bg-blue-950/60 hover:bg-blue-900/80 text-blue-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-blue-800/60"
+                    >
+                      <Globe className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Virtueller Monitor (Browser)</span>
+                      <ExternalLink className="w-3 h-3 opacity-70" />
+                    </a>
+                  ) : (
+                    <a
+                      href={`http://${p.ipAddress}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-1.5 px-3 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-slate-700"
+                    >
+                      <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Web-Interface öffnen (http://{p.ipAddress})</span>
+                      <ExternalLink className="w-3 h-3 opacity-70" />
+                    </a>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleTestPrint(p.id)}
+                      className="flex-1 py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-slate-700"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Testdruck</span>
+                    </button>
+                    <button
+                      onClick={() => handleOpenDrawer(p.id)}
+                      className="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-slate-700"
+                      title="Kassenlade öffnen"
+                    >
+                      <DoorOpen className="w-3.5 h-3.5 text-amber-400" />
+                    </button>
+                    <button
+                      onClick={() => handleDeletePrinter(p.id, p.name)}
+                      className="py-2 px-3 bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-rose-900/50"
+                      title="Drucker entfernen"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

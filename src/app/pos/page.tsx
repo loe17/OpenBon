@@ -45,7 +45,7 @@ export default function PosCounterPage() {
   const [enableDigitalReceipt, setEnableDigitalReceipt] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [cart, setCart] = useState<any[]>([]);
-  const [mode, setMode] = useState<'DIRECT' | 'VOUCHER' | 'DUAL'>('DUAL');
+  const [mode, setMode] = useState<'DIRECT' | 'VOUCHER' | 'DUAL'>('DIRECT');
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
   const [givenAmount, setGivenAmount] = useState<number>(0);
   const [keypadInput, setKeypadInput] = useState<string>('');

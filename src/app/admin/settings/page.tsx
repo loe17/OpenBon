@@ -47,6 +47,7 @@ export default function AdminSettingsPage() {
   // License State
   const [licenseKeyInput, setLicenseKeyInput] = useState('');
   const [licenseInfo, setLicenseInfo] = useState<LicenseData | null>(null);
+  const [previewMode, setPreviewMode] = useState<'RECEIPT' | 'KITCHEN_SINGLE'>('RECEIPT');
 
   // Selective Backup Scopes State
   const [backupScopes, setBackupScopes] = useState({
@@ -316,7 +317,7 @@ export default function AdminSettingsPage() {
               </div>
               <input
                 type="checkbox"
-                checked={config.enableTax ?? true}
+                checked={config.enableTax ?? false}
                 onChange={(e) => setConfig({ ...config, enableTax: e.target.checked })}
                 className="w-4 h-4 rounded text-emerald-600"
               />
@@ -639,43 +640,41 @@ export default function AdminSettingsPage() {
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="text-xs font-bold text-slate-400 block mb-1.5">
-                      Tischnummer-Größe auf Bons (Stufenlos 1–5):
-                    </label>
-                    <div className="flex items-center gap-3 bg-slate-950 p-2 rounded-2xl border border-slate-700 w-fit">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold text-slate-400">
+                        Tischnummer-Schriftgröße (Stufenlos 1–10):
+                      </label>
+                      <span className="font-mono font-black text-sm text-amber-300">
+                        Größe {typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : 3} / 10
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 bg-slate-950 p-2.5 rounded-2xl border border-slate-700">
                       <button
                         type="button"
                         onClick={() => {
-                          const cur = typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : (config.receiptTableFontSize === 'EXTRA_LARGE' ? 3 : config.receiptTableFontSize === 'LARGE' ? 2 : 1);
+                          const cur = typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : 3;
                           setConfig({ ...config, receiptTableFontSize: Math.max(1, cur - 1) });
                         }}
-                        className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-white font-black text-xl flex items-center justify-center border border-slate-700"
+                        className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-white font-black text-lg flex items-center justify-center border border-slate-700"
                         title="Kleiner"
                       >
                         −
                       </button>
-                      <div className="text-center min-w-[130px]">
-                        <span className="font-mono font-black text-lg text-amber-300">
-                          Stufe {typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : (config.receiptTableFontSize === 'EXTRA_LARGE' ? 3 : config.receiptTableFontSize === 'LARGE' ? 2 : 1)} / 5
-                        </span>
-                        <span className="block text-[10px] text-slate-400 font-bold">
-                          {(() => {
-                            const lvl = typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : (config.receiptTableFontSize === 'EXTRA_LARGE' ? 3 : config.receiptTableFontSize === 'LARGE' ? 2 : 1);
-                            if (lvl === 1) return 'Normal (Einzeilig)';
-                            if (lvl === 2) return 'Groß (Doppelte Höhe)';
-                            if (lvl === 3) return 'Sehr Groß (2x Breit & Hoch)';
-                            if (lvl === 4) return 'Extra Groß (Invertiert)';
-                            return 'Maximal (Hervorgehoben)';
-                          })()}
-                        </span>
-                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="10"
+                        value={typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : 3}
+                        onChange={(e) => setConfig({ ...config, receiptTableFontSize: parseInt(e.target.value, 10) || 1 })}
+                        className="flex-1 accent-blue-500 cursor-pointer h-2 bg-slate-800 rounded-lg"
+                      />
                       <button
                         type="button"
                         onClick={() => {
-                          const cur = typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : (config.receiptTableFontSize === 'EXTRA_LARGE' ? 3 : config.receiptTableFontSize === 'LARGE' ? 2 : 1);
-                          setConfig({ ...config, receiptTableFontSize: Math.min(5, cur + 1) });
+                          const cur = typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : 3;
+                          setConfig({ ...config, receiptTableFontSize: Math.min(10, cur + 1) });
                         }}
-                        className="w-10 h-10 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black text-xl flex items-center justify-center shadow"
+                        className="w-9 h-9 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black text-lg flex items-center justify-center shadow"
                         title="Größer"
                       >
                         +
@@ -738,108 +737,247 @@ export default function AdminSettingsPage() {
                     />
                   </label>
                 </div>
+
+                {/* Sub-Section: Einzelbon-Druck für Speisen & Getränke */}
+                <div className="pt-3 border-t border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-white block">Einzelbon-Druck für Küche &amp; Ausschank</span>
+                      <span className="text-[11px] text-slate-400 block">Druckt jeden bestellten Artikel als separaten Küchen-/Ausschankbon</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={config.receiptSingleItemKitchenSlips ?? true}
+                      onChange={(e) => setConfig({ ...config, receiptSingleItemKitchenSlips: e.target.checked })}
+                      className="w-4 h-4 rounded text-blue-600"
+                    />
+                  </div>
+
+                  {(config.receiptSingleItemKitchenSlips ?? true) && (
+                    <div className="grid grid-cols-2 gap-2 pl-3 border-l-2 border-blue-500/40 text-xs pt-1">
+                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={config.receiptKitchenShowHeader ?? true}
+                          onChange={(e) => setConfig({ ...config, receiptKitchenShowHeader: e.target.checked })}
+                          className="w-3.5 h-3.5 rounded text-blue-600"
+                        />
+                        <span>Station/Kopfzeile</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={config.receiptKitchenShowTable ?? true}
+                          onChange={(e) => setConfig({ ...config, receiptKitchenShowTable: e.target.checked })}
+                          className="w-3.5 h-3.5 rounded text-blue-600"
+                        />
+                        <span>Große Tischnummer</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={config.receiptKitchenShowWaiter ?? true}
+                          onChange={(e) => setConfig({ ...config, receiptKitchenShowWaiter: e.target.checked })}
+                          className="w-3.5 h-3.5 rounded text-blue-600"
+                        />
+                        <span>Bedienung &amp; Bon-Nr.</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={config.receiptKitchenShowTimestamp ?? true}
+                          onChange={(e) => setConfig({ ...config, receiptKitchenShowTimestamp: e.target.checked })}
+                          className="w-3.5 h-3.5 rounded text-blue-600"
+                        />
+                        <span>Uhrzeit</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={config.receiptKitchenShowOptions ?? true}
+                          onChange={(e) => setConfig({ ...config, receiptKitchenShowOptions: e.target.checked })}
+                          className="w-3.5 h-3.5 rounded text-blue-600"
+                        />
+                        <span>Sorten &amp; Sonderwünsche</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Right Column: Interactive Live 80mm Receipt Simulator */}
               <div className="lg:col-span-5 flex flex-col items-center">
-                <div className="text-xs font-mono font-bold text-slate-400 mb-2 uppercase tracking-wider">
-                  🧾 Interaktive Bon-Livevorschau (80mm)
+                {/* Simulator Tab Switcher */}
+                <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-2xl border border-slate-800 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode('RECEIPT')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                      previewMode === 'RECEIPT'
+                        ? 'bg-blue-600 text-white shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    🧾 Kassenbeleg
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode('KITCHEN_SINGLE')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                      previewMode === 'KITCHEN_SINGLE'
+                        ? 'bg-amber-600 text-white shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    🍳 Küchen-Einzelbon
+                  </button>
                 </div>
 
-                <div className="w-full max-w-[320px] bg-amber-50 text-slate-900 font-mono text-[11px] p-4 rounded-xl shadow-2xl border-2 border-dashed border-amber-300/80 select-none space-y-2">
-                  <div className="text-center">
-                    <div className="font-bold text-xs">=== BELEG / BON ===</div>
-                    <div className="font-black text-sm uppercase">{config.receiptHeader || config.name || 'FESTNAME'}</div>
-                    {config.receiptSubHeader && (
-                      <div className="text-[10px] text-slate-600">{config.receiptSubHeader}</div>
-                    )}
-                  </div>
+                {previewMode === 'RECEIPT' ? (
+                  <div className="w-full max-w-[320px] bg-amber-50 text-slate-900 font-mono text-[11px] p-4 rounded-xl shadow-2xl border-2 border-dashed border-amber-300/80 select-none space-y-2 animate-in fade-in">
+                    <div className="text-center">
+                      <div className="font-bold text-xs">=== BELEG / BON ===</div>
+                      <div className="font-black text-sm uppercase">{config.receiptHeader || config.name || 'FESTNAME'}</div>
+                      {config.receiptSubHeader && (
+                        <div className="text-[10px] text-slate-600">{config.receiptSubHeader}</div>
+                      )}
+                    </div>
 
-                  <div className="border-t border-b border-slate-400 py-1 my-1">
-                    {/* Tischnummer mit stufenloser Skalierung 1..5 */}
-                    {(config.receiptShowTable ?? true) && (
-                      <div className="text-center">
-                        {(() => {
-                          const lvl = typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : (config.receiptTableFontSize === 'EXTRA_LARGE' ? 3 : config.receiptTableFontSize === 'LARGE' ? 2 : 1);
-                          if (lvl === 5) {
-                            return (
-                              <div className="font-black text-2xl text-amber-950 bg-amber-300 py-1.5 rounded-lg border-2 border-slate-900 tracking-wider shadow my-1">
-                                *** TISCH 14 ***
-                              </div>
-                            );
-                          }
-                          if (lvl === 4) {
-                            return (
-                              <div className="font-black text-xl text-amber-950 bg-amber-300 py-1 rounded tracking-widest my-1">
-                                TISCH 14
-                              </div>
-                            );
-                          }
-                          if (lvl === 3) {
-                            return (
-                              <div className="font-black text-lg text-slate-950 tracking-wider my-1 bg-amber-200/60 py-0.5 rounded">
-                                TISCH 14
-                              </div>
-                            );
-                          }
-                          if (lvl === 2) {
-                            return (
-                              <div className="font-bold text-base text-slate-950 my-0.5">
-                                TISCH 14
-                              </div>
-                            );
-                          }
-                          return <div className="font-bold text-xs">Tisch: 14</div>;
-                        })()}
+                    <div className="border-t border-b border-slate-400 py-1 my-1">
+                      {/* Tischnummer mit stufenloser Skalierung 1..10 ohne Sternchen */}
+                      {(config.receiptShowTable ?? true) && (
+                        <div className="text-center">
+                          {(() => {
+                            const lvl = typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : 3;
+                            if (lvl >= 7) {
+                              return (
+                                <div className="font-black text-2xl text-amber-950 bg-amber-300 py-1.5 rounded-lg border-2 border-slate-900 tracking-wider shadow my-1">
+                                  TISCH 14
+                                </div>
+                              );
+                            }
+                            if (lvl >= 4) {
+                              return (
+                                <div className="font-black text-xl text-amber-950 bg-amber-300 py-1 rounded tracking-widest my-1">
+                                  TISCH 14
+                                </div>
+                              );
+                            }
+                            if (lvl >= 3) {
+                              return (
+                                <div className="font-black text-lg text-slate-950 tracking-wider my-1 bg-amber-200/60 py-0.5 rounded">
+                                  TISCH 14
+                                </div>
+                              );
+                            }
+                            if (lvl >= 2) {
+                              return (
+                                <div className="font-bold text-base text-slate-950 my-0.5">
+                                  TISCH 14
+                                </div>
+                              );
+                            }
+                            return <div className="font-bold text-xs">Tisch: 14</div>;
+                          })()}
+                        </div>
+                      )}
+
+                      <div className="flex justify-between text-[10px] text-slate-700">
+                        {(config.receiptShowWaiter ?? true) && <span>Bedienung: Anna</span>}
+                        <span>Bon #1042</span>
+                      </div>
+
+                      {(config.receiptShowTimestamp ?? true) && (
+                        <div className="text-[10px] text-slate-500">
+                          {new Date().toLocaleString('de-DE')}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sample Items */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between font-bold">
+                        <span>2x Festbier 0,5l</span>
+                        <span>8,80 EUR</span>
+                      </div>
+                      <div className="flex justify-between font-bold">
+                        <span>1x Bratwurst m. Semmel</span>
+                        <span>4,50 EUR</span>
+                      </div>
+                      <div className="text-[10px] text-slate-600 pl-2">   + Senf, gut durch</div>
+                    </div>
+
+                    <div className="border-t border-slate-900 pt-1.5 flex justify-between font-black text-sm">
+                      <span>GESAMTBETRAG:</span>
+                      <span>13,30 EUR</span>
+                    </div>
+                    <div className="flex justify-between text-[10px] text-slate-600">
+                      <span>Zahlart: Barzahlung</span>
+                      {(config.enableTax ?? false) && <span>MwSt 19%: 2,12 EUR</span>}
+                    </div>
+
+                    {config.receiptFooterText && (
+                      <div className="text-center pt-2 border-t border-slate-400 text-[10px] italic">
+                        {config.receiptFooterText}
                       </div>
                     )}
 
-                    <div className="flex justify-between text-[10px] text-slate-700">
-                      {(config.receiptShowWaiter ?? true) && <span>Bedienung: Anna</span>}
+                    {(config.receiptShowTse ?? true) && (
+                      <div className="text-center pt-1 border-t border-slate-300 text-[8px] text-slate-500 break-all">
+                        TSE-SIG: a8f9c73e1b02d... §6 KassenSichV
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Single Item Kitchen Slip Simulator */
+                  <div className="w-full max-w-[320px] bg-amber-50 text-slate-900 font-mono text-[11px] p-4 rounded-xl shadow-2xl border-2 border-dashed border-amber-400 select-none space-y-2 animate-in fade-in">
+                    {(config.receiptKitchenShowHeader ?? true) && (
+                      <div className="text-center font-black text-xs pb-1 border-b border-slate-400">
+                        === KÜCHE / ESSENSAUSGABE ===
+                      </div>
+                    )}
+
+                    {(config.receiptKitchenShowTable ?? true) && (
+                      <div className="text-center my-1">
+                        <div className="font-black text-xl text-amber-950 bg-amber-300 py-1 rounded tracking-widest">
+                          TISCH 14
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between text-[10px] text-slate-700 py-0.5">
+                      {(config.receiptKitchenShowWaiter ?? true) && <span>Bedienung: Anna</span>}
                       <span>Bon #1042</span>
                     </div>
 
-                    {(config.receiptShowTimestamp ?? true) && (
-                      <div className="text-[10px] text-slate-500">
-                        {new Date().toLocaleString('de-DE')}
+                    {(config.receiptKitchenShowTimestamp ?? true) && (
+                      <div className="text-[10px] text-slate-500 pb-1 border-b border-slate-300">
+                        Uhrzeit: {new Date().toLocaleTimeString('de-DE')}
                       </div>
                     )}
-                  </div>
 
-                  {/* Sample Items */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between font-bold">
-                      <span>2x Festbier 0,5l</span>
-                      <span>8,80 EUR</span>
+                    <div className="py-2 space-y-1">
+                      <div className="font-black text-base text-slate-950">
+                        1x Schnitzel Wiener Art
+                      </div>
+                      <div className="font-bold text-xs text-slate-700 pl-2">
+                        Sorte: Mit Pommes frites
+                      </div>
+                      {(config.receiptKitchenShowOptions ?? true) && (
+                        <div className="text-[11px] font-bold text-emerald-800 pl-2">
+                          + Ketchup &amp; Mayo
+                        </div>
+                      )}
+                      <div className="bg-amber-200 p-1.5 rounded font-black text-[11px] text-amber-950 mt-1">
+                        ! WUNSCH: Bitte Zitrone extra
+                      </div>
                     </div>
-                    <div className="flex justify-between font-bold">
-                      <span>1x Bratwurst m. Semmel</span>
-                      <span>4,50 EUR</span>
-                    </div>
-                    <div className="text-[10px] text-slate-600 pl-2">   + Senf, gut durch</div>
-                  </div>
 
-                  <div className="border-t border-slate-900 pt-1.5 flex justify-between font-black text-sm">
-                    <span>GESAMTBETRAG:</span>
-                    <span>13,30 EUR</span>
-                  </div>
-                  <div className="flex justify-between text-[10px] text-slate-600">
-                    <span>Zahlart: Barzahlung</span>
-                    {(config.enableTax ?? true) && <span>MwSt 19%: 2,12 EUR</span>}
-                  </div>
-
-                  {config.receiptFooterText && (
-                    <div className="text-center pt-2 border-t border-slate-400 text-[10px] italic">
-                      {config.receiptFooterText}
+                    <div className="text-center text-[10px] text-slate-500 pt-1 border-t border-slate-400 italic">
+                      (Position 1 von 3)
                     </div>
-                  )}
-
-                  {(config.receiptShowTse ?? true) && (
-                    <div className="text-center pt-1 border-t border-slate-300 text-[8px] text-slate-500 break-all">
-                      TSE-SIG: a8f9c73e1b02d... §6 KassenSichV
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

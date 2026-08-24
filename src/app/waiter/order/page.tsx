@@ -21,6 +21,9 @@ import {
   AlertCircle,
   Radio,
   Trash2,
+  ChevronUp,
+  ChevronDown,
+  ShoppingBag,
 } from 'lucide-react';
 import { COURSES } from '@/types/domain';
 import { calculateMinBirthdate, EU_ALLERGENS, filterProductsByExcludedAllergens } from '@/lib/compliance';
@@ -83,6 +86,7 @@ function WaiterOrderContent() {
   const minBirth16 = calculateMinBirthdate(16);
   const minBirth18 = calculateMinBirthdate(18);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [cartExpanded, setCartExpanded] = useState(false);
   const [wordGroups, setWordGroups] = useState<WordGroup[]>([]);
   const [customizingItem, setCustomizingItem] = useState<CartItem | null>(null);
   const [selectedPrefix, setSelectedPrefix] = useState<string>('');
@@ -559,11 +563,11 @@ function WaiterOrderContent() {
         </div>
       )}
 
-      {/* 50/50 Split Screen: Oben Artikelkacheln, Unten Dauerhaft Tischbestellung */}
-      <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-        {/* OBERE HÄLFTE: Artikel Kacheln (~50% Höhe, freies Scrolling) */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3 border-b-2 border-slate-800">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+      {/* Hauptbereich: Artikelkacheln mit flexibler voller Höhe & einklappbarem Warenkorb-Drawer */}
+      <div className="flex-1 flex flex-col overflow-hidden min-h-0 relative">
+        {/* ARTIKEL KACHELN: Großzügige Kacheln, große Typografie, maximaler vertikaler Platz */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-3">
             {displayedProducts?.map((product) => {
               const hasVariants = product.variants && product.variants.length > 0;
               const hasOptions = product.options && product.options.length > 0;
@@ -575,16 +579,16 @@ function WaiterOrderContent() {
                   key={product.id}
                   disabled={isOut}
                   onClick={() => handleProductClick(product)}
-                  className={`pos-touch-btn relative flex flex-col justify-between p-3 rounded-2xl border-2 shadow-sm text-left transition ${
+                  className={`pos-touch-btn relative flex flex-col justify-between p-3.5 sm:p-4 rounded-2xl border-2 shadow-md text-left transition ${
                     isOut
                       ? 'bg-slate-950/60 border-rose-900/40 opacity-40 cursor-not-allowed line-through'
                       : 'bg-slate-900 border-slate-700 hover:border-blue-500 active:scale-95'
                   }`}
-                  style={{ borderLeftColor: isOut ? '#991b1b' : product.buttonColor || '#3b82f6', borderLeftWidth: '5px' }}
+                  style={{ borderLeftColor: isOut ? '#991b1b' : product.buttonColor || '#3b82f6', borderLeftWidth: '6px' }}
                 >
                   <div className="w-full">
-                    <div className="flex items-start justify-between gap-1">
-                      <h3 className="font-black text-xs sm:text-sm text-white line-clamp-2 leading-tight">
+                    <div className="flex items-start justify-between gap-1.5">
+                      <h3 className="font-black text-sm sm:text-base text-white line-clamp-2 leading-snug tracking-tight">
                         {product.name}
                       </h3>
                       {product.allergens && (
@@ -596,37 +600,37 @@ function WaiterOrderContent() {
                           className="text-slate-500 hover:text-amber-400 p-0.5"
                           title="Allergene"
                         >
-                          <AlertCircle className="w-3 h-3" />
+                          <AlertCircle className="w-3.5 h-3.5" />
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1.5 mt-1">
+                    <div className="flex items-center gap-1.5 mt-1.5">
                       {isHappyHour && (
-                        <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-black px-1 rounded flex items-center gap-0.5">
-                          <Sparkles className="w-2 h-2" /> HH
+                        <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                          <Sparkles className="w-2.5 h-2.5" /> HH
                         </span>
                       )}
                       {(product as any).hasAgeRestriction && (
-                        <span className="bg-red-500/20 text-red-300 border border-red-500/30 text-[9px] font-black px-1 rounded">
+                        <span className="bg-red-500/20 text-red-300 border border-red-500/30 text-[10px] font-black px-1.5 py-0.5 rounded">
                           {(product as any).minAge}+
                         </span>
                       )}
                       {(hasVariants || hasOptions) && (
-                        <span className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[9px] font-bold px-1 rounded">
+                        <span className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] font-bold px-1.5 py-0.5 rounded">
                           +Sorten
                         </span>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between w-full mt-2 pt-1 border-t border-slate-800/80">
-                    <span className="text-xs sm:text-sm font-mono font-black text-emerald-400">
+                  <div className="flex items-center justify-between w-full mt-3 pt-1.5 border-t border-slate-800/80">
+                    <span className="text-sm sm:text-base font-mono font-black text-emerald-400">
                       {formatCurrency(effectivePrice)}
                     </span>
                     {!isOut && (
-                      <div className="w-6 h-6 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200">
-                        <Plus className="w-3.5 h-3.5" />
+                      <div className="w-7 h-7 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200">
+                        <Plus className="w-4 h-4" />
                       </div>
                     )}
                   </div>
@@ -636,104 +640,145 @@ function WaiterOrderContent() {
           </div>
         </div>
 
-        {/* UNTERE HÄLFTE: Aktuelle Tischbestellung (~50% Höhe, Dauerhaft sichtbar) */}
-        <div className="flex-1 min-h-0 flex flex-col justify-between bg-slate-900 p-3 shadow-2xl">
-          {/* Cart Header */}
-          <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-800 shrink-0">
-            <span className="text-xs font-black uppercase tracking-wider text-slate-300">
-              Aktuelle Tischbestellung ({totalItemCount} Artikel)
-            </span>
-            <button
-              onClick={handleClearCart}
-              disabled={cart.length === 0}
-              className="text-xs text-rose-400 hover:text-rose-300 disabled:opacity-30 font-bold flex items-center gap-1"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Korb leeren</span>
-            </button>
-          </div>
-
-          {/* Cart Items List (Scrollbar innerhalb des unteren Bereichs) */}
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
-            {cart.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center text-xs text-slate-500 font-medium">
-                <span>Tippe oben auf Artikel, um sie zur Bestellung hinzuzufügen.</span>
+        {/* EINKLAPPBARER TISCHBESTELLUNGS-DRAWER (Unten) */}
+        <div
+          className={`bg-slate-900 border-t-2 border-slate-800 shadow-2xl transition-all duration-300 flex flex-col z-20 shrink-0 ${
+            cartExpanded ? 'h-[65vh] max-h-[600px]' : 'h-auto'
+          }`}
+        >
+          {/* Header Bar / Toggle Button */}
+          <div
+            onClick={() => setCartExpanded((prev) => !prev)}
+            className="p-3 bg-slate-900 hover:bg-slate-850 cursor-pointer flex items-center justify-between border-b border-slate-800/80 select-none"
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-xl bg-blue-600/30 border border-blue-500/50 flex items-center justify-center text-blue-400">
+                <ShoppingBag className="w-4 h-4" />
               </div>
-            ) : (
-              cart.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-2.5 bg-slate-950 border border-slate-800 rounded-2xl flex flex-col gap-1.5 shadow-sm"
+              <div>
+                <span className="text-xs font-black text-white block">
+                  Tischbestellung ({totalItemCount} Pos.)
+                </span>
+                <span className="text-[11px] text-slate-400 font-bold font-mono">
+                  Summe: {formatCurrency(totalAmount)}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-blue-400 font-bold flex items-center gap-1 bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-700">
+                {cartExpanded ? (
+                  <>
+                    <ChevronDown className="w-4 h-4" />
+                    <span>Einklappen</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronUp className="w-4 h-4" />
+                    <span>Details &amp; Bearbeiten</span>
+                  </>
+                )}
+              </span>
+              {cartExpanded && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleClearCart();
+                  }}
+                  disabled={cart.length === 0}
+                  className="text-xs text-rose-400 hover:text-rose-300 disabled:opacity-30 font-bold flex items-center gap-1 bg-rose-950/40 px-2.5 py-1 rounded-xl border border-rose-800/50"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0 pr-2">
-                      <div className="font-extrabold text-xs sm:text-sm text-white truncate">
-                        {item.name}
-                        {item.variantName && (
-                          <span className="ml-1 text-xs text-blue-400 font-normal">
-                            ({item.variantName})
-                          </span>
-                        )}
-                      </div>
-                      {item.selectedOptions && item.selectedOptions.length > 0 && (
-                        <div className="text-[11px] text-emerald-400 font-medium">
-                          + {item.selectedOptions.join(', ')}
-                        </div>
-                      )}
-                      <div className="text-xs font-mono font-bold text-slate-400">
-                        {formatCurrency((item.price + item.deposit) * item.quantity)}
-                      </div>
-                    </div>
-
-                    {/* Quantity Controls */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        onClick={() => updateQuantity(item.id, -1)}
-                        className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center font-black active:scale-95 border border-slate-700"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="w-6 text-center font-black text-sm font-mono">
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => updateQuantity(item.id, 1)}
-                        className="w-8 h-8 rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center font-black active:scale-95 shadow"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Sonderwunsch Button & Text */}
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-[11px]">
-                    {item.customizationText ? (
-                      <span className="text-amber-300 font-semibold italic truncate">
-                        Wunsch: {item.customizationText}
-                      </span>
-                    ) : (
-                      <span className="text-slate-500">Kein Sonderwunsch</span>
-                    )}
-
-                    <button
-                      onClick={() => openCustomizer(item)}
-                      className="text-blue-400 hover:text-blue-300 font-bold flex items-center gap-1 bg-blue-950/60 px-2 py-0.5 rounded-lg border border-blue-800/60 shrink-0"
-                    >
-                      <MessageSquarePlus className="w-3 h-3" />
-                      <span>{item.customizationText ? 'Ändern' : '+ Wunsch'}</span>
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Leeren</span>
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Direct Bestellen Action Button (Extra Groß & Prominent) */}
-          <div className="pt-2.5 border-t border-slate-800 shrink-0">
+          {/* Ausgeklappte Postenliste (Scrollbar) */}
+          {cartExpanded && (
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2 bg-slate-950/70">
+              {cart.length === 0 ? (
+                <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center text-xs text-slate-500 font-medium">
+                  <span>Tippe oben auf Artikel, um sie zur Bestellung hinzuzufügen.</span>
+                </div>
+              ) : (
+                cart.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-2.5 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col gap-1.5 shadow-sm"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0 pr-2">
+                        <div className="font-extrabold text-xs sm:text-sm text-white truncate">
+                          {item.name}
+                          {item.variantName && (
+                            <span className="ml-1 text-xs text-blue-400 font-normal">
+                              ({item.variantName})
+                            </span>
+                          )}
+                        </div>
+                        {item.selectedOptions && item.selectedOptions.length > 0 && (
+                          <div className="text-[11px] text-emerald-400 font-medium">
+                            + {item.selectedOptions.join(', ')}
+                          </div>
+                        )}
+                        <div className="text-xs font-mono font-bold text-slate-400">
+                          {formatCurrency((item.price + item.deposit) * item.quantity)}
+                        </div>
+                      </div>
+
+                      {/* Quantity Controls */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => updateQuantity(item.id, -1)}
+                          className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center font-black active:scale-95 border border-slate-700"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="w-6 text-center font-black text-sm font-mono">
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => updateQuantity(item.id, 1)}
+                          className="w-8 h-8 rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center font-black active:scale-95 shadow"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Sonderwunsch Button & Text */}
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-[11px]">
+                      {item.customizationText ? (
+                        <span className="text-amber-300 font-semibold italic truncate">
+                          Wunsch: {item.customizationText}
+                        </span>
+                      ) : (
+                        <span className="text-slate-500">Kein Sonderwunsch</span>
+                      )}
+
+                      <button
+                        onClick={() => openCustomizer(item)}
+                        className="text-blue-400 hover:text-blue-300 font-bold flex items-center gap-1 bg-blue-950/60 px-2 py-0.5 rounded-lg border border-blue-800/60 shrink-0"
+                      >
+                        <MessageSquarePlus className="w-3 h-3" />
+                        <span>{item.customizationText ? 'Ändern' : '+ Wunsch'}</span>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Action Button: Immer sichtbar unten (Groß & Prominent) */}
+          <div className="p-3 bg-slate-900 border-t border-slate-800 shrink-0">
             <button
               disabled={cart.length === 0 || isSubmitting}
               onClick={submitOrder}
-              className={`pos-touch-btn w-full min-h-[58px] py-4 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-3 shadow-2xl transition ${
+              className={`pos-touch-btn w-full min-h-[58px] py-3.5 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-3 shadow-2xl transition ${
                 cart.length > 0 && !isSubmitting
                   ? 'bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white shadow-emerald-950/80 border-2 border-emerald-400'
                   : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'

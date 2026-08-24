@@ -17,6 +17,10 @@ import {
   AlertCircle,
   Ticket,
   Clock,
+  Printer,
+  FileText,
+  Tag,
+  Settings2,
 } from 'lucide-react';
 import { EU_ALLERGENS, GASTRONOMY_ADDITIVES } from '@/lib/compliance';
 import type { ProductDTO, ProductCategoryDTO, PrintGroupDTO } from '@/types/domain';
@@ -25,11 +29,21 @@ export default function AdminProductsPage() {
   const [categories, setCategories] = useState<ProductCategoryDTO[]>([]);
   const [printGroups, setPrintGroups] = useState<PrintGroupDTO[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [config, setConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [selectedCatId, setSelectedCatId] = useState<string>('');
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
+
+  // Category management state
+  const [showCatModal, setShowCatModal] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatColor, setNewCatColor] = useState('#3b82f6');
+  const [editingCat, setEditingCat] = useState<ProductCategoryDTO | null>(null);
+
+  // Printable Menu state
+  const [showMenuPrintModal, setShowMenuPrintModal] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -63,14 +77,16 @@ export default function AdminProductsPage() {
 
   const fetchData = async () => {
     try {
-      const [catRes, pgRes, pRes] = await Promise.all([
+      const [catRes, pgRes, pRes, cfgRes] = await Promise.all([
         fetch('/api/categories'),
         fetch('/api/print-groups'),
         fetch('/api/products'),
+        fetch('/api/config'),
       ]);
       const cats = await catRes.json();
       const pgs = await pgRes.json();
       const prods = await pRes.json();
+      const cfg = await cfgRes.json();
 
       if (Array.isArray(cats)) {
         setCategories(cats);
@@ -78,6 +94,7 @@ export default function AdminProductsPage() {
       }
       if (Array.isArray(pgs)) setPrintGroups(pgs);
       if (Array.isArray(prods)) setProducts(prods);
+      if (cfg) setConfig(cfg);
     } catch (e) {
       console.error(e);
     } finally {
@@ -88,6 +105,41 @@ export default function AdminProductsPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const handleSaveCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCatName.trim()) return;
+    try {
+      if (editingCat) {
+        await fetch('/api/categories', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editingCat.id, name: newCatName.trim(), color: newCatColor }),
+        });
+      } else {
+        await fetch('/api/categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: newCatName.trim(), color: newCatColor, sortIndex: categories.length }),
+        });
+      }
+      setNewCatName('');
+      setEditingCat(null);
+      fetchData();
+    } catch {
+      alert('Fehler beim Speichern der Warengruppe');
+    }
+  };
+
+  const handleDeleteCategory = async (catId: string, catName: string) => {
+    if (!confirm(`Möchtest du die Warengruppe "${catName}" wirklich löschen?`)) return;
+    try {
+      await fetch(`/api/categories?id=${catId}`, { method: 'DELETE' });
+      fetchData();
+    } catch {
+      alert('Fehler beim Löschen der Warengruppe');
+    }
+  };
 
   const openNewModal = () => {
     setEditingProduct(null);
@@ -240,18 +292,43 @@ export default function AdminProductsPage() {
           <div>
             <h1 className="text-2xl font-black">Artikel & Speisekarte</h1>
             <p className="text-xs text-slate-400">
-              Mit Allergen-Matrix (LMIV), Jugendschutz-Altersprüfung, Happy-Hour Zeitfenstern und Meldebestand
+              Warengruppen, Allergen-Matrix (LMIV), Jugendschutz & Speisekarten-Druck (PDF)
             </p>
           </div>
         </div>
 
-        <button
-          onClick={openNewModal}
-          className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-blue-950/50"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Artikel anlegen</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Printable Menu PDF Button */}
+          <button
+            onClick={() => setShowMenuPrintModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-2xl text-xs font-bold transition shadow"
+          >
+            <FileText className="w-4 h-4 text-emerald-400" />
+            <span>Speisekarte drucken / PDF</span>
+          </button>
+
+          {/* Manage Categories Button */}
+          <button
+            onClick={() => {
+              setEditingCat(null);
+              setNewCatName('');
+              setShowCatModal(true);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-2xl text-xs font-bold transition shadow"
+          >
+            <Tag className="w-4 h-4 text-purple-400" />
+            <span>Warengruppen verwalten</span>
+          </button>
+
+          {/* New Product Button */}
+          <button
+            onClick={openNewModal}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-blue-950/50"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Artikel anlegen</span>
+          </button>
+        </div>
       </div>
 
       {/* Category Navigation Pills */}
@@ -271,6 +348,19 @@ export default function AdminProductsPage() {
             {cat.name}
           </button>
         ))}
+
+        <button
+          onClick={() => {
+            setEditingCat(null);
+            setNewCatName('');
+            setShowCatModal(true);
+          }}
+          className="px-3 py-2 rounded-2xl text-xs font-bold text-slate-400 hover:text-white bg-slate-950 border border-dashed border-slate-800 hover:border-slate-600 transition flex items-center gap-1 shrink-0"
+          title="Neue Warengruppe anlegen"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>Gruppe</span>
+        </button>
       </div>
 
       {/* Products Grid */}
@@ -778,6 +868,236 @@ export default function AdminProductsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Warengruppen-Verwaltung Modal */}
+      {showCatModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-5 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Tag className="w-5 h-5 text-purple-400" />
+                <h3 className="font-bold text-lg text-white">Warengruppen & Kategorien</h3>
+              </div>
+              <button
+                onClick={() => setShowCatModal(false)}
+                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Neue Gruppe anlegen / Bearbeiten Formular */}
+            <form onSubmit={handleSaveCategory} className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
+              <div className="text-xs font-bold text-purple-300">
+                {editingCat ? `Warengruppe "${editingCat.name}" bearbeiten` : '+ Neue Warengruppe anlegen'}
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  required
+                  placeholder="z. B. Getränke, Alkoholfrei, Speisen, Bar..."
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                />
+                <input
+                  type="color"
+                  value={newCatColor}
+                  onChange={(e) => setNewCatColor(e.target.value)}
+                  className="w-9 h-9 rounded-xl border border-slate-700 bg-slate-900 cursor-pointer p-0.5"
+                  title="Farbe für Schaltflächen"
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow"
+                >
+                  {editingCat ? 'Aktualisieren' : 'Anlegen'}
+                </button>
+                {editingCat && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingCat(null);
+                      setNewCatName('');
+                    }}
+                    className="px-2.5 py-2 bg-slate-800 text-slate-400 rounded-xl text-xs font-bold"
+                  >
+                    Neu
+                  </button>
+                )}
+              </div>
+            </form>
+
+            {/* Liste bestehender Warengruppen */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                Bestehende Warengruppen ({categories.length})
+              </div>
+              {categories.map((cat) => {
+                const count = products.filter((p) => p.categoryId === cat.id).length;
+                return (
+                  <div
+                    key={cat.id}
+                    className="flex items-center justify-between p-3 bg-slate-950 border border-slate-800 rounded-xl hover:border-slate-700 transition"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className="w-3.5 h-3.5 rounded-full shrink-0"
+                        style={{ backgroundColor: cat.color || '#3b82f6' }}
+                      />
+                      <span className="font-bold text-sm text-white">{cat.name}</span>
+                      <span className="text-[10px] text-slate-500 font-mono">({count} Artikel)</span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          setEditingCat(cat);
+                          setNewCatName(cat.name);
+                          setNewCatColor(cat.color || '#3b82f6');
+                        }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-950/40 transition"
+                        title="Warengruppe umbenennen / Farbe ändern"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 transition"
+                        title="Warengruppe löschen"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-800">
+              <button
+                onClick={() => setShowCatModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold"
+              >
+                Schließen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Druckbare Speise- & Getränkekarte Modal (PDF) */}
+      {showMenuPrintModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-black/85 backdrop-blur-md animate-in fade-in overflow-y-auto">
+          <div className="bg-white text-slate-900 rounded-3xl max-w-4xl w-full shadow-2xl flex flex-col max-h-[95vh] border border-slate-200 print:max-w-none print:shadow-none print:border-none print:rounded-none print:max-h-none print:p-0">
+            {/* Modal Top Actions (Hidden in Print) */}
+            <div className="p-4 bg-slate-100 border-b border-slate-200 rounded-t-3xl flex items-center justify-between print:hidden">
+              <div className="flex items-center gap-2 text-slate-800">
+                <FileText className="w-5 h-5 text-emerald-600" />
+                <span className="font-bold text-base">Speise- & Getränkekarte Vorschau</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow flex items-center gap-1.5 transition"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Jetzt Drucken / PDF speichern</span>
+                </button>
+                <button
+                  onClick={() => setShowMenuPrintModal(false)}
+                  className="p-2 text-slate-600 hover:text-slate-900 rounded-xl bg-slate-200"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Menu Paper Content */}
+            <div className="p-6 sm:p-10 overflow-y-auto font-serif print:p-6 print:overflow-visible text-slate-900 bg-white">
+              {/* Event Header */}
+              <div className="text-center pb-6 mb-6 border-b-2 border-slate-900">
+                <h1 className="text-3xl sm:text-4xl font-black tracking-tight uppercase font-sans text-slate-950">
+                  {config?.eventName || 'OpenBon Event'}
+                </h1>
+                <p className="text-sm font-sans text-slate-600 uppercase tracking-widest mt-1">
+                  Speisen- & Getränkekarte
+                </p>
+              </div>
+
+              {/* Categorized Products */}
+              <div className="space-y-8">
+                {categories.map((cat) => {
+                  const catProducts = products.filter(
+                    (p) => p.categoryId === cat.id && !p.isSoldOut
+                  );
+                  if (catProducts.length === 0) return null;
+
+                  return (
+                    <div key={cat.id} className="break-inside-avoid">
+                      <h2 className="text-xl font-bold uppercase tracking-wider font-sans text-slate-900 pb-1 mb-4 border-b border-slate-300 flex items-center justify-between">
+                        <span>{cat.name}</span>
+                      </h2>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 font-sans">
+                        {catProducts.map((p) => {
+                          const allergensList = Array.isArray(p.allergens)
+                            ? p.allergens.join(', ')
+                            : typeof p.allergens === 'string'
+                            ? JSON.parse(p.allergens || '[]').join(', ')
+                            : '';
+
+                          return (
+                            <div
+                              key={p.id}
+                              className="flex items-start justify-between gap-3 pb-1 border-b border-dotted border-slate-200 text-sm"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="font-bold text-slate-900">
+                                  {p.name}
+                                  {allergensList && (
+                                    <span className="text-[10px] font-mono text-slate-500 font-normal ml-1.5">
+                                      ({allergensList})
+                                    </span>
+                                  )}
+                                </div>
+                                {p.variants && p.variants.length > 0 && (
+                                  <div className="text-xs text-slate-500">
+                                    {p.variants.map((v: any) => v.name).join(' · ')}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="text-right font-mono font-bold text-slate-950 shrink-0">
+                                {formatCurrency(p.price)}
+                                {p.deposit > 0 && (
+                                  <span className="text-[10px] block font-sans text-slate-500 font-normal">
+                                    +{formatCurrency(p.deposit)} Pfand
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* LMIV Footnotes / Allergens Key */}
+              <div className="mt-10 pt-6 border-t border-slate-300 font-sans text-[10px] text-slate-600 leading-relaxed break-inside-avoid">
+                <div className="font-bold text-slate-800 uppercase mb-1">
+                  Hinweise zu Allergenen & Zusatzstoffen (LMIV):
+                </div>
+                <p>
+                  Alle Preise inkl. gesetzlicher Mehrwertsteuer. Bei Fragen zu Allergenen und Inhaltsstoffen wenden Sie sich bitte an unser Servicepersonal.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}

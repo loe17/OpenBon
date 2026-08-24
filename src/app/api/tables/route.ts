@@ -78,6 +78,7 @@ export async function POST(req: Request) {
       const rows = parseInt(body.rows || 4, 10);
       const cols = parseInt(body.cols || 6, 10);
       const startNum = parseInt(body.startNumber || 1, 10);
+      const step = parseInt(body.step || 1, 10);
 
       await prisma.diningTable.deleteMany({});
 
@@ -96,7 +97,7 @@ export async function POST(req: Request) {
             },
           });
           createdTables.push(table);
-          num++;
+          num += step;
         }
       }
 
@@ -182,6 +183,7 @@ export async function PUT(req: Request) {
     const updated = await prisma.diningTable.update({
       where: { id: body.id },
       data: {
+        tableNumber: body.tableNumber !== undefined ? Number(body.tableNumber) : undefined,
         label: body.label,
         gridX: body.gridX,
         gridY: body.gridY,

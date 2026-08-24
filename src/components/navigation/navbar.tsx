@@ -184,7 +184,7 @@ export default function Navbar() {
         { href: '/admin/cashbook', label: 'Kassenbuch & Barverkehr', icon: Wallet, roles: ['ADMIN'] },
         { href: '/admin/accounting', label: 'DATEV Kassenbuch Export', icon: BookOpen, roles: ['ADMIN'] },
         { href: '/admin/fiscal', label: 'DSFinV-K & TSE Archiv', icon: ShieldCheck, roles: ['ADMIN'] },
-        { href: '/admin/tips', label: 'Trinkgeld-Matrix', icon: Coins, roles: ['ADMIN'] },
+        { href: '/admin/tips', label: 'Kellner-Abrechnung & Trinkgeld', icon: Coins, roles: ['ADMIN'] },
         { href: '/admin/tokens', label: 'Wertmarken & Bons', icon: Ticket, roles: ['ADMIN'] },
       ],
     },

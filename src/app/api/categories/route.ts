@@ -63,6 +63,26 @@ export async function POST(req: Request) {
   }
 }
 
+export async function PUT(req: Request) {
+  try {
+    const body = await req.json();
+    if (!body.id) return NextResponse.json({ error: 'ID fehlt' }, { status: 400 });
+
+    const updated = await prisma.productCategory.update({
+      where: { id: body.id },
+      data: {
+        name: body.name,
+        sortIndex: body.sortIndex !== undefined ? body.sortIndex : undefined,
+        color: body.color !== undefined ? body.color : undefined,
+        icon: body.icon !== undefined ? body.icon : undefined,
+      },
+    });
+    return NextResponse.json(updated);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);

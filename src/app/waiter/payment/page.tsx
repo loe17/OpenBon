@@ -77,7 +77,7 @@ function WaiterPaymentContent() {
   const [completedInvoice, setCompletedInvoice] = useState<string | null>(null);
   const [completedPaymentId, setCompletedPaymentId] = useState<string | null>(null);
   const [receiptPrinted, setReceiptPrinted] = useState(false);
-  const [guestFacingMode, setGuestFacingMode] = useState(false);
+  const [guestFacingMode, setGuestFacingMode] = useState(true);
   const [guestFacingRotated, setGuestFacingRotated] = useState(true);
   const [requestId] = useState(() =>
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -405,106 +405,109 @@ function WaiterPaymentContent() {
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white">
-      {/* Kopfzeile mit Stufenanzeige */}
-      <div className="p-3 sm:p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between shadow-md shrink-0">
-        <button
-          onClick={goBack}
-          disabled={stage === 'DONE'}
-          className="touch-target flex items-center gap-2 text-slate-300 hover:text-white px-4 rounded-2xl bg-slate-800 border border-slate-700 text-sm font-bold transition active:scale-95 disabled:opacity-40"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span className="hidden sm:inline">Zurück</span>
-        </button>
-
-        <div className="text-center">
-          <div className="font-black text-base sm:text-xl leading-tight">
-            {table?.label || 'Direktverkauf'}
-          </div>
-          <div className="flex items-center justify-center gap-1.5 mt-1">
-            {[1, 2, 3, 4].map((s) => (
-              <span
-                key={s}
-                className={`h-1.5 rounded-full transition-all ${
-                  s === stageIndex ? 'w-7 bg-emerald-400' : s < stageIndex ? 'w-4 bg-emerald-800' : 'w-4 bg-slate-700'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-
-        {stage === 'SPLIT' ? (
-          <button
-            onClick={() => toggleSelectAll(items.some((i) => i.selectedQty < i.totalUnpaidQty))}
-            className="touch-target px-4 text-xs font-bold text-blue-300 bg-blue-950 rounded-2xl border border-blue-800"
+      {/* ===================== STICKY TOP CONTAINER (Permanent ganz oben über der Tischnummer fixiert) ===================== */}
+      <div className="sticky top-0 z-50 shadow-2xl bg-slate-950 shrink-0">
+        {/* XXL Gast-Display Banner (Ganz oben) */}
+        {guestFacingMode && (
+          <div
+            className={`p-5 sm:p-7 bg-gradient-to-br from-blue-950 via-slate-950 to-blue-950 border-b-4 border-blue-500 shadow-2xl transition-transform ${
+              guestFacingRotated ? 'rotate-180 origin-center' : ''
+            }`}
           >
-            {items.every((i) => i.selectedQty === i.totalUnpaidQty) ? 'Alle ab' : 'Alle an'}
-          </button>
-        ) : (
-          <div className="w-[72px]" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-center sm:text-left">
+              <div>
+                <span className="text-xs font-mono font-extrabold uppercase tracking-widest text-blue-300 block mb-1">
+                  FÜR DEN GAST • ZU ZAHLENDER BETRAG
+                </span>
+                <span className="text-5xl sm:text-6xl font-mono font-black text-white tracking-tight drop-shadow-md">
+                  {formatCurrency(checkout.amountDueWithTip)}
+                </span>
+              </div>
+              {checkout.tipAmount > 0 && (
+                <div className="sm:self-center">
+                  <span className="text-sm sm:text-base text-emerald-300 font-black bg-emerald-950/90 px-4 py-2 rounded-2xl border border-emerald-600 shadow inline-block">
+                    inkl. {formatCurrency(checkout.tipAmount)} Trinkgeld
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
         )}
-      </div>
 
-      {/* Spec 12: Gast-Sicht Widget im oberen Drittel des Mobilteils (Permanent fixiert) */}
-      <div className="bg-slate-900 border-b border-slate-800 p-2.5 px-4 flex items-center justify-between shrink-0 shadow-md sticky top-0 z-30">
-        <button
-          onClick={() => {
-            haptic();
-            setGuestFacingMode(!guestFacingMode);
-          }}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
-            guestFacingMode
-              ? 'bg-blue-600 border-blue-400 text-white shadow-md'
-              : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
-          }`}
-        >
-          <span>👀 Gast-Sicht</span>
-          <span className="text-[10px] opacity-75">{guestFacingMode ? '(Aktiv)' : ''}</span>
-        </button>
-
-        {guestFacingMode ? (
+        {/* Gast-Sicht Widget Steuerung */}
+        <div className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-800 p-2 px-4 flex items-center justify-between">
           <button
             onClick={() => {
               haptic();
-              setGuestFacingRotated(!guestFacingRotated);
+              setGuestFacingMode(!guestFacingMode);
             }}
-            className="text-xs font-bold text-blue-300 bg-blue-950/80 border border-blue-800 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
+              guestFacingMode
+                ? 'bg-blue-600 border-blue-400 text-white shadow-md'
+                : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+            }`}
           >
-            <span>🔄 180°</span>
-            <span>{guestFacingRotated ? 'Gedreht (Zum Gast)' : 'Normal (Zu mir)'}</span>
+            <span>👀 Gast-Sicht</span>
+            <span className="text-[10px] opacity-75">{guestFacingMode ? '(Aktiv)' : ''}</span>
           </button>
-        ) : (
-          <span className="text-xs text-slate-400 font-mono font-bold">
-            Auswahl: {formatCurrency(checkout.amountDueWithTip)}
-          </span>
-        )}
-      </div>
 
-      {/* XXL Gast-Display Banner (Doppelt so groß, permanent fixiert im oberen Bereich) */}
-      {guestFacingMode && (
-        <div
-          className={`p-6 sm:p-8 bg-gradient-to-br from-blue-950 via-slate-950 to-blue-950 border-b-4 border-blue-500 shadow-2xl transition-transform shrink-0 ${
-            guestFacingRotated ? 'rotate-180 origin-center' : ''
-          }`}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-center sm:text-left">
-            <div>
-              <span className="text-xs font-mono font-extrabold uppercase tracking-widest text-blue-300 block mb-1">
-                FÜR DEN GAST • GESAMTBETRAG
-              </span>
-              <span className="text-5xl sm:text-6xl font-mono font-black text-white tracking-tight drop-shadow-md">
-                {formatCurrency(checkout.amountDueWithTip)}
-              </span>
-            </div>
-            {checkout.tipAmount > 0 && (
-              <div className="sm:self-center">
-                <span className="text-sm sm:text-base text-emerald-300 font-black bg-emerald-950/90 px-4 py-2 rounded-2xl border border-emerald-600 shadow inline-block">
-                  inkl. {formatCurrency(checkout.tipAmount)} Trinkgeld
-                </span>
-              </div>
-            )}
-          </div>
+          {guestFacingMode ? (
+            <button
+              onClick={() => {
+                haptic();
+                setGuestFacingRotated(!guestFacingRotated);
+              }}
+              className="text-xs font-bold text-blue-300 bg-blue-950/80 border border-blue-800 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow"
+            >
+              <span>🔄 180°</span>
+              <span>{guestFacingRotated ? 'Gedreht (Zum Gast)' : 'Normal (Zu mir)'}</span>
+            </button>
+          ) : (
+            <span className="text-xs text-slate-400 font-mono font-bold">
+              Auswahl: {formatCurrency(checkout.amountDueWithTip)}
+            </span>
+          )}
         </div>
-      )}
+
+        {/* Kopfzeile mit Tischnummer & Stufenanzeige */}
+        <div className="p-2.5 sm:p-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between shadow-md">
+          <button
+            onClick={goBack}
+            disabled={stage === 'DONE'}
+            className="touch-target flex items-center gap-2 text-slate-300 hover:text-white px-3.5 py-1.5 rounded-2xl bg-slate-800 border border-slate-700 text-sm font-bold transition active:scale-95 disabled:opacity-40"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Zurück</span>
+          </button>
+
+          <div className="text-center">
+            <div className="font-black text-base sm:text-lg leading-tight">
+              {table?.label || 'Direktverkauf'}
+            </div>
+            <div className="flex items-center justify-center gap-1.5 mt-0.5">
+              {[1, 2, 3, 4].map((s) => (
+                <span
+                  key={s}
+                  className={`h-1.5 rounded-full transition-all ${
+                    s === stageIndex ? 'w-6 bg-emerald-400' : s < stageIndex ? 'w-3 bg-emerald-800' : 'w-3 bg-slate-700'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+
+          {stage === 'SPLIT' ? (
+            <button
+              onClick={() => toggleSelectAll(items.some((i) => i.selectedQty < i.totalUnpaidQty))}
+              className="touch-target px-3.5 py-1.5 text-xs font-bold text-blue-300 bg-blue-950 rounded-2xl border border-blue-800"
+            >
+              {items.every((i) => i.selectedQty === i.totalUnpaidQty) ? 'Alle ab' : 'Alle an'}
+            </button>
+          ) : (
+            <div className="w-[72px]" />
+          )}
+        </div>
+      </div>
 
       {error && (
         <div className="px-4 py-2.5 bg-rose-950 border-b border-rose-800 text-rose-200 text-sm font-bold flex items-center gap-2 shrink-0">

@@ -58,7 +58,7 @@ export default function WaiterTablesPage() {
   const { socket } = useSocket();
   const [tables, setTables] = useState<TableData[]>([]);
   const [selectedTable, setSelectedTable] = useState<TableData | null>(null);
-  const [filter, setFilter] = useState<'ALL' | 'OCCUPIED' | 'FREE'>('ALL');
+  const [filter, setFilter] = useState<'ALL' | 'MY_TABLES' | 'OCCUPIED' | 'FREE'>('ALL');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -283,12 +283,31 @@ export default function WaiterTablesPage() {
     setShowWaiterPrompt(false);
   };
 
-  const filteredTables = tables.filter((t) => {
-    if (filter === 'OCCUPIED' && t.openItemCount === 0) return false;
-    if (filter === 'FREE' && t.openItemCount > 0) return false;
-    if (search && !t.label.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  const myTablesCount = tables.filter(
+    (t) => t.activeWaiterName === waiterName || t.orders?.some((o) => o.waiterName === waiterName)
+  ).length;
+
+  const filteredTables = tables
+    .filter((t) => {
+      if (filter === 'OCCUPIED' && t.openItemCount === 0) return false;
+      if (filter === 'FREE' && t.openItemCount > 0) return false;
+      if (filter === 'MY_TABLES') {
+        const isMine =
+          t.activeWaiterName === waiterName ||
+          t.orders?.some((o) => o.waiterName === waiterName);
+        if (!isMine) return false;
+      }
+      if (search && !t.label.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (filter === 'MY_TABLES') {
+        const aTime = a.orders?.[0]?.createdAt ? new Date(a.orders[0].createdAt).getTime() : 0;
+        const bTime = b.orders?.[0]?.createdAt ? new Date(b.orders[0].createdAt).getTime() : 0;
+        return bTime - aTime;
+      }
+      return a.tableNumber - b.tableNumber;
+    });
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950">
@@ -330,6 +349,14 @@ export default function WaiterTablesPage() {
             }`}
           >
             Alle ({tables.length})
+          </button>
+          <button
+            onClick={() => setFilter('MY_TABLES')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+              filter === 'MY_TABLES' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Meine Tische ({myTablesCount})
           </button>
           <button
             onClick={() => setFilter('OCCUPIED')}

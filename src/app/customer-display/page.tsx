@@ -166,6 +166,16 @@ export default function CustomerDisplayPage() {
     }
   }, [selectedStation, socket]);
 
+  const getStationLabel = (id: string) => {
+    if (id === 'ALL') return '✨ Alle Stationen & Mobilteile (Global)';
+    if (id === 'POS_MAIN' || id === 'MAIN_CASH') return 'Haupt-Bonkasse';
+    if (id === 'POS_1') return 'Thekenkasse 1 (Bonkasse 1)';
+    if (id === 'POS_2') return 'Thekenkasse 2 (Bonkasse 2)';
+    const dev = devices.find((d) => d.id === id);
+    if (dev) return `${dev.name} (${dev.id})`;
+    return id;
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-950 text-white overflow-hidden select-none">
       {/* Top Station Bar / Config Toggle (wird im Vollbildmodus ausgeblendet) */}
@@ -178,8 +188,8 @@ export default function CustomerDisplayPage() {
             <div>
               <h1 className="font-black text-base tracking-tight text-white flex items-center gap-2">
                 <span>Kundendisplay</span>
-                <span className="text-xs text-blue-400 font-mono font-bold bg-blue-950/80 px-2 py-0.5 rounded-lg border border-blue-800">
-                  {state.stationName || (selectedStation === 'ALL' ? 'Alle Kassen' : selectedStation)}
+                <span className="text-xs text-blue-300 font-bold bg-blue-950/80 px-2.5 py-0.5 rounded-xl border border-blue-700 shadow-sm">
+                  {selectedStation === 'ALL' ? 'Alle Kassen' : getStationLabel(selectedStation)}
                 </span>
               </h1>
             </div>
@@ -188,10 +198,11 @@ export default function CustomerDisplayPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowConfig(!showConfig)}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1.5 text-xs font-bold"
               title="Kassen-Zuordnung ändern"
             >
-              <Settings2 className="w-5 h-5" />
+              <Settings2 className="w-4 h-4 text-blue-400" />
+              <span className="hidden sm:inline">Kasse wählen</span>
             </button>
           </div>
         </div>
@@ -212,8 +223,8 @@ export default function CustomerDisplayPage() {
             >
               <option value="ALL">✨ Alle Stationen &amp; Mobilteile (Global)</option>
               <option value="POS_MAIN">Haupt-Bonkasse</option>
-              <option value="POS_1">Thekenkasse 1</option>
-              <option value="POS_2">Thekenkasse 2</option>
+              <option value="POS_1">Thekenkasse 1 (Bonkasse 1)</option>
+              <option value="POS_2">Thekenkasse 2 (Bonkasse 2)</option>
               {devices.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name} ({d.id})

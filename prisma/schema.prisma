@@ -20,7 +20,7 @@ model EventConfig {
   kitchenPin                    String   @default("2222")
   waiterPin                     String   @default("3333")
   enableVirtualPrinters         Boolean  @default(false)
-  enableTax                     Boolean  @default(true) // MwSt-Ausweis global aktivieren/deaktivieren
+  enableTax                     Boolean  @default(false) // Standardmäßig deaktiviert (Vereine/Kleinunternehmer)
   
   // V2/V3 Schalter & Features
   enableCourses                 Boolean  @default(false)
@@ -40,7 +40,13 @@ model EventConfig {
   receiptShowWaiter             Boolean  @default(true)
   receiptShowTable              Boolean  @default(true)
   receiptShowTse                Boolean  @default(true)
-  receiptTableFontSize          Int      @default(2) // Stufenlose Skalierung 1..5
+  receiptTableFontSize          Int      @default(3) // Stufenlose Skalierung 1..10
+  receiptSingleItemKitchenSlips Boolean  @default(true) // Einzelbon fuer jeden Artikel an Speisen- und Getraenkekassen
+  receiptKitchenShowHeader      Boolean  @default(true)
+  receiptKitchenShowTable       Boolean  @default(true)
+  receiptKitchenShowWaiter      Boolean  @default(true)
+  receiptKitchenShowTimestamp   Boolean  @default(true)
+  receiptKitchenShowOptions     Boolean  @default(true)
 
   // Kartenzahlungs-IDs
   sumupMerchantCode             String?
@@ -153,6 +159,9 @@ model Product {
   stockItem             StockItem?
   orderItems            OrderItem[]
   tapLines              TapLine[]
+
+  @@index([categoryId])
+  @@index([status])
 }
 
 model ProductVariant {
@@ -163,6 +172,8 @@ model ProductVariant {
   priceDelta Float    @default(0.0)
   isSoldOut  Boolean  @default(false)
   sortIndex  Int      @default(0)
+
+  @@index([productId])
 }
 
 model ProductOption {
@@ -172,6 +183,8 @@ model ProductOption {
   name       String
   priceDelta Float    @default(0.0)
   sortIndex  Int      @default(0)
+
+  @@index([productId])
 }
 
 model CustomizationWordGroup {
@@ -194,6 +207,9 @@ model DiningTable {
   qrToken          String?   // Token fuer Gast-QR-Bestellung
   orders           Order[]
   payments         Payment[]
+
+  @@index([isActive])
+  @@index([status])
 }
 
 model Printer {
@@ -237,6 +253,10 @@ model Order {
   updatedAt          DateTime       @default(now()) @updatedAt
   items              OrderItem[]
   payments           Payment[]
+
+  @@index([tableId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model OrderItem {
@@ -264,6 +284,10 @@ model OrderItem {
   cancelledBy       String?
   cancelledAt       DateTime?
   paymentItems      PaymentItem[]
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([isCancelled])
 }
 
 model Payment {
@@ -310,6 +334,11 @@ model Payment {
   isTraining         Boolean         @default(false)
   createdAt          DateTime        @default(now())
   items              PaymentItem[]
+
+  @@index([tableId])
+  @@index([orderId])
+  @@index([createdAt])
+  @@index([isCancelled])
 }
 
 model PaymentItem {

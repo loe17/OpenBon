@@ -140,10 +140,22 @@ export const HANDBOOK: DocChapter[] = [
     icon: 'pos',
     sections: [
       {
-        heading: 'Bonkasse öffnen',
+        heading: 'Bonkasse öffnen & Betriebsmodi',
         steps: [
           'Kachel "Bonkasse (Theke)" wählen und den Kassen-PIN eingeben.',
           'Artikel antippen, um sie in den Bon zu legen. Der Bon wird direkt an der Theke abgerechnet.',
+        ],
+        paragraphs: [
+          'Die Bonkasse unterstützt 3 spezialisierte Betriebsmodi:',
+          '• "Nur Kassieren" (Standard / DIRECT): Der klassische Fest- & Thekenmodus. Nach der Bezahlung wird die Bestellung direkt an den Küchen-/Ausschankdruckern oder Monitoren ausgegeben und die Ware an der Theke überreicht.',
+          '• "Wertmarken" (VOUCHER): Es werden reine Verzehrbons / Wertmarken gedruckt. Der Gast bezahlt an der Kasse und löst die Wertmarken an den dezentralen Ständen ein.',
+          '• "Kombimodus" (DUAL): Mischbetrieb aus Direktverkauf und Wertmarken in einem Kassiervorgang.',
+        ],
+        hints: [
+          {
+            kind: 'tip',
+            text: 'Standardmäßig startet die Bonkasse im Modus "Nur Kassieren". Über den Modus-Umschalter oben rechts kann jederzeit gewechselt werden.',
+          },
         ],
       },
       {

@@ -17,6 +17,7 @@ import {
   ToggleLeft,
   ToggleRight,
   Circle,
+  Edit2,
 } from 'lucide-react';
 interface AdminTableRow {
   id: string;
@@ -41,6 +42,13 @@ export default function AdminTablesPage() {
   const [genRows, setGenRows] = useState(4);
   const [genCols, setGenCols] = useState(6);
   const [genStart, setGenStart] = useState(1);
+  const [genStep, setGenStep] = useState(1);
+
+  // Edit table form
+  const [editingTable, setEditingTable] = useState<AdminTableRow | null>(null);
+  const [editTableNum, setEditTableNum] = useState<number>(1);
+  const [editTableLabel, setEditTableLabel] = useState('');
+  const [editTableActive, setEditTableActive] = useState(true);
 
   // Single table form
   const [newTableNum, setNewTableNum] = useState<number>(1);
@@ -119,6 +127,34 @@ export default function AdminTablesPage() {
     }
   };
 
+  const handleOpenEdit = (t: AdminTableRow) => {
+    setEditingTable(t);
+    setEditTableNum(t.tableNumber);
+    setEditTableLabel(t.label);
+    setEditTableActive(t.isActive !== false);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTable) return;
+    try {
+      await fetch('/api/tables', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingTable.id,
+          tableNumber: editTableNum,
+          label: editTableLabel || `Tisch ${editTableNum}`,
+          isActive: editTableActive,
+        }),
+      });
+      setEditingTable(null);
+      fetchTablesAndPrinters();
+    } catch {
+      alert('Fehler beim Speichern der Tischanpassung');
+    }
+  };
+
   const handleGenerateGrid = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!confirm('Achtung: Dies überschreibt alle bestehenden Tische. Fortfahren?')) return;
@@ -131,6 +167,7 @@ export default function AdminTablesPage() {
           rows: genRows,
           cols: genCols,
           startNumber: genStart,
+          step: genStep,
         }),
       });
       setShowGenModal(false);
@@ -239,6 +276,13 @@ export default function AdminTablesPage() {
                 </span>
                 <div className="flex items-center gap-1">
                   <button
+                    onClick={() => handleOpenEdit(t)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-950/50 transition"
+                    title="Tischnummer / Label anpassen"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
                     onClick={() => handleToggleTable(t)}
                     className={`p-1 rounded-lg transition ${
                       t.isActive !== false ? 'text-emerald-400 hover:bg-emerald-950' : 'text-slate-500 hover:bg-slate-800'
@@ -277,7 +321,7 @@ export default function AdminTablesPage() {
         </div>
       </div>
 
-      {/* Generator Modal */}
+      {/* Generator Modal mit Schrittweite / Raster */}
       {showGenModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
@@ -317,20 +361,37 @@ export default function AdminTablesPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">Start-Tischnummer</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={genStart}
-                  onChange={(e) => setGenStart(parseInt(e.target.value, 10))}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">Start-Tischnummer</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={genStart}
+                    onChange={(e) => setGenStart(parseInt(e.target.value, 10))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">Schrittweite (Raster)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="z. B. 1, 5, 10"
+                    value={genStep}
+                    onChange={(e) => setGenStep(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
+                  />
+                </div>
               </div>
 
               <div className="text-xs text-slate-400 bg-slate-950 p-3 rounded-xl border border-slate-800">
-                Erstellt {genRows * genCols} Tische von Nr. {genStart} bis Nr.{' '}
-                {genStart + genRows * genCols - 1}.
+                Erstellt <span className="text-white font-bold">{genRows * genCols} Tische</span> von Nr.{' '}
+                <span className="text-amber-400 font-mono font-bold">{genStart}</span> bis Nr.{' '}
+                <span className="text-amber-400 font-mono font-bold">
+                  {genStart + (genRows * genCols - 1) * genStep}
+                </span>{' '}
+                (Schrittweite: +{genStep}).
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
@@ -346,6 +407,75 @@ export default function AdminTablesPage() {
                   className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold shadow"
                 >
                   Generieren
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Table Modal */}
+      {editingTable && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg text-white">Tisch manuell anpassen</h3>
+              <button
+                onClick={() => setEditingTable(null)}
+                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">Tischnummer</label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  value={editTableNum}
+                  onChange={(e) => setEditTableNum(parseInt(e.target.value, 10))}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">Bezeichnung / Label</label>
+                <input
+                  type="text"
+                  required
+                  value={editTableLabel}
+                  onChange={(e) => setEditTableLabel(e.target.value)}
+                  placeholder="z. B. Tisch 42, Stehtisch 3, VIP-Lounge"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-between border-t border-slate-800">
+                <span className="text-xs text-slate-300 font-bold">Tisch ist aktiv</span>
+                <input
+                  type="checkbox"
+                  checked={editTableActive}
+                  onChange={(e) => setEditTableActive(e.target.checked)}
+                  className="w-4 h-4 rounded text-blue-600"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingTable(null)}
+                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-bold"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow"
+                >
+                  Speichern
                 </button>
               </div>
             </form>

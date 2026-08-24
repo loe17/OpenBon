@@ -69,6 +69,8 @@ export class TicketSplitter {
 
     const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
     const globalTrayLimit = config?.trayMaxItems ?? 0;
+    const singleSlips = config?.receiptSingleItemKitchenSlips ?? true;
+    const tableFontSize = config?.receiptTableFontSize ?? 3;
 
     const products = await prisma.product.findMany({
       where: { id: { in: candidates.map((i) => i.productId) } },
@@ -89,11 +91,12 @@ export class TicketSplitter {
         buckets.set(printGroup.id, {
           printGroupId: printGroup.id,
           printGroupName: printGroup.name,
-          // Spec 6.1: Gruppenlimit hat Vorrang, sonst globales Tablett-Limit
-          maxItemsPerTicket:
-            printGroup.maxItemsPerTicket && printGroup.maxItemsPerTicket > 0
-              ? printGroup.maxItemsPerTicket
-              : globalTrayLimit,
+          // Wenn Einzelbon-Druck aktiv ist, ist das Limit 1, sonst Gruppenlimit oder globales Limit
+          maxItemsPerTicket: singleSlips
+            ? 1
+            : (printGroup.maxItemsPerTicket && printGroup.maxItemsPerTicket > 0
+                ? printGroup.maxItemsPerTicket
+                : globalTrayLimit),
           printer: {
             id: printer.id,
             name: printer.name,
@@ -146,6 +149,7 @@ export class TicketSplitter {
           orderNumber: order.orderNumber,
           tokenNumber: order.tokenNumber || undefined,
           tableLabel: order.tableLabel,
+          tableFontSize,
           waiterName: order.waiterName,
           createdAt: order.createdAt,
           items: chunk,
