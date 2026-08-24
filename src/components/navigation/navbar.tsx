@@ -123,11 +123,15 @@ export default function Navbar() {
       setShowPinModal(true);
       return;
     } else if (targetRole === 'POS_CASHIER') {
-      setPinTarget('POS_CASHIER');
+      setPinTarget('POS');
       setShowPinModal(true);
       return;
     } else if (targetRole === 'KITCHEN') {
       setPinTarget('KITCHEN');
+      setShowPinModal(true);
+      return;
+    } else if (targetRole === 'WAITER') {
+      setPinTarget('WAITER');
       setShowPinModal(true);
       return;
     }
@@ -148,10 +152,12 @@ export default function Navbar() {
     setShowPinModal(false);
     if (pinTarget === 'ADMIN') {
       applyRole('ADMIN');
-    } else if (pinTarget === 'POS_CASHIER') {
+    } else if (pinTarget === 'POS') {
       applyRole('POS_CASHIER');
     } else if (pinTarget === 'KITCHEN') {
       applyRole('KITCHEN');
+    } else if (pinTarget === 'WAITER') {
+      applyRole('WAITER');
     }
   };
 
@@ -489,16 +495,20 @@ export default function Navbar() {
         title={
           pinTarget === 'ADMIN'
             ? 'Administrator PIN eingeben'
-            : pinTarget === 'POS_CASHIER'
+            : pinTarget === 'POS'
             ? 'Bonkassen PIN eingeben'
-            : 'Küchen PIN eingeben'
+            : pinTarget === 'KITCHEN'
+            ? 'Küchen PIN eingeben'
+            : 'Bedienungs PIN eingeben'
         }
         stationType={
           pinTarget === 'ADMIN'
             ? 'ADMIN'
-            : pinTarget === 'POS_CASHIER'
+            : pinTarget === 'POS'
             ? 'POS'
-            : 'KITCHEN'
+            : pinTarget === 'KITCHEN'
+            ? 'KITCHEN'
+            : 'WAITER'
         }
         onSuccess={handlePinSuccess}
         onCancel={() => setShowPinModal(false)}

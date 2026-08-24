@@ -30,7 +30,9 @@ export default function HomePage() {
   const [config, setConfig] = useState<EventConfigDTO | null>(null);
   const [deviceStats, setDeviceStats] = useState({ online: 0, total: 0 });
   const [showPinModal, setShowPinModal] = useState(false);
-  const [pendingAdminPath, setPendingAdminPath] = useState<string | null>(null);
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
+  const [pendingRole, setPendingRole] = useState<string>('ADMIN');
+  const [pinStationType, setPinStationType] = useState<'ADMIN' | 'POS' | 'KITCHEN' | 'WAITER'>('ADMIN');
 
   useEffect(() => {
     fetch('/api/config')
@@ -50,26 +52,36 @@ export default function HomePage() {
   }, []);
 
   const selectRole = (role: string, targetPath: string) => {
+    setPendingRole(role);
+    setPendingPath(targetPath);
     if (role === 'ADMIN') {
       const isAuthed = sessionStorage.getItem('admin_pin_verified') === 'true';
-      if (!isAuthed) {
-        setPendingAdminPath(targetPath);
-        setShowPinModal(true);
+      if (isAuthed) {
+        localStorage.setItem('pos_user_role', 'ADMIN');
+        router.push(targetPath);
         return;
       }
+      setPinStationType('ADMIN');
+    } else if (role === 'POS_CASHIER') {
+      setPinStationType('POS');
+    } else if (role === 'KITCHEN') {
+      setPinStationType('KITCHEN');
+    } else if (role === 'WAITER') {
+      setPinStationType('WAITER');
     }
-    localStorage.setItem('pos_user_role', role);
-    router.push(targetPath);
+    setShowPinModal(true);
   };
 
   const handlePinSuccess = () => {
-    sessionStorage.setItem('admin_pin_verified', 'true');
-    setShowPinModal(false);
-    localStorage.setItem('pos_user_role', 'ADMIN');
-    if (pendingAdminPath) {
-      router.push(pendingAdminPath);
+    if (pendingRole === 'ADMIN') {
+      sessionStorage.setItem('admin_pin_verified', 'true');
     }
-    setPendingAdminPath(null);
+    setShowPinModal(false);
+    localStorage.setItem('pos_user_role', pendingRole);
+    if (pendingPath) {
+      router.push(pendingPath);
+    }
+    setPendingPath(null);
   };
 
   return (
@@ -245,7 +257,18 @@ export default function HomePage() {
       {/* PIN Modal */}
       <PinModal
         isOpen={showPinModal}
+        title={
+          pinStationType === 'ADMIN'
+            ? 'Administrator-PIN eingeben'
+            : pinStationType === 'POS'
+            ? 'Bonkassen-PIN eingeben'
+            : pinStationType === 'KITCHEN'
+            ? 'Küchen-PIN eingeben'
+            : 'Bedienungs-PIN eingeben'
+        }
+        stationType={pinStationType}
         onClose={() => setShowPinModal(false)}
+        onCancel={() => setShowPinModal(false)}
         onSuccess={handlePinSuccess}
       />
     </div>
