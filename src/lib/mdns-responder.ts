@@ -37,7 +37,7 @@ export function startMdnsResponder(): () => void {
 
   socket.on('error', (err) => {
     // Port 5353 may be bound by Windows or Avahi, which is fine as OS handles mDNS
-    console.log(`[mDNS Info] Port 5353 geteilt oder vom OS verwaltet (${err.message}).`);
+    console.log(`[mDNS Info] Port 5353 geteilt oder vom OS verwaltet (${err instanceof Error ? err.message : String(err)}).`);
   });
 
   socket.on('message', (msg, rinfo) => {

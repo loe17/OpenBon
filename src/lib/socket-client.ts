@@ -35,7 +35,7 @@ export function getSocket(): Socket {
       let isCharging = false;
       if ('getBattery' in navigator) {
         try {
-          const battery: any = await (navigator as any).getBattery();
+          const battery = await navigator.getBattery!();
           batteryLevel = Math.round(battery.level * 100);
           isCharging = battery.charging;
         } catch {}
@@ -77,7 +77,7 @@ export function getSocket(): Socket {
 export function playAcousticPing() {
   if (typeof window === 'undefined') return;
   try {
-    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext!)();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
 
@@ -106,7 +106,7 @@ export function playAcousticPing() {
 export function playKitchenChime() {
   if (typeof window === 'undefined') return;
   try {
-    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext!)();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
 

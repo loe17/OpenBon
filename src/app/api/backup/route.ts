@@ -71,8 +71,8 @@ export async function GET(req: Request) {
         'Content-Disposition': `attachment; filename="${fileName}"`,
       },
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 
@@ -218,7 +218,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true, message: 'Ausgewählte Backup-Bereiche erfolgreich wiederhergestellt!' });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

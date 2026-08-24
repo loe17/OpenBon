@@ -16,7 +16,18 @@ import {
   FileDown,
   ToggleLeft,
   ToggleRight,
+  Circle,
 } from 'lucide-react';
+interface AdminTableRow {
+  id: string;
+  tableNumber: number;
+  label: string;
+  gridX: number;
+  gridY: number;
+  status: string;
+  isActive?: boolean;
+  openItemCount?: number;
+}
 
 export default function AdminTablesPage() {
   const [tables, setTables] = useState<any[]>([]);
@@ -65,7 +76,7 @@ export default function AdminTablesPage() {
     fetchTablesAndPrinters();
   }, []);
 
-  const handleToggleTable = async (t: any) => {
+  const handleToggleTable = async (t: AdminTableRow) => {
     const nextActive = t.isActive === false ? true : false;
     try {
       await fetch('/api/tables', {
@@ -79,7 +90,7 @@ export default function AdminTablesPage() {
     }
   };
 
-  const handleDeleteTable = async (t: any) => {
+  const handleDeleteTable = async (t: AdminTableRow) => {
     if (!confirm(`Möchtest du "${t.label}" wirklich löschen?`)) return;
     try {
       await fetch(`/api/tables?id=${t.id}`, { method: 'DELETE' });
@@ -247,7 +258,14 @@ export default function AdminTablesPage() {
               <div className="font-extrabold text-sm truncate">{t.label}</div>
 
               <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400">
-                <span>{t.isActive !== false ? '🟢 Aktiv' : '⚪ Inaktiv'}</span>
+                <span className="inline-flex items-center gap-1">
+                  <Circle
+                    className={`w-2.5 h-2.5 ${
+                      t.isActive !== false ? 'fill-emerald-400 text-emerald-400' : 'fill-slate-600 text-slate-600'
+                    }`}
+                  />
+                  <span>{t.isActive !== false ? 'Aktiv' : 'Inaktiv'}</span>
+                </span>
                 {t.openItemCount > 0 && (
                   <span className="text-amber-400 font-bold">{t.openItemCount} Bons</span>
                 )}

@@ -98,7 +98,7 @@ export async function GET(req: Request) {
         characterSet: 'CP858',
       })),
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

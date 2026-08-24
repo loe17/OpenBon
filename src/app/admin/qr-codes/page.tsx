@@ -18,6 +18,15 @@ import {
   FileDown,
 } from 'lucide-react';
 import { triggerHapticFeedback } from '@/lib/socket-client';
+import type { LucideIcon } from 'lucide-react';
+
+interface NetworkInfo {
+  localIp?: string;
+  localDomainUrl?: string;
+  ipBaseUrl?: string;
+  hostname?: string;
+  port?: number;
+}
 
 interface StationQR {
   id: string;
@@ -26,13 +35,13 @@ interface StationQR {
   path: string;
   description: string;
   pin: string;
-  icon: any;
+  icon: LucideIcon;
   qrDataUrl?: string;
   fullUrl?: string;
 }
 
 export default function QrCodesPage() {
-  const [networkInfo, setNetworkInfo] = useState<any>(null);
+  const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [printers, setPrinters] = useState<any[]>([]);

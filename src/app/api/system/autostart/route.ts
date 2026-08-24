@@ -44,7 +44,7 @@ export async function POST(req: Request) {
       autostartEnabled: enable,
       message: enable ? 'Autostart bei Serverboot aktiviert' : 'Autostart bei Serverboot deaktiviert',
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

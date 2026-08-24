@@ -41,9 +41,82 @@
   }
 }
 
+/* Spec 3.3: Ueberschriften und Buttons in Plus Jakarta Sans */
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4,
+  button {
+    font-family: var(--font-display), 'Plus Jakarta Sans', Inter, sans-serif;
+  }
+}
+
 /* Touch active button effects for fast responsive POS feeling */
 .pos-touch-btn {
   @apply transition-all active:scale-[0.97] select-none touch-manipulation cursor-pointer;
+}
+
+/* Spec 2: Mindest-Touchtarget 48x48px im Hektikbetrieb */
+.touch-target {
+  min-width: 48px;
+  min-height: 48px;
+}
+
+/* Spec 5.3: Riesen-Ziffernblock */
+.keypad-key {
+  @apply pos-touch-btn flex items-center justify-center rounded-2xl border border-slate-700 bg-slate-800 text-white font-mono font-extrabold;
+  min-height: 68px;
+  font-size: 1.75rem;
+}
+.keypad-key:active {
+  @apply bg-slate-700;
+}
+
+/* Spec 5.4: Pulsierender Status-Ring beim Kartenzahlungs-Monitor */
+@keyframes bon-ping-ring {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+}
+.status-ring::before,
+.status-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 3px solid currentColor;
+  animation: bon-ping-ring 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.status-ring::after {
+  animation-delay: 0.9s;
+}
+
+/* Spec 6.11: Deutliches Wasserzeichen im Schulungs-/Trainingsmodus */
+.training-watermark {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.training-watermark span {
+  font-family: var(--font-display), 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+  font-size: clamp(2.5rem, 12vw, 9rem);
+  letter-spacing: 0.1em;
+  color: rgba(245, 158, 11, 0.12);
+  transform: rotate(-24deg);
+  white-space: nowrap;
+  text-transform: uppercase;
 }
 
 /* Custom crisp scrollbar */

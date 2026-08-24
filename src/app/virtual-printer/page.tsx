@@ -11,6 +11,7 @@ import {
   Clock,
   Radio,
 } from 'lucide-react';
+import type { TicketData } from '@/lib/printer/types';
 
 interface VirtualTicket {
   id: string;
@@ -18,7 +19,7 @@ interface VirtualTicket {
   printerIp: string;
   rawText: string;
   printedAt: string;
-  ticketData: any;
+  ticketData: TicketData;
 }
 
 export default function VirtualPrinterPage() {

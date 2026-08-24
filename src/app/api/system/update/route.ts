@@ -38,7 +38,7 @@ export async function GET() {
       } else {
         remoteStatus = 'System ist auf dem neuesten Stand';
       }
-    } catch (e: any) {
+    } catch (e) {
       remoteStatus = 'System ist auf dem neuesten Stand';
     }
 
@@ -56,8 +56,8 @@ export async function GET() {
       arch: process.arch,
       uptime: Math.round(process.uptime()),
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 
@@ -102,13 +102,19 @@ export async function POST(req: Request) {
           stderr: stderr.trim(),
           duration,
         });
-      } catch (err: any) {
+      } catch (err) {
+        // exec-Fehler tragen stdout/stderr als Zusatzfelder am Error-Objekt
+        const execErr = err as { stdout?: string; stderr?: string };
         return NextResponse.json({
           success: false,
           command: customCommand,
-          stdout: err.stdout ? err.stdout.trim() : '',
-          stderr: err.stderr ? err.stderr.trim() : err.message,
-          error: err.message,
+          stdout: execErr.stdout ? execErr.stdout.trim() : '',
+          stderr: execErr.stderr
+            ? execErr.stderr.trim()
+            : err instanceof Error
+              ? err.message
+              : String(err),
+          error: err instanceof Error ? err.message : String(err),
         });
       }
     }
@@ -151,14 +157,14 @@ export async function POST(req: Request) {
         }, 1500);
 
         return NextResponse.json({ success: true, logs: logs.join('\n\n'), restart: true });
-      } catch (updateErr: any) {
-        logs.push(`[FEHLER]: ${updateErr.message}`);
-        return NextResponse.json({ success: false, error: updateErr.message, logs: logs.join('\n\n') }, { status: 500 });
+      } catch (updateErr) {
+        logs.push(`[FEHLER]: ${updateErr instanceof Error ? updateErr.message : String(updateErr)}`);
+        return NextResponse.json({ success: false, error: updateErr instanceof Error ? updateErr.message : String(updateErr), logs: logs.join('\n\n') }, { status: 500 });
       }
     }
 
     return NextResponse.json({ error: 'Unbekannte Aktion' }, { status: 400 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

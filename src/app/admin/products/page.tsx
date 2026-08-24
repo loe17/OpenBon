@@ -7,31 +7,30 @@ import {
   Plus,
   Edit2,
   Trash2,
-  Copy,
   Layers,
   Sparkles,
-  RefreshCw,
-  Search,
-  Check,
-  X,
-  Coins,
-  Receipt,
   Package,
   Ban,
   CheckCircle,
-  Tag,
+  X,
+  ShieldAlert,
+  AlertCircle,
+  Ticket,
+  Clock,
 } from 'lucide-react';
+import { EU_ALLERGENS, GASTRONOMY_ADDITIVES } from '@/lib/compliance';
+import type { ProductDTO, ProductCategoryDTO, PrintGroupDTO } from '@/types/domain';
 
 export default function AdminProductsPage() {
-  const [categories, setCategories] = useState<any[]>([]);
-  const [printGroups, setPrintGroups] = useState<any[]>([]);
+  const [categories, setCategories] = useState<ProductCategoryDTO[]>([]);
+  const [printGroups, setPrintGroups] = useState<PrintGroupDTO[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCatId, setSelectedCatId] = useState<string>('');
   const [selectedSubCat, setSelectedSubCat] = useState<string>('ALL');
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -46,7 +45,18 @@ export default function AdminProductsPage() {
     isSoldOut: false,
     trackStock: false,
     stockQuantity: 100,
+    minStockAlert: 10 as number | null,
     stockAlertThreshold: 10,
+    hasAgeRestriction: false,
+    minAge: 16 as number | null,
+    allergens: [] as string[],
+    additives: [] as string[],
+    happyHourPrice: '' as string | number,
+    happyHourStart: '',
+    happyHourEnd: '',
+    happyHourDays: [1, 2, 3, 4, 5] as number[],
+    isTokenProduct: false,
+    tokenType: 'DRINK',
     subCategory: '',
     variants: [] as { name: string; priceDelta: number; isSoldOut?: boolean }[],
     options: [] as { name: string; priceDelta: number }[],
@@ -94,7 +104,18 @@ export default function AdminProductsPage() {
       isSoldOut: false,
       trackStock: false,
       stockQuantity: 100,
+      minStockAlert: 10,
       stockAlertThreshold: 10,
+      hasAgeRestriction: false,
+      minAge: 16,
+      allergens: [],
+      additives: [],
+      happyHourPrice: '',
+      happyHourStart: '',
+      happyHourEnd: '',
+      happyHourDays: [1, 2, 3, 4, 5],
+      isTokenProduct: false,
+      tokenType: 'DRINK',
       subCategory: '',
       variants: [],
       options: [],
@@ -104,6 +125,17 @@ export default function AdminProductsPage() {
 
   const openEditModal = (prod: any) => {
     setEditingProduct(prod);
+
+    let parsedAllergens: string[] = [];
+    let parsedAdditives: string[] = [];
+    let parsedDays: number[] = [1, 2, 3, 4, 5];
+
+    try {
+      if (prod.allergens) parsedAllergens = JSON.parse(prod.allergens);
+      if (prod.additives) parsedAdditives = JSON.parse(prod.additives);
+      if (prod.happyHourDays) parsedDays = JSON.parse(prod.happyHourDays);
+    } catch {}
+
     setFormData({
       name: prod.name,
       alternativeTicketName: prod.alternativeTicketName || '',
@@ -116,7 +148,18 @@ export default function AdminProductsPage() {
       isSoldOut: prod.isSoldOut || false,
       trackStock: prod.trackStock || false,
       stockQuantity: prod.stockQuantity || 0,
+      minStockAlert: prod.minStockAlert !== undefined ? prod.minStockAlert : 10,
       stockAlertThreshold: prod.stockAlertThreshold || 10,
+      hasAgeRestriction: Boolean(prod.hasAgeRestriction),
+      minAge: prod.minAge || 16,
+      allergens: Array.isArray(parsedAllergens) ? parsedAllergens : [],
+      additives: Array.isArray(parsedAdditives) ? parsedAdditives : [],
+      happyHourPrice: prod.happyHourPrice !== null && prod.happyHourPrice !== undefined ? prod.happyHourPrice : '',
+      happyHourStart: prod.happyHourStart || '',
+      happyHourEnd: prod.happyHourEnd || '',
+      happyHourDays: Array.isArray(parsedDays) ? parsedDays : [1, 2, 3, 4, 5],
+      isTokenProduct: Boolean(prod.isTokenProduct),
+      tokenType: prod.tokenType || 'DRINK',
       subCategory: prod.subCategory || '',
       variants: prod.variants ? prod.variants.map((v: any) => ({ name: v.name, priceDelta: v.priceDelta, isSoldOut: v.isSoldOut })) : [],
       options: prod.options ? prod.options.map((o: any) => ({ name: o.name, priceDelta: o.priceDelta })) : [],
@@ -151,17 +194,27 @@ export default function AdminProductsPage() {
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...formData,
+        allergens: JSON.stringify(formData.allergens),
+        additives: JSON.stringify(formData.additives),
+        happyHourDays: JSON.stringify(formData.happyHourDays),
+        happyHourPrice: formData.happyHourPrice === '' ? null : parseFloat(String(formData.happyHourPrice)),
+        minStockAlert: formData.trackStock ? (formData.minStockAlert !== null ? Number(formData.minStockAlert) : null) : null,
+        minAge: formData.hasAgeRestriction ? Number(formData.minAge) : null,
+      };
+
       if (editingProduct) {
         await fetch(`/api/products/${editingProduct.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
       } else {
         await fetch('/api/products', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
       }
       setShowModal(false);
@@ -179,7 +232,7 @@ export default function AdminProductsPage() {
   });
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-y-auto bg-slate-950 text-white p-3 sm:p-6 max-w-7xl mx-auto w-full">
+    <div className="flex-1 flex flex-col h-full overflow-y-auto bg-slate-950 text-white p-3 sm:p-6 max-w-7xl mx-auto w-full font-sans">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-800">
         <div className="flex items-center gap-3">
@@ -187,9 +240,9 @@ export default function AdminProductsPage() {
             <Utensils className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-black">Artikel & Speisekarte</h1>
+            <h1 className="text-2xl font-black">Artikel & Speisekarte (V2)</h1>
             <p className="text-xs text-slate-400">
-              Artikelverwaltung mit Varianten, Getränkefilter, Bestandsführung und 1-Klick Ausverkauft-Sperre
+              Mit Allergen-Matrix (LMIV), Jugendschutz-Altersprüfung, Happy-Hour Zeitfenstern und Meldebestand
             </p>
           </div>
         </div>
@@ -223,16 +276,16 @@ export default function AdminProductsPage() {
         ))}
       </div>
 
-      {/* Beverage Subcategory Quick Filter (Optional) */}
+      {/* Beverage Subcategory Quick Filter */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-4 text-xs">
         <span className="text-slate-500 font-bold text-[11px] uppercase mr-1">Getränkefilter:</span>
         {[
           { id: 'ALL', label: 'Alle' },
-          { id: 'BIER', label: '🍺 Bier & Radler' },
-          { id: 'WEIN', label: '🍷 Wein & Schorle' },
-          { id: 'ALKOHOLFREI', label: '🥤 Alkoholfrei / Soft' },
-          { id: 'HEISS', label: '☕ Kaffee & Tee' },
-          { id: 'BAR', label: '🍸 Bar & Spirituosen' },
+          { id: 'BIER', label: 'Bier & Radler' },
+          { id: 'WEIN', label: 'Wein & Schorle' },
+          { id: 'ALKOHOLFREI', label: 'Alkoholfrei / Soft' },
+          { id: 'HEISS', label: 'Kaffee & Tee' },
+          { id: 'BAR', label: 'Bar & Spirituosen' },
         ].map((sub) => (
           <button
             key={sub.id}
@@ -270,7 +323,6 @@ export default function AdminProductsPage() {
                       ? 'bg-rose-600 text-white shadow'
                       : 'bg-slate-800 text-slate-400 hover:text-white'
                   }`}
-                  title={p.isSoldOut ? 'Artikel ist gesperrt / ausverkauft' : 'Artikel ist aktiv'}
                 >
                   {p.isSoldOut ? <Ban className="w-3 h-3" /> : <CheckCircle className="w-3 h-3 text-emerald-400" />}
                   <span>{p.isSoldOut ? 'Gesperrt' : 'Aktiv'}</span>
@@ -281,11 +333,30 @@ export default function AdminProductsPage() {
                 {p.name}
               </h3>
 
-              <div className="flex items-baseline gap-2 mb-3">
+              <div className="flex items-baseline gap-2 mb-2">
                 <span className="text-xl font-black text-white">{formatCurrency(p.price)}</span>
                 {p.deposit > 0 && (
                   <span className="text-xs text-slate-400 font-semibold">
                     +{formatCurrency(p.deposit)} Pfand
+                  </span>
+                )}
+              </div>
+
+              {/* Badges */}
+              <div className="flex flex-wrap gap-1 mb-3">
+                {p.happyHourPrice && (
+                  <span className="bg-amber-500/20 text-amber-300 text-[10px] font-black px-1.5 py-0.5 rounded border border-amber-500/30 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" /> {p.happyHourPrice.toFixed(2)}€ HH
+                  </span>
+                )}
+                {p.hasAgeRestriction && (
+                  <span className="bg-red-500/20 text-red-300 text-[10px] font-black px-1.5 py-0.5 rounded border border-red-500/30 flex items-center gap-1">
+                    <ShieldAlert className="w-3 h-3" /> Ab {p.minAge} J.
+                  </span>
+                )}
+                {p.isTokenProduct && (
+                  <span className="bg-purple-500/20 text-purple-300 text-[10px] font-black px-1.5 py-0.5 rounded border border-purple-500/30 flex items-center gap-1">
+                    <Ticket className="w-3 h-3" /> Wertmarke
                   </span>
                 )}
               </div>
@@ -297,56 +368,41 @@ export default function AdminProductsPage() {
                     <Package className="w-3 h-3 text-blue-400" />
                     <span>Bestand:</span>
                   </span>
-                  <span className={`font-black ${p.stockQuantity <= p.stockAlertThreshold ? 'text-rose-400' : 'text-slate-200'}`}>
-                    {p.stockQuantity} Stk.
+                  <span
+                    className={`font-mono font-bold ${
+                      p.stockQuantity <= (p.minStockAlert || 10) ? 'text-amber-400' : 'text-emerald-400'
+                    }`}
+                  >
+                    {p.stockQuantity} Stk (Meldebestand: {p.minStockAlert || 10})
                   </span>
-                </div>
-              )}
-
-              {/* Variants Pill List */}
-              {p.variants && p.variants.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {p.variants.map((v: any, idx: number) => (
-                    <span
-                      key={idx}
-                      className={`text-[10px] px-2 py-0.5 rounded-lg font-bold border ${
-                        v.isSoldOut
-                          ? 'bg-rose-950/40 text-rose-400 border-rose-800 line-through'
-                          : 'bg-slate-950 text-slate-300 border-slate-800'
-                      }`}
-                    >
-                      {v.name} ({v.priceDelta >= 0 ? `+${v.priceDelta.toFixed(2)}` : v.priceDelta.toFixed(2)} €)
-                    </span>
-                  ))}
                 </div>
               )}
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-2 pt-3 border-t border-slate-800/80">
+            <div className="flex items-center justify-end gap-1 pt-3 border-t border-slate-800">
               <button
                 onClick={() => openEditModal(p)}
-                className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-slate-700"
+                className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition"
+                title="Bearbeiten"
               >
-                <Edit2 className="w-3.5 h-3.5" />
-                <span>Bearbeiten</span>
+                <Edit2 className="w-4 h-4" />
               </button>
               <button
                 onClick={() => handleDeleteProduct(p.id, p.name)}
-                className="p-2 bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 rounded-xl transition border border-slate-700"
+                className="p-2 text-slate-400 hover:text-rose-400 rounded-xl hover:bg-slate-800 transition"
                 title="Löschen"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="w-4 h-4" />
               </button>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Product Edit / Create Modal */}
+      {/* Modal Bearbeiten / Neu */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4 my-8">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-xl w-full shadow-2xl space-y-4 my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <h3 className="font-extrabold text-lg text-white">
                 {editingProduct ? 'Artikel bearbeiten' : 'Neuen Artikel anlegen'}
@@ -371,6 +427,19 @@ export default function AdminProductsPage() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-bold focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">
+                  Kurzname für Thermobondruck (optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="z. B. Bratw. Senf"
+                  value={formData.alternativeTicketName}
+                  onChange={(e) => setFormData({ ...formData, alternativeTicketName: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:ring-1 focus:ring-blue-500"
                 />
               </div>
 
@@ -410,46 +479,114 @@ export default function AdminProductsPage() {
                 </div>
               </div>
 
-              {/* Category & Beverage Tag */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">Warengruppe</label>
-                  <select
-                    required
-                    value={formData.categoryId}
-                    onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                  >
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">Getränke-Kategorie</label>
-                  <select
-                    value={formData.subCategory}
-                    onChange={(e) => setFormData({ ...formData, subCategory: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                  >
-                    <option value="">Kein Getränke-Tag</option>
-                    <option value="BIER">🍺 Bier & Radler</option>
-                    <option value="WEIN">🍷 Wein & Schorle</option>
-                    <option value="ALKOHOLFREI">🥤 Alkoholfrei / Softdrinks</option>
-                    <option value="HEISS">☕ Kaffee & Tee</option>
-                    <option value="BAR">🍸 Bar & Spirituosen</option>
-                  </select>
+              {/* Jugendschutz & Altersprüfung */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+                <label className="flex items-center gap-2 text-xs font-bold text-white cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.hasAgeRestriction}
+                    onChange={(e) => setFormData({ ...formData, hasAgeRestriction: e.target.checked })}
+                    className="rounded text-red-600 focus:ring-0"
+                  />
+                  <span className="flex items-center gap-1.5 text-red-300">
+                    <ShieldAlert className="w-4 h-4 text-red-400" />
+                    Jugendschutz-Altersprüfung aktivieren (Spec V2 §6.1)
+                  </span>
+                </label>
+
+                {formData.hasAgeRestriction && (
+                  <div className="pt-2">
+                    <label className="text-[11px] font-bold text-slate-400 block mb-1">
+                      Mindestalter (Jahre):
+                    </label>
+                    <select
+                      value={formData.minAge || 16}
+                      onChange={(e) => setFormData({ ...formData, minAge: parseInt(e.target.value, 10) })}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
+                    >
+                      <option value={16}>16 Jahre (Bier, Wein, Sekt)</option>
+                      <option value={18}>18 Jahre (Spirituosen, Cocktails, Tabak)</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Happy Hour Preisgestaltung */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-3">
+                <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4" /> Zeitgesteuerte Aktionspreise / Happy Hour (Spec V2 §6.5)
+                </span>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-400 block mb-1">Aktionspreis (€)</label>
+                    <input
+                      type="number"
+                      step="0.10"
+                      placeholder="z. B. 3.50"
+                      value={formData.happyHourPrice}
+                      onChange={(e) => setFormData({ ...formData, happyHourPrice: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-400 block mb-1">Startzeit</label>
+                    <input
+                      type="time"
+                      value={formData.happyHourStart}
+                      onChange={(e) => setFormData({ ...formData, happyHourStart: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-400 block mb-1">Endzeit</label>
+                    <input
+                      type="time"
+                      value={formData.happyHourEnd}
+                      onChange={(e) => setFormData({ ...formData, happyHourEnd: e.target.value })}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-mono"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Stock Management Box */}
+              {/* Allergene (LMIV 14 EU Allergene) */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+                <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 text-blue-400" />
+                  Enthaltene Allergene (LMIV - Spec V2 §6.4)
+                </span>
+                <div className="grid grid-cols-2 gap-2 text-xs max-h-36 overflow-y-auto p-1">
+                  {EU_ALLERGENS.map((a) => {
+                    const isChecked = formData.allergens.includes(a.code);
+                    return (
+                      <label key={a.code} className="flex items-center gap-1.5 cursor-pointer text-slate-400 hover:text-white">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              allergens: isChecked
+                                ? prev.allergens.filter((c) => c !== a.code)
+                                : [...prev.allergens, a.code],
+                            }));
+                          }}
+                          className="rounded text-blue-600 focus:ring-0"
+                        />
+                        <span className="truncate">{a.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Bestandsführung & Meldebestand */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                     <Package className="w-4 h-4 text-blue-400" />
-                    <span>Bestand für diesen Artikel überwachen</span>
+                    <span>Bestand & Meldebestand überwachen (Spec V2 §6.3)</span>
                   </span>
                   <input
                     type="checkbox"
@@ -463,7 +600,7 @@ export default function AdminProductsPage() {
                   <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
                     <div>
                       <label className="text-[11px] font-bold text-slate-400 block mb-1">
-                        Aktueller Bestand (Stk./Portionen)
+                        Aktueller Bestand (Stk.)
                       </label>
                       <input
                         type="number"
@@ -475,14 +612,14 @@ export default function AdminProductsPage() {
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] font-bold text-slate-400 block mb-1">
-                        Warnschwelle (Stk.)
+                      <label className="text-[11px] font-bold text-amber-400 block mb-1">
+                        Meldebestand für Warnung
                       </label>
                       <input
                         type="number"
-                        value={formData.stockAlertThreshold}
+                        value={formData.minStockAlert || 10}
                         onChange={(e) =>
-                          setFormData({ ...formData, stockAlertThreshold: parseInt(e.target.value, 10) || 0 })
+                          setFormData({ ...formData, minStockAlert: parseInt(e.target.value, 10) || 0 })
                         }
                         className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-bold"
                       />
@@ -491,7 +628,21 @@ export default function AdminProductsPage() {
                 )}
               </div>
 
-              {/* Lock / Sold Out Checkbox */}
+              {/* Wertmarken / Gutschein Checkbox */}
+              <div className="flex items-center gap-2 p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                <input
+                  type="checkbox"
+                  id="isTokenProduct"
+                  checked={formData.isTokenProduct}
+                  onChange={(e) => setFormData({ ...formData, isTokenProduct: e.target.checked })}
+                  className="w-4 h-4 rounded text-purple-600"
+                />
+                <label htmlFor="isTokenProduct" className="text-xs text-purple-300 font-bold cursor-pointer">
+                  Dieser Artikel ist eine Fest-Wertmarke / Verzehrbon (Spec V2 §6.2)
+                </label>
+              </div>
+
+              {/* Ausverkauft Checkbox */}
               <div className="flex items-center gap-2 p-3 bg-slate-950 rounded-2xl border border-slate-800">
                 <input
                   type="checkbox"

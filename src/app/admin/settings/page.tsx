@@ -28,9 +28,18 @@ import {
 import { APP_VERSION, APP_IS_BETA } from '@/lib/version';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import { parseAndValidateLicense, LicenseData } from '@/lib/license';
+import type { EventConfigDTO } from '@/types/domain';
+
+interface AutostartInfo {
+  autostartEnabled: boolean;
+  platform?: string;
+  serviceName?: string;
+  message?: string;
+}
 
 export default function AdminSettingsPage() {
-  const [config, setConfig] = useState<any>(null);
+  const [config, setConfig] = useState<EventConfigDTO | null>(null);
+  const [zvtProbe, setZvtProbe] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -52,19 +61,26 @@ export default function AdminSettingsPage() {
   });
 
   // Autostart State
-  const [autostartInfo, setAutostartInfo] = useState<any>(null);
+  const [autostartInfo, setAutostartInfo] = useState<AutostartInfo | null>(null);
   const [togglingAutostart, setTogglingAutostart] = useState(false);
+
+  // Printers State for Low Stock Alert
+  const [printers, setPrinters] = useState<any[]>([]);
 
   const fetchConfig = async () => {
     try {
-      const [cfgRes, autoRes] = await Promise.all([
+      const [cfgRes, autoRes, printRes] = await Promise.all([
         fetch('/api/config'),
         fetch('/api/system/autostart'),
+        fetch('/api/printers'),
       ]);
       const data = await cfgRes.json();
       const autoData = await autoRes.json();
+      const printData = await printRes.json();
+
       setConfig(data);
       setAutostartInfo(autoData);
+      if (Array.isArray(printData)) setPrinters(printData);
 
       const parsedLic = parseAndValidateLicense(data.licenseKey || '');
       setLicenseInfo(parsedLic);
@@ -88,7 +104,7 @@ export default function AdminSettingsPage() {
       });
       const data = await res.json();
       if (data.success) {
-        setAutostartInfo((prev: any) => ({ ...prev, autostartEnabled: nextVal }));
+        setAutostartInfo((prev) => (prev ? { ...prev, autostartEnabled: nextVal } : prev));
       }
     } catch {
       alert('Fehler beim Ändern des Autostarts.');
@@ -355,19 +371,32 @@ export default function AdminSettingsPage() {
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-lg space-y-4">
             <h2 className="text-base font-extrabold text-white flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-blue-400" />
-              <span>Kartenzahlungs-Dienste (SumUp & VR-Pay Me)</span>
+              <span>Kartenzahlung: SumUp, VR-Pay Me, Sparkasse &amp; ZVT</span>
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-bold text-slate-400 block mb-1">
-                  SumUp Merchant Code / Affiliate Key
+                  SumUp Merchant Code
                 </label>
                 <input
                   type="text"
                   placeholder="z. B. M1234567"
                   value={config.sumupMerchantCode || ''}
                   onChange={(e) => setConfig({ ...config, sumupMerchantCode: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">
+                  SumUp Affiliate-Key (App-to-App)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Affiliate-Key aus dem SumUp-Entwicklerportal"
+                  value={config.sumupAppId || ''}
+                  onChange={(e) => setConfig({ ...config, sumupAppId: e.target.value })}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
                 />
               </div>
@@ -384,6 +413,129 @@ export default function AdminSettingsPage() {
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
                 />
               </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">
+                  Sparkasse S-POS Händler-ID
+                </label>
+                <input
+                  type="text"
+                  placeholder="z. B. SPK-4711"
+                  value={config.sparkasseMerchantId || ''}
+                  onChange={(e) => setConfig({ ...config, sparkasseMerchantId: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-800">
+              <h3 className="text-xs font-extrabold text-slate-300 uppercase tracking-wider mb-3">
+                EC-Terminal über ZVT-over-IP
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">Terminal-IP</label>
+                  <input
+                    type="text"
+                    placeholder="z. B. 192.168.1.50"
+                    value={config.zvtHost || ''}
+                    onChange={(e) => setConfig({ ...config, zvtHost: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">
+                    Port (20007 / 20002 / 40007)
+                  </label>
+                  <input
+                    type="number"
+                    value={config.zvtPort ?? 20007}
+                    onChange={(e) => setConfig({ ...config, zvtPort: parseInt(e.target.value, 10) || 20007 })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">
+                    Terminal-Passwort
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={config.zvtPassword || '000000'}
+                    onChange={(e) => setConfig({ ...config, zvtPassword: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono tracking-widest"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/payments/card', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ probeOnly: true }),
+                    });
+                    const data = await res.json();
+                    setZvtProbe(
+                      data.reachable
+                        ? `Terminal erreichbar (${data.host}:${data.port})`
+                        : data.error || 'Terminal nicht erreichbar.'
+                    );
+                  } catch {
+                    setZvtProbe('Verbindungstest fehlgeschlagen.');
+                  }
+                }}
+                className="mt-3 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-bold text-slate-200"
+              >
+                Terminal-Verbindung testen
+              </button>
+              {zvtProbe && (
+                <p className="mt-2 text-xs font-bold text-amber-300">{zvtProbe}</p>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-800">
+              <label className="text-xs font-bold text-slate-400 block mb-1">
+                Basis-URL für App-Rücksprung (Callback)
+              </label>
+              <input
+                type="text"
+                placeholder="http://openbon.local"
+                value={config.baseUrl || ''}
+                onChange={(e) => setConfig({ ...config, baseUrl: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
+              />
+              <p className="text-[11px] text-slate-500 font-semibold mt-1">
+                Muss der Adresse entsprechen, unter der die Tablets den Server erreichen – sonst
+                finden SumUp, VR-Pay Me und S-POS nach der Zahlung nicht zurück.
+              </p>
+            </div>
+          </div>
+
+          {/* Card 3b: Tablett-Limit */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-lg space-y-4">
+            <h2 className="text-base font-extrabold text-white flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-amber-400" />
+              <span>Tablett-Limit &amp; Bon-Splitting</span>
+            </h2>
+            <div>
+              <label className="text-xs font-bold text-slate-400 block mb-1">
+                Globales Tablett-Limit (Positionen pro Bon)
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={config.trayMaxItems ?? 6}
+                onChange={(e) => setConfig({ ...config, trayMaxItems: parseInt(e.target.value, 10) || 0 })}
+                className="w-full sm:w-48 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono font-bold"
+              />
+              <p className="text-[11px] text-slate-500 font-semibold mt-1">
+                Greift, wenn eine Druckgruppe kein eigenes Limit hat. 0 = unbegrenzt. Übersteigt
+                eine Bestellung das Limit, wird der Druck automatisch auf mehrere Bons mit
+                Kopfzeile &bdquo;BON 1 von 3&ldquo; aufgeteilt.
+              </p>
             </div>
           </div>
 
@@ -422,6 +574,86 @@ export default function AdminSettingsPage() {
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Card 4b: Spec V2 Zusatzmodule & Automatisierung */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-lg space-y-4">
+            <h2 className="text-base font-extrabold text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-purple-400" />
+              <span>Spec V2 Erweiterungen &amp; Automatisierung</span>
+            </h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
+                <div>
+                  <div className="text-xs font-bold text-white">Jugendschutz-Altersprüfung</div>
+                  <div className="text-[11px] text-slate-400">Geburtsdatum-Anzeige auf Kasse/Mobilteil (§6.1)</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={config.enableAgeVerificationAlerts ?? true}
+                  onChange={(e) => setConfig({ ...config, enableAgeVerificationAlerts: e.target.checked })}
+                  className="w-4 h-4 rounded text-blue-600"
+                />
+              </label>
+
+              <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
+                <div>
+                  <div className="text-xs font-bold text-white">Digitaler E-Bon QR-Code</div>
+                  <div className="text-[11px] text-slate-400">Papierloser Belegabruf nach §33 KassenSichV (§5.2)</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={config.enableDigitalReceiptQr ?? true}
+                  onChange={(e) => setConfig({ ...config, enableDigitalReceiptQr: e.target.checked })}
+                  className="w-4 h-4 rounded text-emerald-600"
+                />
+              </label>
+
+              <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
+                <div>
+                  <div className="text-xs font-bold text-white">Gäste-Selbstbestellung (BYOD)</div>
+                  <div className="text-[11px] text-slate-400">QR-Code Tischbestellungen freischalten (§4.1)</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={config.enableGuestSelfOrder ?? true}
+                  onChange={(e) => setConfig({ ...config, enableGuestSelfOrder: e.target.checked })}
+                  className="w-4 h-4 rounded text-blue-600"
+                />
+              </label>
+
+              <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
+                <div>
+                  <div className="text-xs font-bold text-white">SB-Kiosk Terminal Modus</div>
+                  <div className="text-[11px] text-slate-400">Eigenständiges Kiosk-Bestellterminal (§4.2)</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={config.enableKioskMode ?? true}
+                  onChange={(e) => setConfig({ ...config, enableKioskMode: e.target.checked })}
+                  className="w-4 h-4 rounded text-amber-600"
+                />
+              </label>
+            </div>
+
+            <div className="pt-2">
+              <label className="text-xs font-bold text-slate-400 block mb-1">
+                Warndrucker für Meldebestand-Unterschreitung (optional, Spec V2 §6.3):
+              </label>
+              <select
+                value={config.lowStockAlertPrinterId || ''}
+                onChange={(e) => setConfig({ ...config, lowStockAlertPrinterId: e.target.value || null })}
+                className="w-full sm:w-80 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+              >
+                <option value="">Kein automatischer Ausdruck (nur Bildschirmanzeige)</option>
+                {printers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.ipAddress})
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import TicketSplitter from '@/lib/printer/ticket-splitter';
 import haService from '@/lib/ha/ha-service';
+import { getEffectiveProductPrice } from '@/lib/pricing';
+import { checkAndTriggerLowStockAlert } from '@/lib/low-stock-notifier';
 
 export async function GET(req: Request) {
   try {
@@ -10,7 +12,7 @@ export async function GET(req: Request) {
     const status = searchParams.get('status');
     const isKds = searchParams.get('kds') === 'true';
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
     if (tableId) where.tableId = tableId;
     if (status) where.status = status;
 
@@ -39,15 +41,14 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json(orders);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    // Body: { tableId, waiterName, deviceId, orderType, items: [{ productId, quantity, variantName, selectedOptions, customizationText }] }
     
     // 1. Get Event config for sequence and training mode
     const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
     let tokenNumber: number | null = null;
     let nextOrderNum = (config?.orderSequence || 1);
 
-    if (body.orderType === 'COUNTER_VOUCHER' || body.orderType === 'COUNTER_DIRECT') {
+    if (body.orderType === 'COUNTER_VOUCHER' || body.orderType === 'COUNTER_DIRECT' || body.orderType === 'KIOSK') {
       tokenNumber = config?.tokenSequence || 100;
       await prisma.eventConfig.update({
         where: { id: 'default' },
@@ -75,12 +76,14 @@ export async function POST(req: Request) {
     }
 
     // 2. Fetch product details
-    const productIds = body.items.map((i: any) => i.productId);
+    const productIds = (body.items as { productId: string }[]).map((i) => i.productId);
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
       include: { stockItem: true },
     });
     const productMap = new Map(products.map((p) => [p.id, p]));
+
+    const now = new Date();
 
     // Check stock limits & compute item prices
     const orderItemsData = [];
@@ -96,7 +99,9 @@ export async function POST(req: Request) {
         );
       }
 
-      let unitPrice = prod.price;
+      const { price: effectiveBasePrice } = getEffectiveProductPrice(prod, now);
+      let unitPrice = effectiveBasePrice;
+
       // Add variant price delta
       if (item.variantName) {
         const variant = await prisma.productVariant.findFirst({
@@ -123,9 +128,12 @@ export async function POST(req: Request) {
         deposit: prod.deposit || 0,
         taxRate: prod.taxRate || 19,
         variantName: item.variantName || null,
-        selectedOptions: item.selectedOptions ? JSON.stringify(item.selectedOptions) : null,
+        selectedOptions: item.selectedOptions ? (typeof item.selectedOptions === 'string' ? item.selectedOptions : JSON.stringify(item.selectedOptions)) : null,
         customizationText: item.customizationText || null,
-        printStatus: 'PENDING',
+        // Spec 6.5: Gang-Steuerung & Zurueckhalten
+        courseNumber: Number(item.courseNumber) > 0 ? Number(item.courseNumber) : 1,
+        isHold: Boolean(item.isHold),
+        printStatus: item.isHold ? 'HELD' : 'PENDING',
         kdsStatus: 'PENDING',
       });
 
@@ -153,8 +161,10 @@ export async function POST(req: Request) {
       data: {
         orderNumber: nextOrderNum,
         tableId: body.tableId || null,
+        waiterId: body.waiterId || null,
         waiterName: body.waiterName || 'Bedienung',
         deviceId: body.deviceId || null,
+        source: body.source || 'WAITER',
         status: 'OPEN',
         orderType: body.orderType || 'TABLE',
         tokenNumber,
@@ -184,7 +194,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // Deduct stock for tracked products
+    // Deduct stock for tracked products & check low-stock alerts
     for (const item of order.items) {
       if (item.product.trackStock) {
         const newQty = Math.max(0, item.product.stockQuantity - item.quantity);
@@ -196,6 +206,9 @@ export async function POST(req: Request) {
             isSoldOut: autoSoldOut ? true : item.product.isSoldOut,
           },
         });
+
+        await checkAndTriggerLowStockAlert(item.productId, newQty);
+
         if (global.io) {
           global.io.emit('product:updated', updatedProd);
           if (autoSoldOut) {
@@ -207,7 +220,7 @@ export async function POST(req: Request) {
 
     // 4. Trigger Ticket Routing & ESC/POS Printing
     try {
-      await TicketSplitter.routeAndPrintOrder({
+      const { printedItemIds } = await TicketSplitter.routeAndPrintOrder({
         id: order.id,
         orderNumber: order.orderNumber,
         tableLabel: table?.label || (tokenNumber ? `Abholmarke #${tokenNumber}` : 'Theke'),
@@ -226,14 +239,17 @@ export async function POST(req: Request) {
           variantName: i.variantName,
           selectedOptions: i.selectedOptions,
           customizationText: i.customizationText,
+          courseNumber: i.courseNumber,
+          isHold: i.isHold,
         })),
       });
 
-      // Mark order items as printed
-      await prisma.orderItem.updateMany({
-        where: { orderId: order.id },
-        data: { printStatus: 'PRINTED' },
-      });
+      if (printedItemIds.length > 0) {
+        await prisma.orderItem.updateMany({
+          where: { id: { in: printedItemIds } },
+          data: { printStatus: 'PRINTED' },
+        });
+      }
     } catch (printErr) {
       console.error('Error during ticket print spooling:', printErr);
     }
@@ -244,12 +260,14 @@ export async function POST(req: Request) {
     // 6. Broadcast Realtime WebSocket Events
     if (global.io) {
       global.io.emit('order:new', order);
-      global.io.emit('table:updated', { tableId: body.tableId, status: 'OCCUPIED' });
+      if (body.tableId) {
+        global.io.emit('table:updated', { tableId: body.tableId, status: 'OCCUPIED' });
+      }
     }
 
     return NextResponse.json(order);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error creating order:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

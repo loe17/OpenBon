@@ -17,6 +17,20 @@ import {
 } from 'lucide-react';
 import { APP_VERSION, GITHUB_REPO_URL } from '@/lib/version';
 import { triggerHapticFeedback } from '@/lib/socket-client';
+interface SystemInfo {
+  currentVersion?: string;
+  latestVersion?: string;
+  behindBy?: number;
+  branch?: string;
+  localCommit?: string;
+  remoteStatus?: string;
+  nodeVersion?: string;
+  arch?: string;
+  uptime?: number;
+  commits?: { hash: string; message: string; date: string; author?: string }[];
+  hasUpdate?: boolean;
+  message?: string;
+}
 
 interface TerminalLog {
   id: string;
@@ -27,7 +41,7 @@ interface TerminalLog {
 }
 
 export default function AdminSystemUpdatePage() {
-  const [sysInfo, setSysInfo] = useState<any>(null);
+  const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null);
   const [checking, setChecking] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [commandInput, setCommandInput] = useState('');
@@ -60,8 +74,8 @@ export default function AdminSystemUpdatePage() {
       } else {
         addTerminalLog(`[STATUS] Branch: ${data.branch || 'master'} | Commit: ${data.localCommit || '-'} | Remote: Aktuell`);
       }
-    } catch (e: any) {
-      addTerminalLog(`Fehler bei Statusprüfung: ${e.message}`, true);
+    } catch (e) {
+      addTerminalLog(`Fehler bei Statusprüfung: ${e instanceof Error ? e.message : String(e)}`, true);
     } finally {
       setChecking(false);
     }
@@ -106,8 +120,8 @@ export default function AdminSystemUpdatePage() {
       } else {
         addTerminalLog(data.stderr || data.error || 'Ausführungsfehler', true, cmd);
       }
-    } catch (e: any) {
-      addTerminalLog(`Netzwerkfehler: ${e.message}`, true, cmd);
+    } catch (e) {
+      addTerminalLog(`Netzwerkfehler: ${e instanceof Error ? e.message : String(e)}`, true, cmd);
     } finally {
       setExecuting(false);
     }
@@ -164,8 +178,8 @@ export default function AdminSystemUpdatePage() {
       } else {
         addTerminalLog(`[UPDATE FEHLGESCHLAGEN]: ${data.error}`, true);
       }
-    } catch (e: any) {
-      addTerminalLog(`[FEHLER]: ${e.message}`, true);
+    } catch (e) {
+      addTerminalLog(`[FEHLER]: ${e instanceof Error ? e.message : String(e)}`, true);
     } finally {
       setUpdating(false);
     }

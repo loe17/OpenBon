@@ -13,13 +13,25 @@ import {
   Sparkles,
   Ban,
   Check,
+  Beer,
 } from 'lucide-react';
+import type { ProductDTO } from '@/types/domain';
+
+/** Eine Zeile aus /api/inventory */
+interface InventoryRow {
+  id: string;
+  productId: string;
+  product: ProductDTO;
+  currentQuantity: number;
+  alertThreshold: number;
+  isSoldOut: boolean;
+}
 
 export default function AdminInventoryPage() {
   const { socket } = useSocket();
-  const [stockItems, setStockItems] = useState<any[]>([]);
+  const [stockItems, setStockItems] = useState<InventoryRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [restockModal, setRestockModal] = useState<any>(null);
+  const [restockModal, setRestockModal] = useState<InventoryRow | null>(null);
   const [addAmount, setAddAmount] = useState<number>(50);
 
   const fetchStock = async () => {
@@ -214,7 +226,10 @@ export default function AdminInventoryPage() {
                       className="py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition border border-slate-700"
                       title="100 Stk. (z. B. 50L Fass / Kiste)"
                     >
-                      +100 🍺
+                      <span className="inline-flex items-center justify-center gap-1">
+                        <span>+100</span>
+                        <Beer className="w-3.5 h-3.5" />
+                      </span>
                     </button>
                     <button
                       onClick={() => {

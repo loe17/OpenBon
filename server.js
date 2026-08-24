@@ -135,6 +135,41 @@ app.prepare().then(() => {
     console.log(`[HA]      HA-Rolle:     ${process.env.HA_ROLE || 'PRIMARY'}`);
     console.log(`==================================================\n`);
 
+    // Spec 7.2: Self-Healing Selbstdiagnose bei Serverstart und danach alle 60 Sekunden.
+    // Der Aufruf erfolgt über die eigene HTTP-API, damit exakt dieselbe Logik läuft
+    // wie beim manuellen Auslösen aus dem Admin-Bereich.
+    const runDiagnostics = () => {
+      const req = require('http').request(
+        { host: '127.0.0.1', port, path: '/api/system/diagnostics', method: 'POST', timeout: 30000 },
+        (res) => {
+          let body = '';
+          res.on('data', (chunk) => (body += chunk));
+          res.on('end', () => {
+            try {
+              const result = JSON.parse(body);
+              if (result.status && result.status !== 'OK') {
+                console.warn(
+                  `[DIAGNOSE] Status ${result.status} – ${result.repairsCount} Reparatur(en) durchgeführt.`
+                );
+                for (const check of result.checks || []) {
+                  if (check.status !== 'OK') {
+                    console.warn(`[DIAGNOSE]   ${check.label}: ${check.detail}`);
+                  }
+                }
+              }
+            } catch {}
+          });
+        }
+      );
+      req.on('error', () => {});
+      req.on('timeout', () => req.destroy());
+      req.end();
+    };
+
+    setTimeout(runDiagnostics, 4000);
+    const diagnosticsTimer = setInterval(runDiagnostics, 60000);
+    diagnosticsTimer.unref?.();
+
     // Start lightweight Zero-Config mDNS responder for openbon.local
     try {
       const dgram = require('dgram');

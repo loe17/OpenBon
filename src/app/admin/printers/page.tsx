@@ -107,7 +107,7 @@ export default function AdminPrintersPage() {
     }
   };
 
-  const handleAddScannedPrinter = async (p: any) => {
+  const handleAddScannedPrinter = async (p: { ip: string; port: number; name?: string }) => {
     try {
       await fetch('/api/printers', {
         method: 'POST',

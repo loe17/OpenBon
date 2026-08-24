@@ -21,16 +21,27 @@ import {
   Trophy,
   Landmark,
   PlusCircle,
+  Lock,
+  X,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
+import type { ReportSummary, PrinterDTO, ZBonPreview } from '@/types/domain';
 
 export default function AdminReportsPage() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<ReportSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [printers, setPrinters] = useState<any[]>([]);
+  const [printers, setPrinters] = useState<PrinterDTO[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = useState('');
   const [activeTab, setActiveTab] = useState<'FORECAST' | 'CHARTS' | 'WAITERS' | 'ITEMS'>('FORECAST');
+
+  // Spec 6.7: X-Bon (Zwischenstand) und Z-Bon (echter Tagesabschluss)
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [closePin, setClosePin] = useState('');
+  const [cashCounted, setCashCounted] = useState('');
+  const [closeBusy, setCloseBusy] = useState(false);
+  const [closeResult, setCloseResult] = useState<string | null>(null);
+  const [zPreview, setZPreview] = useState<ZBonPreview | null>(null);
 
   const fetchReports = async () => {
     try {
@@ -57,44 +68,83 @@ export default function AdminReportsPage() {
     fetchReports();
   }, []);
 
-  const handlePrintZBon = async () => {
-    if (!selectedPrinterId) {
-      alert('Bitte wähle zuerst einen Bondrucker aus.');
-      return;
-    }
-
+  /** Spec 6.7: X-Bon – Zwischenbericht ohne Kassenabschluss */
+  const handlePrintXBon = async () => {
+    triggerHapticFeedback();
     try {
-      const res = await fetch('/api/printers', {
+      const res = await fetch('/api/reports/x-bon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ printerId: selectedPrinterId || undefined }),
+      });
+      const body = await res.json();
+      setCloseResult(
+        res.ok
+          ? 'X-Bon gedruckt. Die Kasse bleibt geöffnet, Zähler unverändert.'
+          : body.error || 'X-Bon konnte nicht gedruckt werden.'
+      );
+    } catch {
+      setCloseResult('Drucker nicht erreichbar.');
+    }
+  };
+
+  /** Spec 6.7: Z-Bon-Dialog mit Vorschau der abzuschließenden Periode */
+  const openCloseModal = async () => {
+    triggerHapticFeedback();
+    setClosePin('');
+    setCashCounted('');
+    setCloseResult(null);
+    try {
+      const res = await fetch('/api/reports/z-bon');
+      setZPreview(await res.json());
+    } catch {
+      setZPreview(null);
+    }
+    setShowCloseModal(true);
+  };
+
+  /** Spec 6.7: Tagesabschluss durchführen */
+  const handleCloseRegister = async () => {
+    setCloseBusy(true);
+    try {
+      const res = await fetch('/api/reports/z-bon', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'PRINT_ZBON',
-          printerId: selectedPrinterId,
-          reportData: data,
+          pin: closePin,
+          closedBy: localStorage.getItem('pos_waiter_name') || 'Admin',
+          cashCounted: cashCounted ? Number(cashCounted.replace(',', '.')) : undefined,
+          printerId: selectedPrinterId || undefined,
+          print: true,
         }),
       });
-
+      const body = await res.json();
       if (res.ok) {
-        alert('Z-Bon Kassenabschluss erfolgreich an den Drucker gesendet!');
+        setCloseResult(
+          `Tagesabschluss Z-${String(body.period?.periodNumber ?? 0).padStart(4, '0')} erfolgreich. Zähler zurückgesetzt.`
+        );
+        setShowCloseModal(false);
+        fetchReports();
       } else {
-        const err = await res.json();
-        alert(`Druckfehler beim Z-Bon: ${err.error || 'Unbekannt'}`);
+        setCloseResult(body.error || 'Tagesabschluss fehlgeschlagen.');
       }
-    } catch (e) {
-      alert('Druckfehler beim Z-Bon');
+    } catch {
+      setCloseResult('Verbindungsfehler beim Tagesabschluss.');
+    } finally {
+      setCloseBusy(false);
     }
   };
 
   const maxHourlyGross = data?.hourlySales
-    ? Math.max(...data.hourlySales.map((h: any) => h.grossAmount), 1)
+    ? Math.max(...data.hourlySales.map((h) => h.grossAmount), 1)
     : 1;
 
   const maxProductQty = data?.topProducts
-    ? Math.max(...data.topProducts.slice(0, 10).map((p: any) => p.quantity), 1)
+    ? Math.max(...data.topProducts.slice(0, 10).map((p) => p.quantity), 1)
     : 1;
 
   const maxWaiterGross = data?.waiters
-    ? Math.max(...data.waiters.map((w: any) => w.totalGross), 1)
+    ? Math.max(...data.waiters.map((w) => w.totalGross), 1)
     : 1;
 
   return (
@@ -129,11 +179,19 @@ export default function AdminReportsPage() {
           )}
 
           <button
-            onClick={handlePrintZBon}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-bold text-white transition shadow"
+            onClick={handlePrintXBon}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-bold text-slate-200 transition"
           >
-            <Printer className="w-4 h-4" />
-            <span>Z-Bon drucken</span>
+            <Printer className="w-4 h-4 text-amber-400" />
+            <span>X-Bon (Zwischenstand)</span>
+          </button>
+
+          <button
+            onClick={openCloseModal}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-rose-600 hover:bg-rose-500 rounded-xl text-xs font-bold text-white transition shadow"
+          >
+            <Lock className="w-4 h-4" />
+            <span>Z-Bon Tagesabschluss</span>
           </button>
 
           <a
@@ -154,7 +212,7 @@ export default function AdminReportsPage() {
         </div>
       </div>
 
-      {loading ? (
+      {loading || !data ? (
         <div className="flex items-center justify-center h-48 text-slate-400">
           <RefreshCw className="w-6 h-6 animate-spin mr-2" />
           <span>Lade Daten & berechne Trend-Prognosen...</span>
@@ -198,19 +256,19 @@ export default function AdminReportsPage() {
 
           {/* Sub Navigation Tabs */}
           <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded-2xl border border-slate-800 w-fit">
-            {[
+            {([
               { id: 'FORECAST', label: 'Prognose & Bedarf', icon: Sparkles },
               { id: 'CHARTS', label: 'Umsatz & Zahlungsarten', icon: TrendingUp },
               { id: 'WAITERS', label: 'Kellner-Performance & Z-Bon', icon: Trophy },
               { id: 'ITEMS', label: 'Top-Seller Ranking', icon: BarChart3 },
-            ].map((t) => {
+            ] as const).map((t) => {
               const Icon = t.icon;
               return (
                 <button
                   key={t.id}
                   onClick={() => {
                     triggerHapticFeedback();
-                    setActiveTab(t.id as any);
+                    setActiveTab(t.id);
                   }}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition ${
                     activeTab === t.id
@@ -290,7 +348,7 @@ export default function AdminReportsPage() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {data.forecast.criticalStockAlerts?.map((alert: any, idx: number) => (
+                    {data.forecast.criticalStockAlerts?.map((alert, idx: number) => (
                       <div
                         key={idx}
                         className={`p-4 rounded-2xl border-2 ${
@@ -403,7 +461,7 @@ export default function AdminReportsPage() {
                   </div>
 
                   <div className="h-60 flex items-end gap-1.5 sm:gap-2 px-2 pt-6 border-b border-slate-700">
-                    {data.hourlySales?.map((h: any) => {
+                    {data.hourlySales?.map((h) => {
                       const heightPercent = Math.max(6, Math.round((h.grossAmount / maxHourlyGross) * 100));
                       const isPeak = h.grossAmount === maxHourlyGross && h.grossAmount > 0;
 
@@ -443,7 +501,7 @@ export default function AdminReportsPage() {
                   </div>
 
                   <div className="space-y-4 my-auto">
-                    {data.categoryBreakdown?.map((cat: any) => (
+                    {data.categoryBreakdown?.map((cat) => (
                       <div key={cat.id}>
                         <div className="flex justify-between text-xs font-bold mb-1">
                           <span className="text-slate-200">{cat.name} ({cat.count} Stk.)</span>
@@ -474,7 +532,7 @@ export default function AdminReportsPage() {
                 </h3>
 
                 <div className="space-y-3">
-                  {data.waiters?.map((w: any) => {
+                  {data.waiters?.map((w) => {
                     const widthPercent = Math.round((w.totalGross / maxWaiterGross) * 100);
                     return (
                       <div key={w.waiterName} className="p-4 bg-slate-950 rounded-2xl border border-slate-800">
@@ -536,7 +594,7 @@ export default function AdminReportsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
-                    {data.waiters?.map((w: any) => (
+                    {data.waiters?.map((w) => (
                       <tr key={w.waiterName}>
                         <td className="py-3 font-bold text-slate-400">#{w.rank}</td>
                         <td className="py-3 font-bold text-white">{w.waiterName}</td>
@@ -563,7 +621,7 @@ export default function AdminReportsPage() {
               </h3>
 
               <div className="space-y-3">
-                {data.topProducts?.slice(0, 15).map((prod: any, idx: number) => {
+                {data.topProducts?.slice(0, 15).map((prod, idx: number) => {
                   const widthPercent = Math.round((prod.quantity / maxProductQty) * 100);
                   return (
                     <div key={prod.name} className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
@@ -587,6 +645,121 @@ export default function AdminReportsPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Spec 6.7: Z-Bon Tagesabschluss */}
+      {showCloseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-rose-900 rounded-3xl p-5 sm:p-6 w-full max-w-lg shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-rose-600/20 text-rose-400 rounded-2xl border border-rose-800">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-white">Tagesabschluss (Z-Bon)</h3>
+                  <p className="text-xs text-slate-400">
+                    Schließt die Kassenperiode und setzt die Zähler zurück
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCloseModal(false)}
+                className="p-2 text-slate-400 rounded-xl bg-slate-800"
+                aria-label="Schließen"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {zPreview && !zPreview.error && (
+              <div className="grid grid-cols-2 gap-2.5">
+                {[
+                  { label: 'Periode', value: `Z-${String(zPreview.periodNumber ?? 0).padStart(4, '0')}` },
+                  { label: 'Belege', value: String(zPreview.transactionCount ?? 0) },
+                  { label: 'Umsatz brutto', value: formatCurrency(zPreview.totalGross ?? 0) },
+                  { label: 'MwSt 19 %', value: formatCurrency(zPreview.taxAmount19 ?? 0) },
+                  { label: 'MwSt 7 %', value: formatCurrency(zPreview.taxAmount7 ?? 0) },
+                  { label: 'Bar-Soll', value: formatCurrency(zPreview.cashExpected ?? 0) },
+                ].map((k) => (
+                  <div key={k.label} className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
+                    <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                      {k.label}
+                    </div>
+                    <div className="font-mono font-black text-base text-white mt-0.5">{k.value}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div>
+              <label className="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">
+                Gezähltes Bargeld (optional, für Kassensturz)
+              </label>
+              <input
+                inputMode="decimal"
+                value={cashCounted}
+                onChange={(e) => setCashCounted(e.target.value)}
+                placeholder="0,00"
+                className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-lg font-mono font-bold text-white text-right focus:outline-none focus:ring-2 focus:ring-rose-500"
+              />
+              {cashCounted && zPreview?.cashExpected !== undefined && (
+                <p className="text-xs font-bold mt-1.5 text-amber-300">
+                  Differenz zum Bar-Soll:{' '}
+                  {formatCurrency(
+                    (Number(cashCounted.replace(',', '.')) || 0) - (zPreview.cashExpected ?? 0)
+                  )}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">
+                Admin-PIN
+              </label>
+              <input
+                type="password"
+                inputMode="numeric"
+                value={closePin}
+                onChange={(e) => setClosePin(e.target.value)}
+                placeholder="••••"
+                className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-lg font-mono font-bold text-white tracking-[0.4em] text-center focus:outline-none focus:ring-2 focus:ring-rose-500"
+              />
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-amber-950/50 border border-amber-800 text-amber-200 text-xs font-semibold flex gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                Der Abschluss ist endgültig: Der Fiskalblock wird signiert gespeichert, der Z-Bon
+                gedruckt und Bon- sowie Abholnummern werden zurückgesetzt. Offene Tische müssen
+                vorher kassiert oder storniert sein.
+              </span>
+            </div>
+
+            {closeResult && (
+              <p className="text-xs font-bold text-rose-300">{closeResult}</p>
+            )}
+
+            <button
+              onClick={handleCloseRegister}
+              disabled={closeBusy || !closePin}
+              className="w-full h-14 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 disabled:bg-slate-800 disabled:text-slate-500 transition"
+            >
+              {closeBusy ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Lock className="w-5 h-5" />}
+              <span>Kasse abschließen &amp; Z-Bon drucken</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {closeResult && !showCloseModal && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl bg-slate-900 border border-slate-700 text-slate-100 shadow-2xl font-bold text-sm flex items-center gap-2">
+          <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+          <span>{closeResult}</span>
+          <button onClick={() => setCloseResult(null)} className="ml-2 p-1" aria-label="Schließen">
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
     </div>

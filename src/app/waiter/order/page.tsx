@@ -8,17 +8,35 @@ import {
   ArrowLeft,
   Plus,
   Minus,
-  Trash2,
   Send,
   MessageSquarePlus,
-  Check,
   X,
-  Layers,
-  Sparkles,
-  Search,
   RefreshCw,
-  Ban,
+  PauseCircle,
+  PlayCircle,
+  LayoutList,
+  ShieldAlert,
+  Sparkles,
+  Filter,
+  AlertCircle,
 } from 'lucide-react';
+import { SubCategoryIcon } from '@/components/ui/subcategory-icon';
+import { COURSES } from '@/types/domain';
+import { calculateMinBirthdate, EU_ALLERGENS, filterProductsByExcludedAllergens } from '@/lib/compliance';
+import { getEffectiveProductPrice } from '@/lib/pricing';
+import type {
+  DiningTableDTO,
+  ProductCategoryDTO,
+  ProductDTO,
+  ProductVariantDTO,
+} from '@/types/domain';
+import { playConfirm } from '@/lib/audio-feedback';
+
+interface WordGroup {
+  id: string;
+  name: string;
+  words: string;
+}
 
 interface CartItem {
   id: string;
@@ -30,6 +48,10 @@ interface CartItem {
   variantName?: string;
   selectedOptions: string[];
   customizationText?: string;
+  /** Spec 6.5: Gang-Steuerung */
+  courseNumber: number;
+  /** Spec 6.5: Zurückhalten bis zum manuellen Postenabruf */
+  isHold: boolean;
 }
 
 function WaiterOrderContent() {
@@ -38,18 +60,28 @@ function WaiterOrderContent() {
   const tableId = searchParams.get('tableId');
   const waiterFromUrl = searchParams.get('waiterName');
 
-  const [table, setTable] = useState<any>(null);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [table, setTable] = useState<DiningTableDTO | null>(null);
+  const [categories, setCategories] = useState<ProductCategoryDTO[]>([]);
   const [selectedCatId, setSelectedCatId] = useState<string>('');
   const [selectedSubCat, setSelectedSubCat] = useState<string>('ALL');
+  const [selectedAllergens, setSelectedAllergens] = useState<string[]>([]);
+  const [showAllergenFilter, setShowAllergenFilter] = useState(false);
+  const [selectedProductInfo, setSelectedProductInfo] = useState<any | null>(null);
+  const [enableAgeAlerts, setEnableAgeAlerts] = useState(true);
+
+  const minBirth16 = calculateMinBirthdate(16);
+  const minBirth18 = calculateMinBirthdate(18);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [wordGroups, setWordGroups] = useState<any[]>([]);
+  const [wordGroups, setWordGroups] = useState<WordGroup[]>([]);
   const [customizingItem, setCustomizingItem] = useState<CartItem | null>(null);
   const [selectedPrefix, setSelectedPrefix] = useState<string>('');
   const [selectedIngredient, setSelectedIngredient] = useState<string>('');
   const [customText, setCustomText] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [waiterName, setWaiterName] = useState('Bedienung');
+  const [activeCourse, setActiveCourse] = useState<number>(1);
+  const [holdNext, setHoldNext] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const savedWaiter = waiterFromUrl || localStorage.getItem('pos_waiter_name') || 'Bedienung';
@@ -75,30 +107,65 @@ function WaiterOrderContent() {
     if (tableId) {
       fetch('/api/tables')
         .then((r) => r.json())
-        .then((tables) => {
-          const found = tables.find((t: any) => t.id === tableId);
+        .then((tables: DiningTableDTO[]) => {
+          const found = tables.find((t) => t.id === tableId);
           if (found) setTable(found);
         })
         .catch(() => {});
     }
-  }, [tableId, waiterFromUrl]);
+    // Spec 6.6: aus "Gleiche Runde" übernommene Positionen einlesen
+    if (searchParams.get('repeat') === '1') {
+      try {
+        const raw = sessionStorage.getItem('openbon_repeat_cart');
+        if (raw) {
+          const lines = JSON.parse(raw) as {
+            productId: string;
+            productName: string;
+            quantity: number;
+            unitPrice: number;
+            deposit: number;
+            variantName: string | null;
+            selectedOptions: string[];
+            customizationText: string | null;
+          }[];
+          setCart(
+            lines.map((l) => ({
+              id: `${l.productId}_${l.variantName ?? 'default'}`,
+              productId: l.productId,
+              name: l.productName,
+              price: l.unitPrice,
+              deposit: l.deposit,
+              quantity: l.quantity,
+              variantName: l.variantName ?? undefined,
+              selectedOptions: l.selectedOptions ?? [],
+              customizationText: l.customizationText ?? undefined,
+              courseNumber: 1,
+              isHold: false,
+            }))
+          );
+          setNotice('Letzte Runde übernommen – bitte prüfen und abschicken.');
+          sessionStorage.removeItem('openbon_repeat_cart');
+        }
+      } catch {
+        /* Übernahme fehlgeschlagen – Warenkorb bleibt leer */
+      }
+    }
+  }, [tableId, waiterFromUrl, searchParams]);
 
-  const addToCart = (product: any, variant?: any) => {
+  const addToCart = (product: ProductDTO, variant?: ProductVariantDTO) => {
     if (product.isSoldOut || (variant && variant.isSoldOut)) {
-      alert(`Artikel "${product.name}" ist derzeit ausverkauft.`);
+      setNotice(`Artikel "${product.name}" ist derzeit ausverkauft.`);
       return;
     }
 
     triggerHapticFeedback();
     const unitPrice = product.price + (variant ? variant.priceDelta : 0);
-    const lineId = `${product.id}_${variant ? variant.name : 'default'}`;
+    const lineId = `${product.id}_${variant ? variant.name : 'default'}_g${activeCourse}${holdNext ? '_h' : ''}`;
 
     setCart((prev) => {
       const existing = prev.find((i) => i.id === lineId && !i.customizationText);
       if (existing) {
-        return prev.map((i) =>
-          i === existing ? { ...i, quantity: i.quantity + 1 } : i
-        );
+        return prev.map((i) => (i === existing ? { ...i, quantity: i.quantity + 1 } : i));
       }
       return [
         ...prev,
@@ -111,9 +178,21 @@ function WaiterOrderContent() {
           quantity: 1,
           variantName: variant ? variant.name : undefined,
           selectedOptions: [],
+          courseNumber: activeCourse,
+          isHold: holdNext,
         },
       ];
     });
+  };
+
+  const setLineCourse = (lineId: string, courseNumber: number) => {
+    triggerHapticFeedback();
+    setCart((prev) => prev.map((i) => (i.id === lineId ? { ...i, courseNumber } : i)));
+  };
+
+  const toggleLineHold = (lineId: string) => {
+    triggerHapticFeedback();
+    setCart((prev) => prev.map((i) => (i.id === lineId ? { ...i, isHold: !i.isHold } : i)));
   };
 
   const updateQuantity = (lineId: string, delta: number) => {
@@ -207,29 +286,35 @@ function WaiterOrderContent() {
             variantName: item.variantName,
             selectedOptions: item.selectedOptions,
             customizationText: item.customizationText,
+            courseNumber: item.courseNumber,
+            isHold: item.isHold,
           })),
         }),
       });
 
       if (res.ok) {
         triggerHapticFeedback();
+        playConfirm();
         router.push('/waiter');
       } else {
-        alert('Fehler beim Übermitteln der Bestellung!');
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        setNotice(err.error || 'Fehler beim Übermitteln der Bestellung.');
       }
     } catch (e) {
       console.error(e);
-      alert('Netzwerkfehler beim Absenden der Bestellung.');
+      setNotice('Netzwerkfehler beim Absenden der Bestellung.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const currentCategory = categories.find((c) => c.id === selectedCatId);
-  const displayedProducts = currentCategory?.products?.filter((p: any) => {
+  const rawProducts = currentCategory?.products?.filter((p) => {
     if (selectedSubCat !== 'ALL' && p.subCategory !== selectedSubCat) return false;
     return true;
-  });
+  }) || [];
+
+  const displayedProducts = filterProductsByExcludedAllergens(rawProducts, selectedAllergens);
 
   const totalAmount = cart.reduce(
     (sum, item) => sum + (item.price + item.deposit) * item.quantity,
@@ -266,6 +351,59 @@ function WaiterOrderContent() {
         </div>
       </div>
 
+      {/* Spec V2 §6.1: Dynamischer Jugendschutz-Hinweis mit Mindestgeburtsdatum */}
+      {enableAgeAlerts && (
+        <div className="bg-slate-900/95 border-b border-red-500/20 px-3 py-1.5 flex items-center justify-between text-[11px] font-mono text-slate-300">
+          <div className="flex items-center gap-2">
+            <span className="bg-red-500/20 text-red-300 border border-red-500/30 px-1.5 py-0.5 rounded font-black text-[10px] flex items-center gap-1">
+              <ShieldAlert className="w-3 h-3" /> JUGENDSCHUTZ
+            </span>
+            <span>Ab 16 J: <strong className="text-amber-400 font-bold">≤ {minBirth16.formattedDate}</strong></span>
+            <span className="text-slate-600">|</span>
+            <span>Ab 18 J: <strong className="text-red-400 font-bold">≤ {minBirth18.formattedDate}</strong></span>
+          </div>
+
+          <button
+            onClick={() => setShowAllergenFilter(!showAllergenFilter)}
+            className={`px-2 py-0.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition ${
+              selectedAllergens.length > 0
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+            }`}
+          >
+            <Filter className="w-3 h-3" />
+            <span>Allergene {selectedAllergens.length > 0 && `(${selectedAllergens.length})`}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Allergen Filter Dropdown */}
+      {showAllergenFilter && (
+        <div className="bg-slate-900 border-b border-slate-800 p-2.5 flex flex-wrap gap-1.5 items-center">
+          <span className="text-[11px] font-bold text-slate-400 mr-1">Ausschließen:</span>
+          {EU_ALLERGENS.slice(0, 8).map((a) => {
+            const active = selectedAllergens.includes(a.code);
+            return (
+              <button
+                key={a.code}
+                onClick={() => {
+                  setSelectedAllergens((prev) =>
+                    active ? prev.filter((c) => c !== a.code) : [...prev, a.code]
+                  );
+                }}
+                className={`text-[10px] px-2 py-0.5 rounded-md font-semibold border transition ${
+                  active
+                    ? 'bg-red-500/20 text-red-300 border-red-500/40 font-bold'
+                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                }`}
+              >
+                {active ? `✕ Ohne ${a.name}` : a.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Category Selection Bar */}
       <div className="bg-slate-900 px-3 py-2 border-b border-slate-800 flex items-center gap-2 overflow-x-auto">
         {categories.map((cat) => (
@@ -290,34 +428,86 @@ function WaiterOrderContent() {
       <div className="bg-slate-950 px-3 py-1.5 border-b border-slate-800 flex items-center gap-1.5 overflow-x-auto text-xs">
         {[
           { id: 'ALL', label: 'Alle' },
-          { id: 'BIER', label: '🍺 Bier' },
-          { id: 'WEIN', label: '🍷 Wein' },
-          { id: 'ALKOHOLFREI', label: '🥤 Alkoholfrei' },
-          { id: 'HEISS', label: '☕ Heiß' },
-          { id: 'BAR', label: '🍸 Bar' },
+          { id: 'BIER', label: 'Bier' },
+          { id: 'WEIN', label: 'Wein' },
+          { id: 'ALKOHOLFREI', label: 'Alkoholfrei' },
+          { id: 'HEISS', label: 'Heiß' },
+          { id: 'BAR', label: 'Bar' },
         ].map((sub) => (
           <button
             key={sub.id}
             onClick={() => setSelectedSubCat(sub.id)}
-            className={`px-2.5 py-1 rounded-xl text-xs font-bold transition border ${
+            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 whitespace-nowrap ${
               selectedSubCat === sub.id
                 ? 'bg-slate-800 text-amber-300 border-amber-500/60'
                 : 'bg-transparent text-slate-500 border-transparent hover:text-slate-300'
             }`}
           >
-            {sub.label}
+            {sub.id === 'ALL' ? (
+              <LayoutList className="w-4 h-4" />
+            ) : (
+              <SubCategoryIcon subCategory={sub.id} className="w-4 h-4" />
+            )}
+            <span>{sub.label}</span>
           </button>
         ))}
       </div>
+
+      {/* Spec 6.5: Gang-Steuerung & Zurückhalten für neu gebuchte Artikel */}
+      <div className="bg-slate-900 px-3 py-2 border-b border-slate-800 flex items-center gap-2 overflow-x-auto">
+        <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider shrink-0">
+          Buchen auf
+        </span>
+        {COURSES.map((c) => (
+          <button
+            key={c.number}
+            onClick={() => {
+              triggerHapticFeedback();
+              setActiveCourse(c.number);
+            }}
+            className={`touch-target px-3 rounded-2xl text-xs font-bold whitespace-nowrap border transition ${
+              activeCourse === c.number
+                ? 'bg-violet-600 text-white border-violet-500'
+                : 'bg-slate-800 text-slate-400 border-slate-700'
+            }`}
+          >
+            Gang {c.number}
+          </button>
+        ))}
+        <button
+          onClick={() => {
+            triggerHapticFeedback();
+            setHoldNext((v) => !v);
+          }}
+          className={`touch-target px-3 rounded-2xl text-xs font-bold whitespace-nowrap border transition flex items-center gap-1.5 ml-auto shrink-0 ${
+            holdNext
+              ? 'bg-amber-600 text-white border-amber-500'
+              : 'bg-slate-800 text-slate-400 border-slate-700'
+          }`}
+        >
+          {holdNext ? <PauseCircle className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
+          <span>{holdNext ? 'HOLD aktiv' : 'Zurückhalten'}</span>
+        </button>
+      </div>
+
+      {notice && (
+        <div className="px-4 py-2.5 bg-amber-950 border-b border-amber-800 text-amber-200 text-xs font-bold flex items-center justify-between gap-2">
+          <span>{notice}</span>
+          <button onClick={() => setNotice(null)} className="p-1 shrink-0" aria-label="Schließen">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Split Area: Products on Left, Cart on Right */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Products Grid */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-3">
-            {displayedProducts?.map((product: any) => {
+            {displayedProducts?.map((product) => {
               const hasVariants = product.variants && product.variants.length > 0;
               const isOut = product.isSoldOut;
+              const { price: effectivePrice, isHappyHour } = getEffectiveProductPrice(product as any);
 
               return (
                 <div
@@ -330,18 +520,42 @@ function WaiterOrderContent() {
                   style={{ borderLeftColor: isOut ? '#991b1b' : product.buttonColor || '#3b82f6', borderLeftWidth: '6px' }}
                 >
                   <div className="mb-2">
-                    <h3 className="font-extrabold text-sm sm:text-base text-white leading-snug">
-                      {product.name}
-                    </h3>
-                    <div className="text-sm font-mono font-black text-emerald-400 mt-1">
-                      {formatCurrency(product.price)}
+                    <div className="flex items-start justify-between gap-1">
+                      <h3 className="font-extrabold text-sm sm:text-base text-white leading-snug">
+                        {product.name}
+                      </h3>
+                      {product.allergens && (
+                        <button
+                          onClick={() => setSelectedProductInfo(product)}
+                          className="text-slate-500 hover:text-amber-400 p-0.5"
+                          title="Allergene einsehen"
+                        >
+                          <AlertCircle className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-sm font-mono font-black text-emerald-400">
+                        {formatCurrency(effectivePrice)}
+                      </span>
+                      {isHappyHour && (
+                        <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-black px-1 rounded flex items-center gap-0.5">
+                          <Sparkles className="w-2.5 h-2.5" /> HH
+                        </span>
+                      )}
+                      {(product as any).hasAgeRestriction && (
+                        <span className="bg-red-500/20 text-red-300 border border-red-500/30 text-[9px] font-black px-1 rounded flex items-center gap-0.5">
+                          {(product as any).minAge}+
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   {/* If product has variants */}
                   {hasVariants ? (
                     <div className="grid grid-cols-1 gap-1.5 mt-2">
-                      {product.variants.map((variant: any) => {
+                      {product.variants?.map((variant) => {
                         const vOut = isOut || variant.isSoldOut;
                         return (
                           <button
@@ -356,7 +570,7 @@ function WaiterOrderContent() {
                           >
                             <span>{variant.name}</span>
                             <span className="font-mono text-emerald-300">
-                              {formatCurrency(product.price + variant.priceDelta)}
+                              {formatCurrency(effectivePrice + variant.priceDelta)}
                             </span>
                           </button>
                         );
@@ -469,6 +683,41 @@ function WaiterOrderContent() {
                         <span>{item.customizationText ? 'Ändern' : '+ Wunsch'}</span>
                       </button>
                     </div>
+
+                    {/* Spec 6.5: Gang und HOLD je Position ändern */}
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
+                      <div className="flex items-center gap-1">
+                        {COURSES.map((c) => (
+                          <button
+                            key={c.number}
+                            onClick={() => setLineCourse(item.id, c.number)}
+                            title={c.label}
+                            className={`w-8 h-8 rounded-lg text-[11px] font-black border transition ${
+                              item.courseNumber === c.number
+                                ? 'bg-violet-600 text-white border-violet-500'
+                                : 'bg-slate-900 text-slate-500 border-slate-800'
+                            }`}
+                          >
+                            G{c.number}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => toggleLineHold(item.id)}
+                        className={`text-[11px] font-bold flex items-center gap-1 px-2 py-1 rounded-lg border transition ${
+                          item.isHold
+                            ? 'bg-amber-950 text-amber-300 border-amber-700'
+                            : 'bg-slate-900 text-slate-500 border-slate-800'
+                        }`}
+                      >
+                        {item.isHold ? (
+                          <PauseCircle className="w-3.5 h-3.5" />
+                        ) : (
+                          <PlayCircle className="w-3.5 h-3.5" />
+                        )}
+                        <span>{item.isHold ? 'Zurückgehalten' : 'Sofort'}</span>
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -519,7 +768,7 @@ function WaiterOrderContent() {
                 try {
                   words = JSON.parse(group.words);
                 } catch {
-                  words = group.words.split(',').map((s: string) => s.trim());
+                  words = group.words.split(',').map((w: string) => w.trim());
                 }
 
                 const isPrefixGroup =
@@ -582,6 +831,54 @@ function WaiterOrderContent() {
                 Übernehmen
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Allergen & Product Detail Modal */}
+      {selectedProductInfo && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 p-6 rounded-3xl max-w-sm w-full shadow-2xl">
+            <h3 className="text-lg font-bold text-white mb-2">{selectedProductInfo.name}</h3>
+
+            <div className="space-y-3 text-xs text-slate-300">
+              <div>
+                <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  Enthaltene Allergene:
+                </span>
+                {(() => {
+                  try {
+                    const list: string[] = selectedProductInfo.allergens ? JSON.parse(selectedProductInfo.allergens) : [];
+                    if (list.length === 0) return <span className="text-slate-500">Keine deklarierungspflichtigen Allergene</span>;
+                    return (
+                      <div className="flex flex-wrap gap-1">
+                        {list.map((code) => (
+                          <span key={code} className="bg-slate-800 px-2 py-0.5 rounded text-amber-300 font-semibold">
+                            {EU_ALLERGENS.find((a) => a.code === code)?.name || code}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  } catch {
+                    return <span className="text-slate-500">Keine Angaben</span>;
+                  }
+                })()}
+              </div>
+
+              {selectedProductInfo.hasAgeRestriction && selectedProductInfo.minAge && (
+                <div className="bg-red-500/10 border border-red-500/30 p-2.5 rounded-xl text-red-300 flex items-center gap-2">
+                  <ShieldAlert className="w-5 h-5 text-red-400" />
+                  <span>Jugendschutz: Ab {selectedProductInfo.minAge} Jahren (Geboren bis: {selectedProductInfo.minAge === 18 ? minBirth18.formattedDate : minBirth16.formattedDate})</span>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setSelectedProductInfo(null)}
+              className="mt-6 w-full py-2.5 bg-slate-800 hover:bg-slate-700 font-bold text-white rounded-xl text-sm"
+            >
+              Schließen
+            </button>
           </div>
         </div>
       )}

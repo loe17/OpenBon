@@ -29,7 +29,24 @@ export interface ForecastSummary {
   }[];
 }
 
-export function computeHourlySales(orders: any[]): HourlySalesData[] {
+/** Minimal benötigte Form einer Bestellung für die Auswertung */
+export interface ForecastOrder {
+  status: string;
+  createdAt: string | Date;
+  items: { quantity: number; unitPrice: number; deposit?: number | null; isCancelled?: boolean }[];
+}
+
+/** Minimal benötigte Form eines Artikels für die Bestandsprognose */
+export interface ForecastProduct {
+  name: string;
+  stockItem?: {
+    currentQuantity: number;
+    alertThreshold: number;
+  } | null;
+  orderItems?: { quantity: number }[];
+}
+
+export function computeHourlySales(orders: ForecastOrder[]): HourlySalesData[] {
   const hoursMap = new Map<number, HourlySalesData>();
 
   for (let h = 8; h <= 23; h++) {
@@ -66,8 +83,8 @@ export function computeHourlySales(orders: any[]): HourlySalesData[] {
 export function computeForecast(
   hourlyData: HourlySalesData[],
   totalCurrentSales: number,
-  stockItems: any[] = [],
-  products: any[] = []
+  stockItems: unknown[] = [],
+  products: ForecastProduct[] = []
 ): ForecastSummary {
   const activeHours = hourlyData.filter((h) => h.orderCount > 0);
   const nowHour = new Date().getHours();
@@ -103,15 +120,15 @@ export function computeForecast(
 
   for (const p of products) {
     if (p.stockItem) {
-      const currentStock = p.stockItem.quantity;
-      const consumedQty = p.orderItems?.reduce((sum: number, itm: any) => sum + itm.quantity, 0) || 0;
+      const currentStock = p.stockItem.currentQuantity;
+      const consumedQty = p.orderItems?.reduce((sum, itm) => sum + itm.quantity, 0) || 0;
       const consumptionPerHour = consumedQty / hoursRunning;
 
       if (consumptionPerHour > 0 && currentStock > 0) {
         const hoursLeft = currentStock / consumptionPerHour;
         const minutesLeft = Math.round(hoursLeft * 60);
 
-        if (minutesLeft <= 90 || currentStock <= p.stockItem.minThreshold) {
+        if (minutesLeft <= 90 || currentStock <= p.stockItem.alertThreshold) {
           criticalStockAlerts.push({
             productName: p.name,
             currentStock,
@@ -120,7 +137,7 @@ export function computeForecast(
             urgency: minutesLeft <= 30 ? 'HIGH' : 'MEDIUM',
           });
         }
-      } else if (currentStock <= p.stockItem.minThreshold) {
+      } else if (currentStock <= p.stockItem.alertThreshold) {
         criticalStockAlerts.push({
           productName: p.name,
           currentStock,

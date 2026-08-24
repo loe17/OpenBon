@@ -16,10 +16,20 @@ import {
   CreditCard,
   ChefHat,
 } from 'lucide-react';
+interface ChatMessage {
+  id: string;
+  senderName: string;
+  senderDeviceId?: string | null;
+  targetDeviceId?: string | null;
+  message: string;
+  isUrgent: boolean;
+  isRead: boolean;
+  createdAt: string;
+}
 
 export default function ChatPage() {
   const { socket } = useSocket();
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isUrgent, setIsUrgent] = useState(false);
   const [senderName, setSenderName] = useState('Bedienung');
@@ -55,7 +65,7 @@ export default function ChatPage() {
     fetchMessages();
 
     if (socket) {
-      socket.on('chat:incoming', (msg: any) => {
+      socket.on('chat:incoming', (msg: ChatMessage) => {
         setMessages((prev) => [...prev, msg]);
         if (msg.isUrgent) {
           playAcousticPing();

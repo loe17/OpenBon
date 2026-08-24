@@ -22,11 +22,12 @@ import {
 } from 'lucide-react';
 import { useSocket } from '@/components/providers/socket-provider';
 import PinModal from '@/components/auth/pin-modal';
+import type { EventConfigDTO } from '@/types/domain';
 
 export default function HomePage() {
   const router = useRouter();
   const { isConnected } = useSocket();
-  const [config, setConfig] = useState<any>(null);
+  const [config, setConfig] = useState<EventConfigDTO | null>(null);
   const [deviceStats, setDeviceStats] = useState({ online: 0, total: 0 });
   const [showPinModal, setShowPinModal] = useState(false);
   const [pendingAdminPath, setPendingAdminPath] = useState<string | null>(null);

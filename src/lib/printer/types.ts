@@ -8,6 +8,16 @@ export interface PrintItem {
   variantName?: string | null;
   selectedOptions?: string[] | null;
   customizationText?: string | null;
+  /** Spec 6.5: Gang-Steuerung */
+  courseNumber?: number;
+}
+
+/** Spec 6.1: Kopfzeile bei automatischem Tablett-Splitting */
+export interface TraySplitInfo {
+  index: number;
+  total: number;
+  /** Kurzbeschreibung des Bon-Inhalts, z. B. "Tisch 14 - 6x Bier" */
+  summary: string;
 }
 
 export interface TicketData {
@@ -32,6 +42,15 @@ export interface TicketData {
   invoiceNumber?: string;
   eventName?: string;
   footerText?: string;
+  /** Spec 6.1: "*** BON 1 von 3 (Tisch 14 - 6x Bier) ***" */
+  traySplit?: TraySplitInfo;
+  /** Spec 6.10: Zwischenrechnung ist kein Kassenbeleg */
+  isPreliminary?: boolean;
+  /** Aufschluesselung je Steuersatz fuer den Kassenbeleg */
+  taxSplits?: { rate: number; base: number; tax: number; gross: number }[];
+  surchargeAmount?: number;
+  surchargeReason?: string | null;
+  cardAuthCode?: string | null;
 }
 
 export interface VirtualTicketRecord {

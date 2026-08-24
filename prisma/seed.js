@@ -29,11 +29,20 @@ async function main() {
       taxRateNormal: 19.0,
       taxRateReduced: 7.0,
       trainingMode: false,
+      trayMaxItems: 6, // Spec 6.1: globales Tablett-Limit
+      baseUrl: 'http://openbon.local',
+      zvtPort: 20007,
       haRole: 'PRIMARY',
       tokenSequence: 100,
       invoiceSequence: 1000,
     },
   });
+
+  // Spec 6.7: erste Kassenperiode eröffnen
+  const openPeriod = await prisma.registerPeriod.findFirst({ where: { status: 'OPEN' } });
+  if (!openPeriod) {
+    await prisma.registerPeriod.create({ data: { periodNumber: 1 } });
+  }
 
   // 2. Drucker anlegen (Virtuelle Drucker für Tests)
   const kitchenPrinter = await prisma.printer.create({

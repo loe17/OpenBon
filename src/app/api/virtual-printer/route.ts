@@ -4,8 +4,8 @@ export async function GET() {
   try {
     const history = global.virtualPrinterHistory || [];
     return NextResponse.json(history);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 
@@ -16,7 +16,7 @@ export async function DELETE() {
       global.io.emit('virtual_printer:cleared');
     }
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

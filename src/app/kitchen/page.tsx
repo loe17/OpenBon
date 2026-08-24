@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useSocket } from '@/components/providers/socket-provider';
 import { playKitchenChime, triggerHapticFeedback } from '@/lib/socket-client';
+import { playVoidAlert } from '@/lib/audio-feedback';
+import { COURSES } from '@/types/domain';
 import {
   ChefHat,
   Clock,
@@ -32,6 +34,10 @@ interface KitchenOrder {
     selectedOptions?: string | null;
     customizationText?: string | null;
     kdsStatus: string;
+    courseNumber?: number;
+    isHold?: boolean;
+    isCancelled?: boolean;
+    cancellationReason?: string | null;
   }[];
 }
 
@@ -41,6 +47,7 @@ export default function KitchenMonitorPage() {
   const [viewMode, setViewMode] = useState<'FIFO' | 'TABLE'>('FIFO');
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(Date.now());
+  const [voidAlert, setVoidAlert] = useState<string | null>(null);
 
   const fetchKdsOrders = async () => {
     try {
@@ -69,6 +76,20 @@ export default function KitchenMonitorPage() {
 
       socket.on('kds:item_updated', () => fetchKdsOrders());
       socket.on('kds:order_updated', () => fetchKdsOrders());
+
+      // Spec 6.4: Storno akustisch und sichtbar melden
+      socket.on('order:voided', (payload: { reason?: string }) => {
+        playVoidAlert();
+        setVoidAlert(payload?.reason ? `Storno eingegangen: ${payload.reason}` : 'Storno eingegangen');
+        setTimeout(() => setVoidAlert(null), 8000);
+        fetchKdsOrders();
+      });
+
+      // Spec 6.5: nachträglich abgerufener Gang
+      socket.on('order:course_released', () => {
+        playKitchenChime();
+        fetchKdsOrders();
+      });
     }
 
     return () => {
@@ -77,6 +98,8 @@ export default function KitchenMonitorPage() {
         socket.off('order:new');
         socket.off('kds:item_updated');
         socket.off('kds:order_updated');
+        socket.off('order:voided');
+        socket.off('order:course_released');
       }
     };
   }, [socket]);
@@ -123,6 +146,14 @@ export default function KitchenMonitorPage() {
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white">
+      {/* Spec 6.4: Storno-Hinweis für die Küche */}
+      {voidAlert && (
+        <div className="bg-rose-600 text-white px-4 py-2.5 text-center text-sm font-black tracking-wide uppercase flex items-center justify-center gap-2 shadow-lg animate-pulse">
+          <AlertTriangle className="w-5 h-5" />
+          <span>{voidAlert} – bitte Storno-Bon beachten, nicht zubereiten</span>
+        </div>
+      )}
+
       {/* Top Header & Live Backlog Bar */}
       <div className="bg-slate-900 border-b border-slate-700 p-3 sm:p-4 shadow-md">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -264,24 +295,51 @@ export default function KitchenMonitorPage() {
 
                   {/* Items Checklist */}
                   <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
-                    {order.items.map((item) => {
+                    {[...order.items]
+                      .sort((a, b) => (a.courseNumber ?? 1) - (b.courseNumber ?? 1))
+                      .map((item, idx, arr) => {
                       const isDone = item.kdsStatus === 'COMPLETED';
+                      const isVoided = Boolean(item.isCancelled);
+                      const course = item.courseNumber ?? 1;
+                      const showCourseHeader =
+                        arr.some((i) => (i.courseNumber ?? 1) > 1) &&
+                        (idx === 0 || (arr[idx - 1].courseNumber ?? 1) !== course);
                       return (
+                        <React.Fragment key={item.id}>
+                        {showCourseHeader && (
+                          <div className="flex items-center gap-2 pt-1 first:pt-0">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-violet-300 bg-violet-950 border border-violet-800 px-2 py-0.5 rounded-lg">
+                              {COURSES.find((c) => c.number === course)?.label ?? `Gang ${course}`}
+                            </span>
+                            <span className="flex-1 h-px bg-slate-800" />
+                          </div>
+                        )}
                         <div
-                          key={item.id}
-                          onClick={() => toggleItemDone(order.id, item.id, item.kdsStatus)}
-                          className={`p-3 rounded-2xl border-2 cursor-pointer select-none transition-all flex items-start justify-between gap-2.5 ${
-                            isDone
-                              ? 'bg-slate-950/60 border-slate-800/80 opacity-40 line-through'
-                              : 'bg-slate-950 border-slate-700 hover:border-slate-500 text-white shadow-md'
+                          onClick={() => !isVoided && toggleItemDone(order.id, item.id, item.kdsStatus)}
+                          className={`p-3 rounded-2xl border-2 select-none transition-all flex items-start justify-between gap-2.5 ${
+                            isVoided
+                              ? 'bg-rose-950/50 border-rose-700 text-rose-200 line-through cursor-not-allowed'
+                              : isDone
+                              ? 'bg-slate-950/60 border-slate-800/80 opacity-40 line-through cursor-pointer'
+                              : 'bg-slate-950 border-slate-700 hover:border-slate-500 text-white shadow-md cursor-pointer'
                           }`}
                         >
                           <div className="flex-1 min-w-0">
-                            <div className="font-extrabold text-sm flex items-baseline gap-1.5">
+                            <div className="font-extrabold text-sm flex items-baseline gap-1.5 flex-wrap">
                               <span className="text-amber-400 font-mono text-base font-black">
                                 {item.quantity}x
                               </span>
                               <span>{item.productName}</span>
+                              {isVoided && (
+                                <span className="text-[10px] font-black uppercase tracking-wider bg-rose-600 text-white px-1.5 py-0.5 rounded no-underline">
+                                  Storniert
+                                </span>
+                              )}
+                              {item.isHold && !isVoided && (
+                                <span className="text-[10px] font-black uppercase tracking-wider bg-amber-600 text-black px-1.5 py-0.5 rounded">
+                                  Zurückgehalten
+                                </span>
+                              )}
                             </div>
 
                             {item.variantName && (
@@ -307,6 +365,7 @@ export default function KitchenMonitorPage() {
                             <CheckCircle2 className="w-4 h-4" />
                           </div>
                         </div>
+                        </React.Fragment>
                       );
                     })}
                   </div>

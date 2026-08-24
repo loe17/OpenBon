@@ -84,7 +84,7 @@ class NetworkSpooler {
 
       client.on('error', (err) => {
         client.destroy();
-        resolve({ success: false, isVirtual: false, error: err.message });
+        resolve({ success: false, isVirtual: false, error: err instanceof Error ? err.message : String(err) });
       });
 
       client.on('timeout', () => {
@@ -131,8 +131,8 @@ class NetworkSpooler {
 
     try {
       await this.sendToRawSocket(job);
-    } catch (err: any) {
-      console.error(`[ERROR] Fehler beim Drucken auf ${job.printerName} (${job.printerIp}):`, err.message);
+    } catch (err) {
+      console.error(`[ERROR] Fehler beim Drucken auf ${job.printerName} (${job.printerIp}):`, err instanceof Error ? err.message : String(err));
       
       if (job.retries < 3) {
         job.retries++;
@@ -142,7 +142,7 @@ class NetworkSpooler {
           global.io.emit('printer:error', {
             printerId: job.printerId,
             printerName: job.printerName,
-            error: err.message,
+            error: err instanceof Error ? err.message : String(err),
           });
         }
       }
@@ -173,6 +173,43 @@ class NetworkSpooler {
       client.on('timeout', () => {
         client.destroy();
         reject(new Error(`Timeout bei Verbindung zu ${job.printerIp}:${job.printerPort}`));
+      });
+    });
+  }
+
+  /**
+   * Spec 7.2: Vom Drucker-Socket-Wächter aufgerufen, wenn Aufträge hängen.
+   * Setzt das Verarbeitungs-Flag zurück und stößt die Warteschlange neu an.
+   */
+  public restartSpooler(): void {
+    this.isProcessing = false;
+    // Aufträge, die die Wiederholungsgrenze erreicht haben, verwerfen
+    this.queue = this.queue.filter((job) => job.retries < 3);
+    console.warn(`[SPOOLER] Neustart – ${this.queue.length} Auftrag/Aufträge in der Warteschlange.`);
+    setTimeout(() => this.processQueue(), 50);
+  }
+
+  public getQueueLength(): number {
+    return this.queue.length;
+  }
+
+  public async spoolRaw(ipAddress: string, port: number, rawBuffer: Buffer, jobId?: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const client = new net.Socket();
+      client.setTimeout(3000);
+      client.connect(port || 9100, ipAddress, () => {
+        client.write(rawBuffer, () => {
+          client.end();
+          resolve();
+        });
+      });
+      client.on('error', (err) => {
+        client.destroy();
+        reject(err);
+      });
+      client.on('timeout', () => {
+        client.destroy();
+        reject(new Error(`Timeout beim Senden an ${ipAddress}:${port}`));
       });
     });
   }

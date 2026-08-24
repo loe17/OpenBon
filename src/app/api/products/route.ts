@@ -1,6 +1,17 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 
+interface VariantInput {
+  name: string;
+  priceDelta?: number;
+  isSoldOut?: boolean;
+}
+
+interface OptionInput {
+  name: string;
+  priceDelta?: number;
+}
+
 export async function GET() {
   try {
     const products = await prisma.product.findMany({
@@ -17,8 +28,8 @@ export async function GET() {
       },
     });
     return NextResponse.json(products);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 
@@ -37,16 +48,27 @@ export async function POST(req: Request) {
         isSoldOut: body.isSoldOut ?? false,
         trackStock: body.trackStock ?? false,
         stockQuantity: parseInt(body.stockQuantity || 0, 10),
+        minStockAlert: body.minStockAlert !== undefined && body.minStockAlert !== null ? parseInt(body.minStockAlert, 10) : null,
         stockAlertThreshold: parseInt(body.stockAlertThreshold || 10, 10),
+        hasAgeRestriction: Boolean(body.hasAgeRestriction),
+        minAge: body.minAge ? parseInt(body.minAge, 10) : null,
+        allergens: typeof body.allergens === 'string' ? body.allergens : JSON.stringify(body.allergens || []),
+        additives: typeof body.additives === 'string' ? body.additives : JSON.stringify(body.additives || []),
+        happyHourPrice: body.happyHourPrice !== undefined && body.happyHourPrice !== null && body.happyHourPrice !== '' ? parseFloat(body.happyHourPrice) : null,
+        happyHourStart: body.happyHourStart || null,
+        happyHourEnd: body.happyHourEnd || null,
+        happyHourDays: typeof body.happyHourDays === 'string' ? body.happyHourDays : JSON.stringify(body.happyHourDays || []),
+        isTokenProduct: Boolean(body.isTokenProduct),
+        tokenType: body.tokenType || null,
         subCategory: body.subCategory || null,
         sortIndex: body.sortIndex ?? 0,
         categoryId: body.categoryId,
         printGroupId: body.printGroupId || null,
         variants: body.variants
           ? {
-              create: body.variants.map((v: any, idx: number) => ({
+              create: (body.variants as VariantInput[]).map((v, idx: number) => ({
                 name: v.name,
-                priceDelta: parseFloat(v.priceDelta || 0),
+                priceDelta: Number(v.priceDelta ?? 0),
                 isSoldOut: v.isSoldOut ?? false,
                 sortIndex: idx,
               })),
@@ -54,9 +76,9 @@ export async function POST(req: Request) {
           : undefined,
         options: body.options
           ? {
-              create: body.options.map((o: any, idx: number) => ({
+              create: (body.options as OptionInput[]).map((o, idx: number) => ({
                 name: o.name,
-                priceDelta: parseFloat(o.priceDelta || 0),
+                priceDelta: Number(o.priceDelta ?? 0),
                 sortIndex: idx,
               })),
             }
@@ -75,7 +97,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json(created);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

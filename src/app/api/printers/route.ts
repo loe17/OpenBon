@@ -9,7 +9,7 @@ export async function GET() {
     const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
     const enableVirtual = config?.enableVirtualPrinters ?? true;
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
     if (!enableVirtual) {
       where.isVirtual = false;
     }
@@ -21,8 +21,8 @@ export async function GET() {
       },
     });
     return NextResponse.json(printers);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 
@@ -101,7 +101,7 @@ export async function POST(req: Request) {
       },
     });
     return NextResponse.json(created);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

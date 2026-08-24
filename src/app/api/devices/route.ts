@@ -5,8 +5,8 @@ export async function GET() {
     const devicesMap = global.connectedDevices || new Map();
     const devicesList = Array.from(devicesMap.values());
     return NextResponse.json(devicesList);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 
@@ -38,8 +38,10 @@ export async function POST(req: Request) {
     if (action === 'SET_ROLE') {
       if (global.connectedDevices && global.connectedDevices.has(targetDeviceId)) {
         const dev = global.connectedDevices.get(targetDeviceId);
-        dev.role = newRole;
-        global.connectedDevices.set(targetDeviceId, dev);
+        if (dev) {
+          dev.role = newRole;
+          global.connectedDevices.set(targetDeviceId, dev);
+        }
       }
       if (global.io) {
         global.io.emit('device:role_changed', { targetDeviceId, newRole });
@@ -49,7 +51,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ error: 'Unbekannte Aktion' }, { status: 400 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

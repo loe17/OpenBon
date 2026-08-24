@@ -8,31 +8,79 @@ generator client {
 }
 
 model EventConfig {
-  id                    String   @id @default("default")
-  name                  String   @default("Vereinsfest 2026")
-  currency              String   @default("EUR")
-  taxRateNormal         Float    @default(19.0)
-  taxRateReduced        Float    @default(7.0)
-  trainingMode          Boolean  @default(false)
-  adminPin              String   @default("1234")
-  posPin                String   @default("1111")
-  kitchenPin            String   @default("2222")
-  waiterPin             String   @default("3333")
-  enableVirtualPrinters Boolean  @default(true)
-  sumupMerchantCode     String?
-  sumupAppId            String?
-  vrPayTerminalId       String?
-  tseProvider           String   @default("NONE") // NONE, SWISSBIT_USB, FISKALTRUST_CLOUD
-  tseSerialNumber       String?
-  licenseKey            String   @default("OPENBON-COMMUNITY-FREE")
-  haRole                String   @default("PRIMARY") // PRIMARY, STANDBY
-  haPartnerUrl          String?  @default("http://192.168.1.101:3000")
-  haAutoFailover        Boolean  @default(true)
-  tokenSequence         Int      @default(1)
-  invoiceSequence       Int      @default(1)
-  orderSequence         Int      @default(1)
-  updatedAt             DateTime @updatedAt
-  createdAt             DateTime @default(now())
+  id                            String   @id @default("default")
+  name                          String   @default("Vereinsfest 2026")
+  currency                      String   @default("EUR")
+  taxRateNormal                 Float    @default(19.0)
+  taxRateReduced                Float    @default(7.0)
+  trainingMode                  Boolean  @default(false)
+  trayMaxItems                  Int      @default(6)   // Globales Tablett-Limit (Fallback fuer Druckgruppen)
+  adminPin                      String   @default("1234")
+  posPin                        String   @default("1111")
+  kitchenPin                    String   @default("2222")
+  waiterPin                     String   @default("3333")
+  enableVirtualPrinters         Boolean  @default(true)
+  
+  // V2 Schalter & Features
+  enableAgeVerificationAlerts   Boolean  @default(true)
+  enableDigitalReceiptQr        Boolean  @default(true)
+  enableGuestSelfOrder          Boolean  @default(true)
+  enableKioskMode               Boolean  @default(false)
+  lowStockAlertPrinterId        String?
+
+  // Kartenzahlungs-IDs
+  sumupMerchantCode             String?
+  sumupAppId                    String?
+  vrPayTerminalId               String?
+  sparkasseMerchantId           String?  // S-POS Haendler-/Filial-ID
+  zvtHost                       String?  // ZVT-over-IP Terminal (Sparkasse / klassisches EC-Terminal)
+  zvtPort                       Int      @default(20007)
+  zvtPassword                   String   @default("000000")
+  baseUrl                       String   @default("http://openbon.local") // Basis fuer App-to-App Callbacks
+  
+  // Fiskalisierung & DATEV
+  tseProvider                   String   @default("NONE") // NONE, SWISSBIT_USB, FISKALTRUST_CLOUD
+  tseSerialNumber               String?
+  datevConsultantNumber         String?
+  datevClientNumber             String?
+  datevCashAccount              String   @default("1000")
+
+  // Hochverfuegbarkeit & Lizenz
+  licenseKey                    String   @default("OPENBON-COMMUNITY-FREE")
+  haRole                        String   @default("PRIMARY") // PRIMARY, STANDBY
+  haPartnerUrl                  String?  @default("http://192.168.1.101:3000")
+  haAutoFailover                Boolean  @default(true)
+  tokenSequence                 Int      @default(1)
+  invoiceSequence               Int      @default(1)
+  orderSequence                 Int      @default(1)
+  updatedAt                     DateTime @updatedAt
+  createdAt                     DateTime @default(now())
+}
+
+model TipProfile {
+  id                  String          @id @default(cuid())
+  name                String          // z. B. "Standard Service (100%)", "Bar-Team (20% Pool)"
+  waiterPercent       Float           @default(100.0) // Default: 100% an Bedienung
+  barPoolPercent      Float           @default(0.0)
+  kitchenPoolPercent  Float           @default(0.0)
+  servicePoolPercent  Float           @default(0.0)
+  isDefault           Boolean         @default(false)
+  waiters             WaiterProfile[]
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+}
+
+model WaiterProfile {
+  id           String      @id @default(cuid())
+  name         String      @unique
+  pin          String      @default("3333")
+  isActive     Boolean     @default(true)
+  tipProfileId String?
+  tipProfile   TipProfile? @relation(fields: [tipProfileId], references: [id], onDelete: SetNull)
+  orders       Order[]
+  payments     Payment[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 }
 
 model ProductCategory {
@@ -54,10 +102,33 @@ model Product {
   buttonColor           String?           @default("#3b82f6")
   status                String            @default("ACTIVE") // ACTIVE, INACTIVE, HIDDEN
   isSoldOut             Boolean           @default(false)
+  
+  // Bestandsfuehrung & Mindestmengen-Alerts
   trackStock            Boolean           @default(false)
   stockQuantity         Int               @default(0)
+  minStockAlert         Int?              // Meldebestand fuer Warnung
+  minStockAlertPrinted  Boolean           @default(false)
   stockAlertThreshold   Int               @default(10)
-  subCategory           String?           // BIER, WEIN, ALKOHOLFREI, HEISS, BAR
+  
+  // Jugendschutz & Alterspruefung
+  hasAgeRestriction     Boolean           @default(false)
+  minAge                Int?              // 16, 18
+
+  // Allergene & Zusatzstoffe (LMIV)
+  allergens             String            @default("[]") // JSON Array z. B. ["GLUTEN", "MILCH"]
+  additives             String            @default("[]") // JSON Array z. B. ["KOFFEIN", "FARBSTOFF"]
+
+  // Happy Hour & Dynamische Preise
+  happyHourPrice        Float?
+  happyHourStart        String?           // z. B. "18:00"
+  happyHourEnd          String?           // z. B. "19:00"
+  happyHourDays         String            @default("[]") // JSON Array [1,2,3,4,5]
+
+  // Wertmarken-Klassifizierung
+  isTokenProduct        Boolean           @default(false)
+  tokenType             String?           // DRINK, FOOD, DEPOSIT, GENERAL
+
+  subCategory           String?           // BIER, WEIN, ALKOHOLFREI, HEISS, BAR, SPEISE
   sortIndex             Int               @default(0)
   categoryId            String
   category              ProductCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -99,11 +170,13 @@ model DiningTable {
   id               String    @id @default(cuid())
   tableNumber      Int       @unique
   label            String
+  section          String    @default("Hauptbereich")
   gridX            Int       @default(0)
   gridY            Int       @default(0)
-  status           String    @default("FREE") // FREE, OCCUPIED, HIDDEN, INACTIVE
+  status           String    @default("FREE") // FREE, OCCUPIED, BILL_REQUESTED, HIDDEN, INACTIVE
   isActive         Boolean   @default(true)
   activeWaiterName String?
+  qrToken          String?   // Token fuer Gast-QR-Bestellung
   orders           Order[]
   payments         Payment[]
 }
@@ -131,18 +204,24 @@ model PrintGroup {
 }
 
 model Order {
-  id           String      @id @default(cuid())
-  orderNumber  Int         @default(1)
-  tableId      String?
-  table        DiningTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
-  waiterName   String      @default("Bedienung")
-  deviceId     String?
-  status       String      @default("OPEN") // OPEN, IN_PREPARATION, READY, COMPLETED, CANCELLED
-  orderType    String      @default("TABLE") // TABLE, COUNTER_VOUCHER, COUNTER_DIRECT
-  tokenNumber  Int?
-  isTraining   Boolean     @default(false)
-  createdAt    DateTime    @default(now())
-  items        OrderItem[]
+  id                 String         @id @default(cuid())
+  orderNumber        Int            @default(1)
+  tableId            String?
+  table              DiningTable?   @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  waiterId           String?
+  waiter             WaiterProfile? @relation(fields: [waiterId], references: [id], onDelete: SetNull)
+  waiterName         String         @default("Bedienung")
+  deviceId           String?
+  source             String         @default("WAITER") // WAITER, GUEST_QR, KIOSK
+  status             String         @default("OPEN")   // OPEN, IN_PREPARATION, READY, COMPLETED, CANCELLED
+  orderType          String         @default("TABLE")  // TABLE, COUNTER_VOUCHER, COUNTER_DIRECT, KIOSK
+  tokenNumber        Int?
+  digitalReceiptCode String?        @unique
+  isTraining         Boolean        @default(false)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @default(now()) @updatedAt
+  items              OrderItem[]
+  payments           Payment[]
 }
 
 model OrderItem {
@@ -159,40 +238,62 @@ model OrderItem {
   variantName       String?
   selectedOptions   String?       // JSON Array String
   customizationText String?
-  printStatus       String        @default("PENDING") // PENDING, PRINTED, ERROR
+  courseNumber      Int           @default(1)     // Gang 1 = Vorspeise, 2 = Hauptgang, 3 = Dessert
+  isHold            Boolean       @default(false) // Zurueckhalten bis manueller Postenabruf
+  printStatus       String        @default("PENDING") // PENDING, HELD, PRINTED, ERROR
   kdsStatus         String        @default("PENDING") // PENDING, IN_PROGRESS, READY, COMPLETED
   kdsCompletedAt    DateTime?
   paidQuantity      Int           @default(0)
-  isCancelled       Boolean       @default(false)
-  cancellationReason String?
+  isCancelled       Boolean       @default(false) // = isVoided (Storno)
+  cancellationReason String?                      // = voidReason (Stornogrund)
+  cancelledBy       String?
+  cancelledAt       DateTime?
   paymentItems      PaymentItem[]
 }
 
 model Payment {
-  id                 String        @id @default(cuid())
-  invoiceNumber      String        @unique
+  id                 String          @id @default(cuid())
+  invoiceNumber      String          @unique
   tableId            String?
-  table              DiningTable?  @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  table              DiningTable?    @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  orderId            String?
+  order              Order?          @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  periodId           String?
+  period             RegisterPeriod? @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  waiterId           String?
+  waiter             WaiterProfile?  @relation(fields: [waiterId], references: [id], onDelete: SetNull)
   waiterName         String
   deviceId           String?
+  digitalReceiptCode String?         @unique
   totalGross         Float
   totalNet           Float
   totalTax           Float
-  totalDeposit       Float         @default(0.0)
-  returnDeposit      Float         @default(0.0)
-  discountAmount     Float         @default(0.0)
-  tipAmount          Float         @default(0.0)
-  surchargeAmount    Float         @default(0.0)
-  surchargePercent   Float         @default(0.0)
+  taxBase19          Float           @default(0.0) // Netto-Bemessungsgrundlage 19 %
+  taxAmount19        Float           @default(0.0)
+  taxBase7           Float           @default(0.0) // Netto-Bemessungsgrundlage 7 %
+  taxAmount7         Float           @default(0.0)
+  taxBase0           Float           @default(0.0) // Steuerfrei (z. B. Pfand)
+  totalDeposit       Float           @default(0.0)
+  returnDeposit      Float           @default(0.0)
+  discountAmount     Float           @default(0.0)
+  tipAmount          Float           @default(0.0)
+  tipWaiterShare     Float           @default(0.0)
+  tipPoolShare       Float           @default(0.0)
+  surchargeAmount    Float           @default(0.0)
+  surchargePercent   Float           @default(0.0)
   surchargeReason    String?
-  givenAmount        Float         @default(0.0)
-  changeAmount       Float         @default(0.0)
-  paymentMethod      String        @default("CASH") // CASH, CARD_SUMUP, CARD_VRPAY, CARD_TERMINAL, NON_PAID_STAFF, NON_PAID_COMPLAINT, DISCOUNT
+  givenAmount        Float           @default(0.0)
+  changeAmount       Float           @default(0.0)
+  // CASH, CARD_SUMUP, CARD_VRPAY, CARD_SPARKASSE, CARD_TERMINAL, TOKEN,
+  // NON_PAID_STAFF, NON_PAID_COMPLAINT, VOID_UNPAID, DISCOUNT
+  paymentMethod      String          @default("CASH")
+  cardAuthCode       String?         // Autorisierungscode Terminal / App
+  cardTerminalId     String?
   nonPaidReason      String?
-  isCancelled        Boolean       @default(false)
+  isCancelled        Boolean         @default(false)
   cancellationReason String?
-  isTraining         Boolean       @default(false)
-  createdAt          DateTime      @default(now())
+  isTraining         Boolean         @default(false)
+  createdAt          DateTime        @default(now())
   items              PaymentItem[]
 }
 
@@ -207,6 +308,29 @@ model PaymentItem {
   unitPrice   Float
   deposit     Float      @default(0.0)
   taxRate     Float      @default(19.0)
+}
+
+model TokenTransaction {
+  id          String   @id @default(cuid())
+  tokenType   String   @default("GENERAL") // DRINK, FOOD, DEPOSIT, GENERAL
+  action      String   // ISSUE, REDEEM, RETURN
+  quantity    Int
+  unitValue   Float
+  totalValue  Float
+  waiterName  String   @default("Kasse")
+  deviceId    String?
+  createdAt   DateTime @default(now())
+}
+
+model FiscalExport {
+  id             String   @id @default(cuid())
+  exportType     String   // DATEV_CASHBOOK, DSFINVK_TAR, TSE_AUDIT
+  periodStart    DateTime
+  periodEnd      DateTime
+  filename       String
+  checksumSha256 String
+  status         String   @default("COMPLETED")
+  createdAt      DateTime @default(now())
 }
 
 model StockItem {
@@ -242,6 +366,60 @@ model Device {
   status       String   @default("ONLINE") // ONLINE, IDLE, OFFLINE
   connectedAt  DateTime @default(now())
   lastSeenAt   DateTime @default(now())
+}
+
+// Kassenperiode: wird durch den Z-Bon (Tagesabschluss) geschlossen
+model RegisterPeriod {
+  id               String        @id @default(cuid())
+  periodNumber     Int
+  openedAt         DateTime      @default(now())
+  closedAt         DateTime?
+  status           String        @default("OPEN") // OPEN, CLOSED
+  closedBy         String?
+  // Fiskalblock: Snapshot der Kennzahlen zum Abschlusszeitpunkt
+  totalGross       Float         @default(0.0)
+  totalNet         Float         @default(0.0)
+  taxAmount19      Float         @default(0.0)
+  taxAmount7       Float         @default(0.0)
+  taxBase0         Float         @default(0.0)
+  totalCash        Float         @default(0.0)
+  totalCard        Float         @default(0.0)
+  totalTips        Float         @default(0.0)
+  totalDepositOut  Float         @default(0.0)
+  cashIn           Float         @default(0.0)
+  cashOut          Float         @default(0.0)
+  cashExpected     Float         @default(0.0)
+  cashCounted      Float?
+  cashDifference   Float?
+  transactionCount Int           @default(0)
+  fiscalSignature  String?       // HMAC-SHA256 ueber den Abschlussblock
+  reportJson       String?       // Vollstaendiger Z-Bon als JSON-Snapshot
+  payments         Payment[]
+  cashMovements    CashMovement[]
+}
+
+// Kassenbuch: Wechselgeld-Einlagen und Entnahmen in den Tresor
+model CashMovement {
+  id          String          @id @default(cuid())
+  periodId    String?
+  period      RegisterPeriod? @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  type        String          @default("CASH_IN") // CASH_IN, CASH_OUT
+  amount      Float
+  reason      String
+  waiterName  String          @default("Kasse")
+  deviceId    String?
+  isTraining  Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+}
+
+// Ergebnisse der zyklischen Selbstdiagnose (Self-Healing)
+model DiagnosticRun {
+  id           String   @id @default(cuid())
+  status       String   @default("OK") // OK, WARNING, ERROR
+  checksJson   String   // JSON-Array der Einzelpruefungen
+  repairsCount Int      @default(0)
+  durationMs   Int      @default(0)
+  createdAt    DateTime @default(now())
 }
 
 model SyncJournal {

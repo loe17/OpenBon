@@ -8,7 +8,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const includeInactive = searchParams.get('all') === 'true';
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
     if (!includeInactive) {
       where.isActive = true;
     }
@@ -63,8 +63,8 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json(result);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 
@@ -147,8 +147,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json(created);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 
@@ -191,8 +191,8 @@ export async function PUT(req: Request) {
     }
 
     return NextResponse.json(updated);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 
@@ -207,7 +207,7 @@ export async function DELETE(req: Request) {
       global.io.emit('tables:updated_all');
     }
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

@@ -36,7 +36,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       let isCharging = false;
       if ('getBattery' in navigator) {
         try {
-          const b: any = await (navigator as any).getBattery();
+          const b = await navigator.getBattery!();
           batteryLevel = Math.round(b.level * 100);
           isCharging = b.charging;
         } catch {}

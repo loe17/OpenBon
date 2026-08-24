@@ -9,7 +9,7 @@ export default function FullscreenButton() {
   const [showIosTip, setShowIosTip] = useState(false);
 
   useEffect(() => {
-    const checkIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const checkIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     setIsIos(checkIos);
 
     const onFullscreenChange = () => {

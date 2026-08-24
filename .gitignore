@@ -36,11 +36,19 @@ yarn-error.log*
 .pnpm-debug.log*
 *.tmp
 
-# AI / Assistant / Internal Planning Files
+# AI / Assistant / Internal Planning & Spec Files
 IMPLEMENTIERUNGSPLAN.md
 IMPLEMENTIERUNGSPLAN*.md
 implementation_plan.md
 walkthrough.md
+SPEC_ABGLEICH.md
+UMSETZUNG.md
+docs/SPECIFICATION.md
+docs/SPECIFICATION_V2.md
+docs/IMPLEMENTATION_PLAN_V2.md
+*SPECIFICATION*.md
+*specification*.md
+_to_delete/
 .gemini/
 .system_generated/
 scratch/

@@ -29,14 +29,15 @@ import {
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { APP_VERSION } from '@/lib/version';
+import type { ReportSummary, EventConfigDTO } from '@/types/domain';
 
 export default function AdminDashboardPage() {
   const { socket } = useSocket();
-  const [reportsData, setReportsData] = useState<any>(null);
+  const [reportsData, setReportsData] = useState<ReportSummary | null>(null);
   const [tablesData, setTablesData] = useState<any[]>([]);
   const [kitchenOrders, setKitchenOrders] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
-  const [config, setConfig] = useState<any>(null);
+  const [config, setConfig] = useState<EventConfigDTO | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchAllDashboardData = async () => {
@@ -238,7 +239,7 @@ export default function AdminDashboardPage() {
                 </h3>
 
                 <div className="space-y-3">
-                  {reportsData?.categoryBreakdown?.map((cat: any) => (
+                  {reportsData?.categoryBreakdown?.map((cat) => (
                     <div key={cat.id}>
                       <div className="flex justify-between text-xs font-bold mb-1">
                         <span>{cat.name} ({cat.count} Positionen)</span>

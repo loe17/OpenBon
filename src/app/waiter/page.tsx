@@ -5,32 +5,48 @@ import { useRouter } from 'next/navigation';
 import { useSocket } from '@/components/providers/socket-provider';
 import { formatCurrency } from '@/lib/utils';
 import {
-  Users,
   PlusCircle,
   CreditCard,
-  History,
-  Clock,
-  CheckCircle2,
   RefreshCw,
   Search,
-  Filter,
-  Layers,
-  Sparkles,
   UserCheck,
   Edit3,
+  Repeat,
+  Receipt,
+  Ban,
+  FileBarChart,
+  X,
+  AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
+import { VOID_REASONS, type OrderDTO } from '@/types/domain';
+import { playConfirm, playVoidAlert } from '@/lib/audio-feedback';
 
 interface TableData {
   id: string;
   tableNumber: number;
   label: string;
+  section?: string;
   gridX: number;
   gridY: number;
   status: string;
   activeWaiterName: string | null;
   openGrossAmount: number;
   openItemCount: number;
-  orders: any[];
+  orders: OrderDTO[];
+}
+
+interface RepeatLine {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  deposit: number;
+  taxRate: number;
+  variantName: string | null;
+  selectedOptions: string[];
+  customizationText: string | null;
+  isSoldOut: boolean;
 }
 
 export default function WaiterTablesPage() {
@@ -42,6 +58,16 @@ export default function WaiterTablesPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+  // Spec 6.4 / 6.6 / 6.7 / 6.10
+  const [showVoidModal, setShowVoidModal] = useState(false);
+  const [voidPin, setVoidPin] = useState('');
+  const [voidReason, setVoidReason] = useState<string>(VOID_REASONS[0]);
+  const [voidItemIds, setVoidItemIds] = useState<string[]>([]);
+  const [voidMarkUnpaid, setVoidMarkUnpaid] = useState(false);
+  const [tableOrders, setTableOrders] = useState<OrderDTO[]>([]);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   // Waiter Identification
   const [waiterName, setWaiterName] = useState('Bedienung');
@@ -88,6 +114,147 @@ export default function WaiterTablesPage() {
       }
     };
   }, [socket]);
+
+  const showToast = (kind: 'ok' | 'err', text: string) => {
+    setToast({ kind, text });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  /** Spec 6.6: Gleiche Runde noch einmal */
+  const handleRepeatRound = async (table: TableData) => {
+    setBusyAction('repeat');
+    try {
+      const res = await fetch(`/api/orders/repeat?tableId=${table.id}&scope=last`);
+      const data = (await res.json()) as { lines?: RepeatLine[]; unavailable?: string[] };
+      const lines = (data.lines ?? []).filter((l) => !l.isSoldOut);
+
+      if (lines.length === 0) {
+        showToast('err', 'Keine wiederholbare Runde gefunden.');
+        return;
+      }
+
+      sessionStorage.setItem('openbon_repeat_cart', JSON.stringify(lines));
+      playConfirm();
+      if (data.unavailable && data.unavailable.length > 0) {
+        showToast('err', `Nicht mehr verfügbar: ${data.unavailable.join(', ')}`);
+      }
+      router.push(
+        `/waiter/order?tableId=${table.id}&waiterName=${encodeURIComponent(waiterName)}&repeat=1`
+      );
+    } catch {
+      showToast('err', 'Die letzte Runde konnte nicht geladen werden.');
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  /** Spec 6.10: Zwischenrechnung für den Gast */
+  const handlePreliminaryBill = async (table: TableData) => {
+    setBusyAction('bill');
+    try {
+      const res = await fetch('/api/bills/preliminary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tableId: table.id, waiterName }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (res.ok) {
+        playConfirm();
+        showToast('ok', 'Zwischenrechnung wurde gedruckt.');
+      } else {
+        showToast('err', data.error || 'Druck fehlgeschlagen.');
+      }
+    } catch {
+      showToast('err', 'Drucker nicht erreichbar.');
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  /** Spec 6.7: X-Bon der eigenen Schicht */
+  const handleXBon = async () => {
+    setBusyAction('xbon');
+    try {
+      const res = await fetch('/api/reports/x-bon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ waiterName }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (res.ok) {
+        playConfirm();
+        showToast('ok', 'X-Bon wurde gedruckt. Die Kasse bleibt geöffnet.');
+      } else {
+        showToast('err', data.error || 'X-Bon fehlgeschlagen.');
+      }
+    } catch {
+      showToast('err', 'Drucker nicht erreichbar.');
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  /** Spec 6.4: Storno-Dialog öffnen */
+  const openVoidModal = async (table: TableData) => {
+    setBusyAction('void');
+    try {
+      const res = await fetch(`/api/orders?tableId=${table.id}`);
+      const orders = (await res.json()) as OrderDTO[];
+      const active = orders.filter(
+        (o) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED'
+      );
+      setTableOrders(active);
+      setVoidItemIds([]);
+      setVoidPin('');
+      setVoidReason(VOID_REASONS[0]);
+      setVoidMarkUnpaid(false);
+      setShowVoidModal(true);
+    } catch {
+      showToast('err', 'Positionen konnten nicht geladen werden.');
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const submitVoid = async () => {
+    if (voidItemIds.length === 0) {
+      showToast('err', 'Bitte mindestens eine Position auswählen.');
+      return;
+    }
+    const orderId = tableOrders.find((o) =>
+      o.items.some((i) => voidItemIds.includes(i.id))
+    )?.id;
+    if (!orderId) return;
+
+    setBusyAction('voidSubmit');
+    try {
+      const res = await fetch(`/api/orders/${orderId}/void`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pin: voidPin,
+          reason: voidReason,
+          cancelledBy: waiterName,
+          itemIds: voidItemIds,
+          markAsUnpaid: voidMarkUnpaid,
+        }),
+      });
+      const data = (await res.json()) as { error?: string; voidedItems?: number };
+      if (res.ok) {
+        playVoidAlert();
+        showToast('ok', `${data.voidedItems} Position(en) storniert. Storno-Bon gedruckt.`);
+        setShowVoidModal(false);
+        setSelectedTable(null);
+        void fetchTables();
+      } else {
+        showToast('err', data.error || 'Storno fehlgeschlagen.');
+      }
+    } catch {
+      showToast('err', 'Verbindungsfehler beim Storno.');
+    } finally {
+      setBusyAction(null);
+    }
+  };
 
   const handleSaveWaiterName = (name: string) => {
     const finalName = name.trim() || 'Bedienung';
@@ -242,9 +409,10 @@ export default function WaiterTablesPage() {
               </div>
               <button
                 onClick={() => setSelectedTable(null)}
-                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800"
+                className="touch-target p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 flex items-center justify-center"
+                aria-label="Schließen"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -287,7 +455,201 @@ export default function WaiterTablesPage() {
                 <span>Kassieren</span>
               </button>
             </div>
+
+            {/* Spec 6.4 / 6.6 / 6.7 / 6.10: Schnellfunktionen am Tisch */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                onClick={() => void handleRepeatRound(selectedTable)}
+                disabled={busyAction !== null}
+                className="touch-target h-14 bg-slate-800 border border-slate-700 hover:border-blue-500 text-slate-100 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
+              >
+                <Repeat className="w-4 h-4 text-blue-400" />
+                <span>Gleiche Runde</span>
+              </button>
+
+              <button
+                onClick={() => void handlePreliminaryBill(selectedTable)}
+                disabled={busyAction !== null || selectedTable.openItemCount === 0}
+                className="touch-target h-14 bg-slate-800 border border-slate-700 hover:border-blue-500 text-slate-100 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
+              >
+                <Receipt className="w-4 h-4 text-emerald-400" />
+                <span>Zwischenrechnung</span>
+              </button>
+
+              <button
+                onClick={() => void openVoidModal(selectedTable)}
+                disabled={busyAction !== null || selectedTable.openItemCount === 0}
+                className="touch-target h-14 bg-rose-950/60 border border-rose-800 hover:border-rose-500 text-rose-200 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
+              >
+                <Ban className="w-4 h-4 text-rose-400" />
+                <span>Storno</span>
+              </button>
+
+              <button
+                onClick={() => void handleXBon()}
+                disabled={busyAction !== null}
+                className="touch-target h-14 bg-slate-800 border border-slate-700 hover:border-amber-500 text-slate-100 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
+              >
+                <FileBarChart className="w-4 h-4 text-amber-400" />
+                <span>X-Bon Schicht</span>
+              </button>
+            </div>
           </div>
+        </div>
+      )}
+
+      {/* Spec 6.4: Storno-Dialog mit PIN und Pflicht-Stornogrund */}
+      {showVoidModal && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-sm">
+          <div className="bg-slate-900 border-t sm:border border-rose-900 rounded-t-3xl sm:rounded-3xl p-5 w-full max-w-lg shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-rose-600/20 text-rose-400 rounded-2xl border border-rose-700">
+                  <Ban className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-white">Positionen stornieren</h3>
+                  <p className="text-xs text-slate-400">Erzeugt einen Storno-Bon in der Station</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowVoidModal(false)}
+                className="touch-target p-2 text-slate-400 rounded-xl bg-slate-800 flex items-center justify-center"
+                aria-label="Schließen"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
+                Zu stornierende Positionen
+              </div>
+              {tableOrders.flatMap((o) => o.items).filter((i) => !i.isCancelled).length === 0 ? (
+                <p className="text-sm text-slate-500 font-semibold py-4 text-center">
+                  Keine stornierbaren Positionen.
+                </p>
+              ) : (
+                tableOrders.map((order) =>
+                  order.items
+                    .filter((i) => !i.isCancelled)
+                    .map((item) => {
+                      const checked = voidItemIds.includes(item.id);
+                      const locked = item.paidQuantity > 0;
+                      return (
+                        <button
+                          key={item.id}
+                          disabled={locked}
+                          onClick={() =>
+                            setVoidItemIds((prev) =>
+                              prev.includes(item.id)
+                                ? prev.filter((x) => x !== item.id)
+                                : [...prev, item.id]
+                            )
+                          }
+                          className={`w-full text-left p-3 rounded-2xl border-2 flex items-center justify-between transition ${
+                            locked
+                              ? 'bg-slate-950 border-slate-800 opacity-40 cursor-not-allowed'
+                              : checked
+                                ? 'bg-rose-950/60 border-rose-500'
+                                : 'bg-slate-950 border-slate-800'
+                          }`}
+                        >
+                          <span className="min-w-0">
+                            <span className="block font-bold text-sm text-white truncate">
+                              {item.quantity}x {item.productName}
+                            </span>
+                            <span className="block text-[11px] text-slate-400 font-semibold">
+                              Bon #{order.orderNumber}
+                              {locked ? ' · bereits kassiert' : ''}
+                            </span>
+                          </span>
+                          {checked && <CheckCircle2 className="w-5 h-5 text-rose-400 shrink-0" />}
+                        </button>
+                      );
+                    })
+                )
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">
+                Stornogrund (Pflicht)
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {VOID_REASONS.map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setVoidReason(r)}
+                    className={`touch-target rounded-2xl text-xs font-bold border px-2 ${
+                      voidReason === r
+                        ? 'bg-rose-600 text-white border-rose-500'
+                        : 'bg-slate-800 text-slate-300 border-slate-700'
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <label className="flex items-center justify-between p-3 bg-slate-950 rounded-2xl border border-slate-800">
+              <span className="text-xs font-bold text-slate-300">
+                Als „Nicht bezahlt" für Schwund-Statistik buchen
+              </span>
+              <input
+                type="checkbox"
+                checked={voidMarkUnpaid}
+                onChange={(e) => setVoidMarkUnpaid(e.target.checked)}
+                className="w-5 h-5 rounded bg-slate-800 border-slate-700"
+              />
+            </label>
+
+            <div>
+              <label className="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">
+                Admin- oder Kassen-PIN
+              </label>
+              <input
+                type="password"
+                inputMode="numeric"
+                value={voidPin}
+                onChange={(e) => setVoidPin(e.target.value)}
+                placeholder="••••"
+                className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-lg font-mono font-bold text-white tracking-[0.4em] text-center focus:outline-none focus:ring-2 focus:ring-rose-500"
+              />
+            </div>
+
+            <button
+              onClick={() => void submitVoid()}
+              disabled={busyAction === 'voidSubmit' || voidItemIds.length === 0 || !voidPin}
+              className="w-full h-14 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 disabled:bg-slate-800 disabled:text-slate-500 transition"
+            >
+              <AlertTriangle className="w-5 h-5" />
+              <span>
+                {busyAction === 'voidSubmit'
+                  ? 'Storniere...'
+                  : `${voidItemIds.length} Position(en) stornieren`}
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Rückmeldung */}
+      {toast && (
+        <div
+          className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-[70] px-5 py-3 rounded-2xl border shadow-2xl font-bold text-sm flex items-center gap-2 max-w-[92vw] ${
+            toast.kind === 'ok'
+              ? 'bg-emerald-950 border-emerald-700 text-emerald-200'
+              : 'bg-rose-950 border-rose-700 text-rose-200'
+          }`}
+        >
+          {toast.kind === 'ok' ? (
+            <CheckCircle2 className="w-5 h-5 shrink-0" />
+          ) : (
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+          )}
+          <span>{toast.text}</span>
         </div>
       )}
 

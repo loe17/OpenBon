@@ -1,0 +1,103 @@
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/db';
+import networkSpooler from '@/lib/printer/network-spooler';
+import { computeTaxBreakdown } from '@/lib/pricing';
+import type { TicketData } from '@/lib/printer/types';
+
+/**
+ * Spec 6.10: Gast-Vorabrechnung / Bewirtungsbeleg (Zwischenrechnung).
+ *
+ * Druckt mit einem Klick eine Zwischenrechnung über alle offenen Posten eines
+ * Tisches. Die Zwischenrechnung ist ausdrücklich KEIN Kassenbeleg und verändert
+ * weder Zahlungen noch Tischstatus.
+ *
+ * POST { tableId: string, printerId?: string }
+ */
+export async function POST(req: Request) {
+  try {
+    const body = (await req.json()) as { tableId?: string; printerId?: string; waiterName?: string };
+    if (!body.tableId) {
+      return NextResponse.json({ error: 'tableId ist erforderlich' }, { status: 400 });
+    }
+
+    const [config, table, orders] = await Promise.all([
+      prisma.eventConfig.findUnique({ where: { id: 'default' } }),
+      prisma.diningTable.findUnique({ where: { id: body.tableId } }),
+      prisma.order.findMany({
+        where: {
+          tableId: body.tableId,
+          status: { in: ['OPEN', 'IN_PREPARATION', 'READY'] },
+        },
+        include: { items: { where: { isCancelled: false } } },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+
+    if (!table) {
+      return NextResponse.json({ error: 'Tisch nicht gefunden' }, { status: 404 });
+    }
+
+    const openItems = orders
+      .flatMap((o) => o.items)
+      .map((i) => ({ ...i, openQty: i.quantity - i.paidQuantity }))
+      .filter((i) => i.openQty > 0);
+
+    if (openItems.length === 0) {
+      return NextResponse.json({ error: 'Keine offenen Posten auf diesem Tisch.' }, { status: 400 });
+    }
+
+    const breakdown = computeTaxBreakdown(
+      openItems.map((i) => ({
+        unitPrice: i.unitPrice,
+        deposit: i.deposit,
+        quantity: i.openQty,
+        taxRate: i.taxRate,
+      }))
+    );
+
+    const printer = body.printerId
+      ? await prisma.printer.findUnique({ where: { id: body.printerId } })
+      : await prisma.printer.findFirst({ where: { isActive: true } });
+
+    if (!printer) {
+      return NextResponse.json({ error: 'Kein aktiver Drucker konfiguriert.' }, { status: 400 });
+    }
+
+    const ticket: TicketData = {
+      title: 'ZWISCHENRECHNUNG',
+      isPreliminary: true,
+      tableLabel: table.label,
+      waiterName: body.waiterName || table.activeWaiterName || 'Bedienung',
+      eventName: config?.name,
+      createdAt: new Date(),
+      items: openItems.map((i) => ({
+        name: i.productName,
+        quantity: i.openQty,
+        unitPrice: i.unitPrice,
+        deposit: i.deposit,
+        taxRate: i.taxRate,
+        variantName: i.variantName,
+        courseNumber: i.courseNumber,
+      })),
+      totalGross: breakdown.grossTotal,
+      totalNet: breakdown.netTotal,
+      totalTax: breakdown.taxTotal,
+      totalDeposit: breakdown.depositTotal,
+      taxSplits: breakdown.splits,
+      isTraining: config?.trainingMode ?? false,
+      footerText: 'Dies ist eine Zwischenrechnung und ersetzt keinen Kassenbeleg.',
+    };
+
+    const result = await networkSpooler.printTicket(printer, ticket);
+
+    return NextResponse.json({
+      success: result.success,
+      isVirtual: result.isVirtual,
+      totalGross: breakdown.grossTotal,
+      itemCount: openItems.length,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

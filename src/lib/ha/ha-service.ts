@@ -1,8 +1,18 @@
 import prisma from '../db';
 
+/** Ein Eintrag aus dem SyncJournal, wie ihn der Partner-Knoten liefert */
+interface SyncJournalEntry {
+  id: number;
+  entityType: string;
+  entityId: string;
+  operation: string;
+  payload: string;
+  createdAt: string;
+}
+
 export class HighAvailabilityService {
   private static instance: HighAvailabilityService;
-  private currentRole: 'PRIMARY' | 'STANDBY' = (process.env.HA_ROLE as any) || 'PRIMARY';
+  private currentRole: 'PRIMARY' | 'STANDBY' = (process.env.HA_ROLE as 'PRIMARY' | 'STANDBY' | undefined) || 'PRIMARY';
   private partnerUrl: string = process.env.HA_PARTNER_URL || 'http://127.0.0.1:3001';
   private missedHeartbeats = 0;
   private heartbeatInterval: NodeJS.Timeout | null = null;
@@ -49,7 +59,7 @@ export class HighAvailabilityService {
   }
 
   // Record a transaction mutation to the Sync Journal
-  public async logMutation(entityType: string, entityId: string, operation: 'INSERT' | 'UPDATE' | 'DELETE', payload: any) {
+  public async logMutation(entityType: string, entityId: string, operation: 'INSERT' | 'UPDATE' | 'DELETE', payload: unknown) {
     try {
       await prisma.syncJournal.create({
         data: {
@@ -142,7 +152,7 @@ export class HighAvailabilityService {
     }
   }
 
-  private async applyJournalEntry(entry: any) {
+  private async applyJournalEntry(entry: SyncJournalEntry) {
     try {
       const payload = JSON.parse(entry.payload);
       
