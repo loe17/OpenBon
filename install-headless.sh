@@ -79,7 +79,7 @@ sudo -u "$SERVICE_USER" DATABASE_URL="file:./dev.db" npm run build
 echo "[6/6] Richte systemd-Dienst ein (/etc/systemd/system/openbon.service)..."
 cat <<EOF > /etc/systemd/system/openbon.service
 [Unit]
-Description=OpenBon - Kassensystem Server (v0.1.0 Beta)
+Description=OpenBon - Kassensystem Server (v0.2.1)
 After=network.target
 
 [Service]
@@ -110,7 +110,7 @@ IP_ADDR=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1")
 
 echo ""
 echo "======================================================================"
-echo "  [ERFOLG] OpenBon v0.1.0 Beta wurde erfolgreich installiert!"
+echo "  [ERFOLG] OpenBon v0.2.1 wurde erfolgreich installiert!"
 echo "  Server laeuft im Hintergrunddienst: systemctl status openbon"
 echo "  Aufruf im Browser: http://openbon.local oder http://$IP_ADDR"
 echo "======================================================================"
