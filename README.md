@@ -1,4 +1,4 @@
-# OpenBon - Professionelles Kassen-, Bestell- & Festmanagementsystem (v2.0)
+# OpenBon - Professionelles Kassen-, Bestell- & Festmanagementsystem (v0.2.1)
 
 > **Moderne, hochverfügbare und 100% offlinefähige Kassen- & Bestellsoftware für Vereinsfeste, Gastronomie, Theken & Events.**  
 > *Keine Cloud-Abhängigkeit, keine laufenden Monatsgebühren, volle Datenhoheit im lokalen WLAN.*
@@ -69,7 +69,7 @@ Jedes Smartphone, Tablet, PC oder Touchterminal kann ohne App-Installation direk
 
 ---
 
-## ✨ Hauptfunktionen & V2-Erweiterungen
+## ✨ Funktionsübersicht & Neuerungen in v0.2.1
 
 ### 🍽️ Gast-Bestellung & Self-Service
 - **BYOD QR-Tischbestellung (`/guest/table/[nr]`)**: Gäste scannen den QR-Code am Tisch und bestellen direkt vom Smartphone; Bons werden automatisch an Küche und Schanktheke gedruckt.

@@ -8,7 +8,7 @@ export PORT=3000
 export HA_ROLE=PRIMARY
 
 echo "========================================================"
-echo "  OPENBON KASSENSYSTEM - VOLLVERSION V2"
+echo "  OPENBON KASSENSYSTEM - VERSION v0.2.1"
 echo "========================================================"
 echo ""
 echo "[1/2] Pruefe und synchronisiere Datenbank-Schema..."

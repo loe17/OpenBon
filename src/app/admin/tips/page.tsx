@@ -208,7 +208,7 @@ export default function AdminTipsPage() {
               </h1>
             </div>
             <p className="text-sm text-slate-400">
-              Konfigurieren Sie flexible Trinkgeld-Pools und weisen Sie diese individuellen Bedienungen zu (Spec V2 §5.3).
+              Konfigurieren Sie flexible Trinkgeld-Pools und weisen Sie diese individuellen Bedienungen zu.
             </p>
           </div>
 

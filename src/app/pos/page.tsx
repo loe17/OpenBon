@@ -220,7 +220,7 @@ export default function PosCounterPage() {
             <Ticket className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="font-black text-lg sm:text-xl">Bonkasse & Thekenverkauf (V2)</h2>
+            <h2 className="font-black text-lg sm:text-xl">Bonkasse & Thekenverkauf</h2>
             <p className="text-xs text-slate-400 font-semibold">
               {mode === 'DIRECT'
                 ? 'Direktverkauf (Theke / Bar ohne Küchenbon)'

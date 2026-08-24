@@ -95,7 +95,7 @@ export default function AdminAccountingPage() {
             </h1>
           </div>
           <p className="text-sm text-slate-400">
-            Erzeugen Sie standardkonforme DATEV-Buchungsstapel (Format EXTF 700 / Kassenbuch Online) zur Übergabe an das Steuerbüro (Spec V2 §7.1).
+            Erzeugen Sie standardkonforme DATEV-Buchungsstapel (Format EXTF 700 / Kassenbuch Online) zur Übergabe an das Steuerbüro.
           </p>
         </div>
 

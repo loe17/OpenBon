@@ -240,7 +240,7 @@ export default function AdminProductsPage() {
             <Utensils className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-black">Artikel & Speisekarte (V2)</h1>
+            <h1 className="text-2xl font-black">Artikel & Speisekarte</h1>
             <p className="text-xs text-slate-400">
               Mit Allergen-Matrix (LMIV), Jugendschutz-Altersprüfung, Happy-Hour Zeitfenstern und Meldebestand
             </p>

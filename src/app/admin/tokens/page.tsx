@@ -114,7 +114,7 @@ export default function AdminTokensPage() {
             </h1>
           </div>
           <p className="text-sm text-slate-400">
-            Verwaltung von Verzehrbons, Getränkemarken und Pfandmarken mit digitaler Gegenbuchung (Spec V2 §6.2).
+            Verwaltung von Verzehrbons, Getränkemarken und Pfandmarken mit digitaler Gegenbuchung.
           </p>
         </div>
 

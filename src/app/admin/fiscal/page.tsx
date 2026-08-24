@@ -78,7 +78,7 @@ export default function AdminFiscalPage() {
             </h1>
           </div>
           <p className="text-sm text-slate-400">
-            Digitale Schnittstelle der Finanzverwaltung für Kassensysteme (DSFinV-K 2.3+) nach KassenSichV und GoBD (Spec V2 §7.2).
+            Digitale Schnittstelle der Finanzverwaltung für Kassensysteme (DSFinV-K 2.3+) nach KassenSichV und GoBD.
           </p>
         </div>
 

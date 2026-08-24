@@ -581,7 +581,7 @@ export default function AdminSettingsPage() {
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-lg space-y-4">
             <h2 className="text-base font-extrabold text-white flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-purple-400" />
-              <span>Spec V2 Erweiterungen &amp; Automatisierung</span>
+              <span>Erweiterungen &amp; Automatisierung (v0.2.1)</span>
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

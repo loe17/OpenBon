@@ -2,9 +2,9 @@
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
-title OpenBon Kassensystem (Port 3000)
+title OpenBon Kassensystem (v0.2.1)
 echo ========================================================
-echo   OPENBON KASSENSYSTEM - VOLLVERSION V2
+echo   OPENBON KASSENSYSTEM - VERSION v0.2.1
 echo ========================================================
 echo.
 
