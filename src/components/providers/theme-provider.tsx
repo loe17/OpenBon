@@ -18,14 +18,19 @@ const ThemeContext = createContext<ThemeContextType>({
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('dark');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const saved = localStorage.getItem('openbon_theme') as Theme | null;
-    if (saved === 'light') {
-      setThemeState('light');
+    const initialTheme = saved === 'light' ? 'light' : 'dark';
+    setThemeState(initialTheme);
+    
+    if (initialTheme === 'light') {
       document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
     } else {
-      setThemeState('dark');
+      document.documentElement.classList.remove('light');
       document.documentElement.classList.add('dark');
     }
   }, []);
@@ -34,14 +39,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setThemeState(newTheme);
     localStorage.setItem('openbon_theme', newTheme);
     if (newTheme === 'dark') {
+      document.documentElement.classList.remove('light');
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
     }
   };
 
   const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
   };
 
   return (

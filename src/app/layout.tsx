@@ -30,7 +30,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'OpenBon - Kassensystem (v0.1.0 Beta)',
+  title: 'OpenBon - Kassensystem (v0.2.1)',
   description: 'Offenes Kassen- und Bestellsystem für Vereinsfeste und Gastronomie',
   manifest: '/manifest.json',
 };
@@ -53,8 +53,27 @@ export default function RootLayout({
     <html
       lang="de"
       className={`dark h-full ${inter.variable} ${jakarta.variable} ${jetbrains.variable}`}
+      suppressHydrationWarning
     >
-      <body className="font-sans min-h-full flex flex-col bg-slate-950 text-slate-100 antialiased">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var theme = localStorage.getItem('openbon_theme');
+                if (theme === 'light') {
+                  document.documentElement.classList.remove('dark');
+                  document.documentElement.classList.add('light');
+                } else {
+                  document.documentElement.classList.add('dark');
+                  document.documentElement.classList.remove('light');
+                }
+              } catch (e) {}
+            `,
+          }}
+        />
+      </head>
+      <body className="font-sans min-h-full flex flex-col bg-slate-950 text-slate-100 antialiased transition-colors duration-200">
         <ThemeProvider>
           <SocketProvider>
             <Navbar />
