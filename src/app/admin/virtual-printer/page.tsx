@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { copyTextToClipboard } from '@/lib/clipboard';
 import { useSocket } from '@/components/providers/socket-provider';
 import {
   Printer,
@@ -86,10 +87,12 @@ export default function VirtualPrinterMonitorPage() {
     }
   };
 
-  const copyToClipboard = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+  const copyToClipboard = async (text: string, id: string) => {
+    const success = await copyTextToClipboard(text);
+    if (success) {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }
   };
 
   const printerNames = Array.from(new Set(tickets.map((t) => t.printerName).filter(Boolean)));

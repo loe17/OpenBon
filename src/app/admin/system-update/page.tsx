@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { APP_VERSION, GITHUB_REPO_URL } from '@/lib/version';
 import { triggerHapticFeedback } from '@/lib/socket-client';
+import { copyTextToClipboard } from '@/lib/clipboard';
 
 interface SystemInfo {
   currentVersion?: string;
@@ -60,14 +61,14 @@ export default function AdminSystemUpdatePage() {
   const [terminalHistory, setTerminalHistory] = useState<TerminalLog[]>([]);
   const [copiedAll, setCopiedAll] = useState(false);
 
-  const copyAllLogs = () => {
+  const copyAllLogs = async () => {
     triggerHapticFeedback();
     const text = terminalHistory
       .map((l) => (l.command ? `$ ${l.command} [${l.timestamp}]\n${l.text}` : l.text))
       .join('\n\n');
 
-    if (navigator?.clipboard) {
-      navigator.clipboard.writeText(text);
+    const success = await copyTextToClipboard(text);
+    if (success) {
       setCopiedAll(true);
       setTimeout(() => setCopiedAll(false), 2500);
     }

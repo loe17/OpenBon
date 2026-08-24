@@ -190,7 +190,7 @@ export async function POST(req: Request) {
         logs.push(npmOut.trim());
 
         logs.push('[3/4] Aktualisiere Datenbankschema (prisma db push)...');
-        const { stdout: dbOut } = await execAsync('npx prisma db push --skip-generate', {
+        const { stdout: dbOut } = await execAsync('npx prisma db push --accept-data-loss', {
           cwd: projectRoot,
           env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db' },
         });
