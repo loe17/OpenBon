@@ -95,7 +95,7 @@ export default function Navbar() {
     const savedRole = localStorage.getItem('pos_user_role') || 'WAITER';
     setRole(savedRole);
 
-    fetch('/api/config')
+    fetch('/api/config/public')
       .then((res) => res.json())
       .then((data) => {
         if (data) {

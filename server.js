@@ -51,11 +51,12 @@ app.prepare().then(() => {
     // Device Handshake & Status Registration
     socket.on('device:register', (deviceInfo) => {
       const deviceId = deviceInfo.id || socket.id;
+      const role = deviceInfo.role || 'WAITER';
       const data = {
         id: deviceId,
         socketId: socket.id,
         name: deviceInfo.name || 'Unbenanntes Gerät',
-        role: deviceInfo.role || 'WAITER',
+        role,
         ipAddress: clientIp.replace(/^.*:/, '') || '127.0.0.1',
         userAgent: deviceInfo.userAgent || '',
         batteryLevel: deviceInfo.batteryLevel !== undefined ? deviceInfo.batteryLevel : 100,
@@ -67,12 +68,20 @@ app.prepare().then(() => {
 
       global.connectedDevices.set(deviceId, data);
       socket.deviceId = deviceId;
+      socket.role = role;
 
-      // Broadcast device list update to all connected admins
-      io.emit('device:update', Array.from(global.connectedDevices.values()));
+      // In Räume eintragen: Individueller Geräteraum + Rollenraum
+      socket.join(deviceId);
+      if (role === 'ADMIN') {
+        socket.join('admin_room');
+      }
+
+      // Geräteliste gezielt an Admins und den anmeldenden Client senden
+      io.to('admin_room').emit('device:update', Array.from(global.connectedDevices.values()));
+      socket.emit('device:update', Array.from(global.connectedDevices.values()));
     });
 
-    // Heartbeat & Battery updates
+    // Heartbeat & Battery updates (nur an Admins übertragen)
     socket.on('device:heartbeat', (data) => {
       if (socket.deviceId && global.connectedDevices.has(socket.deviceId)) {
         const device = global.connectedDevices.get(socket.deviceId);
@@ -81,18 +90,26 @@ app.prepare().then(() => {
         if (data.isCharging !== undefined) device.isCharging = data.isCharging;
         device.status = 'ONLINE';
         global.connectedDevices.set(socket.deviceId, device);
-        io.emit('device:update', Array.from(global.connectedDevices.values()));
+        io.to('admin_room').emit('device:update', Array.from(global.connectedDevices.values()));
       }
     });
 
-    // Acoustic device ping (Find My Device)
+    // Akustischer Geräte-Ping (Find My Device) gezielt an das Zielgerät
     socket.on('device:ping_target', ({ targetDeviceId }) => {
-      io.emit('device:play_sound', { targetDeviceId });
+      if (targetDeviceId) {
+        io.to(targetDeviceId).emit('device:play_sound', { targetDeviceId });
+      }
     });
 
-    // Force Logout from Admin
+    // Force Logout gezielt an das Zielgerät
     socket.on('device:force_logout', ({ targetDeviceId }) => {
-      io.emit('device:kicked', { targetDeviceId });
+      if (targetDeviceId) {
+        io.to(targetDeviceId).emit('device:kicked', { targetDeviceId });
+        if (global.connectedDevices.has(targetDeviceId)) {
+          global.connectedDevices.delete(targetDeviceId);
+          io.to('admin_room').emit('device:update', Array.from(global.connectedDevices.values()));
+        }
+      }
     });
 
     // Realtime Order & Kitchen events

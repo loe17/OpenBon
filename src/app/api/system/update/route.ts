@@ -149,9 +149,40 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Befehl fehlt' }, { status: 400 });
       }
 
+      const trimmed = customCommand.trim();
+      const ALLOWED_COMMANDS = [
+        'git status',
+        'git log',
+        'git log -n 5',
+        'git log -n 10',
+        'git pull',
+        'git pull origin master',
+        'npm install --production=false',
+        'npm install',
+        'npx prisma db push --accept-data-loss',
+        'npx prisma generate',
+        'npm run build',
+        'restart',
+        'systemctl status openbon',
+      ];
+
+      const isAllowed = ALLOWED_COMMANDS.some((cmd) => trimmed === cmd || trimmed.startsWith(cmd));
+      if (!isAllowed) {
+        return NextResponse.json(
+          {
+            success: false,
+            command: trimmed,
+            stdout: '',
+            stderr: `[SICHERHEITSHINWEIS] Der Befehl "${trimmed}" ist nicht in der System-Allowlist erlaubt. Erlaubte Befehle: git status, git pull, npm install, npx prisma db push --accept-data-loss, npm run build, restart`,
+            error: 'Befehl nicht in der Allowlist',
+          },
+          { status: 403 }
+        );
+      }
+
       const startTime = Date.now();
       try {
-        const { stdout, stderr } = await execAsync(customCommand, {
+        const { stdout, stderr } = await execAsync(trimmed, {
           cwd: projectRoot,
           timeout: 30000,
           maxBuffer: 1024 * 1024 * 5,
@@ -160,7 +191,7 @@ export async function POST(req: Request) {
         const duration = Date.now() - startTime;
         return NextResponse.json({
           success: true,
-          command: customCommand,
+          command: trimmed,
           stdout: stdout.trim(),
           stderr: stderr.trim(),
           duration,

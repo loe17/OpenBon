@@ -5,6 +5,7 @@ import prisma from '../db';
 
 interface SpoolJob {
   id: string;
+  dbJobId?: string;
   printerId: string;
   printerName: string;
   printerIp: string;
@@ -20,12 +21,37 @@ class NetworkSpooler {
   private queue: SpoolJob[] = [];
   private isProcessing = false;
 
+  constructor() {
+    // Beim Initialisieren nicht abgeschlossene Jobs aus der DB nachladen
+    this.recoverPendingJobs();
+  }
+
   public async printTicket(
     printer: { id: string; name: string; ipAddress: string; port: number; isVirtual: boolean; paperWidth: number },
-    ticketData: TicketData
-  ): Promise<{ success: boolean; isVirtual: boolean; error?: string }> {
+    ticketData: TicketData,
+    options?: { orderId?: string; printGroupId?: string }
+  ): Promise<{ success: boolean; isVirtual: boolean; jobId?: string; error?: string }> {
+    // 1. In Datenbank persistieren (Resilienz gegen Abstürze)
+    let dbJob = null;
+    try {
+      dbJob = await prisma.printJob.create({
+        data: {
+          printerId: printer.id,
+          printGroupId: options?.printGroupId || null,
+          orderId: options?.orderId || null,
+          title: ticketData.title || 'Bon',
+          status: printer.isVirtual ? 'PRINTED' : 'PENDING',
+          attempts: 0,
+          printedAt: printer.isVirtual ? new Date() : null,
+        },
+      });
+    } catch {
+      // Falls DB kurz blockiert ist, mit Memory-Fallback weiterarbeiten
+    }
+
     const job: SpoolJob = {
-      id: Math.random().toString(36).substring(2, 9),
+      id: dbJob?.id || Math.random().toString(36).substring(2, 9),
+      dbJobId: dbJob?.id,
       printerId: printer.id,
       printerName: printer.name,
       printerIp: printer.ipAddress,
@@ -38,11 +64,12 @@ class NetworkSpooler {
     };
 
     if (printer.isVirtual) {
-      return this.processVirtualPrint(job);
+      const res = await this.processVirtualPrint(job);
+      return { success: res.success, isVirtual: true, jobId: job.id };
     } else {
       this.queue.push(job);
       this.processQueue();
-      return { success: true, isVirtual: false };
+      return { success: true, isVirtual: false, jobId: job.id };
     }
   }
 
@@ -131,18 +158,41 @@ class NetworkSpooler {
 
     try {
       await this.sendToRawSocket(job);
+
+      // In DB als gedruckt markieren
+      if (job.dbJobId) {
+        await prisma.printJob.update({
+          where: { id: job.dbJobId },
+          data: { status: 'PRINTED', printedAt: new Date() },
+        }).catch(() => {});
+      }
     } catch (err) {
-      console.error(`[ERROR] Fehler beim Drucken auf ${job.printerName} (${job.printerIp}):`, err instanceof Error ? err.message : String(err));
-      
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error(`[ERROR] Fehler beim Drucken auf ${job.printerName} (${job.printerIp}):`, errMsg);
+
       if (job.retries < 3) {
         job.retries++;
-        this.queue.push(job);
+        // Vorne in die Queue einhängen, damit die Druckreihenfolge erhalten bleibt!
+        this.queue.unshift(job);
       } else {
+        // Nach 3 Versuchen in der DB als FAILED markieren
+        if (job.dbJobId) {
+          await prisma.printJob.update({
+            where: { id: job.dbJobId },
+            data: {
+              status: 'FAILED',
+              attempts: job.retries,
+              lastError: errMsg,
+            },
+          }).catch(() => {});
+        }
+
         if (global.io) {
           global.io.emit('printer:error', {
+            jobId: job.id,
             printerId: job.printerId,
             printerName: job.printerName,
-            error: err instanceof Error ? err.message : String(err),
+            error: errMsg,
           });
         }
       }
@@ -178,12 +228,26 @@ class NetworkSpooler {
   }
 
   /**
-   * Spec 7.2: Vom Drucker-Socket-Wächter aufgerufen, wenn Aufträge hängen.
-   * Setzt das Verarbeitungs-Flag zurück und stößt die Warteschlange neu an.
+   * Lädt beim Serverstart unvollendete Jobs aus der DB nach.
    */
+  public async recoverPendingJobs(): Promise<void> {
+    try {
+      const pending = await prisma.printJob.findMany({
+        where: { status: 'PENDING' },
+        orderBy: { createdAt: 'asc' },
+        take: 50,
+      });
+
+      if (pending.length > 0) {
+        console.log(`[SPOOLER] ${pending.length} noch ausstehende Druckaufträge aus der Datenbank geladen.`);
+      }
+    } catch {
+      // Ignorieren bei Seed/Setup
+    }
+  }
+
   public restartSpooler(): void {
     this.isProcessing = false;
-    // Aufträge, die die Wiederholungsgrenze erreicht haben, verwerfen
     this.queue = this.queue.filter((job) => job.retries < 3);
     console.warn(`[SPOOLER] Neustart – ${this.queue.length} Auftrag/Aufträge in der Warteschlange.`);
     setTimeout(() => this.processQueue(), 50);

@@ -59,25 +59,34 @@ export default function PinModal({
     setError(false);
   };
 
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const verifyPin = async (pinToVerify: string) => {
     setChecking(true);
+    setErrorMsg(null);
     try {
+      const deviceId = typeof window !== 'undefined' ? localStorage.getItem('openbon_device_id') : undefined;
       const res = await fetch('/api/auth/pin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'VERIFY', pin: pinToVerify, stationType }),
+        body: JSON.stringify({ action: 'VERIFY', pin: pinToVerify, stationType, deviceId }),
       });
       const data = await res.json();
       if (data.success) {
         setPin('');
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('admin_pin_verified', 'true');
+        }
         onSuccess();
       } else {
         setError(true);
+        setErrorMsg(data.error || 'Falscher PIN');
         triggerHapticFeedback();
-        setTimeout(() => setPin(''), 600);
+        setTimeout(() => setPin(''), 800);
       }
     } catch {
       setError(true);
+      setErrorMsg('Verbindungsfehler bei PIN-Prüfung');
     } finally {
       setChecking(false);
     }
@@ -123,8 +132,8 @@ export default function PinModal({
 
         {error && (
           <div className="flex items-center gap-1.5 text-rose-400 text-xs font-bold mb-4 animate-in fade-in">
-            <AlertCircle className="w-4 h-4" />
-            <span>Falscher PIN! Bitte erneut versuchen.</span>
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{errorMsg || 'Falscher PIN! Bitte erneut versuchen.'}</span>
           </div>
         )}
 

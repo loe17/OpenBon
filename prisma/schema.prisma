@@ -73,7 +73,9 @@ model EventConfig {
   datevClientNumber             String?
   datevCashAccount              String   @default("1000")
 
-  // Hochverfuegbarkeit & Lizenz
+  // Hochverfuegbarkeit & Lizenz & Sicherheit
+  sessionSecret                 String?  // Kryptografischer Secret-Schlüssel für signierte JWT-Session-Cookies
+  haSyncSecret                  String?  @default("openbon-ha-sync-secret-2026")
   licenseKey                    String   @default("OPENBON-COMMUNITY-FREE")
   haRole                        String   @default("PRIMARY") // PRIMARY, STANDBY
   haPartnerUrl                  String?  @default("http://192.168.1.101:3000")
@@ -514,4 +516,67 @@ model ActionLog {
   @@index([action])
   @@index([category])
   @@index([createdAt])
+}
+
+// Persistente Druck-Warteschlange (Druckerspooler-Resilienz)
+model PrintJob {
+  id             String    @id @default(cuid())
+  printerId      String?
+  printGroupId   String?
+  orderId        String?
+  title          String?
+  status         String    @default("PENDING") // PENDING, PRINTING, PRINTED, FAILED
+  sequenceNumber Int       @default(0)
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(3)
+  lastError      String?
+  rawPayload     String?   // Base64 oder formatierter ESC/POS Text
+  createdAt      DateTime  @default(now())
+  printedAt      DateTime?
+
+  @@index([status, createdAt])
+  @@index([printerId])
+  @@index([printGroupId])
+}
+
+// Idempotenz-Schlüssel zur Verhinderung von Doppelbestellungen/-Zahlungen bei Netzwerkabbrüchen
+model IdempotencyKey {
+  id           String   @id @default(cuid())
+  key          String   @unique
+  endpoint     String
+  statusCode   Int      @default(200)
+  responseJson String
+  createdAt    DateTime @default(now())
+
+  @@index([key, endpoint])
+}
+
+// Dynamische Auswahllisten (Unterkategorien, Pfandstufen, Aufschläge, Stornogründe, etc.)
+model ConfigList {
+  id        String   @id @default(cuid())
+  key       String   @unique // z.B. "SUB_CATEGORIES", "DEPOSIT_TIERS", "TIP_PRESETS", "VOID_REASONS", "COURSE_NAMES"
+  name      String
+  itemsJson String   // JSON array
+  updatedAt DateTime @updatedAt
+}
+
+// Veranstaltungsvorlagen (Snapshots zur schnellen Wiederverwendung)
+model EventProfile {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  profileJson String   // JSON Snapshot
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Personalverwaltung mit Rollen & PIN-Hashes
+model Staff {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  role      String   @default("WAITER") // ADMIN, WAITER, POS_CASHIER, KITCHEN
+  pinHash   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

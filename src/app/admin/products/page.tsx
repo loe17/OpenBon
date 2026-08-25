@@ -298,13 +298,55 @@ export default function AdminProductsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* CSV Export & Import */}
+          <a
+            href="/api/products/csv"
+            download
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-2xl text-xs font-bold transition shadow"
+            title="Speisekarte als CSV exportieren"
+          >
+            <Package className="w-4 h-4 text-sky-400" />
+            <span>CSV Export</span>
+          </a>
+
+          <label className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-2xl text-xs font-bold transition shadow cursor-pointer">
+            <Sparkles className="w-4 h-4 text-amber-400" />
+            <span>CSV Import</span>
+            <input
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const text = await file.text();
+                try {
+                  const res = await fetch('/api/products/csv', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ csvText: text }),
+                  });
+                  const d = await res.json();
+                  if (d.success) {
+                    alert(d.message || 'Import erfolgreich!');
+                    fetchData();
+                  } else {
+                    alert(d.error || 'Fehler beim CSV-Import');
+                  }
+                } catch {
+                  alert('Netzwerkfehler beim CSV-Import');
+                }
+              }}
+            />
+          </label>
+
           {/* Printable Menu PDF Button */}
           <button
             onClick={() => setShowMenuPrintModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-2xl text-xs font-bold transition shadow"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-2xl text-xs font-bold transition shadow"
           >
             <FileText className="w-4 h-4 text-emerald-400" />
-            <span>Speisekarte drucken / PDF</span>
+            <span>Speisekarte drucken</span>
           </button>
 
           {/* Manage Categories Button */}
@@ -314,16 +356,16 @@ export default function AdminProductsPage() {
               setNewCatName('');
               setShowCatModal(true);
             }}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-2xl text-xs font-bold transition shadow"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-2xl text-xs font-bold transition shadow"
           >
             <Tag className="w-4 h-4 text-purple-400" />
-            <span>Warengruppen verwalten</span>
+            <span>Warengruppen</span>
           </button>
 
           {/* New Product Button */}
           <button
             onClick={openNewModal}
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-blue-950/50"
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-blue-950/50"
           >
             <Plus className="w-4 h-4" />
             <span>Artikel anlegen</span>
@@ -331,8 +373,39 @@ export default function AdminProductsPage() {
         </div>
       </div>
 
-      {/* Category Navigation Pills */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-4">
+      {/* Search and Category Filter Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
+        {/* Search Input Bar */}
+        <div className="relative flex-1">
+          <input
+            type="text"
+            placeholder="Artikel suchen nach Name oder Bon-Kurzname..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-800 focus:border-blue-500 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 outline-none transition shadow-inner"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs font-bold"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        {/* Category Navigation Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <button
+            onClick={() => setSelectedCatId('')}
+            className={`px-3 py-2 rounded-2xl text-xs font-black uppercase tracking-wider transition whitespace-nowrap border ${
+              selectedCatId === ''
+                ? 'bg-blue-600 text-white border-blue-400 shadow-md'
+                : 'bg-slate-900 hover:bg-slate-800 text-slate-400 border-slate-800'
+            }`}
+          >
+            Alle Gruppen
+          </button>
         {categories.map((cat) => (
           <button
             key={cat.id}
@@ -361,6 +434,7 @@ export default function AdminProductsPage() {
           <Plus className="w-3.5 h-3.5" />
           <span>Gruppe</span>
         </button>
+        </div>
       </div>
 
       {/* Products Grid */}

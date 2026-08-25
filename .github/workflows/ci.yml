@@ -1,0 +1,35 @@
+name: OpenBon CI Pipeline
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client & Sync SQLite Test DB
+        run: |
+          DATABASE_URL="file:./dev.db" npx prisma generate
+          DATABASE_URL="file:./dev.db" npx prisma db push --accept-data-loss --skip-generate
+
+      - name: TypeScript Typecheck & Unit / Integration Tests
+        run: npm test
+
+      - name: Next.js Production Build
+        run: npm run build

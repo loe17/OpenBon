@@ -7,22 +7,20 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const format = searchParams.get('format'); // 'json' or 'csv'
 
-    // 1. Fetch all real (non-training) completed payments & orders
+    // 1. Fetch real (non-training) completed payments, orders, products & categories schlank
     const [payments, orders, products, categories] = await Promise.all([
       prisma.payment.findMany({
         where: { isCancelled: false, isTraining: false },
-        include: { table: true, items: true },
+        include: { table: true },
       }),
       prisma.order.findMany({
         where: { status: { not: 'CANCELLED' }, isTraining: false },
         include: { items: true },
       }),
       prisma.product.findMany({
-        include: { stockItem: true, category: true, orderItems: true },
+        include: { stockItem: true },
       }),
-      prisma.productCategory.findMany({
-        include: { products: { include: { orderItems: true } } },
-      }),
+      prisma.productCategory.findMany(),
     ]);
 
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -144,25 +142,35 @@ export async function GET(req: Request) {
     const hourlySales = computeHourlySales(orders);
     const forecast = computeForecast(hourlySales, totalGross, [], products);
 
-    // Category Breakdown
-    const categoryBreakdown = categories.map((c) => {
-      let revenue = 0;
-      let count = 0;
-      for (const p of c.products) {
-        for (const itm of p.orderItems || []) {
-          if (!itm.isCancelled) {
-            revenue += (itm.unitPrice + (itm.deposit || 0)) * itm.quantity;
-            count += itm.quantity;
-          }
+    // Category Breakdown (Linear in O(N) aus OrderItems)
+    const productCategoryMap = new Map<string, string>();
+    for (const p of products) {
+      productCategoryMap.set(p.id, p.categoryId);
+    }
+
+    const catRevenueMap = new Map<string, { revenue: number; count: number }>();
+    for (const ord of orders) {
+      for (const item of ord.items) {
+        if (item.isCancelled) continue;
+        const catId = productCategoryMap.get(item.productId) || 'uncategorized';
+        if (!catRevenueMap.has(catId)) {
+          catRevenueMap.set(catId, { revenue: 0, count: 0 });
         }
+        const st = catRevenueMap.get(catId)!;
+        st.revenue += (item.unitPrice + (item.deposit || 0)) * item.quantity;
+        st.count += item.quantity;
       }
+    }
+
+    const categoryBreakdown = categories.map((c) => {
+      const stats = catRevenueMap.get(c.id) || { revenue: 0, count: 0 };
       return {
         id: c.id,
         name: c.name,
         color: c.color || '#3b82f6',
-        revenue: Math.round(revenue * 100) / 100,
-        count,
-        percent: totalGross > 0 ? Math.round((revenue / totalGross) * 1000) / 10 : 0,
+        revenue: Math.round(stats.revenue * 100) / 100,
+        count: stats.count,
+        percent: totalGross > 0 ? Math.round((stats.revenue / totalGross) * 1000) / 10 : 0,
       };
     });
 

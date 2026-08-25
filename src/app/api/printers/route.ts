@@ -89,6 +89,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
+    // 5. Retry failed print jobs
+    if (body.action === 'RETRY_FAILED_JOBS') {
+      const failed = await prisma.printJob.findMany({
+        where: { status: 'FAILED' },
+        take: 20,
+      });
+
+      let retriedCount = 0;
+      for (const job of failed) {
+        await prisma.printJob.update({
+          where: { id: job.id },
+          data: { status: 'PENDING', attempts: 0 },
+        });
+        retriedCount++;
+      }
+
+      networkSpooler.restartSpooler();
+      return NextResponse.json({ success: true, retriedCount });
+    }
+
+    if (!body.name) {
+      return NextResponse.json({ error: 'Druckername ist erforderlich' }, { status: 400 });
+    }
+
     const created = await prisma.printer.create({
       data: {
         name: body.name,
@@ -101,6 +125,29 @@ export async function POST(req: Request) {
       },
     });
     return NextResponse.json(created);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    const body = await req.json();
+    if (!body.id) return NextResponse.json({ error: 'Drucker-ID fehlt' }, { status: 400 });
+
+    const updated = await prisma.printer.update({
+      where: { id: body.id },
+      data: {
+        name: body.name,
+        ipAddress: body.ipAddress !== undefined ? body.ipAddress : undefined,
+        port: body.port !== undefined ? parseInt(body.port, 10) : undefined,
+        paperWidth: body.paperWidth !== undefined ? parseInt(body.paperWidth, 10) : undefined,
+        characterSet: body.characterSet !== undefined ? body.characterSet : undefined,
+        isVirtual: body.isVirtual !== undefined ? body.isVirtual : undefined,
+        isActive: body.isActive !== undefined ? body.isActive : undefined,
+      },
+    });
+    return NextResponse.json(updated);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }

@@ -94,25 +94,26 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           },
         });
 
-        // Bestand zurueckbuchen (kein Verbrauch bei Storno vor Ausgabe)
+        // Bestand sauber auf StockItem zurückbuchen
         const product = await tx.product.findUnique({
           where: { id: item.productId },
           include: { stockItem: true },
         });
         if (product?.stockItem) {
-          await tx.stockItem.update({
+          const updatedStock = await tx.stockItem.update({
             where: { id: product.stockItem.id },
             data: { currentQuantity: { increment: item.quantity } },
           });
-        }
-        if (product?.trackStock) {
-          await tx.product.update({
-            where: { id: product.id },
-            data: {
-              stockQuantity: { increment: item.quantity },
-              isSoldOut: false,
-            },
-          });
+
+          if (updatedStock.currentQuantity > 0) {
+            await tx.product.update({
+              where: { id: product.id },
+              data: {
+                isSoldOut: false,
+                status: product.status === 'INACTIVE' ? 'ACTIVE' : product.status,
+              },
+            });
+          }
         }
       }
 

@@ -69,6 +69,12 @@ export default function RootLayout({
                   document.documentElement.classList.remove('light');
                 }
               } catch (e) {}
+
+              if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').catch(function() {});
+                });
+              }
             `,
           }}
         />

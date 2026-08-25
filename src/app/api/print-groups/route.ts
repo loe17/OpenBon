@@ -51,3 +51,22 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'Druckgruppen-ID fehlt' }, { status: 400 });
+
+    // Produkte Referenzen lösen
+    await prisma.product.updateMany({
+      where: { printGroupId: id },
+      data: { printGroupId: null },
+    });
+
+    await prisma.printGroup.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
+  }
+}

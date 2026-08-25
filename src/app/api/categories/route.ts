@@ -89,6 +89,14 @@ export async function DELETE(req: Request) {
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'ID fehlt' }, { status: 400 });
 
+    const productCount = await prisma.product.count({ where: { categoryId: id } });
+    if (productCount > 0) {
+      return NextResponse.json(
+        { error: `Diese Warengruppe enthält noch ${productCount} Artikel. Bitte verschiebe oder lösche zuerst die Artikel.` },
+        { status: 409 }
+      );
+    }
+
     await prisma.productCategory.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
