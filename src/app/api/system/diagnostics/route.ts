@@ -1,16 +1,19 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { runDiagnostics, startDiagnosticsCycle } from '@/lib/diagnostics';
+import { requireAdmin } from '@/lib/admin-guard';
 
 /**
  * Spec 7.2: Integrierte Self-Healing Selbstdiagnose.
  *
  * GET  -> letztes Ergebnis + Historie (ohne neuen Lauf)
- * POST -> führt sofort einen vollständigen Selbsttest samt Reparaturen aus
+ * POST -> fÃ¼hrt sofort einen vollstÃ¤ndigen Selbsttest samt Reparaturen aus
  */
-export async function GET() {
+export async function GET(req: Request) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
   try {
-    // Sicherstellen, dass der 60-Sekunden-Zyklus läuft (auch nach Hot-Reload)
+    // Sicherstellen, dass der 60-Sekunden-Zyklus lÃ¤uft (auch nach Hot-Reload)
     startDiagnosticsCycle();
 
     const [latest, history] = await Promise.all([
@@ -41,7 +44,9 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(req: Request) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
   try {
     const result = await runDiagnostics();
     return NextResponse.json(result);

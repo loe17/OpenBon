@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifySessionToken, SESSION_COOKIE_NAME, UserRole } from '@/lib/auth-session';
+import { decodeSessionToken, SESSION_COOKIE_NAME, UserRole } from '@/lib/auth-session';
 
 // Öffentliche Pfade, die ohne Authentifizierung erreichbar sein müssen
 const PUBLIC_PATHS = [
@@ -40,17 +40,20 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Session aus Cookie oder Bearer Header verifizieren
+  // 2. Session aus Cookie oder Bearer Header decodieren (Ablauf/Rolle).
+  //    WICHTIG: Die Edge-Middleware prueft nur Struktur & Ablaufzeit – die
+  //    kryptografische Signaturpruefung erfolgt Node-seitig im Admin-Layout-
+  //    Gate und in den API-Routen, da die Edge-Sandbox kein DB-Secret kennt.
   let session = null;
   const cookieVal = req.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (cookieVal) {
-    session = await verifySessionToken(cookieVal);
+    session = decodeSessionToken(cookieVal);
   }
 
   if (!session) {
     const authHeader = req.headers.get('authorization');
     if (authHeader?.startsWith('Bearer ')) {
-      session = await verifySessionToken(authHeader.substring(7).trim());
+      session = decodeSessionToken(authHeader.substring(7).trim());
     }
   }
 

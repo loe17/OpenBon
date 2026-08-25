@@ -6,6 +6,15 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return;
 
+  // Zuerst: stabiles JWT-Secret aus der DB laden/erzeugen, damit Signierung
+  // (API-Routen) und Pruefung konsistent funktionieren.
+  try {
+    const { ensureSessionSecret } = await import('@/lib/session-secret');
+    await ensureSessionSecret();
+  } catch (e) {
+    console.warn('[INSTRUMENTATION] Session-Secret konnte nicht initialisiert werden:', e);
+  }
+
   try {
     const { startDiagnosticsCycle } = await import('@/lib/diagnostics');
     startDiagnosticsCycle();

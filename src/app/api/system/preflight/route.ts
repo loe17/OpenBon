@@ -5,6 +5,7 @@ import path from 'path';
 import prisma from '@/lib/db';
 import haService from '@/lib/ha/ha-service';
 import { getHaSyncSecret } from '@/lib/ha/ha-secret';
+import { requireAdmin } from '@/lib/admin-guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,11 +38,11 @@ async function checkLitestreamReplica(): Promise<{ status: PreflightCheck['statu
   try {
     const replicaDir = path.join(process.cwd(), 'prisma', 'backups', 'litestream-replica');
     if (!fs.existsSync(replicaDir)) {
-      return { status: 'WARNING', detail: 'Kein Litestream-Replikatverzeichnis gefunden – Replikation aktiv?' };
+      return { status: 'WARNING', detail: 'Kein Litestream-Replikatverzeichnis gefunden â€“ Replikation aktiv?' };
     }
     const files = fs.readdirSync(replicaDir).filter((f) => f.endsWith('.db'));
     if (files.length === 0) {
-      return { status: 'WARNING', detail: 'Replikatverzeichnis ist leer – noch keine Replikation gelaufen.' };
+      return { status: 'WARNING', detail: 'Replikatverzeichnis ist leer â€“ noch keine Replikation gelaufen.' };
     }
     let newest = 0;
     for (const f of files) {
@@ -58,19 +59,21 @@ async function checkLitestreamReplica(): Promise<{ status: PreflightCheck['statu
       return { status: 'OK', detail: `Replikat ist ${ageSeconds}s alt.` };
     }
     if (ageSeconds < 600) {
-      return { status: 'WARNING', detail: `Replikat ist ${ageSeconds}s alt – Replikation verzögert?` };
+      return { status: 'WARNING', detail: `Replikat ist ${ageSeconds}s alt â€“ Replikation verzÃ¶gert?` };
     }
-    return { status: 'ERROR', detail: `Replikat ist ${Math.round(ageSeconds / 60)} Minuten alt – Litestream läuft vermutlich nicht!` };
+    return { status: 'ERROR', detail: `Replikat ist ${Math.round(ageSeconds / 60)} Minuten alt â€“ Litestream lÃ¤uft vermutlich nicht!` };
   } catch {
-    return { status: 'WARNING', detail: 'Replikat-Prüfung fehlgeschlagen.' };
+    return { status: 'WARNING', detail: 'Replikat-PrÃ¼fung fehlgeschlagen.' };
   }
 }
 
 /**
  * Preflight-Check vor Festbeginn: DB, HA-Partner, Drucker und Backup-Replikat.
- * Aufruf: POST/GET /api/system/preflight (nur ADMIN, Middleware schützt /api/system).
+ * Aufruf: POST/GET /api/system/preflight (nur ADMIN, Middleware schÃ¼tzt /api/system).
  */
-export async function GET() {
+export async function GET(req: Request) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
   const checks: PreflightCheck[] = [];
 
   // 1. Datenbank
@@ -110,7 +113,7 @@ export async function GET() {
             status: data.role === role ? 'WARNING' : 'OK',
             detail:
               data.role === role
-                ? `Partner antwortet, hat aber dieselbe Rolle (${role}) – Konfiguration prüfen!`
+                ? `Partner antwortet, hat aber dieselbe Rolle (${role}) â€“ Konfiguration prÃ¼fen!`
                 : `Partner erreichbar als ${data.role || 'unbekannt'}.`,
           });
         } else {
@@ -121,7 +124,7 @@ export async function GET() {
           id: 'ha_partner',
           label: 'HA-Partner',
           status: 'WARNING',
-          detail: `Partner ${partnerUrl} nicht erreichbar${role === 'PRIMARY' ? ' – Failover wäre nötig.' : '.'}`,
+          detail: `Partner ${partnerUrl} nicht erreichbar${role === 'PRIMARY' ? ' â€“ Failover wÃ¤re nÃ¶tig.' : '.'}`,
         });
       }
     } else {
@@ -143,7 +146,7 @@ export async function GET() {
         status: ok ? 'OK' : 'ERROR',
         detail: ok
           ? `${printer.ipAddress}:${printer.port} erreichbar.`
-          : `${printer.ipAddress}:${printer.port} NICHT erreichbar – Bonverlust droht!`,
+          : `${printer.ipAddress}:${printer.port} NICHT erreichbar â€“ Bonverlust droht!`,
       });
     }
     if (real.length === 0) {
@@ -165,7 +168,7 @@ export async function GET() {
       detail: failedCount === 0 ? 'Keine Fehler.' : `${failedCount} fehlgeschlagene Jobs.`,
     });
   } catch {
-    checks.push({ id: 'failed_prints', label: 'Druckjobs', status: 'SKIPPED', detail: 'Nicht prüfbar.' });
+    checks.push({ id: 'failed_prints', label: 'Druckjobs', status: 'SKIPPED', detail: 'Nicht prÃ¼fbar.' });
   }
 
   // 5. Litestream-Replikat-Frische

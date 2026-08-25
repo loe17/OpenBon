@@ -5,7 +5,11 @@ import os from 'os';
 
 const execPromise = util.promisify(exec);
 
-export async function GET() {
+import { requireAdmin } from '@/lib/admin-guard';
+
+export async function GET(req: Request) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
   const isLinux = os.platform() === 'linux';
   let isEnabled = true;
 
@@ -27,6 +31,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
   try {
     const { enable } = await req.json();
     const isLinux = os.platform() === 'linux';

@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireAdmin } from '@/lib/admin-guard';
 
-export async function GET() {
+export async function GET(req: Request) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
   try {
     const products = await prisma.product.findMany({
       where: { status: { not: 'HIDDEN' } },
@@ -46,10 +49,12 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
   try {
     const { csvText } = await req.json();
     if (!csvText || typeof csvText !== 'string') {
-      return NextResponse.json({ error: 'Kein CSV-Inhalt übermittelt' }, { status: 400 });
+      return NextResponse.json({ error: 'Kein CSV-Inhalt Ã¼bermittelt' }, { status: 400 });
     }
 
     const lines = csvText
@@ -58,16 +63,16 @@ export async function POST(req: Request) {
       .filter((l) => l.length > 0);
 
     if (lines.length < 2) {
-      return NextResponse.json({ error: 'CSV-Datei ist leer oder enthält nur Kopfzeilen' }, { status: 400 });
+      return NextResponse.json({ error: 'CSV-Datei ist leer oder enthÃ¤lt nur Kopfzeilen' }, { status: 400 });
     }
 
-    // Kopfzeile überspringen
+    // Kopfzeile Ã¼berspringen
     const dataLines = lines.slice(1);
     let createdCount = 0;
     let updatedCount = 0;
 
     for (const line of dataLines) {
-      // CSV Semikolon-Split unter Berücksichtigung von Anführungszeichen
+      // CSV Semikolon-Split unter BerÃ¼cksichtigung von AnfÃ¼hrungszeichen
       const parts = line.split(';').map((p) => p.replace(/^"|"$/g, '').trim());
       if (parts.length < 4) continue;
 

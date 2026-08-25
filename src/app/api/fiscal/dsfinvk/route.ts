@@ -6,10 +6,13 @@ import {
   DsfinvkBonpos,
   DsfinvkBonposPreise,
 } from '@/lib/dsfinvk-exporter';
+import { requireAdmin } from '@/lib/admin-guard';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
   try {
     const { searchParams } = new URL(req.url);
     const startDateParam = searchParams.get('startDate');

@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import haService from '@/lib/ha/ha-service';
+import { requireAdmin } from '@/lib/admin-guard';
 
 /**
- * Nur ausdrücklich freigegebene Felder werden übernommen – so führt ein
+ * Nur ausdrÃ¼cklich freigegebene Felder werden Ã¼bernommen â€“ so fÃ¼hrt ein
  * versehentlich mitgesendetes Feld (z. B. `updatedAt`) nicht zum Fehler.
  */
 const ALLOWED_FIELDS = [
@@ -138,7 +139,9 @@ function sanitize(body: Record<string, unknown>): Record<string, unknown> {
   return data;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
   try {
     let config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
     if (!config) {
@@ -154,6 +157,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
   try {
     const body = (await req.json()) as Record<string, unknown>;
     const data = sanitize(body);
@@ -170,7 +175,7 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             error:
-              'Rollenwechsel abgelehnt: Eine andere Instanz hält noch eine gültige PRIMARY-Lease (Split-Brain-Schutz).',
+              'Rollenwechsel abgelehnt: Eine andere Instanz hÃ¤lt noch eine gÃ¼ltige PRIMARY-Lease (Split-Brain-Schutz).',
           },
           { status: 409 }
         );

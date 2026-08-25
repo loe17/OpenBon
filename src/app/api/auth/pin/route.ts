@@ -76,12 +76,20 @@ export async function POST(req: Request) {
         token,
       });
 
-      // 5. HttpOnly Cookie setzen
+      // 5. HttpOnly Cookie setzen.
+      //    Secure-Flag NUR bei tatsaechlichem HTTPS: OpenBon laeuft im Standard
+      //    ueber http://openbon.local bzw. LAN-IP – mit Secure wuerde der
+      //    Browser das Session-Cookie verwerfen und jede Anmeldung waere sofort
+      //    wieder verloren (Redirect zum Startbildschirm).
+      const isHttps =
+        req.headers.get('x-forwarded-proto')?.split(',')[0].trim() === 'https' ||
+        new URL(req.url).protocol === 'https:';
+
       res.cookies.set({
         name: SESSION_COOKIE_NAME,
         value: token,
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: isHttps,
         sameSite: 'lax',
         path: '/',
         maxAge: SESSION_MAX_AGE_SECONDS,

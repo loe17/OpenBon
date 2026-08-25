@@ -1,13 +1,13 @@
-﻿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import prisma from '../lib/db';
 import { APP_VERSION, APP_IS_BETA } from '../lib/version';
 import { parseAndValidateLicense, generateOfflineSignature } from '../lib/license';
 import { verifyStationPin } from '../lib/auth-pin';
 import { EscPosBuilder } from '../lib/printer/escpos-builder';
 
-describe('OpenBon v0.3.7: Schema, License, PIN & Print Sanity Tests', () => {
-  it('should verify v0.3.7 version info', () => {
-    expect(APP_VERSION).toBe('0.3.7');
+describe('OpenBon v0.3.8: Schema, License, PIN & Print Sanity Tests', () => {
+  it('should verify v0.3.8 version info', () => {
+    expect(APP_VERSION).toBe('0.3.8');
   });
 
   it('should initialize Prisma DB Client with valid DATABASE_URL fallback', () => {
