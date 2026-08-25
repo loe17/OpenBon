@@ -22,6 +22,8 @@ import {
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import type { LucideIcon } from 'lucide-react';
 
+import { useToast } from '@/components/ui/toast';
+
 interface NetworkInfo {
   localIp?: string;
   localDomainUrl?: string;
@@ -43,6 +45,7 @@ interface StationQR {
 }
 
 export default function QrCodesPage() {
+  const { success, error, warning } = useToast();
   const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -181,16 +184,17 @@ export default function QrCodesPage() {
     fetchNetworkAndGenerate(useDomainUrl);
   }, [useDomainUrl]);
 
-  const handleCopy = (id: string, text: string) => {
+  const handleCopy = (text: string, id: string) => {
     triggerHapticFeedback();
     navigator.clipboard.writeText(text);
     setCopiedId(id);
+    success('Link in Zwischenablage kopiert!');
     setTimeout(() => setCopiedId(null), 2000);
   };
 
   const handlePrintQrTicket = async (station: StationQR) => {
     if (!selectedPrinterId) {
-      alert('Bitte wähle zuerst einen Drucker aus.');
+      warning('Bitte wähle zuerst einen Drucker aus.');
       return;
     }
 
@@ -211,12 +215,12 @@ export default function QrCodesPage() {
 
       const data = await res.json();
       if (res.ok) {
-        alert(`Beitritts-Bon für "${station.title}" erfolgreich gedruckt!`);
+        success(`Beitritts-Bon für "${station.title}" gedruckt!`);
       } else {
-        alert(`Druckfehler: ${data.error || 'Unbekannt'}`);
+        error(`Druckfehler: ${data.error || 'Unbekannt'}`);
       }
     } catch {
-      alert('Verbindungsfehler zum Drucker');
+      error('Verbindungsfehler zum Drucker');
     }
   };
 

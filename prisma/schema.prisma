@@ -239,6 +239,7 @@ model PrintGroup {
   name              String
   printerId         String?
   printer           Printer?  @relation(fields: [printerId], references: [id], onDelete: SetNull)
+  fallbackPrinterId String?
   maxItemsPerTicket Int       @default(0) // 0 = unbegrenzt, 1 = Einzelbons
   autoCut           Boolean   @default(true)
   products          Product[]

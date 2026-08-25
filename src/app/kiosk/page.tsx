@@ -21,6 +21,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { getEffectiveProductPrice } from '@/lib/pricing';
+import { useToast } from '@/components/ui/toast';
 
 interface Product {
   id: string;
@@ -50,7 +51,8 @@ interface CartItem {
 }
 
 export default function KioskPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
+  const { error } = useToast();
+  const [categories, setCategories] = useState<any[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -201,7 +203,7 @@ export default function KioskPage() {
       setStep('SUCCESS');
       setCart([]);
     } catch (err) {
-      alert('Zahlungsvorgang abgebrochen oder fehlgeschlagen. Bitte erneut versuchen.');
+      error('Zahlungsvorgang abgebrochen oder fehlgeschlagen. Bitte erneut versuchen.');
     } finally {
       setIsProcessing(false);
     }

@@ -11,6 +11,7 @@ import {
   Clock,
   Radio,
 } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 import type { TicketData } from '@/lib/printer/types';
 
 interface VirtualTicket {
@@ -23,6 +24,7 @@ interface VirtualTicket {
 }
 
 export default function VirtualPrinterPage() {
+  const { success, error } = useToast();
   const { socket } = useSocket();
   const [tickets, setTickets] = useState<VirtualTicket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,12 +64,12 @@ export default function VirtualPrinterPage() {
   }, [socket]);
 
   const handleClearHistory = async () => {
-    if (!confirm('Druckverlauf wirklich leeren?')) return;
     try {
       await fetch('/api/virtual-printer', { method: 'DELETE' });
       setTickets([]);
+      success('Druckverlauf geleert');
     } catch (e) {
-      console.error(e);
+      error('Fehler beim Leeren des Druckverlaufs');
     }
   };
 

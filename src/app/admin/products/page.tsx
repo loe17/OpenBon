@@ -23,9 +23,11 @@ import {
   Settings2,
 } from 'lucide-react';
 import { EU_ALLERGENS, GASTRONOMY_ADDITIVES } from '@/lib/compliance';
+import { useToast } from '@/components/ui/toast';
 import type { ProductDTO, ProductCategoryDTO, PrintGroupDTO } from '@/types/domain';
 
 export default function AdminProductsPage() {
+  const { success, error, warning } = useToast();
   const [categories, setCategories] = useState<ProductCategoryDTO[]>([]);
   const [printGroups, setPrintGroups] = useState<PrintGroupDTO[]>([]);
   const [products, setProducts] = useState<any[]>([]);
@@ -126,18 +128,19 @@ export default function AdminProductsPage() {
       setNewCatName('');
       setEditingCat(null);
       fetchData();
+      success('Warengruppe gespeichert');
     } catch {
-      alert('Fehler beim Speichern der Warengruppe');
+      error('Fehler beim Speichern der Warengruppe');
     }
   };
 
   const handleDeleteCategory = async (catId: string, catName: string) => {
-    if (!confirm(`Möchtest du die Warengruppe "${catName}" wirklich löschen?`)) return;
     try {
       await fetch(`/api/categories?id=${catId}`, { method: 'DELETE' });
       fetchData();
+      success(`Warengruppe "${catName}" gelöscht`);
     } catch {
-      alert('Fehler beim Löschen der Warengruppe');
+      error('Fehler beim Löschen der Warengruppe');
     }
   };
 
@@ -227,18 +230,19 @@ export default function AdminProductsPage() {
         body: JSON.stringify({ isSoldOut: nextVal }),
       });
       fetchData();
+      success(nextVal ? `Artikel "${prod.name}" gesperrt` : `Artikel "${prod.name}" freigegeben`);
     } catch {
-      alert('Fehler beim Aktualisieren des Sperrstatus');
+      error('Fehler beim Aktualisieren des Sperrstatus');
     }
   };
 
   const handleDeleteProduct = async (id: string, name: string) => {
-    if (!confirm(`Artikel "${name}" wirklich löschen / ausblenden?`)) return;
     try {
       await fetch(`/api/products/${id}`, { method: 'DELETE' });
       fetchData();
+      success(`Artikel "${name}" gelöscht`);
     } catch {
-      alert('Fehler beim Löschen');
+      error('Fehler beim Löschen des Artikels');
     }
   };
 
@@ -270,8 +274,9 @@ export default function AdminProductsPage() {
       }
       setShowModal(false);
       fetchData();
+      success('Artikel erfolgreich gespeichert!');
     } catch {
-      alert('Fehler beim Speichern');
+      error('Fehler beim Speichern des Artikels');
     }
   };
 
@@ -290,9 +295,9 @@ export default function AdminProductsPage() {
             <Utensils className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-black">Artikel & Speisekarte</h1>
+            <h1 className="text-2xl font-black">Artikel- & Menüverwaltung</h1>
             <p className="text-xs text-slate-400">
-              Warengruppen, Allergen-Matrix (LMIV), Jugendschutz & Speisekarten-Druck (PDF)
+              Speisen, Getränke, Preise, Meldebestände & LMIV-Allergene verwalten
             </p>
           </div>
         </div>
@@ -309,8 +314,8 @@ export default function AdminProductsPage() {
             <span>CSV Export</span>
           </a>
 
-          <label className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-2xl text-xs font-bold transition shadow cursor-pointer">
-            <Sparkles className="w-4 h-4 text-amber-400" />
+          <label className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-2xl text-xs font-bold transition shadow cursor-pointer">
+            <FileText className="w-4 h-4 text-emerald-400" />
             <span>CSV Import</span>
             <input
               type="file"
@@ -328,13 +333,13 @@ export default function AdminProductsPage() {
                   });
                   const d = await res.json();
                   if (d.success) {
-                    alert(d.message || 'Import erfolgreich!');
+                    success(d.message || 'Import erfolgreich!');
                     fetchData();
                   } else {
-                    alert(d.error || 'Fehler beim CSV-Import');
+                    error(d.error || 'Fehler beim CSV-Import');
                   }
                 } catch {
-                  alert('Netzwerkfehler beim CSV-Import');
+                  error('Netzwerkfehler beim CSV-Import');
                 }
               }}
             />

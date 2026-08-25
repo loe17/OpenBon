@@ -26,9 +26,11 @@ import {
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
+import { useToast } from '@/components/ui/toast';
 import type { ReportSummary, PrinterDTO, ZBonPreview } from '@/types/domain';
 
 export default function AdminReportsPage() {
+  const { success, error, warning } = useToast();
   const [data, setData] = useState<ReportSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [printers, setPrinters] = useState<PrinterDTO[]>([]);
@@ -99,12 +101,12 @@ export default function AdminReportsPage() {
       });
       const body = await res.json();
       if (res.ok) {
-        alert(`X-Bon Abrechnung für "${waiterName}" erfolgreich gedruckt!`);
+        success(`X-Bon Abrechnung für "${waiterName}" gedruckt!`);
       } else {
-        alert(`Druckfehler: ${body.error || 'Unbekannt'}`);
+        error(`Druckfehler: ${body.error || 'Unbekannt'}`);
       }
     } catch {
-      alert('Drucker nicht erreichbar.');
+      error('Drucker nicht erreichbar.');
     }
   };
 

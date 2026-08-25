@@ -19,6 +19,8 @@ import {
   Circle,
   Edit2,
 } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
+
 interface AdminTableRow {
   id: string;
   tableNumber: number;
@@ -31,6 +33,7 @@ interface AdminTableRow {
 }
 
 export default function AdminTablesPage() {
+  const { success, error, warning } = useToast();
   const [tables, setTables] = useState<any[]>([]);
   const [printers, setPrinters] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,18 +97,19 @@ export default function AdminTablesPage() {
         body: JSON.stringify({ id: t.id, isActive: nextActive, label: t.label, gridX: t.gridX, gridY: t.gridY, status: t.status }),
       });
       fetchTablesAndPrinters();
+      success(nextActive ? 'Tisch aktiviert' : 'Tisch deaktiviert');
     } catch {
-      alert('Fehler beim Ändern des Tischstatus');
+      error('Fehler beim Ändern des Tischstatus');
     }
   };
 
   const handleDeleteTable = async (t: AdminTableRow) => {
-    if (!confirm(`Möchtest du "${t.label}" wirklich löschen?`)) return;
     try {
       await fetch(`/api/tables?id=${t.id}`, { method: 'DELETE' });
       fetchTablesAndPrinters();
+      success(`Tisch "${t.label}" gelöscht`);
     } catch {
-      alert('Fehler beim Löschen');
+      error('Fehler beim Löschen des Tisches');
     }
   };
 
@@ -122,8 +126,9 @@ export default function AdminTablesPage() {
       });
       setShowAddModal(false);
       fetchTablesAndPrinters();
+      success('Tisch erfolgreich hinzugefügt');
     } catch {
-      alert('Fehler beim Anlegen des Tisches');
+      error('Fehler beim Anlegen des Tisches');
     }
   };
 
@@ -150,14 +155,14 @@ export default function AdminTablesPage() {
       });
       setEditingTable(null);
       fetchTablesAndPrinters();
+      success('Tischanpassung gespeichert');
     } catch {
-      alert('Fehler beim Speichern der Tischanpassung');
+      error('Fehler beim Speichern der Tischanpassung');
     }
   };
 
   const handleGenerateGrid = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!confirm('Achtung: Dies überschreibt alle bestehenden Tische. Fortfahren?')) return;
     try {
       await fetch('/api/tables', {
         method: 'POST',
@@ -172,8 +177,9 @@ export default function AdminTablesPage() {
       });
       setShowGenModal(false);
       fetchTablesAndPrinters();
+      success('Tischplan-Raster erfolgreich neu generiert!');
     } catch (e) {
-      console.error(e);
+      error('Fehler beim Generieren des Rasters');
     }
   };
 
@@ -193,10 +199,10 @@ export default function AdminTablesPage() {
           includeQr,
         }),
       });
-      alert('Tischmarken wurden an den Drucker gesendet!');
+      success('Tischmarken wurden an den Drucker gesendet!');
       setShowPrintModal(false);
     } catch (e) {
-      console.error(e);
+      error('Fehler beim Drucken der Tischmarken');
     } finally {
       setIsPrinting(false);
     }

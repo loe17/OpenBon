@@ -1,72 +1,39 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
 import {
   Settings,
-  GraduationCap,
-  Layers,
-  Save,
-  Download,
-  Upload,
-  RefreshCw,
-  Check,
+  Building2,
+  Printer,
   Lock,
-  HardDrive,
-  Globe,
-  KeyRound,
-  ShieldCheck,
-  Terminal,
-  CheckSquare,
-  Square,
+  Percent,
   Sparkles,
-  CreditCard,
-  Receipt,
-  FileCheck,
-  AlertCircle,
+  Save,
+  Search,
+  RefreshCw,
+  CheckCircle,
 } from 'lucide-react';
-import { APP_VERSION, APP_IS_BETA } from '@/lib/version';
 import { triggerHapticFeedback } from '@/lib/socket-client';
-import { parseAndValidateLicense, LicenseData } from '@/lib/license';
+import { useToast } from '@/components/ui/toast';
 import type { EventConfigDTO } from '@/types/domain';
+import { GeneralTab } from './tabs/GeneralTab';
+import { PrintersTab } from './tabs/PrintersTab';
+import { SecurityTab } from './tabs/SecurityTab';
+import { FiscalTab } from './tabs/FiscalTab';
+import { SnapshotsTab } from './tabs/SnapshotsTab';
 
-interface AutostartInfo {
-  autostartEnabled: boolean;
-  platform?: string;
-  serviceName?: string;
-  message?: string;
-}
+type SettingsTab = 'GENERAL' | 'PRINTERS' | 'SECURITY' | 'FISCAL' | 'SNAPSHOTS';
 
 export default function AdminSettingsPage() {
+  const { success, error } = useToast();
+  const [activeTab, setActiveTab] = useState<SettingsTab>('GENERAL');
   const [config, setConfig] = useState<EventConfigDTO | null>(null);
-  const [zvtProbe, setZvtProbe] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-
-  // License State
-  const [licenseKeyInput, setLicenseKeyInput] = useState('');
-  const [licenseInfo, setLicenseInfo] = useState<LicenseData | null>(null);
-  const [previewMode, setPreviewMode] = useState<'RECEIPT' | 'FOOD_SINGLE' | 'DRINK_SINGLE'>('RECEIPT');
-
-  // Selective Backup Scopes State
-  const [backupScopes, setBackupScopes] = useState({
-    config: true,
-    products: true,
-    wordGroups: true,
-    tables: true,
-    printers: true,
-    stock: true,
-    orders: false,
-    payments: false,
-  });
-
-  // Autostart State
-  const [autostartInfo, setAutostartInfo] = useState<AutostartInfo | null>(null);
-  const [togglingAutostart, setTogglingAutostart] = useState(false);
-
-  // Printers State for Low Stock Alert
   const [printers, setPrinters] = useState<any[]>([]);
+  const [autostartInfo, setAutostartInfo] = useState<any>(null);
+  const [togglingAutostart, setTogglingAutostart] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchConfig = async () => {
     try {
@@ -82,14 +49,40 @@ export default function AdminSettingsPage() {
       setConfig(data);
       setAutostartInfo(autoData);
       if (Array.isArray(printData)) setPrinters(printData);
-
-      const parsedLic = parseAndValidateLicense(data.licenseKey || '');
-      setLicenseInfo(parsedLic);
-      setLicenseKeyInput(data.licenseKey || '');
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchConfig();
+  }, []);
+
+  const handleConfigUpdate = (updates: Partial<EventConfigDTO>) => {
+    setConfig((prev) => (prev ? { ...prev, ...updates } : null));
+  };
+
+  const handleSave = async () => {
+    if (!config) return;
+    setSaving(true);
+    triggerHapticFeedback();
+    try {
+      const res = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+      if (res.ok) {
+        success('Einstellungen erfolgreich gespeichert!');
+      } else {
+        error('Fehler beim Speichern der Einstellungen');
+      }
+    } catch {
+      error('Netzwerkfehler beim Speichern');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -104,1362 +97,107 @@ export default function AdminSettingsPage() {
         body: JSON.stringify({ enable: nextVal }),
       });
       const data = await res.json();
-      if (data.success) {
-        setAutostartInfo((prev) => (prev ? { ...prev, autostartEnabled: nextVal } : prev));
-      }
+      setAutostartInfo(data);
+      success(data.message || (nextVal ? 'Autostart aktiviert' : 'Autostart deaktiviert'));
     } catch {
-      alert('Fehler beim Ändern des Autostarts.');
+      error('Fehler beim Ändern des Autostarts');
     } finally {
       setTogglingAutostart(false);
     }
   };
 
-  useEffect(() => {
-    fetchConfig();
-  }, []);
+  if (loading || !config) {
+    return (
+      <div className="flex-1 flex items-center justify-center min-h-[400px] text-slate-400">
+        <RefreshCw className="w-8 h-8 animate-spin text-blue-500 mr-2" />
+        <span>Lade Einstellungen...</span>
+      </div>
+    );
+  }
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setSaveSuccess(false);
-    triggerHapticFeedback();
-
-    try {
-      const res = await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...config,
-          licenseKey: licenseKeyInput.trim() || 'OPENBON-COMMUNITY-FREE',
-        }),
-      });
-
-      if (res.ok) {
-        setSaveSuccess(true);
-        const parsedLic = parseAndValidateLicense(licenseKeyInput.trim());
-        setLicenseInfo(parsedLic);
-        setTimeout(() => setSaveSuccess(false), 3000);
-      } else {
-        alert('Fehler beim Speichern der Einstellungen!');
-      }
-    } catch {
-      alert('Verbindungsfehler beim Speichern!');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDownloadBackup = () => {
-    triggerHapticFeedback();
-    const params = new URLSearchParams();
-    params.set('incConfig', backupScopes.config ? '1' : '0');
-    params.set('incProducts', backupScopes.products ? '1' : '0');
-    params.set('incWordGroups', backupScopes.wordGroups ? '1' : '0');
-    params.set('incTables', backupScopes.tables ? '1' : '0');
-    params.set('incPrinters', backupScopes.printers ? '1' : '0');
-    params.set('incStock', backupScopes.stock ? '1' : '0');
-    params.set('incOrders', backupScopes.orders ? '1' : '0');
-    params.set('incPayments', backupScopes.payments ? '1' : '0');
-
-    window.open(`/api/backup?${params.toString()}`, '_blank');
-  };
-
-  const handleRestoreBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!confirm('Achtung: Dies stellt die gewählten Daten aus der Sicherung wieder her. Fortfahren?')) {
-      return;
-    }
-
-    triggerHapticFeedback();
-    try {
-      const text = await file.text();
-      const json = JSON.parse(text);
-
-      const res = await fetch('/api/backup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          data: json,
-          options: backupScopes,
-        }),
-      });
-
-      const result = await res.json();
-      if (res.ok) {
-        alert(
-          `Sicherung erfolgreich wiederhergestellt!\n\nDetails:\n- ${result.restored?.products || 0} Artikel\n- ${result.restored?.tables || 0} Tische\n- ${result.restored?.orders || 0} Bestellungen`
-        );
-        fetchConfig();
-      } else {
-        alert(`Fehler bei der Wiederherstellung: ${result.error}`);
-      }
-    } catch {
-      alert('Fehler beim Lesen oder Verarbeiten der Sicherungsdatei.');
-    }
-  };
+  const tabs: { id: SettingsTab; label: string; icon: any }[] = [
+    { id: 'GENERAL', label: 'Allgemein', icon: Building2 },
+    { id: 'PRINTERS', label: 'Drucker & Layout', icon: Printer },
+    { id: 'SECURITY', label: 'Sicherheit & PINs', icon: Lock },
+    { id: 'FISCAL', label: 'Fiskal & Steuern', icon: Percent },
+    { id: 'SNAPSHOTS', label: 'Vorlagen & Snapshots', icon: Sparkles },
+  ];
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-y-auto bg-slate-950 text-white p-3 sm:p-6 max-w-5xl mx-auto w-full">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-800">
+    <div className="flex-1 flex flex-col h-full overflow-y-auto bg-slate-950 text-white p-3 sm:p-6 max-w-6xl mx-auto w-full space-y-6">
+      {/* Top Header & Save Button */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
         <div className="flex items-center gap-3">
           <div className="bg-blue-600 text-white p-2.5 rounded-2xl shadow">
             <Settings className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-black">Grundeinstellungen & TSE</h1>
+            <h1 className="text-2xl font-black">Systemeinstellungen</h1>
             <p className="text-xs text-slate-400">
-              Eventkonfiguration, Stations-PINs, Kartendienste, KassenSichV TSE & Offline-Lizenz
+              Zentrale Konfiguration für Veranstaltungsdaten, Drucker, PINs und Fiskalisierung
             </p>
           </div>
         </div>
 
-        {/* Top Save Button */}
         <button
+          type="button"
           onClick={handleSave}
-          disabled={saving || !config}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-black text-xs transition shadow-lg ${
-            saveSuccess
-              ? 'bg-emerald-600 text-white shadow-emerald-950/50 scale-105'
-              : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-950/50'
-          }`}
+          disabled={saving}
+          className="min-h-[48px] px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black text-sm transition active:scale-95 touch-manipulation shadow-lg shadow-emerald-950/40 flex items-center gap-2"
         >
-          {saving ? (
-            <RefreshCw className="w-4 h-4 animate-spin" />
-          ) : saveSuccess ? (
-            <Check className="w-4 h-4" />
-          ) : (
-            <Save className="w-4 h-4" />
-          )}
-          <span>{saveSuccess ? 'Erfolgreich gespeichert!' : 'Einstellungen speichern'}</span>
+          <Save className="w-4 h-4" />
+          <span>{saving ? 'Wird gespeichert...' : 'Änderungen speichern'}</span>
         </button>
       </div>
 
-      {loading || !config ? (
-        <div className="h-48 flex items-center justify-center text-slate-400">
-          <RefreshCw className="w-6 h-6 animate-spin mr-2" />
-          <span>Lade Einstellungen...</span>
-        </div>
-      ) : (
-        <form onSubmit={handleSave} className="space-y-6">
-          {/* Card 1: Event Info & Steuersätze */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-lg space-y-4">
-            <h2 className="text-base font-extrabold text-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-blue-400" />
-              <span>Veranstaltung & Währung</span>
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">
-                  Name der Veranstaltung (Auf allen Bons)
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={config.name || ''}
-                  onChange={(e) => setConfig({ ...config, name: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">
-                  Währungssymbol / ISO
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={config.currency || 'EUR'}
-                  onChange={(e) => setConfig({ ...config, currency: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono font-bold"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 pt-2">
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">
-                  MwSt-Normalsatz (%)
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={config.taxRateNormal || 19}
-                  onChange={(e) =>
-                    setConfig({ ...config, taxRateNormal: parseFloat(e.target.value) || 0 })
-                  }
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-bold"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">
-                  MwSt-Ermäßigt (%)
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={config.taxRateReduced || 7}
-                  onChange={(e) =>
-                    setConfig({ ...config, taxRateReduced: parseFloat(e.target.value) || 0 })
-                  }
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-bold"
-                />
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
-              <div>
-                <span className="text-xs font-bold text-white block">MwSt.-Ausweis auf Belegen (Umsatzsteuer)</span>
-                <span className="text-[11px] text-slate-400 block">Deaktivieren für steuerbefreite Vereine / Kleinunternehmer nach §19 UStG</span>
-              </div>
-              <input
-                type="checkbox"
-                checked={config.enableTax ?? false}
-                onChange={(e) => setConfig({ ...config, enableTax: e.target.checked })}
-                className="w-4 h-4 rounded text-emerald-600"
-              />
-            </div>
-
-            <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
-              <div>
-                <span className="text-xs font-bold text-white block">Gastansicht beim Kassieren (Kunden-Display im Smartphone)</span>
-                <span className="text-[11px] text-slate-400 block">Zeigt der Bedienung beim Kassieren ein großes, für den Gast lesbares Preisschild</span>
-              </div>
-              <input
-                type="checkbox"
-                checked={config.enableGuestFacingDisplay ?? false}
-                onChange={(e) => setConfig({ ...config, enableGuestFacingDisplay: e.target.checked })}
-                className="w-4 h-4 rounded text-blue-600"
-              />
-            </div>
-          </div>
-
-          {/* Card 2: Stations-PINs */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-lg space-y-4">
-            <h2 className="text-base font-extrabold text-white flex items-center gap-2">
-              <Lock className="w-4 h-4 text-amber-400" />
-              <span>Stations-PINs & Zugriffsschutz</span>
-            </h2>
-            <p className="text-xs text-slate-400">
-              PIN-Codes, die beim Wechsel auf die jeweilige Station oder im QR-Beitrittscenter abgefragt werden.
-            </p>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">
-                  Admin-PIN
-                </label>
-                <input
-                  type="text"
-                  maxLength={6}
-                  value={config.adminPin || '1234'}
-                  onChange={(e) => setConfig({ ...config, adminPin: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-amber-300 font-mono font-bold text-center tracking-widest"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">
-                  Bonkassen-PIN
-                </label>
-                <input
-                  type="text"
-                  maxLength={6}
-                  value={config.posPin || '1111'}
-                  onChange={(e) => setConfig({ ...config, posPin: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-emerald-300 font-mono font-bold text-center tracking-widest"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">
-                  Küchen-PIN
-                </label>
-                <input
-                  type="text"
-                  maxLength={6}
-                  value={config.kitchenPin || '2222'}
-                  onChange={(e) => setConfig({ ...config, kitchenPin: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-blue-300 font-mono font-bold text-center tracking-widest"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">
-                  Bedienungs-PIN
-                </label>
-                <input
-                  type="text"
-                  maxLength={6}
-                  value={config.waiterPin || '3333'}
-                  onChange={(e) => setConfig({ ...config, waiterPin: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-purple-300 font-mono font-bold text-center tracking-widest"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: Kartenzahlungs-Dienste */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-lg space-y-4">
-            <h2 className="text-base font-extrabold text-white flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-blue-400" />
-              <span>Kartenzahlung: SumUp, VR-Pay Me, Sparkasse &amp; ZVT</span>
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">
-                  SumUp Merchant Code
-                </label>
-                <input
-                  type="text"
-                  placeholder="z. B. M1234567"
-                  value={config.sumupMerchantCode || ''}
-                  onChange={(e) => setConfig({ ...config, sumupMerchantCode: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">
-                  SumUp Affiliate-Key (App-to-App)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Affiliate-Key aus dem SumUp-Entwicklerportal"
-                  value={config.sumupAppId || ''}
-                  onChange={(e) => setConfig({ ...config, sumupAppId: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">
-                  VR-Pay Me Terminal-ID / Händler-Kennung
-                </label>
-                <input
-                  type="text"
-                  placeholder="z. B. VR-TERMINAL-889"
-                  value={config.vrPayTerminalId || ''}
-                  onChange={(e) => setConfig({ ...config, vrPayTerminalId: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">
-                  Sparkasse S-POS Händler-ID
-                </label>
-                <input
-                  type="text"
-                  placeholder="z. B. SPK-4711"
-                  value={config.sparkasseMerchantId || ''}
-                  onChange={(e) => setConfig({ ...config, sparkasseMerchantId: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                />
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-800">
-              <h3 className="text-xs font-extrabold text-slate-300 uppercase tracking-wider mb-3">
-                EC-Terminal über ZVT-over-IP
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">Terminal-IP</label>
-                  <input
-                    type="text"
-                    placeholder="z. B. 192.168.1.50"
-                    value={config.zvtHost || ''}
-                    onChange={(e) => setConfig({ ...config, zvtHost: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">
-                    Port (20007 / 20002 / 40007)
-                  </label>
-                  <input
-                    type="number"
-                    value={config.zvtPort ?? 20007}
-                    onChange={(e) => setConfig({ ...config, zvtPort: parseInt(e.target.value, 10) || 20007 })}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">
-                    Terminal-Passwort
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={6}
-                    value={config.zvtPassword || '000000'}
-                    onChange={(e) => setConfig({ ...config, zvtPassword: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono tracking-widest"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    const res = await fetch('/api/payments/card', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ probeOnly: true }),
-                    });
-                    const data = await res.json();
-                    setZvtProbe(
-                      data.reachable
-                        ? `Terminal erreichbar (${data.host}:${data.port})`
-                        : data.error || 'Terminal nicht erreichbar.'
-                    );
-                  } catch {
-                    setZvtProbe('Verbindungstest fehlgeschlagen.');
-                  }
-                }}
-                className="mt-3 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-bold text-slate-200"
-              >
-                Terminal-Verbindung testen
-              </button>
-              {zvtProbe && (
-                <p className="mt-2 text-xs font-bold text-amber-300">{zvtProbe}</p>
-              )}
-            </div>
-
-            <div className="pt-3 border-t border-slate-800">
-              <label className="text-xs font-bold text-slate-400 block mb-1">
-                Basis-URL für App-Rücksprung (Callback)
-              </label>
-              <input
-                type="text"
-                placeholder="http://openbon.local"
-                value={config.baseUrl || ''}
-                onChange={(e) => setConfig({ ...config, baseUrl: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-              />
-              <p className="text-[11px] text-slate-500 font-semibold mt-1">
-                Muss der Adresse entsprechen, unter der die Tablets den Server erreichen – sonst
-                finden SumUp, VR-Pay Me und S-POS nach der Zahlung nicht zurück.
-              </p>
-            </div>
-          </div>
-
-          {/* Card 3b: Tablett-Limit */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-lg space-y-4">
-            <h2 className="text-base font-extrabold text-white flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-amber-400" />
-              <span>Tablett-Limit &amp; Bon-Splitting</span>
-            </h2>
-            <div>
-              <label className="text-xs font-bold text-slate-400 block mb-1">
-                Globales Tablett-Limit (Positionen pro Bon)
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={config.trayMaxItems ?? 6}
-                onChange={(e) => setConfig({ ...config, trayMaxItems: parseInt(e.target.value, 10) || 0 })}
-                className="w-full sm:w-48 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono font-bold"
-              />
-              <p className="text-[11px] text-slate-500 font-semibold mt-1">
-                Greift, wenn eine Druckgruppe kein eigenes Limit hat. 0 = unbegrenzt. Übersteigt
-                eine Bestellung das Limit, wird der Druck automatisch auf mehrere Bons mit
-                Kopfzeile &bdquo;BON 1 von 3&ldquo; aufgeteilt.
-              </p>
-            </div>
-          </div>
-
-          {/* Card 4: KassenSichV & TSE Fiskalisierung */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-lg space-y-4">
-            <h2 className="text-base font-extrabold text-white flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-emerald-400" />
-              <span>KassenSichV & TSE-Fiskalisierung</span>
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">
-                  TSE-Schnittstelle
-                </label>
-                <select
-                  value={config.tseProvider || 'NONE'}
-                  onChange={(e) => setConfig({ ...config, tseProvider: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                >
-                  <option value="NONE">Keine TSE (Vereins-/Übungsbetrieb)</option>
-                  <option value="SWISSBIT_USB">Swissbit Hardware TSE (USB / microSD)</option>
-                  <option value="FISKALTRUST_CLOUD">fiskaltrust Cloud TSE</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">
-                  TSE-Seriennummer / Client-ID
-                </label>
-                <input
-                  type="text"
-                  placeholder="z. B. TSE-SWISS-99881122"
-                  value={config.tseSerialNumber || ''}
-                  onChange={(e) => setConfig({ ...config, tseSerialNumber: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Card 4b: Bon-Druck & Beleg-Layout */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-lg space-y-4">
-            <h2 className="text-base font-extrabold text-white flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-emerald-400" />
-              <span>Bon-Druck &amp; Beleg-Layout Konfiguration</span>
-            </h2>
-            <p className="text-xs text-slate-400">
-              Passe die Kopf- und Fußzeilen, Tischnummerngröße sowie gedruckte Felder für Thermodrucker und Gast-Bons an.
-            </p>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Left Column: Form Fields */}
-              <div className="lg:col-span-7 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-bold text-slate-400 block mb-1">
-                      Festname / Kopfzeile
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="z. B. Vereins- & Feuerwehrfest 2026"
-                      value={config.receiptHeader || ''}
-                      onChange={(e) => setConfig({ ...config, receiptHeader: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-400 block mb-1">
-                      Verein / Unterzeile / Steuernummer
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="z. B. Freiwillige Feuerwehr e.V. • St.-Nr. 12/345/67890"
-                      value={config.receiptSubHeader || ''}
-                      onChange={(e) => setConfig({ ...config, receiptSubHeader: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-bold text-slate-400">
-                        Tischnummer-Schriftgröße (Stufenlos anpassbar):
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-400">Skalierung:</span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="50"
-                          value={typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : 3}
-                          onChange={(e) => setConfig({ ...config, receiptTableFontSize: Math.max(1, parseInt(e.target.value, 10) || 1) })}
-                          className="w-16 bg-slate-950 border border-slate-700 rounded-lg px-2 py-0.5 text-xs text-amber-300 font-mono font-bold text-center"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 bg-slate-950 p-2.5 rounded-2xl border border-slate-700">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const cur = typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : 3;
-                          setConfig({ ...config, receiptTableFontSize: Math.max(1, cur - 1) });
-                        }}
-                        className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-white font-black text-lg flex items-center justify-center border border-slate-700"
-                        title="Kleiner"
-                      >
-                        −
-                      </button>
-                      <input
-                        type="range"
-                        min="1"
-                        max="20"
-                        value={Math.min(20, typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : 3)}
-                        onChange={(e) => setConfig({ ...config, receiptTableFontSize: parseInt(e.target.value, 10) || 1 })}
-                        className="flex-1 accent-blue-500 cursor-pointer h-2 bg-slate-800 rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const cur = typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : 3;
-                          setConfig({ ...config, receiptTableFontSize: cur + 1 });
-                        }}
-                        className="w-9 h-9 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black text-lg flex items-center justify-center shadow"
-                        title="Größer"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="text-xs font-bold text-slate-400 block mb-1">
-                      Freitext Fußzeile (Dankestext / Schlusshinweis)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="z. B. Vielen Dank für Ihren Besuch! Wir wünschen einen guten Heimweg."
-                      value={config.receiptFooterText || ''}
-                      onChange={(e) => setConfig({ ...config, receiptFooterText: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-800 grid grid-cols-2 gap-3">
-                  <label className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between cursor-pointer">
-                    <span className="text-xs font-bold text-slate-300">Datum &amp; Uhrzeit</span>
-                    <input
-                      type="checkbox"
-                      checked={config.receiptShowTimestamp ?? true}
-                      onChange={(e) => setConfig({ ...config, receiptShowTimestamp: e.target.checked })}
-                      className="w-4 h-4 rounded text-blue-600"
-                    />
-                  </label>
-
-                  <label className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between cursor-pointer">
-                    <span className="text-xs font-bold text-slate-300">Bedienungsname</span>
-                    <input
-                      type="checkbox"
-                      checked={config.receiptShowWaiter ?? true}
-                      onChange={(e) => setConfig({ ...config, receiptShowWaiter: e.target.checked })}
-                      className="w-4 h-4 rounded text-blue-600"
-                    />
-                  </label>
-
-                  <label className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between cursor-pointer">
-                    <span className="text-xs font-bold text-slate-300">Tischnummer</span>
-                    <input
-                      type="checkbox"
-                      checked={config.receiptShowTable ?? true}
-                      onChange={(e) => setConfig({ ...config, receiptShowTable: e.target.checked })}
-                      className="w-4 h-4 rounded text-blue-600"
-                    />
-                  </label>
-
-                  <label className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between cursor-pointer">
-                    <span className="text-xs font-bold text-slate-300">TSE Fiskalblock</span>
-                    <input
-                      type="checkbox"
-                      checked={config.receiptShowTse ?? true}
-                      onChange={(e) => setConfig({ ...config, receiptShowTse: e.target.checked })}
-                      className="w-4 h-4 rounded text-blue-600"
-                    />
-                  </label>
-                </div>
-
-                {/* Sub-Section 1: Einzelbon-Druck für Speisen (Küche) */}
-                <div className="pt-3 border-t border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between bg-slate-950 p-3 rounded-2xl border border-slate-800">
-                    <div>
-                      <span className="text-xs font-bold text-white block">🍳 Speisen-Einzelbon (Küche &amp; Grill)</span>
-                      <span className="text-[11px] text-slate-400 block">Druckt jedes bestellte Essen als separaten Zubereitungsbon</span>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={config.receiptSingleItemFoodSlips ?? true}
-                      onChange={(e) => setConfig({ ...config, receiptSingleItemFoodSlips: e.target.checked })}
-                      className="w-4 h-4 rounded text-amber-500"
-                    />
-                  </div>
-
-                  {(config.receiptSingleItemFoodSlips ?? true) && (
-                    <div className="grid grid-cols-2 gap-2 pl-3 border-l-2 border-amber-500/40 text-xs pt-1">
-                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={config.receiptFoodShowHeader ?? true}
-                          onChange={(e) => setConfig({ ...config, receiptFoodShowHeader: e.target.checked })}
-                          className="w-3.5 h-3.5 rounded text-amber-500"
-                        />
-                        <span>Kopfzeile (Küche)</span>
-                      </label>
-                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={config.receiptFoodShowTable ?? true}
-                          onChange={(e) => setConfig({ ...config, receiptFoodShowTable: e.target.checked })}
-                          className="w-3.5 h-3.5 rounded text-amber-500"
-                        />
-                        <span>Große Tischnummer</span>
-                      </label>
-                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={config.receiptFoodShowWaiter ?? true}
-                          onChange={(e) => setConfig({ ...config, receiptFoodShowWaiter: e.target.checked })}
-                          className="w-3.5 h-3.5 rounded text-amber-500"
-                        />
-                        <span>Bedienung &amp; Bon-Nr.</span>
-                      </label>
-                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={config.receiptFoodShowTimestamp ?? true}
-                          onChange={(e) => setConfig({ ...config, receiptFoodShowTimestamp: e.target.checked })}
-                          className="w-3.5 h-3.5 rounded text-amber-500"
-                        />
-                        <span>Uhrzeit</span>
-                      </label>
-                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={config.receiptFoodShowOptions ?? true}
-                          onChange={(e) => setConfig({ ...config, receiptFoodShowOptions: e.target.checked })}
-                          className="w-3.5 h-3.5 rounded text-amber-500"
-                        />
-                        <span>Sorten &amp; Sonderwünsche</span>
-                      </label>
-                    </div>
-                  )}
-                </div>
-
-                {/* Sub-Section 2: Einzelbon-Druck für Getränke (Ausschank) */}
-                <div className="pt-3 border-t border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between bg-slate-950 p-3 rounded-2xl border border-slate-800">
-                    <div>
-                      <span className="text-xs font-bold text-white block">🍺 Getränke-Einzelbon (Ausschank &amp; Bar)</span>
-                      <span className="text-[11px] text-slate-400 block">Druckt jedes bestellte Getränk als separaten Ausschankbon</span>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={config.receiptSingleItemDrinkSlips ?? true}
-                      onChange={(e) => setConfig({ ...config, receiptSingleItemDrinkSlips: e.target.checked })}
-                      className="w-4 h-4 rounded text-blue-500"
-                    />
-                  </div>
-
-                  {(config.receiptSingleItemDrinkSlips ?? true) && (
-                    <div className="grid grid-cols-2 gap-2 pl-3 border-l-2 border-blue-500/40 text-xs pt-1">
-                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={config.receiptDrinkShowHeader ?? true}
-                          onChange={(e) => setConfig({ ...config, receiptDrinkShowHeader: e.target.checked })}
-                          className="w-3.5 h-3.5 rounded text-blue-500"
-                        />
-                        <span>Kopfzeile (Ausschank)</span>
-                      </label>
-                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={config.receiptDrinkShowTable ?? true}
-                          onChange={(e) => setConfig({ ...config, receiptDrinkShowTable: e.target.checked })}
-                          className="w-3.5 h-3.5 rounded text-blue-500"
-                        />
-                        <span>Große Tischnummer</span>
-                      </label>
-                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={config.receiptDrinkShowWaiter ?? true}
-                          onChange={(e) => setConfig({ ...config, receiptDrinkShowWaiter: e.target.checked })}
-                          className="w-3.5 h-3.5 rounded text-blue-500"
-                        />
-                        <span>Bedienung &amp; Bon-Nr.</span>
-                      </label>
-                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={config.receiptDrinkShowTimestamp ?? true}
-                          onChange={(e) => setConfig({ ...config, receiptDrinkShowTimestamp: e.target.checked })}
-                          className="w-3.5 h-3.5 rounded text-blue-500"
-                        />
-                        <span>Uhrzeit</span>
-                      </label>
-                      <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={config.receiptDrinkShowOptions ?? true}
-                          onChange={(e) => setConfig({ ...config, receiptDrinkShowOptions: e.target.checked })}
-                          className="w-3.5 h-3.5 rounded text-blue-500"
-                        />
-                        <span>Sorten &amp; Details</span>
-                      </label>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Right Column: Interactive Live 80mm Receipt Simulator */}
-              <div className="lg:col-span-5 flex flex-col items-center">
-                {/* Simulator Tab Switcher */}
-                <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-2xl border border-slate-800 mb-3">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewMode('RECEIPT')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                      previewMode === 'RECEIPT'
-                        ? 'bg-blue-600 text-white shadow'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    🧾 Kassenbeleg
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewMode('FOOD_SINGLE')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                      previewMode === 'FOOD_SINGLE'
-                        ? 'bg-amber-600 text-white shadow'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    🍳 Speisen-Bon
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewMode('DRINK_SINGLE')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                      previewMode === 'DRINK_SINGLE'
-                        ? 'bg-teal-600 text-white shadow'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    🍺 Getränke-Bon
-                  </button>
-                </div>
-
-                {previewMode === 'RECEIPT' ? (
-                  <div className="w-full max-w-[320px] bg-amber-50 text-slate-900 font-mono text-[11px] p-4 rounded-xl shadow-2xl border-2 border-dashed border-amber-300/80 select-none space-y-2 animate-in fade-in">
-                    <div className="text-center">
-                      <div className="font-bold text-xs">=== BELEG / BON ===</div>
-                      <div className="font-black text-sm uppercase">{config.receiptHeader || config.name || 'FESTNAME'}</div>
-                      {config.receiptSubHeader && (
-                        <div className="text-[10px] text-slate-600">{config.receiptSubHeader}</div>
-                      )}
-                    </div>
-
-                    <div className="border-t border-b border-slate-400 py-1 my-1">
-                      {/* Tischnummer mit stufenloser Skalierung */}
-                      {(config.receiptShowTable ?? true) && (
-                        <div className="text-center">
-                          {(() => {
-                            const lvl = typeof config.receiptTableFontSize === 'number' ? config.receiptTableFontSize : 3;
-                            const dynamicStyle = {
-                              fontSize: `${Math.max(12, Math.min(36, 12 + lvl * 2.5))}px`,
-                              lineHeight: '1.2',
-                            };
-                            return (
-                              <div
-                                style={dynamicStyle}
-                                className="font-black text-amber-950 bg-amber-300 py-1 rounded tracking-wider shadow my-1"
-                              >
-                                TISCH 14
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      )}
-
-                      <div className="flex justify-between text-[10px] text-slate-700">
-                        {(config.receiptShowWaiter ?? true) && <span>Bedienung: Anna</span>}
-                        <span>Bon #1042</span>
-                      </div>
-
-                      {(config.receiptShowTimestamp ?? true) && (
-                        <div className="text-[10px] text-slate-500">
-                          {new Date().toLocaleString('de-DE')}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Sample Items */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between font-bold">
-                        <span>2x Festbier 0,5l</span>
-                        <span>8,80 EUR</span>
-                      </div>
-                      <div className="flex justify-between font-bold">
-                        <span>1x Bratwurst m. Semmel</span>
-                        <span>4,50 EUR</span>
-                      </div>
-                      <div className="text-[10px] text-slate-600 pl-2">   + Senf, gut durch</div>
-                    </div>
-
-                    <div className="border-t border-slate-900 pt-1.5 flex justify-between font-black text-sm">
-                      <span>GESAMTBETRAG:</span>
-                      <span>13,30 EUR</span>
-                    </div>
-                    <div className="flex justify-between text-[10px] text-slate-600">
-                      <span>Zahlart: Barzahlung</span>
-                      {(config.enableTax ?? false) && <span>MwSt 19%: 2,12 EUR</span>}
-                    </div>
-
-                    {config.receiptFooterText && (
-                      <div className="text-center pt-2 border-t border-slate-400 text-[10px] italic">
-                        {config.receiptFooterText}
-                      </div>
-                    )}
-
-                    {(config.receiptShowTse ?? true) && (
-                      <div className="text-center pt-1 border-t border-slate-300 text-[8px] text-slate-500 break-all">
-                        TSE-SIG: a8f9c73e1b02d... §6 KassenSichV
-                      </div>
-                    )}
-                  </div>
-                ) : previewMode === 'FOOD_SINGLE' ? (
-                  /* Speisen-Einzelbon Simulator */
-                  <div className="w-full max-w-[320px] bg-amber-50 text-slate-900 font-mono text-[11px] p-4 rounded-xl shadow-2xl border-2 border-dashed border-amber-400 select-none space-y-2 animate-in fade-in">
-                    {(config.receiptFoodShowHeader ?? true) && (
-                      <div className="text-center font-black text-xs pb-1 border-b border-slate-400">
-                        === KÜCHE / SPEISEN ===
-                      </div>
-                    )}
-
-                    {(config.receiptFoodShowTable ?? true) && (
-                      <div className="text-center my-1">
-                        <div className="font-black text-xl text-amber-950 bg-amber-300 py-1 rounded tracking-widest">
-                          TISCH 14
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex justify-between text-[10px] text-slate-700 py-0.5">
-                      {(config.receiptFoodShowWaiter ?? true) && <span>Bedienung: Anna</span>}
-                      <span>Bon #1042</span>
-                    </div>
-
-                    {(config.receiptFoodShowTimestamp ?? true) && (
-                      <div className="text-[10px] text-slate-500 pb-1 border-b border-slate-300">
-                        Uhrzeit: {new Date().toLocaleTimeString('de-DE')}
-                      </div>
-                    )}
-
-                    <div className="py-2 space-y-1">
-                      <div className="font-black text-base text-slate-950">
-                        1x Schnitzel Wiener Art
-                      </div>
-                      <div className="font-bold text-xs text-slate-700 pl-2">
-                        Sorte: Mit Pommes frites
-                      </div>
-                      {(config.receiptFoodShowOptions ?? true) && (
-                        <div className="text-[11px] font-bold text-emerald-800 pl-2">
-                          + Ketchup &amp; Mayo
-                        </div>
-                      )}
-                      <div className="bg-amber-200 p-1.5 rounded font-black text-[11px] text-amber-950 mt-1">
-                        ! WUNSCH: Bitte Zitrone extra
-                      </div>
-                    </div>
-
-                    <div className="text-center text-[10px] text-slate-500 pt-1 border-t border-slate-400 italic">
-                      (Speisenbon 1 von 2)
-                    </div>
-                  </div>
-                ) : (
-                  /* Getränke-Einzelbon Simulator */
-                  <div className="w-full max-w-[320px] bg-amber-50 text-slate-900 font-mono text-[11px] p-4 rounded-xl shadow-2xl border-2 border-dashed border-teal-400 select-none space-y-2 animate-in fade-in">
-                    {(config.receiptDrinkShowHeader ?? true) && (
-                      <div className="text-center font-black text-xs pb-1 border-b border-slate-400 text-teal-950">
-                        === AUSSCHANK / GETRÄNKE ===
-                      </div>
-                    )}
-
-                    {(config.receiptDrinkShowTable ?? true) && (
-                      <div className="text-center my-1">
-                        <div className="font-black text-xl text-teal-950 bg-teal-200 py-1 rounded tracking-widest">
-                          TISCH 14
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex justify-between text-[10px] text-slate-700 py-0.5">
-                      {(config.receiptDrinkShowWaiter ?? true) && <span>Bedienung: Anna</span>}
-                      <span>Bon #1042</span>
-                    </div>
-
-                    {(config.receiptDrinkShowTimestamp ?? true) && (
-                      <div className="text-[10px] text-slate-500 pb-1 border-b border-slate-300">
-                        Uhrzeit: {new Date().toLocaleTimeString('de-DE')}
-                      </div>
-                    )}
-
-                    <div className="py-2 space-y-1">
-                      <div className="font-black text-base text-slate-950">
-                        1x Helles Festbier 0,5l
-                      </div>
-                      {(config.receiptDrinkShowOptions ?? true) && (
-                        <div className="text-xs text-slate-700 pl-2">
-                          Glas: Steinkrug (Pfand: 2,00 EUR)
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="text-center text-[10px] text-slate-500 pt-1 border-t border-slate-400 italic">
-                      (Getränkebon 2 von 2)
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Card 4c: Design & Themenauswahl */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-lg space-y-4">
-            <h2 className="text-base font-extrabold text-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              <span>Erscheinungsbild &amp; Farbschema (Themes)</span>
-            </h2>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {[
-                { id: 'dark', name: '🌙 Dunkel', desc: 'Deep Slate / Nachtmodus (Standard)' },
-                { id: 'light', name: '☀️ Hell', desc: 'Klares Tageslicht & hoher Kontrast' },
-                { id: 'contrast', name: '⚡ Kontrastreich', desc: 'Extremer Kontrast für Festzelte' },
-                { id: 'modern', name: '💎 Modern', desc: 'Vibrantes Indigo & Glassmorphism' },
-                { id: 'minimal', name: '◽ Minimalistisch', desc: 'Monochromes reines Design' },
-                { id: 'plain', name: '☕ Schlicht', desc: 'Klassisches unaufgeregtes Kassen-Design' },
-              ].map((t) => {
-                const active = (config.activeTheme || 'dark') === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => {
-                      setConfig({ ...config, activeTheme: t.id });
-                      document.documentElement.setAttribute('data-theme', t.id);
-                      localStorage.setItem('openbon_theme', t.id);
-                    }}
-                    className={`p-3.5 rounded-2xl border text-left transition ${
-                      active
-                        ? 'bg-blue-600/20 border-blue-500 text-white shadow-md'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-                    }`}
-                  >
-                    <div className="font-black text-sm text-white">{t.name}</div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">{t.desc}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Card 4d: Zusatzmodule & Schalter */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-lg space-y-4">
-            <h2 className="text-base font-extrabold text-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-purple-400" />
-              <span>Funktionen &amp; Schalter</span>
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
-                <div>
-                  <div className="text-xs font-bold text-white">Gäste-Tischbestellung (BYOD QR)</div>
-                  <div className="text-[11px] text-slate-400">Gäste bestellen per QR-Code am Tisch selbst (/guest/table/1)</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={config.enableGuestSelfOrder ?? true}
-                  onChange={(e) => setConfig({ ...config, enableGuestSelfOrder: e.target.checked })}
-                  className="w-4 h-4 rounded text-blue-600"
-                />
-              </label>
-
-              <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
-                <div>
-                  <div className="text-xs font-bold text-white">SB-Kiosk Bestellterminal</div>
-                  <div className="text-[11px] text-slate-400">Selbstbedienungs-Terminal für Gäste (/kiosk)</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={config.enableKioskMode ?? false}
-                  onChange={(e) => setConfig({ ...config, enableKioskMode: e.target.checked })}
-                  className="w-4 h-4 rounded text-indigo-600"
-                />
-              </label>
-
-              <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
-                <div>
-                  <div className="text-xs font-bold text-white">Gänge-Verwaltung (Gang 1, 2, 3)</div>
-                  <div className="text-[11px] text-slate-400">Gänge-Auswahl auf Mobilteilen & Kasse anzeigen</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={config.enableCourses ?? false}
-                  onChange={(e) => setConfig({ ...config, enableCourses: e.target.checked })}
-                  className="w-4 h-4 rounded text-purple-600"
-                />
-              </label>
-
-              <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
-                <div>
-                  <div className="text-xs font-bold text-white">Digitaler E-Bon (QR-Code)</div>
-                  <div className="text-[11px] text-slate-400">Papierloser Belegabruf aktivieren</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={config.enableDigitalReceipt ?? false}
-                  onChange={(e) => setConfig({ ...config, enableDigitalReceipt: e.target.checked, enableDigitalReceiptQr: e.target.checked })}
-                  className="w-4 h-4 rounded text-emerald-600"
-                />
-              </label>
-
-              <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
-                <div>
-                  <div className="text-xs font-bold text-white">Jugendschutz-Altersprüfung</div>
-                  <div className="text-[11px] text-slate-400">Geburtsdatum-Anzeige auf Kasse/Mobilteil (§6.1)</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={config.enableAgeVerificationAlerts ?? true}
-                  onChange={(e) => setConfig({ ...config, enableAgeVerificationAlerts: e.target.checked })}
-                  className="w-4 h-4 rounded text-blue-600"
-                />
-              </label>
-
-              <label className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between cursor-pointer">
-                <div>
-                  <div className="text-xs font-bold text-white">Virtuelle Drucker (Simulation)</div>
-                  <div className="text-[11px] text-slate-400">Druckersimulation im Browser ohne Hardware</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={config.enableVirtualPrinters ?? false}
-                  onChange={(e) => setConfig({ ...config, enableVirtualPrinters: e.target.checked })}
-                  className="w-4 h-4 rounded text-amber-600"
-                />
-              </label>
-            </div>
-
-            <div className="pt-2">
-              <label className="text-xs font-bold text-slate-400 block mb-1">
-                Warndrucker für Meldebestand-Unterschreitung (optional):
-              </label>
-              <select
-                value={config.lowStockAlertPrinterId || ''}
-                onChange={(e) => setConfig({ ...config, lowStockAlertPrinterId: e.target.value || null })}
-                className="w-full sm:w-80 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-              >
-                <option value="">Kein automatischer Ausdruck (nur Bildschirmanzeige)</option>
-                {printers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.ipAddress})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Card 5: 100% Offline-Lizenzverwaltung */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-lg space-y-4">
-            <h2 className="text-base font-extrabold text-white flex items-center gap-2">
-              <FileCheck className="w-4 h-4 text-amber-400" />
-              <span>Offline-Lizenzverwaltung</span>
-            </h2>
-
-            {licenseInfo && (
-              <div
-                className={`p-4 rounded-2xl border ${
-                  licenseInfo.isValid
-                    ? 'bg-slate-950 border-emerald-800 text-slate-200'
-                    : 'bg-rose-950/40 border-rose-800 text-rose-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-extrabold text-sm text-white">
-                    {licenseInfo.licensee}
-                  </span>
-                  <span
-                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                      licenseInfo.isValid ? 'bg-emerald-950 text-emerald-400 border border-emerald-700' : 'bg-rose-950 text-rose-400 border border-rose-700'
-                    }`}
-                  >
-                    {licenseInfo.isValid ? 'Gültig' : 'Ungültig'}
-                  </span>
-                </div>
-                <div className="text-xs text-slate-400 space-y-1">
-                  <div>Typ: <strong className="text-slate-200">{licenseInfo.type}</strong> | Max. Geräte: <strong className="text-slate-200">{licenseInfo.maxDevices}</strong></div>
-                  <div>Gültig bis: <strong className="text-slate-200">{licenseInfo.expiresAt ? new Date(licenseInfo.expiresAt).toLocaleDateString('de-DE') : 'Unbegrenzt (Lifetime)'}</strong></div>
-                  <div className="text-[11px] text-slate-500 pt-1">{licenseInfo.message}</div>
-                </div>
-              </div>
-            )}
-
-            <div>
-              <label className="text-xs font-bold text-slate-400 block mb-1">
-                Offline-Lizenzschlüssel eingeben
-              </label>
-              <textarea
-                rows={2}
-                placeholder="Lizenzschlüssel hier einfügen..."
-                value={licenseKeyInput}
-                onChange={(e) => setLicenseKeyInput(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-mono focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* Card 6: Autostart & Datensicherung */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-lg space-y-4">
-            <h2 className="text-base font-extrabold text-white flex items-center gap-2">
-              <HardDrive className="w-4 h-4 text-blue-400" />
-              <span>Autostart & Datensicherung</span>
-            </h2>
-
-            {/* Autostart Switch */}
-            <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between">
-              <div>
-                <div className="text-sm font-extrabold text-white">Automatischer Systemstart</div>
-                <div className="text-xs text-slate-400">
-                  {autostartInfo?.autostartEnabled
-                    ? 'OpenBon startet automatisch bei Hochfahren des Geräts'
-                    : 'Manueller Start erforderlich'}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleToggleAutostart}
-                disabled={togglingAutostart}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition shadow ${
-                  autostartInfo?.autostartEnabled
-                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                    : 'bg-slate-800 hover:bg-slate-700 text-slate-400'
-                }`}
-              >
-                {autostartInfo?.autostartEnabled ? 'Aktiviert' : 'Deaktiviert'}
-              </button>
-            </div>
-
-            {/* Backup Scopes Selection */}
-            <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-extrabold text-white">Selektive Datensicherung (Bereiche wählen)</div>
-                  <div className="text-[11px] text-slate-400">Wähle, welche Daten exportiert und wiederhergestellt werden</div>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setBackupScopes({
-                        config: true,
-                        products: true,
-                        wordGroups: true,
-                        tables: true,
-                        printers: true,
-                        stock: true,
-                        orders: true,
-                        payments: true,
-                      })
-                    }
-                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold"
-                  >
-                    Alles
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setBackupScopes({
-                        config: true,
-                        products: true,
-                        wordGroups: true,
-                        tables: true,
-                        printers: true,
-                        stock: true,
-                        orders: false,
-                        payments: false,
-                      })
-                    }
-                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold"
-                  >
-                    Nur Stammdaten
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                {[
-                  { id: 'config', label: 'Grundeinstellungen' },
-                  { id: 'products', label: 'Artikel & Kategorien' },
-                  { id: 'wordGroups', label: 'Sonderwünsche' },
-                  { id: 'tables', label: 'Tischplan & Tische' },
-                  { id: 'printers', label: 'Drucker & Gruppen' },
-                  { id: 'stock', label: 'Lagerbestände' },
-                  { id: 'orders', label: 'Bestellungen' },
-                  { id: 'payments', label: 'Zahlungen' },
-                ].map((scope) => (
-                  <label
-                    key={scope.id}
-                    className="flex items-center gap-2 p-2 bg-slate-900 rounded-xl border border-slate-800 text-xs font-semibold text-slate-300 cursor-pointer hover:border-slate-700"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={(backupScopes as any)[scope.id]}
-                      onChange={(e) =>
-                        setBackupScopes({ ...backupScopes, [scope.id]: e.target.checked })
-                      }
-                      className="w-3.5 h-3.5 rounded text-blue-600"
-                    />
-                    <span className="truncate">{scope.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Backup Scopes */}
-            <div className="pt-2">
-              <label className="text-xs font-bold text-slate-400 block mb-2">
-                Datensicherung Export / Import
-              </label>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={handleDownloadBackup}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Sicherungsdatei herunterladen</span>
-                </button>
-
-                <label className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition cursor-pointer">
-                  <Upload className="w-4 h-4" />
-                  <span>Sicherung wiederherstellen</span>
-                  <input
-                    type="file"
-                    accept=".json"
-                    onChange={handleRestoreBackup}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom Sticky Save Button */}
-          <div className="pt-4 flex justify-end">
+      {/* Touch-Friendly Tab Navigation Bar (min 48px height) */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-800 scrollbar-none">
+        {tabs.map((t) => {
+          const Icon = t.icon;
+          const isActive = activeTab === t.id;
+          return (
             <button
-              type="submit"
-              disabled={saving}
-              className={`flex items-center gap-2 px-8 py-3.5 rounded-2xl font-black text-sm transition shadow-2xl ${
-                saveSuccess
-                  ? 'bg-emerald-600 text-white shadow-emerald-950/60'
-                  : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-950/60'
+              key={t.id}
+              type="button"
+              onClick={() => {
+                triggerHapticFeedback();
+                setActiveTab(t.id);
+              }}
+              className={`min-h-[48px] px-4 py-2.5 rounded-2xl font-bold text-xs sm:text-sm flex items-center gap-2 transition active:scale-95 touch-manipulation whitespace-nowrap ${
+                isActive
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30'
+                  : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
               }`}
             >
-              {saving ? (
-                <RefreshCw className="w-5 h-5 animate-spin" />
-              ) : saveSuccess ? (
-                <Check className="w-5 h-5" />
-              ) : (
-                <Save className="w-5 h-5" />
-              )}
-              <span>{saveSuccess ? 'Erfolgreich gespeichert!' : 'Einstellungen jetzt speichern'}</span>
+              <Icon className="w-4 h-4" />
+              <span>{t.label}</span>
             </button>
-          </div>
-        </form>
-      )}
+          );
+        })}
+      </div>
+
+      {/* Active Tab Content */}
+      <div className="animate-in fade-in">
+        {activeTab === 'GENERAL' && (
+          <GeneralTab
+            config={config}
+            onChange={handleConfigUpdate}
+            autostartInfo={autostartInfo}
+            onToggleAutostart={handleToggleAutostart}
+            togglingAutostart={togglingAutostart}
+          />
+        )}
+        {activeTab === 'PRINTERS' && (
+          <PrintersTab config={config} onChange={handleConfigUpdate} printers={printers} />
+        )}
+        {activeTab === 'SECURITY' && (
+          <SecurityTab config={config} onChange={handleConfigUpdate} />
+        )}
+        {activeTab === 'FISCAL' && (
+          <FiscalTab config={config} onChange={handleConfigUpdate} />
+        )}
+        {activeTab === 'SNAPSHOTS' && <SnapshotsTab />}
+      </div>
     </div>
   );
 }

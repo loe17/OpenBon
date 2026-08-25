@@ -32,9 +32,11 @@ import { SubCategoryIcon } from '@/components/ui/subcategory-icon';
 import { calculateMinBirthdate, EU_ALLERGENS, filterProductsByExcludedAllergens } from '@/lib/compliance';
 import { getEffectiveProductPrice } from '@/lib/pricing';
 import { hasAnyCardPaymentConfigured } from '@/lib/payment/methods';
+import { useToast } from '@/components/ui/toast';
 import type { ProductDTO, ProductVariantDTO, OrderItemDTO, ProductCategoryDTO, EventConfigDTO } from '@/types/domain';
 
 export default function PosCounterPage() {
+  const { success, error, warning } = useToast();
   const { socket } = useSocket();
   const [config, setConfig] = useState<EventConfigDTO | null>(null);
   const [categories, setCategories] = useState<ProductCategoryDTO[]>([]);
@@ -184,7 +186,7 @@ export default function PosCounterPage() {
 
   const addToCart = (product: ProductDTO, variant?: ProductVariantDTO | null, optionsList: string[] = []) => {
     if (product.isSoldOut || (variant && variant.isSoldOut)) {
-      alert(`Artikel "${product.name}" ist derzeit ausverkauft / gesperrt.`);
+      warning(`Artikel "${product.name}" ist derzeit ausverkauft / gesperrt.`);
       return;
     }
 
@@ -292,7 +294,7 @@ export default function PosCounterPage() {
 
       if (!orderRes.ok) {
         const err = await orderRes.json().catch(() => ({}));
-        alert(err.error || 'Fehler beim Anlegen des Bons an der Bonkasse.');
+        error(err.error || 'Fehler beim Anlegen des Bons an der Bonkasse.');
         return;
       }
 
@@ -338,6 +340,7 @@ export default function PosCounterPage() {
           setCompletedPayment(null);
         }
         triggerHapticFeedback();
+        success('Zahlung erfolgreich abgeschlossen!');
         setCart([]);
         setGivenAmount(0);
         if (paymentMethod === 'CASH') {
@@ -346,7 +349,7 @@ export default function PosCounterPage() {
       }
     } catch (e) {
       console.error(e);
-      alert('Fehler beim Kassiervorgang.');
+      error('Fehler beim Kassiervorgang.');
     } finally {
       setIsProcessing(false);
     }

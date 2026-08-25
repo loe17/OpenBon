@@ -12,7 +12,10 @@ import {
   BookOpen,
 } from 'lucide-react';
 
+import { useToast } from '@/components/ui/toast';
+
 export default function AdminAccountingPage() {
+  const { success, error } = useToast();
   const today = new Date().toISOString().split('T')[0];
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
@@ -56,12 +59,12 @@ export default function AdminAccountingPage() {
         }),
       });
       if (res.ok) {
-        alert('DATEV-Stammdaten erfolgreich gespeichert!');
+        success('DATEV-Stammdaten erfolgreich gespeichert!');
       } else {
-        alert('Fehler beim Speichern der Konfiguration');
+        error('Fehler beim Speichern der Konfiguration');
       }
     } catch (err) {
-      alert('Netzwerkfehler');
+      error('Netzwerkfehler beim Speichern');
     } finally {
       setIsSavingConfig(false);
     }

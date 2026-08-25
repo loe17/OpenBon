@@ -83,9 +83,20 @@ Jedes Smartphone, Tablet, Touchscreen-Terminal oder PC kann direkt im Webbrowser
 
 1. **Offline-First mit Client-Outbox:** Bricht das WLAN im Festzelt ab, speichern Kellner-Tablets und Thekenkassen die Vorgänge in der lokalen IndexedDB. Beim Reconnect synchronisiert die Outbox automatisch mit Idempotency-Keys (keine Doppelbons).
 2. **Litestream WAL-Replikation:** Jede geschriebene Buchung wird im Sekundentakt auf einen USB-Stick oder ein Zweitgerät gespiegelt.
-3. **Kalt-Standby & 1-Klick Disaster Recovery:** Bei Hardwareausfall des Servers wird das Ersatzgerät mit `./scripts/litestream-restore.sh` in 2 Minuten auf den exakten Stand wiederhergestellt.
-4. **Automatischer Backup-Scheduler:** Erstellt zyklisch Online-Snapshots (`VACUUM INTO`) mit 10-fach Rotation.
-5. **Persistente Druck-Warteschlange:** Druckaufträge überleben Server-Neustarts und werden bei Drucker-Störungen mit automatischem Retry verarbeitet.
+3. **Automatisches Drucker-Fallback-Routing:** Ist ein Bon-Drucker offline oder ohne Papier, leitet der Spooler den Auftrag automatisch auf den konfigurierten Ersatzdrucker um.
+4. **Kalt-Standby & 1-Klick Disaster Recovery:** Bei Hardwareausfall des Servers wird das Ersatzgerät mit `./scripts/litestream-restore.sh` in 2 Minuten auf den exakten Stand wiederhergestellt.
+5. **Automatischer Backup-Scheduler:** Erstellt zyklisch Online-Snapshots (`VACUUM INTO`) mit 10-fach Rotation.
+6. **Persistente Druck-Warteschlange:** Druckaufträge überleben Server-Neustarts und werden bei Drucker-Störungen mit automatischem Retry verarbeitet.
+
+---
+
+## 👆 Durchgängige Touch-Bedienung & UI
+
+- **Große Touch-Ziele:** Sämtliche Schaltflächen und Schnellauswahlfelder besitzen eine Mindesthöhe von 48px (`min-h-[48px]`) mit haptischem Feedback und `touch-manipulation`.
+- **Touch-Ziffernblöcke:** Keypads für PIN-Eingabe, Geldbeträge und Schichtabrechnung sind mit großzügigen 58px-Tasten für fehlerfreie Bedienung unter Stress optimiert.
+- **Keine blockierenden Browser-Popups:** Alle Bestätigungen und Warnungen erfolgen über animierte Toasts und barrierefreie Touch-Dialoge.
+- **Kellner-Schichtabrechnung (`/waiter/settle`):** Touch-optimierter Soll/Ist-Kassensturz mit Trinkgeld-Ausschüttung und digitalem Kassenabschlussbeleg.
+- **1-Klick EventProfile-Snapshots:** Speichern und blitzschnelles Wiederherstellen kompletter Fest-Konfigurationen (Tische, Drucker-Routing, Warengruppen, Artikel) im Einstellungsmenü.
 
 ---
 
@@ -110,4 +121,4 @@ npm test
 npm run build
 ```
 
-- **18 Test-Suiten / 118 Tests:** E2E-Lebenszyklus, Idempotenz, Berechtigungen, PBKDF2-PIN-Hashing, DSFinV-K/DATEV-Fiskalisierung, Druckspooler-Resilienz und ESC/POS-Rendering.
+- **18 Test-Suiten / 121 Tests (100% bestanden):** E2E-Lebenszyklus, Idempotenz, Berechtigungen, PBKDF2-PIN-Hashing, Drucker-Fallback, DSFinV-K/DATEV-Fiskalisierung, Druckspooler-Resilienz und ESC/POS-Rendering.

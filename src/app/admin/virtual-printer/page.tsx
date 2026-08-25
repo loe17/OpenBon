@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { playKitchenChime, triggerHapticFeedback } from '@/lib/socket-client';
+import { useToast } from '@/components/ui/toast';
 
 interface VirtualTicket {
   id: string;
@@ -30,6 +31,7 @@ interface VirtualTicket {
 }
 
 export default function VirtualPrinterMonitorPage() {
+  const { success, error } = useToast();
   const { socket } = useSocket();
   const [tickets, setTickets] = useState<VirtualTicket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,12 +80,12 @@ export default function VirtualPrinterMonitorPage() {
   }, [socket, soundEnabled]);
 
   const handleClearHistory = async () => {
-    if (!confirm('Möchtest du den gesamten virtuellen Druckverlauf leeren?')) return;
     try {
       await fetch('/api/virtual-printer', { method: 'DELETE' });
       setTickets([]);
+      success('Virtueller Druckverlauf erfolgreich geleert');
     } catch (e) {
-      console.error(e);
+      error('Fehler beim Leeren des Druckverlaufs');
     }
   };
 

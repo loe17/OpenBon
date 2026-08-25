@@ -36,6 +36,7 @@ import type {
 } from '@/types/domain';
 import { playConfirm, playVoidAlert } from '@/lib/audio-feedback';
 import { sendWithOutboxFallback } from '@/lib/offline/outbox';
+import { useToast } from '@/components/ui/toast';
 
 const parseWordsList = (raw: any): string[] => {
   if (Array.isArray(raw)) return raw;
@@ -72,6 +73,7 @@ interface CartItem {
 
 function WaiterOrderContent() {
   const router = useRouter();
+  const { success, error, warning } = useToast();
   const searchParams = useSearchParams();
   const tableId = searchParams.get('tableId');
   const waiterFromUrl = searchParams.get('waiterName');
@@ -304,9 +306,8 @@ function WaiterOrderContent() {
   const handleClearCart = () => {
     triggerHapticFeedback();
     if (cart.length === 0) return;
-    if (confirm('Möchtest du wirklich alle Artikel aus der aktuellen Tischbestellung verwerfen?')) {
-      setCart([]);
-    }
+    setCart([]);
+    success('Bestellliste geleert');
   };
 
   const openCustomizer = (item: CartItem) => {
@@ -393,7 +394,7 @@ function WaiterOrderContent() {
         triggerHapticFeedback();
         playConfirm();
         if (result.queuedOffline) {
-          alert('WLAN nicht erreichbar: Bestellung wurde offline gesichert und wird automatisch übertragen.');
+          warning('WLAN nicht erreichbar: Bestellung wurde offline gesichert und wird automatisch übertragen.');
         }
         router.push('/waiter');
       } else {

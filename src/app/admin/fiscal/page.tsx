@@ -12,7 +12,10 @@ import {
   Lock,
 } from 'lucide-react';
 
+import { useToast } from '@/components/ui/toast';
+
 export default function AdminFiscalPage() {
+  const { success, error } = useToast();
   const today = new Date().toISOString().split('T')[0];
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
@@ -46,11 +49,12 @@ export default function AdminFiscalPage() {
       if (res.ok) {
         const data = await res.json();
         setExportData(data);
+        success('DSFinV-K Export erfolgreich generiert!');
       } else {
-        alert('Fehler beim Generieren des Prüfer-Exports');
+        error('Fehler beim Generieren des Prüfer-Exports');
       }
     } catch (err) {
-      alert('Netzwerkfehler');
+      error('Netzwerkfehler beim Export');
     } finally {
       setIsExporting(false);
     }

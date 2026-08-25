@@ -24,6 +24,7 @@ export async function POST(req: Request) {
       data: {
         name: body.name,
         printerId: body.printerId || null,
+        fallbackPrinterId: body.fallbackPrinterId || null,
         maxItemsPerTicket: parseInt(body.maxItemsPerTicket || 0, 10),
         autoCut: body.autoCut ?? true,
       },
@@ -42,6 +43,7 @@ export async function PUT(req: Request) {
       data: {
         name: body.name,
         printerId: body.printerId || null,
+        fallbackPrinterId: body.fallbackPrinterId || null,
         maxItemsPerTicket: body.maxItemsPerTicket !== undefined ? parseInt(body.maxItemsPerTicket, 10) : undefined,
         autoCut: body.autoCut,
       },

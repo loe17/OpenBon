@@ -20,6 +20,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { EU_ALLERGENS, filterProductsByExcludedAllergens } from '@/lib/compliance';
+import { useToast } from '@/components/ui/toast';
 
 interface Variant {
   id: string;
@@ -61,6 +62,7 @@ interface CartItem {
 }
 
 export default function GuestTableOrderPage() {
+  const { error } = useToast();
   const params = useParams();
   const searchParams = useSearchParams();
   const tableNumber = params.tableNumber as string;
@@ -166,10 +168,10 @@ export default function GuestTableOrderPage() {
         setIsCartOpen(false);
       } else {
         const errData = await res.json();
-        alert(errData.error || 'Fehler bei der Bestellung');
+        error(errData.error || 'Fehler bei der Bestellung');
       }
     } catch (err) {
-      alert('Verbindungsfehler beim Absenden der Bestellung');
+      error('Verbindungsfehler beim Absenden der Bestellung');
     } finally {
       setIsSubmitting(false);
     }

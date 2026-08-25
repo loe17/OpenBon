@@ -23,7 +23,10 @@ interface TokenTransaction {
   createdAt: string;
 }
 
+import { useToast } from '@/components/ui/toast';
+
 export default function AdminTokensPage() {
+  const { success, error } = useToast();
   const [transactions, setTransactions] = useState<TokenTransaction[]>([]);
   const [totals, setTotals] = useState({
     totalIssuedQty: 0,
@@ -77,12 +80,13 @@ export default function AdminTokensPage() {
         }),
       });
       if (res.ok) {
+        success('Wertmarken-Buchung erfolgreich erfasst!');
         loadData();
       } else {
-        alert('Fehler beim Erfassen der Wertmarken-Buchung');
+        error('Fehler beim Erfassen der Wertmarken-Buchung');
       }
     } catch (err) {
-      alert('Netzwerkfehler');
+      error('Netzwerkfehler beim Speichern');
     } finally {
       setIsSubmitting(false);
     }

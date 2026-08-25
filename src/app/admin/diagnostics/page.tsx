@@ -20,6 +20,8 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
+import { useToast } from '@/components/ui/toast';
+
 interface DiagnosticReport {
   timestamp: string;
   durationMs: number;
@@ -72,6 +74,7 @@ interface DiagnosticReport {
 }
 
 export default function DiagnosticsPage() {
+  const { success, error } = useToast();
   const [report, setReport] = useState<DiagnosticReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPrintingTest, setIsPrintingTest] = useState(false);
@@ -107,14 +110,13 @@ export default function DiagnosticsPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(`Testbelege erfolgreich an ${data.printedCount} Drucker gesendet!`);
+        success(`Testbelege erfolgreich an ${data.printedCount} Drucker gesendet!`);
       } else {
-        alert(data.error || 'Fehler beim Drucken der Testbelege');
+        error(data.error || 'Fehler beim Drucken der Testbelege');
       }
       runDiagnostics();
     } catch (e) {
-      console.error(e);
-      alert('Verbindungsfehler beim Drucktest.');
+      error('Verbindungsfehler beim Drucktest.');
     } finally {
       setIsPrintingTest(false);
     }
@@ -132,11 +134,11 @@ export default function DiagnosticsPage() {
       const data = await res.json();
       if (data.steps) {
         setSimulationSteps(data.steps);
+        success('Bestellzyklus erfolgreich simuliert!');
       }
       runDiagnostics();
     } catch (e) {
-      console.error(e);
-      alert('Fehler bei der Simulation.');
+      error('Fehler bei der Simulation.');
     } finally {
       setIsSimulating(false);
     }

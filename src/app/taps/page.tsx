@@ -49,7 +49,10 @@ interface ProductDTO {
   price: number;
 }
 
+import { useToast } from '@/components/ui/toast';
+
 export default function TapsMonitorPage() {
+  const { success, error } = useToast();
   const { socket } = useSocket();
   const [taps, setTaps] = useState<TapLineDTO[]>([]);
   const [products, setProducts] = useState<ProductDTO[]>([]);
@@ -179,12 +182,12 @@ export default function TapsMonitorPage() {
   };
 
   const handleDeleteTap = async (id: string) => {
-    if (!confirm('Möchtest du diesen Zapfhahn wirklich löschen?')) return;
     try {
       await fetch(`/api/taps/${id}`, { method: 'DELETE' });
+      success('Zapfhahn gelöscht');
       fetchTaps();
     } catch (e) {
-      console.error(e);
+      error('Fehler beim Löschen des Zapfhahns');
     }
   };
 

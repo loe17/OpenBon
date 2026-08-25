@@ -26,49 +26,11 @@ describe('OpenBon v0.3.6: Schema, License, PIN & Print Sanity Tests', () => {
     expect(prisma.printer).toBeDefined();
   });
 
-  it('should validate offline cryptographic license engine', () => {
-    // 1. Default Community License
-    const freeLic = parseAndValidateLicense('');
-    expect(freeLic.isValid).toBe(true);
-    expect(freeLic.type).toBe('COMMUNITY');
-
-    // 2. Generate valid signed Pro Festival key
-    const licensee = 'Feuerwehr Musterstadt e.V.';
-    const type = 'PRO_FESTIVAL';
-    const maxDevices = 100;
-    const expiresAt = '2030-12-31';
-
-    const payload = `${licensee}|${type}|${maxDevices}|${expiresAt}`;
-    const signature = generateOfflineSignature(payload);
-
-    const validKey = Buffer.from(
-      JSON.stringify({
-        licensee,
-        type,
-        maxDevices,
-        expiresAt,
-        signature,
-      })
-    ).toString('base64');
-
-    const verified = parseAndValidateLicense(validKey);
-    expect(verified.isValid).toBe(true);
-    expect(verified.licensee).toBe('Feuerwehr Musterstadt e.V.');
-    expect(verified.maxDevices).toBe(100);
-
-    // 3. Test tampered license key
-    const tamperedKey = Buffer.from(
-      JSON.stringify({
-        licensee: 'Hacker Club',
-        type,
-        maxDevices: 999,
-        expiresAt,
-        signature: 'FAKESIG123',
-      })
-    ).toString('base64');
-
-    const rejected = parseAndValidateLicense(tamperedKey);
-    expect(rejected.isValid).toBe(false);
+  it('should validate open-source license engine', () => {
+    const lic = parseAndValidateLicense();
+    expect(lic.isValid).toBe(true);
+    expect(lic.type).toBe('COMMUNITY');
+    expect(lic.maxDevices).toBeGreaterThanOrEqual(100);
   });
 
   it('should verify station PIN verification defaults', async () => {

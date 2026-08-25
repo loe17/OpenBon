@@ -29,7 +29,10 @@ interface ProcurementItem {
   orderQty?: number; // User adjusted
 }
 
+import { useToast } from '@/components/ui/toast';
+
 export default function ProcurementPage() {
+  const { success, error, warning } = useToast();
   const [items, setItems] = useState<ProcurementItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState('ALL');
@@ -81,7 +84,7 @@ export default function ProcurementPage() {
       .map((i) => ({ productId: i.id, receivedQty: i.orderQty }));
 
     if (toBook.length === 0) {
-      alert('Keine Artikel mit Bestellmenge > 0 vorhanden.');
+      warning('Keine Artikel mit Bestellmenge > 0 vorhanden.');
       return;
     }
 
@@ -91,12 +94,11 @@ export default function ProcurementPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: toBook }),
       });
-      alert('Bestände wurden erfolgreich eingebucht!');
+      success('Bestände wurden erfolgreich eingebucht!');
       setBookingModal(false);
       fetchProcurement();
     } catch (e) {
-      console.error(e);
-      alert('Fehler beim Einbuchen.');
+      error('Fehler beim Einbuchen der Bestände.');
     }
   };
 

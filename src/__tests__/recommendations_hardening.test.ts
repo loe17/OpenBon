@@ -124,4 +124,39 @@ describe('OpenBon EMPFEHLUNGEN Hardening Tests', () => {
       expect(hasRequiredRole('POS_CASHIER', ['WAITER'])).toBe(false);
     });
   });
+
+  describe('2.1 Drucker-Fallback & EventProfile-Snapshots', () => {
+    it('sollte PrintGroups mit fallbackPrinterId in der Datenbank persistieren', async () => {
+      const group = await prisma.printGroup.create({
+        data: {
+          name: 'Test-Schanktheke',
+          fallbackPrinterId: 'fallback-prn-123',
+        },
+      });
+
+      expect(group.id).toBeDefined();
+      expect(group.fallbackPrinterId).toBe('fallback-prn-123');
+
+      await prisma.printGroup.delete({ where: { id: group.id } });
+    });
+
+    it('sollte EventProfile Snapshots sichern und abfragen können', async () => {
+      const profile = await prisma.eventProfile.upsert({
+        where: { name: 'Test-Fest-Snapshot' },
+        create: {
+          name: 'Test-Fest-Snapshot',
+          description: 'Automatisierter Test-Snapshot',
+          profileJson: JSON.stringify({ eventName: 'Testfest', tables: 10 }),
+        },
+        update: {
+          description: 'Aktualisiert',
+        },
+      });
+
+      expect(profile.id).toBeDefined();
+      expect(profile.name).toBe('Test-Fest-Snapshot');
+
+      await prisma.eventProfile.delete({ where: { id: profile.id } });
+    });
+  });
 });

@@ -171,30 +171,71 @@ class NetworkSpooler {
       const errMsg = err instanceof Error ? err.message : String(err);
       console.error(`[ERROR] Fehler beim Drucken auf ${job.printerName} (${job.printerIp}):`, errMsg);
 
-      if (job.retries < 3) {
+      if (job.retries < 2) {
         job.retries++;
-        // Vorne in die Queue einhängen, damit die Druckreihenfolge erhalten bleibt!
+        // Vorne in die Queue einhängen, damit die Druckreihenfolge erhalten bleibt
         this.queue.unshift(job);
       } else {
-        // Nach 3 Versuchen in der DB als FAILED markieren
-        if (job.dbJobId) {
-          await prisma.printJob.update({
-            where: { id: job.dbJobId },
-            data: {
-              status: 'FAILED',
-              attempts: job.retries,
-              lastError: errMsg,
-            },
-          }).catch(() => {});
-        }
-
-        if (global.io) {
-          global.io.emit('printer:error', {
-            jobId: job.id,
-            printerId: job.printerId,
-            printerName: job.printerName,
-            error: errMsg,
+        // Nach Fehlversuchen prüfen, ob ein Ersatzdrucker konfiguriert ist
+        let fallbackHandled = false;
+        try {
+          const printGroup = await prisma.printGroup.findFirst({
+            where: { printerId: job.printerId, fallbackPrinterId: { not: null } },
           });
+
+          if (printGroup?.fallbackPrinterId && printGroup.fallbackPrinterId !== job.printerId) {
+            const fallbackPrinter = await prisma.printer.findUnique({
+              where: { id: printGroup.fallbackPrinterId, isActive: true },
+            });
+
+            if (fallbackPrinter) {
+              console.warn(
+                `[FALLBACK] Leite Druckjob von ${job.printerName} auf Ersatzdrucker ${fallbackPrinter.name} (${fallbackPrinter.ipAddress}) um.`
+              );
+              job.printerId = fallbackPrinter.id;
+              job.printerName = `${fallbackPrinter.name} (Ersatz)`;
+              job.printerIp = fallbackPrinter.ipAddress;
+              job.printerPort = fallbackPrinter.port || 9100;
+              job.isVirtual = fallbackPrinter.isVirtual;
+              job.paperWidth = fallbackPrinter.paperWidth || 80;
+              job.ticketData.title = `[ERSATZ] ${job.ticketData.title || 'BON'}`;
+              job.retries = 0;
+
+              if (global.io) {
+                global.io.emit('printer:fallback_rerouted', {
+                  originalPrinterName: job.printerName,
+                  fallbackPrinterName: fallbackPrinter.name,
+                  jobId: job.id,
+                });
+              }
+
+              this.queue.unshift(job);
+              fallbackHandled = true;
+            }
+          }
+        } catch {}
+
+        if (!fallbackHandled) {
+          // Als FAILED markieren
+          if (job.dbJobId) {
+            await prisma.printJob.update({
+              where: { id: job.dbJobId },
+              data: {
+                status: 'FAILED',
+                attempts: job.retries + 1,
+                lastError: errMsg,
+              },
+            }).catch(() => {});
+          }
+
+          if (global.io) {
+            global.io.emit('printer:error', {
+              jobId: job.id,
+              printerId: job.printerId,
+              printerName: job.printerName,
+              error: errMsg,
+            });
+          }
         }
       }
     } finally {

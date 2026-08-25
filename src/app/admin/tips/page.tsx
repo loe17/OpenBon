@@ -24,6 +24,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { useToast } from '@/components/ui/toast';
 
 interface TipProfile {
   id: string;
@@ -58,6 +59,7 @@ interface WaiterStat {
 }
 
 export default function AdminTipsPage() {
+  const { success, error, warning } = useToast();
   const [activeTab, setActiveTab] = useState<'ABRECHNUNG' | 'MATRIX'>('ABRECHNUNG');
   const [profiles, setProfiles] = useState<TipProfile[]>([]);
   const [waiters, setWaiters] = useState<Waiter[]>([]);
@@ -144,16 +146,6 @@ export default function AdminTipsPage() {
     const waiterTipShare = (stat.tips * prof.waiterPercent) / 100;
     const sollBar = Math.max(0, stat.cashGross - waiterTipShare);
 
-    const ok = confirm(
-      `Möchtest du die Schicht für "${stat.waiterName}" wirklich abrechnen und die Bedienung abmelden?\n\n` +
-      `• Umsatz: ${formatCurrency(stat.totalGross)}\n` +
-      `• Bar eingenommen: ${formatCurrency(stat.cashGross)}\n` +
-      `• Trinkgeld: ${formatCurrency(stat.tips)}\n` +
-      `• Abgabe Hauptkasse: ${formatCurrency(sollBar)}\n\n` +
-      `Die Bedienung wird anschließend abgemeldet und muss sich für eine neue Schicht neu anmelden.`
-    );
-    if (!ok) return;
-
     setIsSettling(true);
     try {
       const res = await fetch('/api/waiters/settle', {
@@ -169,14 +161,14 @@ export default function AdminTipsPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert(data.message || `Bedienung ${stat.waiterName} erfolgreich abgerechnet!`);
+        success(data.message || `Bedienung ${stat.waiterName} abgerechnet!`);
         setSelectedWaiterForKassensturz(null);
         void loadData();
       } else {
-        alert(data.error || 'Fehler bei der Schichtabrechnung');
+        error(data.error || 'Fehler bei der Schichtabrechnung');
       }
     } catch {
-      alert('Netzwerkfehler bei der Schichtabrechnung');
+      error('Netzwerkfehler bei der Schichtabrechnung');
     } finally {
       setIsSettling(false);
     }
@@ -212,7 +204,7 @@ export default function AdminTipsPage() {
     e.preventDefault();
     const sum = formWaiter + formBar + formKitchen + formService;
     if (Math.abs(sum - 100) > 0.1) {
-      alert(`Die Summe der Prozentsätze muss genau 100% ergeben (Aktuell: ${sum}%).`);
+      warning(`Die Summe der Prozentsätze muss genau 100% ergeben (Aktuell: ${sum}%).`);
       return;
     }
 
@@ -235,22 +227,25 @@ export default function AdminTipsPage() {
 
       if (res.ok) {
         setIsModalOpen(false);
+        success('Trinkgeld-Profil gespeichert');
         loadData();
       } else {
-        alert('Fehler beim Speichern des Profils');
+        error('Fehler beim Speichern des Profils');
       }
     } catch {
-      alert('Netzwerkfehler');
+      error('Netzwerkfehler beim Speichern');
     }
   };
 
   const deleteProfile = async (id: string) => {
-    if (!confirm('Möchten Sie dieses Trinkgeld-Profil wirklich löschen?')) return;
     try {
       const res = await fetch(`/api/tip-profiles/${id}`, { method: 'DELETE' });
-      if (res.ok) loadData();
+      if (res.ok) {
+        success('Trinkgeld-Profil gelöscht');
+        loadData();
+      }
     } catch {
-      alert('Fehler beim Löschen');
+      error('Fehler beim Löschen des Profils');
     }
   };
 
@@ -261,9 +256,12 @@ export default function AdminTipsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tipProfileId: profileId }),
       });
-      if (res.ok) loadData();
+      if (res.ok) {
+        success('Profil zugewiesen');
+        loadData();
+      }
     } catch {
-      alert('Fehler beim Zuweisen');
+      error('Fehler beim Zuweisen des Profils');
     }
   };
 
@@ -279,20 +277,23 @@ export default function AdminTipsPage() {
       if (res.ok) {
         setNewWaiterName('');
         setNewWaiterPin('3333');
+        success('Bedienung erfolgreich angelegt');
         loadData();
       }
     } catch {
-      alert('Fehler beim Anlegen');
+      error('Fehler beim Anlegen der Bedienung');
     }
   };
 
   const deleteWaiter = async (id: string) => {
-    if (!confirm('Bedienung wirklich entfernen?')) return;
     try {
       const res = await fetch(`/api/waiters/${id}`, { method: 'DELETE' });
-      if (res.ok) loadData();
+      if (res.ok) {
+        success('Bedienung entfernt');
+        loadData();
+      }
     } catch {
-      alert('Fehler beim Löschen');
+      error('Fehler beim Löschen der Bedienung');
     }
   };
 

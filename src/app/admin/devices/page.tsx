@@ -21,6 +21,8 @@ import {
   X,
 } from 'lucide-react';
 
+import { useToast } from '@/components/ui/toast';
+
 interface DeviceItem {
   id: string;
   name: string;
@@ -35,6 +37,7 @@ interface DeviceItem {
 }
 
 export default function AdminDevicesPage() {
+  const { success, error } = useToast();
   const { socket } = useSocket();
   const [devices, setDevices] = useState<DeviceItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,16 +106,16 @@ export default function AdminDevicesPage() {
 
   // Force logout
   const handleKickDevice = async (deviceId: string) => {
-    if (!confirm('Möchtest du dieses Gerät wirklich abmelden?')) return;
     try {
       await fetch('/api/devices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'KICK', targetDeviceId: deviceId }),
       });
+      success('Gerät erfolgreich abgemeldet');
       fetchDevices();
     } catch (e) {
-      console.error(e);
+      error('Fehler beim Abmelden des Geräts');
     }
   };
 

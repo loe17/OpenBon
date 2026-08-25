@@ -22,7 +22,10 @@ import {
   ExternalLink,
 } from 'lucide-react';
 
+import { useToast } from '@/components/ui/toast';
+
 export default function AdminPrintersPage() {
+  const { success, error, warning } = useToast();
   const [printers, setPrinters] = useState<any[]>([]);
   const [printGroups, setPrintGroups] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +51,7 @@ export default function AdminPrintersPage() {
     id: '',
     name: '',
     printerId: '',
+    fallbackPrinterId: '',
     maxItemsPerTicket: 0,
     autoCut: true,
   });
@@ -89,8 +93,9 @@ export default function AdminPrintersPage() {
         body: JSON.stringify({ enableVirtualPrinters: nextVal }),
       });
       fetchPrintersAndGroups();
+      success(nextVal ? 'Virtueller Drucker aktiviert' : 'Virtueller Drucker deaktiviert');
     } catch {
-      alert('Fehler beim Aktualisieren der Druckereinstellung');
+      error('Fehler beim Aktualisieren der Druckereinstellung');
     }
   };
 
@@ -103,7 +108,7 @@ export default function AdminPrintersPage() {
       const data = await res.json();
       setScannedPrinters(data.printers || []);
     } catch {
-      alert('Fehler beim Netzwerkscan');
+      error('Fehler beim Netzwerkscan');
     } finally {
       setIsScanning(false);
     }
@@ -117,24 +122,24 @@ export default function AdminPrintersPage() {
         body: JSON.stringify(p),
       });
       fetchPrintersAndGroups();
-      alert(`Drucker ${p.name} erfolgreich hinzugefügt!`);
+      success(`Drucker ${p.name} erfolgreich hinzugefügt!`);
     } catch {
-      alert('Fehler beim Hinzufügen des Druckers');
+      error('Fehler beim Hinzufügen des Druckers');
     }
   };
 
   const handleDeletePrinter = async (id: string, name: string) => {
-    if (!confirm(`Möchtest du den Drucker "${name}" wirklich unwiderruflich entfernen?`)) return;
     try {
       const res = await fetch(`/api/printers?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
         fetchPrintersAndGroups();
+        success(`Drucker "${name}" entfernt`);
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(err.error || 'Fehler beim Löschen des Druckers');
+        error(err.error || 'Fehler beim Löschen des Druckers');
       }
     } catch {
-      alert('Netzwerkfehler beim Löschen des Druckers');
+      error('Netzwerkfehler beim Löschen des Druckers');
     }
   };
 
@@ -147,12 +152,12 @@ export default function AdminPrintersPage() {
       });
       const data = await res.json();
       if (data.isVirtual) {
-        alert('Virtueller Testbon wurde erfolgreich generiert! Siehe "Virtueller Drucker".');
+        success('Virtueller Testbon erfolgreich generiert!');
       } else {
-        alert('Testbon an Netzwerkdrucker gesendet!');
+        success('Testbon an Netzwerkdrucker gesendet!');
       }
     } catch (e) {
-      alert('Drucker-Fehler');
+      error('Drucker-Fehler beim Testdruck');
     }
   };
 
@@ -163,9 +168,9 @@ export default function AdminPrintersPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'OPEN_DRAWER', printerId }),
       });
-      alert('Kassenladen-Impuls ausgelöst!');
+      success('Kassenladen-Impuls ausgelöst!');
     } catch (e) {
-      alert('Fehler beim Öffnen der Kassenlade');
+      error('Fehler beim Öffnen der Kassenlade');
     }
   };
 
@@ -187,8 +192,9 @@ export default function AdminPrintersPage() {
         isVirtual: false,
       });
       fetchPrintersAndGroups();
+      success('Drucker erfolgreich gespeichert!');
     } catch {
-      alert('Fehler beim Speichern');
+      error('Fehler beim Speichern des Druckers');
     }
   };
 
@@ -201,10 +207,18 @@ export default function AdminPrintersPage() {
         body: JSON.stringify(groupForm),
       });
       setShowGroupModal(false);
-      setGroupForm({ id: '', name: '', printerId: '', maxItemsPerTicket: 0, autoCut: true });
+      setGroupForm({
+        id: '',
+        name: '',
+        printerId: '',
+        fallbackPrinterId: '',
+        maxItemsPerTicket: 0,
+        autoCut: true,
+      });
       fetchPrintersAndGroups();
+      success('Druckgruppe erfolgreich gespeichert!');
     } catch {
-      alert('Fehler beim Speichern der Druckgruppe');
+      error('Fehler beim Speichern der Druckgruppe');
     }
   };
 
