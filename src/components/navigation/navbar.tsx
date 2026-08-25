@@ -250,10 +250,11 @@ export default function Navbar() {
     POS_CASHIER: [
       { href: '/pos', label: 'Bonkasse (Thekenverkauf)', icon: CreditCard, roles: ['POS_CASHIER'] },
       { href: '/customer-display', label: 'Kundendisplay', icon: Monitor, roles: ['POS_CASHIER'] },
-      { href: '/taps', label: 'Fass- & Schankmonitor', icon: Beer, roles: ['POS_CASHIER'] },
-      { href: '/kiosk', label: 'SB-Terminal (Kiosk)', icon: Terminal, roles: ['POS_CASHIER'] },
       { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['POS_CASHIER'] },
       { href: '/docs', label: 'Handbuch & Anleitungen', icon: BookOpen, roles: ['POS_CASHIER'] },
+    ],
+    KIOSK: [
+      { href: '/kiosk', label: 'SB-Bestellterminal', icon: Terminal, roles: ['KIOSK'] },
     ],
     KITCHEN: [
       { href: '/kitchen', label: 'Küchenmonitor', icon: ChefHat, roles: ['KITCHEN'] },

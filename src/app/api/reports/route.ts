@@ -117,6 +117,42 @@ export async function GET(req: Request) {
       }
     }
 
+    // Waiter aus WaiterProfile & Orders erfassen
+    try {
+      const waiterProfiles = await prisma.waiterProfile.findMany({ where: { isActive: true } });
+      for (const wp of waiterProfiles) {
+        if (!waiterMap.has(wp.name)) {
+          waiterMap.set(wp.name, {
+            waiterName: wp.name,
+            totalGross: 0,
+            cashGross: 0,
+            cardGross: 0,
+            tips: 0,
+            depositReturned: 0,
+            transactionCount: 0,
+            ordersLastHour: 0,
+            salesLastHour: 0,
+          });
+        }
+      }
+
+      for (const ord of orders) {
+        if (ord.waiterName && !waiterMap.has(ord.waiterName)) {
+          waiterMap.set(ord.waiterName, {
+            waiterName: ord.waiterName,
+            totalGross: 0,
+            cashGross: 0,
+            cardGross: 0,
+            tips: 0,
+            depositReturned: 0,
+            transactionCount: 0,
+            ordersLastHour: 0,
+            salesLastHour: 0,
+          });
+        }
+      }
+    } catch {}
+
     // Rank waiters by total gross
     const rankedWaiters = Array.from(waiterMap.values())
       .sort((a, b) => b.totalGross - a.totalGross)

@@ -13,11 +13,11 @@ export interface ThemeOption {
 
 export const AVAILABLE_THEMES: ThemeOption[] = [
   { id: 'dark', label: 'Dunkel', description: 'Deep Slate / Nachtmodus (Standard)', icon: '🌙' },
-  { id: 'light', label: 'Hell', description: 'Klares Tageslicht & hoher Kontrast', icon: '☀️' },
-  { id: 'contrast', label: 'Kontrastreich', description: 'Extremer Kontrast für Festzelte', icon: '⚡' },
-  { id: 'modern', label: 'Modern', description: 'Vibrantes Indigo & Glassmorphism', icon: '💎' },
+  { id: 'light', label: 'Hell', description: 'Klares Tageslicht & extrem sonnenlichttauglich', icon: '☀️' },
+  { id: 'contrast', label: 'Kontrastreich', description: 'Extremer OLED-Kontrast (Schwarz/Gold)', icon: '⚡' },
+  { id: 'modern', label: 'Modern', description: 'Neon Violet & Cyber Glow', icon: '💎' },
+  { id: 'plain', label: 'Biergarten', description: 'Traditionell Tannengrün & Festzeltholz', icon: '🍺' },
   { id: 'minimal', label: 'Minimalistisch', description: 'Monochromes reines Zink-Design', icon: '◽' },
-  { id: 'plain', label: 'Schlicht', description: 'Klassisches unaufgeregtes Kassen-Design', icon: '☕' },
 ];
 
 interface ThemeContextType {

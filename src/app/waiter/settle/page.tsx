@@ -23,6 +23,7 @@ export default function WaiterSettlePage() {
   const { success, error } = useToast();
 
   const [waiterName, setWaiterName] = useState('');
+  const [waiterList, setWaiterList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalGross: 0,
@@ -40,12 +41,44 @@ export default function WaiterSettlePage() {
     const activeUser = localStorage.getItem('pos_waiter_name') || localStorage.getItem('pos_user_name') || '';
     setWaiterName(activeUser);
 
-    if (activeUser) {
-      fetchStats(activeUser);
-    } else {
+    fetchWaiters(activeUser);
+  }, []);
+
+  const fetchWaiters = async (currentActive: string) => {
+    try {
+      const [wRes, rRes] = await Promise.all([
+        fetch('/api/waiters'),
+        fetch('/api/reports'),
+      ]);
+      const names = new Set<string>();
+      if (currentActive) names.add(currentActive);
+
+      if (wRes.ok) {
+        const wData = await wRes.json();
+        if (Array.isArray(wData)) wData.forEach((w: any) => w.name && names.add(w.name));
+      }
+
+      if (rRes.ok) {
+        const rData = await rRes.json();
+        if (rData && Array.isArray(rData.waiterStats)) {
+          rData.waiterStats.forEach((ws: any) => ws.waiterName && names.add(ws.waiterName));
+        }
+      }
+
+      const list = Array.from(names);
+      setWaiterList(list);
+
+      const target = currentActive || list[0] || '';
+      if (target) {
+        setWaiterName(target);
+        fetchStats(target);
+      } else {
+        setLoading(false);
+      }
+    } catch {
       setLoading(false);
     }
-  }, []);
+  };
 
   const fetchStats = async (name: string) => {
     setLoading(true);
@@ -197,7 +230,7 @@ export default function WaiterSettlePage() {
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-6 flex flex-col items-center">
       <div className="max-w-xl w-full">
         {/* Top Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <button
             onClick={() => router.back()}
             className="min-h-[48px] px-4 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white flex items-center gap-2 text-sm font-bold active:scale-95 touch-manipulation"
@@ -210,9 +243,40 @@ export default function WaiterSettlePage() {
               <Wallet className="w-6 h-6 text-amber-400" />
               Schichtabrechnung
             </h1>
-            <p className="text-xs text-slate-400">{waiterName || 'Kein Kellner angemeldet'}</p>
+            <p className="text-xs text-slate-400">{waiterName ? `Bedienung: ${waiterName}` : 'Kein Kellner gewählt'}</p>
           </div>
         </div>
+
+        {/* Kellner-Schnellauswahl */}
+        {waiterList.length > 1 && (
+          <div className="mb-5 bg-slate-900 p-3 rounded-2xl border border-slate-800 space-y-1.5">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+              Bedienung zur Abrechnung auswählen:
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {waiterList.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => {
+                    triggerHapticFeedback();
+                    setWaiterName(name);
+                    setCountedCash('');
+                    fetchStats(name);
+                  }}
+                  className={`min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-black transition active:scale-95 touch-manipulation border ${
+                    waiterName === name
+                      ? 'bg-blue-600 border-blue-400 text-white shadow'
+                      : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-600'
+                  }`}
+                >
+                  <User className="w-3.5 h-3.5 inline mr-1" />
+                  <span>{name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Overview Cards */}
         <div className="grid grid-cols-2 gap-3 mb-6">

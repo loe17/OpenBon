@@ -38,16 +38,50 @@ interface KitchenOrder {
     isHold?: boolean;
     isCancelled?: boolean;
     cancellationReason?: string | null;
+    product?: {
+      id?: string;
+      categoryId?: string | null;
+      category?: { id: string; name: string } | null;
+    } | null;
   }[];
+}
+
+interface CategoryOption {
+  id: string;
+  name: string;
 }
 
 export default function KitchenMonitorPage() {
   const { socket } = useSocket();
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [showFilterBar, setShowFilterBar] = useState(false);
   const [viewMode, setViewMode] = useState<'FIFO' | 'TABLE'>('FIFO');
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [voidAlert, setVoidAlert] = useState<string | null>(null);
+
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch('/api/categories');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setCategories(data);
+        const saved = localStorage.getItem('openbon_kds_category_filter');
+        if (saved) {
+          try {
+            setSelectedCategoryIds(JSON.parse(saved));
+          } catch {
+            setSelectedCategoryIds(data.map((c: any) => c.id));
+          }
+        } else {
+          // Standardmäßig alle aktiviert
+          setSelectedCategoryIds(data.map((c: any) => c.id));
+        }
+      }
+    } catch {}
+  };
 
   const fetchKdsOrders = async () => {
     try {
@@ -64,6 +98,7 @@ export default function KitchenMonitorPage() {
   };
 
   useEffect(() => {
+    fetchCategories();
     fetchKdsOrders();
 
     const timer = setInterval(() => setCurrentTime(Date.now()), 10000);
@@ -134,8 +169,41 @@ export default function KitchenMonitorPage() {
     }
   };
 
+  const isItemVisible = (item: KitchenOrder['items'][0]) => {
+    if (selectedCategoryIds.length === 0) return true;
+    const catId = item.product?.categoryId || item.product?.category?.id;
+    if (!catId) return true;
+    return selectedCategoryIds.includes(catId);
+  };
+
+  const toggleCategory = (catId: string) => {
+    triggerHapticFeedback();
+    let updated: string[];
+    if (selectedCategoryIds.includes(catId)) {
+      updated = selectedCategoryIds.filter((id) => id !== catId);
+    } else {
+      updated = [...selectedCategoryIds, catId];
+    }
+    setSelectedCategoryIds(updated);
+    localStorage.setItem('openbon_kds_category_filter', JSON.stringify(updated));
+  };
+
+  const selectAllCategories = () => {
+    triggerHapticFeedback();
+    const all = categories.map((c) => c.id);
+    setSelectedCategoryIds(all);
+    localStorage.setItem('openbon_kds_category_filter', JSON.stringify(all));
+  };
+
+  const filteredOrders = orders
+    .map((order) => ({
+      ...order,
+      items: order.items.filter((it) => !it.isCancelled && isItemVisible(it)),
+    }))
+    .filter((order) => order.items.length > 0);
+
   const backlogMap = new Map<string, number>();
-  for (const ord of orders) {
+  for (const ord of filteredOrders) {
     for (const item of ord.items) {
       if (item.kdsStatus !== 'COMPLETED') {
         const count = backlogMap.get(item.productName) || 0;
@@ -155,21 +223,42 @@ export default function KitchenMonitorPage() {
       )}
 
       {/* Top Header & Live Backlog Bar */}
-      <div className="bg-slate-900 border-b border-slate-700 p-3 sm:p-4 shadow-md">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+      <div className="bg-slate-900 border-b border-slate-700 p-3 sm:p-4 shadow-md space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="bg-amber-500 text-black p-2.5 rounded-2xl shadow">
               <ChefHat className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="font-black text-lg sm:text-xl">Küchenmonitor (KDS)</h2>
+              <h2 className="font-black text-lg sm:text-xl">Küchen- & Schankmonitor (KDS)</h2>
               <p className="text-xs text-slate-400 font-semibold">
-                {orders.length} aktive Bestellungen • Audio-Signal aktiv
+                {filteredOrders.length} aktive Bestellungen • {selectedCategoryIds.length} von {categories.length} Warengruppen
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Filter Toggle Button */}
+            <button
+              type="button"
+              onClick={() => {
+                triggerHapticFeedback();
+                setShowFilterBar(!showFilterBar);
+              }}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition border ${
+                showFilterBar || selectedCategoryIds.length < categories.length
+                  ? 'bg-amber-500 text-black border-amber-400 shadow-md font-black'
+                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+              }`}
+            >
+              <span>🔽 Warengruppen-Filter</span>
+              {selectedCategoryIds.length < categories.length && (
+                <span className="bg-black text-amber-300 px-1.5 py-0.2 rounded text-[10px]">
+                  {selectedCategoryIds.length}/{categories.length}
+                </span>
+              )}
+            </button>
+
             {/* View Mode Toggle */}
             <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-700">
               <button
@@ -205,13 +294,72 @@ export default function KitchenMonitorPage() {
           </div>
         </div>
 
+        {/* Ausklappbare Warengruppen-Filterleiste */}
+        {showFilterBar && (
+          <div className="bg-slate-950 p-3.5 rounded-2xl border-2 border-amber-500/50 space-y-2 animate-in fade-in">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black uppercase text-amber-400 tracking-wider">
+                Warengruppen auswählen (z. B. Küche / Grill, Ausschank, Alkoholfrei):
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={selectAllCategories}
+                  className="text-xs text-amber-300 hover:underline font-bold"
+                >
+                  Alle auswählen
+                </button>
+                <span className="text-slate-600">•</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHapticFeedback();
+                    setSelectedCategoryIds([]);
+                    localStorage.setItem('openbon_kds_category_filter', JSON.stringify([]));
+                  }}
+                  className="text-xs text-slate-400 hover:underline font-bold"
+                >
+                  Keine
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              {categories.map((cat) => {
+                const isSelected = selectedCategoryIds.includes(cat.id);
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => toggleCategory(cat.id)}
+                    className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 border transition active:scale-95 touch-manipulation ${
+                      isSelected
+                        ? 'bg-amber-500 text-black border-amber-400 shadow-md'
+                        : 'bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500'
+                    }`}
+                  >
+                    <span
+                      className={`w-4 h-4 rounded-md flex items-center justify-center text-[10px] font-bold ${
+                        isSelected ? 'bg-black text-amber-400' : 'border border-slate-600'
+                      }`}
+                    >
+                      {isSelected ? '✓' : ''}
+                    </span>
+                    <span>{cat.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Live Backlog Summary Strip */}
         <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 flex items-center gap-2 overflow-x-auto shadow-inner">
           <span className="text-xs font-black uppercase tracking-wider text-amber-400 whitespace-nowrap mr-1">
             Offener Rückstand:
           </span>
           {backlogMap.size === 0 ? (
-            <span className="text-xs text-emerald-400 font-bold">Keine offenen Speisen</span>
+            <span className="text-xs text-emerald-400 font-bold">Keine offenen Positionen</span>
           ) : (
             Array.from(backlogMap.entries()).map(([name, qty]) => (
               <span
@@ -232,15 +380,15 @@ export default function KitchenMonitorPage() {
             <RefreshCw className="w-6 h-6 animate-spin mr-2" />
             <span>Lade Küchenbons...</span>
           </div>
-        ) : orders.length === 0 ? (
+        ) : filteredOrders.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-slate-500">
             <ChefHat className="w-16 h-16 text-slate-700 mb-3" />
-            <h3 className="text-lg font-black text-slate-300">Küche ist bereit</h3>
-            <p className="text-xs font-semibold mt-0.5">Aktuell liegen keine offenen Bestellungen vor.</p>
+            <h3 className="text-lg font-black text-slate-300">Monitor ist bereit</h3>
+            <p className="text-xs font-semibold mt-0.5">Aktuell liegen keine offenen Positionen für diese Warengruppen vor.</p>
           </div>
         ) : (
           <div className="flex gap-4 h-full items-stretch">
-            {orders.map((order) => {
+            {filteredOrders.map((order) => {
               const elapsedMinutes = Math.floor(
                 (currentTime - new Date(order.createdAt).getTime()) / 60000
               );

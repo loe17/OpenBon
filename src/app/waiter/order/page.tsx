@@ -362,7 +362,7 @@ function WaiterOrderContent() {
     setCustomizingItem(null);
   };
 
-  const submitOrder = async () => {
+  const submitOrder = async (shouldPayNow = false) => {
     if (!tableId || cart.length === 0 || isSubmitting) return;
 
     setIsSubmitting(true);
@@ -396,7 +396,12 @@ function WaiterOrderContent() {
         if (result.queuedOffline) {
           warning('WLAN nicht erreichbar: Bestellung wurde offline gesichert und wird automatisch übertragen.');
         }
-        router.push('/waiter');
+
+        if (shouldPayNow) {
+          router.push(`/waiter/payment?tableId=${tableId}&waiterName=${encodeURIComponent(waiterName)}`);
+        } else {
+          router.push('/waiter');
+        }
       } else {
         setNotice(result.error || 'Fehler beim Übermitteln der Bestellung.');
       }
@@ -775,22 +780,38 @@ function WaiterOrderContent() {
             </div>
           )}
 
-          {/* Action Button: Immer sichtbar unten (Groß & Prominent) */}
+          {/* Action Buttons: Immer sichtbar unten (Groß & Prominent für Touch) */}
           <div className="p-3 bg-slate-900 border-t border-slate-800 shrink-0">
-            <button
-              disabled={cart.length === 0 || isSubmitting}
-              onClick={submitOrder}
-              className={`pos-touch-btn w-full min-h-[58px] py-3.5 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-3 shadow-2xl transition ${
-                cart.length > 0 && !isSubmitting
-                  ? 'bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white shadow-emerald-950/80 border-2 border-emerald-400'
-                  : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
-              }`}
-            >
-              <Send className="w-6 h-6" />
-              <span>
-                {isSubmitting ? 'Wird gesendet & gedruckt...' : `Tischbestellung abschicken (${formatCurrency(totalAmount)})`}
-              </span>
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                disabled={cart.length === 0 || isSubmitting}
+                onClick={() => submitOrder(false)}
+                className={`min-h-[54px] px-4 py-3 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-xl transition active:scale-95 touch-manipulation ${
+                  cart.length > 0 && !isSubmitting
+                    ? 'bg-blue-600 hover:bg-blue-500 text-white border border-blue-400 shadow-blue-950/60'
+                    : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                }`}
+              >
+                <Send className="w-5 h-5" />
+                <span>
+                  {isSubmitting ? 'Wird gebucht...' : `Bestellen & Tisch (${formatCurrency(totalAmount)})`}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                disabled={cart.length === 0 || isSubmitting}
+                onClick={() => submitOrder(true)}
+                className={`min-h-[54px] px-4 py-3 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-xl transition active:scale-95 touch-manipulation ${
+                  cart.length > 0 && !isSubmitting
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-2 border-emerald-400 shadow-emerald-950/80'
+                    : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                }`}
+              >
+                <span>💳 Bestellen & Sofort Kassieren</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

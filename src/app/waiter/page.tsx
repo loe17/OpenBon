@@ -83,13 +83,14 @@ export default function WaiterTablesPage() {
   const [showWaiterPrompt, setShowWaiterPrompt] = useState(false);
   const [inputWaiterName, setInputWaiterName] = useState('');
 
-  // Direkte Tischnummer-Eingabe
+  // Direkte Tischnummer-Eingabe & Keypad-Modal
   const [directTableNumber, setDirectTableNumber] = useState('');
+  const [showTableKeypadModal, setShowTableKeypadModal] = useState(false);
+  const [keypadTableNumber, setKeypadTableNumber] = useState('');
   const [isCreatingTable, setIsCreatingTable] = useState(false);
 
-  const handleDirectTableOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const raw = directTableNumber.trim();
+  const openTableFromNumber = async (rawInput: string) => {
+    const raw = rawInput.trim();
     if (!raw) return;
 
     triggerHapticFeedback();
@@ -104,7 +105,8 @@ export default function WaiterTablesPage() {
     );
 
     if (target) {
-      router.push(`/waiter/order?tableId=${target.id}`);
+      setShowTableKeypadModal(false);
+      router.push(`/waiter/order?tableId=${target.id}&waiterName=${encodeURIComponent(waiterName)}`);
       return;
     }
 
@@ -127,7 +129,8 @@ export default function WaiterTablesPage() {
       });
       const newTable = await res.json();
       if (newTable && newTable.id) {
-        router.push(`/waiter/order?tableId=${newTable.id}`);
+        setShowTableKeypadModal(false);
+        router.push(`/waiter/order?tableId=${newTable.id}&waiterName=${encodeURIComponent(waiterName)}`);
       } else {
         showToast('err', 'Tisch konnte nicht angelegt werden');
       }
@@ -136,6 +139,11 @@ export default function WaiterTablesPage() {
     } finally {
       setIsCreatingTable(false);
     }
+  };
+
+  const handleDirectTableOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    openTableFromNumber(directTableNumber);
   };
 
   const fetchTables = async () => {
@@ -366,41 +374,31 @@ export default function WaiterTablesPage() {
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950">
-      {/* Quick Order by Table Number Input Bar (Direkteingabe) */}
-      <div className="bg-gradient-to-r from-blue-950/80 via-slate-900 to-indigo-950/80 px-3 sm:px-4 py-2.5 border-b border-blue-800/60 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shadow-lg shrink-0">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black shadow shrink-0">
-            <PlusCircle className="w-5 h-5" />
+      {/* Quick Order by Table Number Input Bar (Prominenter Touch-Banner) */}
+      <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 px-3 sm:px-4 py-2.5 border-b border-blue-700/60 flex items-center justify-between gap-3 shadow-lg shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-blue-600 border border-blue-400 flex items-center justify-center text-white font-black shadow-md shrink-0">
+            <PlusCircle className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-xs font-black text-white block leading-tight">Direkt-Bestellung nach Tischnummer</span>
-            <span className="text-[10px] text-slate-400">Tischnummer eingeben und sofort bestellen</span>
+            <span className="text-sm font-black text-white block leading-tight">Tischnummer-Schnellwahl</span>
+            <span className="text-xs text-blue-300">Tippe hier für Ziffernblock 0-9 oder tippe die Nummer ein</span>
           </div>
         </div>
 
-        <form onSubmit={handleDirectTableOrder} className="flex items-center gap-2">
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            placeholder="Tischnr. eingeben..."
-            value={directTableNumber}
-            onChange={(e) => setDirectTableNumber(e.target.value)}
-            className="flex-1 sm:w-48 bg-slate-950 border-2 border-blue-500/80 rounded-xl px-3 py-1.5 text-base font-mono font-black text-amber-300 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center"
-          />
+        <div className="flex items-center gap-2">
           <button
-            type="submit"
-            disabled={!directTableNumber.trim() || isCreatingTable}
-            className="pos-touch-btn px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-950/60 transition active:scale-95 shrink-0"
+            type="button"
+            onClick={() => {
+              triggerHapticFeedback();
+              setKeypadTableNumber(directTableNumber || '');
+              setShowTableKeypadModal(true);
+            }}
+            className="min-h-[48px] px-4 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 touch-manipulation text-white font-black text-xs sm:text-sm rounded-2xl shadow-lg shadow-blue-950/60 flex items-center gap-2 transition"
           >
-            {isCreatingTable ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <PlusCircle className="w-3.5 h-3.5" />
-            )}
-            <span>Bestellen</span>
+            <span>🔢 Ziffernblock (0-9)</span>
           </button>
-        </form>
+        </div>
       </div>
 
       {/* Top Waiter Bar & Search Bar */}
@@ -967,6 +965,120 @@ export default function WaiterTablesPage() {
                 Anmelden & Weiter
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Touch-Keypad Modal für Tischnummern (0-9) */}
+      {showTableKeypadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-5 max-w-sm w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🔢</span>
+                <h3 className="font-extrabold text-base text-white">Tischnummer eingeben</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTableKeypadModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Display der eingegebenen Tischnummer */}
+            <div className="bg-slate-950 border-2 border-blue-500 rounded-2xl p-4 text-center">
+              <span className="text-xs text-slate-400 font-bold block mb-1">Ausgewählter Tisch:</span>
+              <div className="text-3xl font-black font-mono text-amber-300 min-h-[40px]">
+                {keypadTableNumber ? `Tisch ${keypadTableNumber}` : '—'}
+              </div>
+            </div>
+
+            {/* Schnellauswahl bestehender Tische */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-bold text-slate-400">Schnellauswahl:</span>
+              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                {tables.slice(0, 10).map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      triggerHapticFeedback();
+                      setKeypadTableNumber(String(t.tableNumber));
+                    }}
+                    className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 touch-manipulation ${
+                      keypadTableNumber === String(t.tableNumber)
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 0-9 Keypad Matrix */}
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => (
+                <button
+                  key={digit}
+                  type="button"
+                  onClick={() => {
+                    triggerHapticFeedback();
+                    if (keypadTableNumber.length < 4) {
+                      setKeypadTableNumber((prev) => `${prev}${digit}`);
+                    }
+                  }}
+                  className="min-h-[56px] rounded-2xl bg-slate-800 hover:bg-slate-700 active:bg-blue-600 text-white font-mono font-black text-2xl shadow transition active:scale-95 touch-manipulation flex items-center justify-center border border-slate-700"
+                >
+                  {digit}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHapticFeedback();
+                  setKeypadTableNumber('');
+                }}
+                className="min-h-[56px] rounded-2xl bg-slate-800/60 hover:bg-slate-800 text-rose-400 font-bold text-sm transition active:scale-95 touch-manipulation flex items-center justify-center border border-slate-700"
+              >
+                C
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHapticFeedback();
+                  if (keypadTableNumber.length < 4) {
+                    setKeypadTableNumber((prev) => `${prev}0`);
+                  }
+                }}
+                className="min-h-[56px] rounded-2xl bg-slate-800 hover:bg-slate-700 active:bg-blue-600 text-white font-mono font-black text-2xl shadow transition active:scale-95 touch-manipulation flex items-center justify-center border border-slate-700"
+              >
+                0
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHapticFeedback();
+                  setKeypadTableNumber((prev) => prev.slice(0, -1));
+                }}
+                className="min-h-[56px] rounded-2xl bg-slate-800/60 hover:bg-slate-800 text-amber-400 font-bold text-base transition active:scale-95 touch-manipulation flex items-center justify-center border border-slate-700"
+              >
+                ⌫
+              </button>
+            </div>
+
+            {/* Bestätigen Button */}
+            <button
+              type="button"
+              disabled={!keypadTableNumber || isCreatingTable}
+              onClick={() => openTableFromNumber(keypadTableNumber)}
+              className="w-full min-h-[52px] bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-2xl font-black text-base shadow-lg shadow-emerald-950/60 transition active:scale-95 touch-manipulation flex items-center justify-center gap-2"
+            >
+              <span>🚀 Tisch öffnen & Bestellen</span>
+            </button>
           </div>
         </div>
       )}

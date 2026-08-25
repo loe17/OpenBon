@@ -101,23 +101,33 @@ class NetworkSpooler {
 
     return new Promise((resolve) => {
       const client = new net.Socket();
-      client.setTimeout(5000);
+      client.setNoDelay(true);
+      client.setTimeout(2500);
+
+      let isDone = false;
+      const cleanup = (res: { success: boolean; isVirtual: boolean; error?: string }) => {
+        if (!isDone) {
+          isDone = true;
+          try {
+            client.destroy();
+          } catch {}
+          resolve(res);
+        }
+      };
 
       client.connect(printer.port || 9100, printer.ipAddress, () => {
         client.write(rawBuffer, () => {
           client.end();
-          resolve({ success: true, isVirtual: false });
+          cleanup({ success: true, isVirtual: false });
         });
       });
 
       client.on('error', (err) => {
-        client.destroy();
-        resolve({ success: false, isVirtual: false, error: err instanceof Error ? err.message : String(err) });
+        cleanup({ success: false, isVirtual: false, error: err instanceof Error ? err.message : String(err) });
       });
 
       client.on('timeout', () => {
-        client.destroy();
-        resolve({ success: false, isVirtual: false, error: `Timeout bei ${printer.ipAddress}:${printer.port}` });
+        cleanup({ success: false, isVirtual: false, error: `Timeout bei ${printer.ipAddress}:${printer.port}` });
       });
     });
   }
@@ -158,7 +168,13 @@ class NetworkSpooler {
     }
 
     try {
-      await this.sendToRawSocket(job);
+      if (job.isVirtual) {
+        await this.processVirtualPrint(job);
+      } else {
+        await this.sendToRawSocket(job);
+        // Spiegelung für Virtuellen Monitor
+        await this.processVirtualPrint(job);
+      }
 
       // In DB als gedruckt markieren
       if (job.dbJobId) {
@@ -240,7 +256,7 @@ class NetworkSpooler {
       }
     } finally {
       this.isProcessing = false;
-      setTimeout(() => this.processQueue(), 200);
+      setTimeout(() => this.processQueue(), 50);
     }
   }
 
@@ -248,23 +264,34 @@ class NetworkSpooler {
     return new Promise((resolve, reject) => {
       const { rawBuffer } = EscPosBuilder.buildTicket(job.ticketData, job.paperWidth);
       const client = new net.Socket();
-      client.setTimeout(5000);
+      client.setNoDelay(true);
+      client.setTimeout(2500);
+
+      let isDone = false;
+      const cleanup = (err?: Error) => {
+        if (!isDone) {
+          isDone = true;
+          try {
+            client.destroy();
+          } catch {}
+          if (err) reject(err);
+          else resolve();
+        }
+      };
 
       client.connect(job.printerPort, job.printerIp, () => {
         client.write(rawBuffer, () => {
           client.end();
-          resolve();
+          cleanup();
         });
       });
 
       client.on('error', (err) => {
-        client.destroy();
-        reject(err);
+        cleanup(err);
       });
 
       client.on('timeout', () => {
-        client.destroy();
-        reject(new Error(`Timeout bei Verbindung zu ${job.printerIp}:${job.printerPort}`));
+        cleanup(new Error(`Timeout bei Verbindung zu ${job.printerIp}:${job.printerPort}`));
       });
     });
   }

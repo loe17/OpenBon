@@ -79,6 +79,21 @@ export default function PosCounterPage() {
     }
   }, []);
 
+  // Station Announcement an alle Kundendisplays
+  useEffect(() => {
+    if (!socket || !stationName) return;
+    socket.emit('pos:station_online', { stationId, stationName });
+    fetch('/api/devices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        deviceId: stationId,
+        name: stationName,
+        role: 'POS_CASHIER',
+      }),
+    }).catch(() => {});
+  }, [socket, stationId, stationName]);
+
   const totalGross = cart.reduce((sum, item) => sum + (item.price + item.deposit) * item.quantity, 0);
   const totalDeposit = cart.reduce((sum, item) => sum + item.deposit * item.quantity, 0);
 
@@ -978,6 +993,18 @@ export default function PosCounterPage() {
                   setStationId(cleanId);
                   localStorage.setItem('openbon_pos_name', clean);
                   localStorage.setItem('openbon_pos_id', cleanId);
+                  if (socket) {
+                    socket.emit('pos:station_online', { stationId: cleanId, stationName: clean });
+                  }
+                  fetch('/api/devices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      deviceId: cleanId,
+                      name: clean,
+                      role: 'POS_CASHIER',
+                    }),
+                  }).catch(() => {});
                   setShowStationModal(false);
                 }}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow"

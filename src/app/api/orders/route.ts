@@ -30,6 +30,7 @@ export async function GET(req: Request) {
           include: {
             product: {
               include: {
+                category: true,
                 printGroup: {
                   include: { printer: true },
                 },

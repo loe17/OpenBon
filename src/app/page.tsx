@@ -19,6 +19,7 @@ import {
   Layers,
   QrCode,
   Lock,
+  Terminal,
 } from 'lucide-react';
 import { useSocket } from '@/components/providers/socket-provider';
 import PinModal from '@/components/auth/pin-modal';
@@ -168,7 +169,29 @@ export default function HomePage() {
           </div>
         </button>
 
-        {/* Card 4: Administration & Setup (PIN Protected) */}
+        {/* Card 4: SB-Bestellterminal (Kiosk) */}
+        <button
+          onClick={() => selectRole('KIOSK', '/kiosk')}
+          className="pos-touch-btn flex flex-col text-left p-6 rounded-3xl bg-slate-900 border border-slate-700 hover:border-cyan-500 shadow-xl transition-all group min-h-[220px] justify-between"
+        >
+          <div>
+            <div className="w-14 h-14 rounded-2xl bg-cyan-600 border border-cyan-500 flex items-center justify-center text-white mb-4 group-hover:scale-105 transition-transform shadow-lg">
+              <Terminal className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-black text-white mb-1.5 group-hover:text-cyan-400 transition-colors">
+              SB-Terminal (Kiosk)
+            </h2>
+            <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
+              Eigenständiges Selbstbedienungs-Terminal für Gäste mit Kartenzahlung und Bon-Ausgabe.
+            </p>
+          </div>
+          <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between text-xs font-bold text-cyan-400 w-full">
+            <span>Kiosk starten →</span>
+            <span className="bg-cyan-950 px-2.5 py-1 rounded-lg border border-cyan-800 text-[11px]">Self-Order</span>
+          </div>
+        </button>
+
+        {/* Card 5: Administration & Setup (PIN Protected) */}
         <button
           onClick={() => selectRole('ADMIN', '/admin/dashboard')}
           className="pos-touch-btn flex flex-col text-left p-6 rounded-3xl bg-slate-900 border border-slate-700 hover:border-purple-500 shadow-xl transition-all group min-h-[220px] justify-between"
