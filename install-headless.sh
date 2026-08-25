@@ -43,7 +43,8 @@ if [ -d "$INSTALL_DIR/.git" ]; then
   echo "  -> Aktualisiere bestehendes Repository..."
   cd "$INSTALL_DIR"
   git config --global --add safe.directory * >nul 2>nul || true
-  git pull origin master || true
+  git fetch origin master || true
+  git reset --hard origin/master || true
 else
   echo "  -> Klone OpenBon von https://github.com/loe17/OpenBon.git..."
   mkdir -p "$INSTALL_DIR"

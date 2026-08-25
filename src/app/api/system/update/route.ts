@@ -157,6 +157,12 @@ export async function POST(req: Request) {
         'git log -n 10',
         'git pull',
         'git pull origin master',
+        'git fetch origin master',
+        'git reset --hard origin/master',
+        'git reset --hard HEAD',
+        'git checkout -f master',
+        'git stash',
+        'git stash drop',
         'npm install --production=false',
         'npm install',
         'npx prisma db push --accept-data-loss',
@@ -242,10 +248,11 @@ export async function POST(req: Request) {
           logs.push(`[HINWEIS] Vorab-Backup übersprungen: ${bErr}`);
         }
 
-        logs.push('[1/4] Lade neuesten Code von GitHub herunter (git pull)...');
+        logs.push('[1/4] Lade neuesten Code von GitHub herunter (git fetch & reset)...');
         await execAsync('git config --global --add safe.directory *', { cwd: projectRoot }).catch(() => {});
-        const { stdout: pullOut } = await execAsync('git pull origin master', { cwd: projectRoot });
-        logs.push(pullOut.trim());
+        await execAsync('git fetch origin master', { cwd: projectRoot, timeout: 20000 });
+        const { stdout: resetOut } = await execAsync('git reset --hard origin/master', { cwd: projectRoot });
+        logs.push(resetOut.trim() || 'Codebasis erfolgreich auf origin/master aktualisiert.');
 
         logs.push('[2/4] Aktualisiere Abhängigkeiten (npm install)...');
         const { stdout: npmOut } = await execAsync('npm install --production=false', { cwd: projectRoot });
