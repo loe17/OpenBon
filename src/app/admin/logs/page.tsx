@@ -21,12 +21,12 @@ import type { ActionLogDTO } from '@/types/domain';
 
 const CATEGORIES = [
   { id: 'ALL', label: 'Alle Kategorien' },
-  { id: 'SALES', label: '💰 Verkäufe & Zahlungen' },
-  { id: 'ORDERS', label: '🍽️ Bestellungen & Stornos' },
-  { id: 'CASHBOOK', label: '💵 Kassenbuch & Tresor' },
-  { id: 'AUTH', label: '🔐 Kellner & Schichten' },
-  { id: 'ADMIN', label: '⚙️ Einstellungen & Admin' },
-  { id: 'SYSTEM', label: '🖥️ System & Hardware' },
+  { id: 'SALES', label: 'Verkäufe & Zahlungen' },
+  { id: 'ORDERS', label: 'Bestellungen & Stornos' },
+  { id: 'CASHBOOK', label: 'Kassenbuch & Tresor' },
+  { id: 'AUTH', label: 'Kellner & Schichten' },
+  { id: 'ADMIN', label: 'Einstellungen & Admin' },
+  { id: 'SYSTEM', label: 'System & Hardware' },
 ];
 
 export default function AdminLogsPage() {

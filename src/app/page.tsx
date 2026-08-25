@@ -89,17 +89,13 @@ export default function HomePage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col items-center justify-center max-w-6xl mx-auto w-full">
-      {/* Hero Welcome */}
+      {/* Header */}
       <div className="text-center mb-8 sm:mb-12">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-950/80 border border-blue-700 text-blue-300 text-xs font-bold mb-4 shadow">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Plattformunabhängig • 100% Offline-LAN • Dual-Server Hochverfügbarkeit</span>
-        </div>
         <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white mb-3">
           {config?.name || 'OpenBon Kassensystem'}
         </h1>
         <p className="text-slate-400 text-sm sm:text-base max-w-xl mx-auto font-medium">
-          Modernes, offenes Kassen-, Bestell- und Küchensystem. Wähle deine Station, um direkt loszulegen:
+          Kassen-, Bestell- und Küchensystem. Wähle deine Station:
         </p>
       </div>
 

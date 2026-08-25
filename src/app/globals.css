@@ -69,13 +69,13 @@
    Themes: Dunkel, Hell, Kontrastreich, Modern, Minimalistisch, Biergarten
    ========================================================================== */
 
-/* 🌙 Theme: Dunkel (Standard Deep Midnight Slate) */
+/* Theme: Dunkel (Standard Deep Midnight Slate) */
 html.dark body, html[data-theme="dark"] body {
   background-color: #020617 !important;
   color: #f8fafc !important;
 }
 
-/* ☀️ Theme: Hell (Klares Tageslicht, 100% sonnenlichttaugliche Kontraste) */
+/* Theme: Hell (Klares Tageslicht, sonnenlichttaugliche Kontraste) */
 html.light body, html[data-theme="light"] body {
   background-color: #f8fafc !important;
   color: #0f172a !important;
@@ -95,7 +95,7 @@ html.light .text-slate-300, html.light .text-slate-400, html[data-theme="light"]
 html.light .text-slate-500, html[data-theme="light"] .text-slate-500 { color: #64748b !important; }
 html.light input, html.light select, html.light textarea, html[data-theme="light"] input, html[data-theme="light"] select, html[data-theme="light"] textarea { background-color: #ffffff !important; color: #0f172a !important; border-color: #94a3b8 !important; }
 
-/* ⚡ Theme: Kontrastreich (Pures OLED-Schwarz mit sonnengelben Akzenten für Bierzelte) */
+/* Theme: Kontrastreich (Pures OLED-Schwarz mit sonnengelben Akzenten) */
 html.contrast body, html[data-theme="contrast"] body {
   background-color: #000000 !important;
   color: #ffffff !important;
@@ -114,7 +114,7 @@ html.contrast .text-slate-300, html.contrast .text-slate-400, html.contrast .tex
 html.contrast .text-amber-400, html.contrast .text-amber-300, html[data-theme="contrast"] .text-amber-400, html[data-theme="contrast"] .text-amber-300 { color: #facc15 !important; font-weight: 900 !important; }
 html.contrast button, html[data-theme="contrast"] button { font-weight: 800 !important; }
 
-/* 💎 Theme: Modern (Kosmisches Deep Violet & Neon Cyber Glow) */
+/* Theme: Modern (Kosmisches Deep Violet & Neon Cyber Glow) */
 html.modern body, html[data-theme="modern"] body {
   background-color: #080318 !important;
   color: #f8fafc !important;
@@ -130,7 +130,7 @@ html.modern .bg-slate-800, html[data-theme="modern"] .bg-slate-800 { background-
 html.modern .border-slate-800, html.modern .border-slate-700, html[data-theme="modern"] .border-slate-800, html[data-theme="modern"] .border-slate-700 { border-color: rgba(168, 85, 247, 0.35) !important; }
 html.modern .text-slate-400, html[data-theme="modern"] .text-slate-400 { color: #d8b4fe !important; }
 
-/* 🍺 Theme: Biergarten (Traditionell Tannengrün & Warmes Festzelt-Holz) */
+/* Theme: Biergarten (Traditionell Tannengrün & Warmes Festzelt-Holz) */
 html.plain body, html[data-theme="plain"] body {
   background-color: #05140e !important;
   color: #fefce8 !important;

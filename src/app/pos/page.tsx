@@ -26,6 +26,7 @@ import {
   QrCode,
   Coins,
   Package,
+  Store,
   X,
 } from 'lucide-react';
 import { SubCategoryIcon } from '@/components/ui/subcategory-icon';
@@ -394,10 +395,11 @@ export default function PosCounterPage() {
                   setEditStationName(stationName);
                   setShowStationModal(true);
                 }}
-                className="bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-emerald-300 px-2 py-0.5 rounded-lg text-[11px] font-black flex items-center gap-1 transition"
+                className="bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-emerald-300 px-2 py-0.5 rounded-lg text-[11px] font-black flex items-center gap-1.5 transition"
                 title="Kassenname ändern"
               >
-                <span>🏪 {stationName}</span>
+                <Store className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{stationName}</span>
                 <span className="text-[9px] text-emerald-400 opacity-70 underline">Ändern</span>
               </button>
             </div>
@@ -459,8 +461,8 @@ export default function PosCounterPage() {
             <Package className="w-4 h-4 text-amber-400" />
             {lowStockWarning}
           </span>
-          <button onClick={() => setLowStockWarning(null)} className="text-amber-400 hover:text-white">
-            ✕
+          <button onClick={() => setLowStockWarning(null)} className="text-amber-400 hover:text-white p-1">
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
@@ -503,13 +505,14 @@ export default function PosCounterPage() {
                     active ? prev.filter((c) => c !== a.code) : [...prev, a.code]
                   );
                 }}
-                className={`text-[10px] px-2 py-0.5 rounded-md font-semibold border transition ${
+                className={`text-[10px] px-2 py-0.5 rounded-md font-semibold border transition flex items-center gap-1 ${
                   active
                     ? 'bg-red-500/20 text-red-300 border-red-500/40 font-bold'
                     : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
                 }`}
               >
-                {active ? `✕ Ohne ${a.name}` : a.name}
+                {active && <X className="w-2.5 h-2.5" />}
+                <span>{active ? `Ohne ${a.name}` : a.name}</span>
               </button>
             );
           })}
@@ -915,7 +918,7 @@ export default function PosCounterPage() {
                                 : 'border-slate-700'
                             }`}
                           >
-                            {checked && '✓'}
+                            {checked && <Check className="w-2.5 h-2.5 text-white" />}
                           </span>
                           <span>{opt.name}</span>
                         </div>
@@ -961,9 +964,12 @@ export default function PosCounterPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-              <h3 className="font-black text-base text-white">🏪 Bonkasse benennen</h3>
-              <button onClick={() => setShowStationModal(false)} className="text-slate-400 hover:text-white text-sm">
-                ✕
+              <h3 className="font-black text-base text-white flex items-center gap-2">
+                <Store className="w-4 h-4 text-emerald-400" />
+                <span>Bonkasse benennen</span>
+              </h3>
+              <button onClick={() => setShowStationModal(false)} className="text-slate-400 hover:text-white p-1">
+                <X className="w-4 h-4" />
               </button>
             </div>
             <p className="text-xs text-slate-400">

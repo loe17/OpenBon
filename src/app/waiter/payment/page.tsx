@@ -22,6 +22,8 @@ import {
   Receipt,
   DoorOpen,
   CreditCard,
+  Eye,
+  RotateCcw,
 } from 'lucide-react';
 
 type Stage = 'SPLIT' | 'METHOD' | 'CASH' | 'CARD' | 'DONE';
@@ -456,7 +458,8 @@ function WaiterPaymentContent() {
                 : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
             }`}
           >
-            <span>👀 Gast-Sicht</span>
+            <Eye className="w-4 h-4" />
+            <span>Gast-Sicht</span>
             <span className="text-[10px] opacity-75">{guestFacingMode ? '(Aktiv)' : ''}</span>
           </button>
 
@@ -468,7 +471,8 @@ function WaiterPaymentContent() {
               }}
               className="text-xs font-bold text-blue-300 bg-blue-950/80 border border-blue-800 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow"
             >
-              <span>🔄 180°</span>
+              <RotateCcw className="w-4 h-4" />
+              <span>180°</span>
               <span>{guestFacingRotated ? 'Gedreht (Zum Gast)' : 'Normal (Zu mir)'}</span>
             </button>
           ) : (

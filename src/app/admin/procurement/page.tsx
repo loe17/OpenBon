@@ -288,8 +288,9 @@ export default function ProcurementPage() {
                         {item.name}
                       </span>
                       {item.isUrgent && (
-                        <span className="text-[10px] text-rose-400 font-bold print:hidden">
-                          ⚠️ Meldebestand unterschritten
+                        <span className="text-[10px] text-rose-400 font-bold print:hidden flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          <span>Meldebestand unterschritten</span>
                         </span>
                       )}
                     </td>

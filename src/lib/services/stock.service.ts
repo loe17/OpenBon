@@ -79,7 +79,7 @@ export class StockService {
           if (printer) {
             const { rawBuffer, textRepresentation } = EscPosBuilder.buildTicket(
               {
-                title: '⚠️ LAGERBESTAND-WARNUNG',
+                title: 'LAGERBESTAND-WARNUNG',
                 tableLabel: 'Lager',
                 waiterName: 'System',
                 items: [

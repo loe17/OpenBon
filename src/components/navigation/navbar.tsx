@@ -32,6 +32,9 @@ import {
   LayoutDashboard,
   Sun,
   Moon,
+  Zap,
+  Square,
+  Check,
   Server,
   Package,
   Wallet,
@@ -345,26 +348,35 @@ export default function Navbar() {
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2.5 py-1 mb-1">
                     Design / Theme wählen
                   </div>
-                  {AVAILABLE_THEMES.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => {
-                        setTheme(t.id);
-                        setShowThemePicker(false);
-                      }}
-                      className={`w-full p-2 rounded-xl text-left text-xs font-bold flex items-center justify-between transition ${
-                        theme === t.id
-                          ? 'bg-blue-600 text-white shadow'
-                          : 'text-slate-300 hover:bg-slate-800'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>{t.icon}</span>
-                        <span>{t.label}</span>
-                      </div>
-                      {theme === t.id && <span>✓</span>}
-                    </button>
-                  ))}
+                  {AVAILABLE_THEMES.map((t) => {
+                    const ThemeIcon =
+                      t.id === 'dark' ? Moon :
+                      t.id === 'light' ? Sun :
+                      t.id === 'contrast' ? Zap :
+                      t.id === 'modern' ? Sparkles :
+                      t.id === 'plain' ? Beer : Square;
+
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => {
+                          setTheme(t.id);
+                          setShowThemePicker(false);
+                        }}
+                        className={`w-full p-2 rounded-xl text-left text-xs font-bold flex items-center justify-between transition ${
+                          theme === t.id
+                            ? 'bg-blue-600 text-white shadow'
+                            : 'text-slate-300 hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <ThemeIcon className="w-3.5 h-3.5" />
+                          <span>{t.label}</span>
+                        </div>
+                        {theme === t.id && <Check className="w-3.5 h-3.5 text-white" />}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>

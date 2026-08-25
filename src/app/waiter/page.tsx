@@ -21,6 +21,9 @@ import {
   ArrowRightLeft,
   GitMerge,
   Bell,
+  Hash,
+  Delete,
+  ArrowRight,
 } from 'lucide-react';
 import { VOID_REASONS, type OrderDTO } from '@/types/domain';
 import { playConfirm, playVoidAlert, playOrderReadyChime } from '@/lib/audio-feedback';
@@ -180,8 +183,9 @@ export default function WaiterTablesPage() {
       // Spec 7: Küchen-Fertigmeldung mit Audio-Gong & Banner
       socket.on('order:ready', (data: any) => {
         playOrderReadyChime();
-        triggerHapticFeedback();
-        showToast('ok', `🔔 Bestellung #${data.orderNumber} für Tisch ${data.tableNumber || data.tableLabel || ''} ist abholbereit!`);
+        if (data?.orderNumber) {
+          showToast('ok', `Bestellung #${data.orderNumber} für Tisch ${data.tableNumber || data.tableLabel || ''} ist abholbereit!`);
+        }
         fetchTables();
       });
     }
@@ -396,7 +400,8 @@ export default function WaiterTablesPage() {
             }}
             className="min-h-[48px] px-4 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 touch-manipulation text-white font-black text-xs sm:text-sm rounded-2xl shadow-lg shadow-blue-950/60 flex items-center gap-2 transition"
           >
-            <span>🔢 Ziffernblock (0-9)</span>
+            <Hash className="w-4 h-4" />
+            <span>Ziffernblock (0-9)</span>
           </button>
         </div>
       </div>
@@ -975,7 +980,7 @@ export default function WaiterTablesPage() {
           <div className="bg-slate-900 border border-slate-700 rounded-3xl p-5 max-w-sm w-full shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <div className="flex items-center gap-2">
-                <span className="text-xl">🔢</span>
+                <Hash className="w-5 h-5 text-blue-400" />
                 <h3 className="font-extrabold text-base text-white">Tischnummer eingeben</h3>
               </div>
               <button
@@ -983,7 +988,7 @@ export default function WaiterTablesPage() {
                 onClick={() => setShowTableKeypadModal(false)}
                 className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center font-bold"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -1066,7 +1071,7 @@ export default function WaiterTablesPage() {
                 }}
                 className="min-h-[56px] rounded-2xl bg-slate-800/60 hover:bg-slate-800 text-amber-400 font-bold text-base transition active:scale-95 touch-manipulation flex items-center justify-center border border-slate-700"
               >
-                ⌫
+                <Delete className="w-5 h-5 text-amber-400" />
               </button>
             </div>
 
@@ -1077,7 +1082,8 @@ export default function WaiterTablesPage() {
               onClick={() => openTableFromNumber(keypadTableNumber)}
               className="w-full min-h-[52px] bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-2xl font-black text-base shadow-lg shadow-emerald-950/60 transition active:scale-95 touch-manipulation flex items-center justify-center gap-2"
             >
-              <span>🚀 Tisch öffnen & Bestellen</span>
+              <ArrowRight className="w-5 h-5" />
+              <span>Tisch öffnen & Bestellen</span>
             </button>
           </div>
         </div>

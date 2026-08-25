@@ -15,6 +15,8 @@ import {
   RefreshCw,
   Sparkles,
   AlertTriangle,
+  Filter,
+  Check,
 } from 'lucide-react';
 
 interface KitchenOrder {
@@ -251,7 +253,8 @@ export default function KitchenMonitorPage() {
                   : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
               }`}
             >
-              <span>🔽 Warengruppen-Filter</span>
+              <Filter className="w-3.5 h-3.5" />
+              <span>Warengruppen-Filter</span>
               {selectedCategoryIds.length < categories.length && (
                 <span className="bg-black text-amber-300 px-1.5 py-0.2 rounded text-[10px]">
                   {selectedCategoryIds.length}/{categories.length}
@@ -343,7 +346,7 @@ export default function KitchenMonitorPage() {
                         isSelected ? 'bg-black text-amber-400' : 'border border-slate-600'
                       }`}
                     >
-                      {isSelected ? '✓' : ''}
+                      {isSelected && <Check className="w-2.5 h-2.5" />}
                     </span>
                     <span>{cat.name}</span>
                   </button>

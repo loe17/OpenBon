@@ -8,16 +8,15 @@ export interface ThemeOption {
   id: Theme;
   label: string;
   description: string;
-  icon: string;
 }
 
 export const AVAILABLE_THEMES: ThemeOption[] = [
-  { id: 'dark', label: 'Dunkel', description: 'Deep Slate / Nachtmodus (Standard)', icon: '🌙' },
-  { id: 'light', label: 'Hell', description: 'Klares Tageslicht & extrem sonnenlichttauglich', icon: '☀️' },
-  { id: 'contrast', label: 'Kontrastreich', description: 'Extremer OLED-Kontrast (Schwarz/Gold)', icon: '⚡' },
-  { id: 'modern', label: 'Modern', description: 'Neon Violet & Cyber Glow', icon: '💎' },
-  { id: 'plain', label: 'Biergarten', description: 'Traditionell Tannengrün & Festzeltholz', icon: '🍺' },
-  { id: 'minimal', label: 'Minimalistisch', description: 'Monochromes reines Zink-Design', icon: '◽' },
+  { id: 'dark', label: 'Dunkel', description: 'Deep Slate / Nachtmodus (Standard)' },
+  { id: 'light', label: 'Hell', description: 'Klares Tageslicht & sonnenlichttauglich' },
+  { id: 'contrast', label: 'Kontrastreich', description: 'OLED-Kontrast (Schwarz/Gold)' },
+  { id: 'modern', label: 'Modern', description: 'Neon Violet & Cyber Glow' },
+  { id: 'plain', label: 'Biergarten', description: 'Traditionell Tannengrün & Festzeltholz' },
+  { id: 'minimal', label: 'Minimalistisch', description: 'Monochromes reines Zink-Design' },
 ];
 
 interface ThemeContextType {

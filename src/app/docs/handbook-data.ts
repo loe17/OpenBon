@@ -223,7 +223,7 @@ export const HANDBOOK: DocChapter[] = [
     icon: 'admin',
     sections: [
       {
-        heading: '1. Automatisches Drucker-Routing (Drucker ➔ Druckgruppen ➔ Artikel)',
+        heading: '1. Automatisches Drucker-Routing (Drucker → Druckgruppen → Artikel)',
         steps: [
           'Schritt 1 (Drucker anlegen): Unter Admin → "Drucker & Druckgruppen" einen Netzwerkdrucker mit IP und Port 9100 oder einen "Virtuellen Drucker" anlegen.',
           'Schritt 2 (Druckgruppe erstellen): Eine Druckgruppe (z. B. "Küche", "Grill", "Ausschank / Bier") erstellen und dem gewünschten Drucker zuweisen.',

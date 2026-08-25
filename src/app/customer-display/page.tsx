@@ -195,7 +195,7 @@ export default function CustomerDisplayPage() {
   }, [selectedStation, socket]);
 
   const getStationLabel = (id: string) => {
-    if (id === 'ALL') return '✨ Alle Stationen & Mobilteile (Global)';
+    if (id === 'ALL') return 'Alle Stationen & Mobilteile (Global)';
     const found = activeStations.find((s) => s.id === id);
     if (found) return found.name;
     const dev = devices.find((d) => d.id === id);
@@ -248,7 +248,7 @@ export default function CustomerDisplayPage() {
               }}
               className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
             >
-              <option value="ALL">✨ Alle Stationen &amp; Mobilteile (Global)</option>
+              <option value="ALL">Alle Stationen &amp; Mobilteile (Global)</option>
               {activeStations.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name} ({s.id})

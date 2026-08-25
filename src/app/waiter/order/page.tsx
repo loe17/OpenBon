@@ -24,6 +24,9 @@ import {
   ChevronUp,
   ChevronDown,
   ShoppingBag,
+  CreditCard,
+  Check,
+  AlertTriangle,
 } from 'lucide-react';
 import { COURSES } from '@/types/domain';
 import { calculateMinBirthdate, EU_ALLERGENS, filterProductsByExcludedAllergens } from '@/lib/compliance';
@@ -492,13 +495,14 @@ function WaiterOrderContent() {
                     active ? prev.filter((c) => c !== a.code) : [...prev, a.code]
                   );
                 }}
-                className={`text-[10px] px-2 py-0.5 rounded-md font-semibold border transition ${
+                className={`text-[10px] px-2 py-0.5 rounded-md font-semibold border transition flex items-center gap-1 ${
                   active
                     ? 'bg-red-500/20 text-red-300 border-red-500/40 font-bold'
                     : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
                 }`}
               >
-                {active ? `✕ Ohne ${a.name}` : a.name}
+                {active && <X className="w-2.5 h-2.5" />}
+                <span>{active ? `Ohne ${a.name}` : a.name}</span>
               </button>
             );
           })}
@@ -809,7 +813,8 @@ function WaiterOrderContent() {
                     : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
                 }`}
               >
-                <span>💳 Bestellen & Sofort Kassieren</span>
+                <CreditCard className="w-5 h-5" />
+                <span>Bestellen & Sofort Kassieren</span>
               </button>
             </div>
           </div>
@@ -896,7 +901,7 @@ function WaiterOrderContent() {
                                 : 'border-slate-700'
                             }`}
                           >
-                            {checked && '✓'}
+                            {checked && <Check className="w-2.5 h-2.5 text-white" />}
                           </span>
                           <span>{opt.name}</span>
                         </div>
@@ -1028,8 +1033,9 @@ function WaiterOrderContent() {
               <Radio className="w-8 h-8" />
             </div>
             <div>
-              <span className="text-xs font-black tracking-widest text-rose-300 uppercase block">
-                🚨 Eildurchsage von {urgentBroadcast.sender || 'Kasse / Leitung'}
+              <span className="text-xs font-black tracking-widest text-rose-300 uppercase flex items-center justify-center gap-1.5">
+                <AlertTriangle className="w-4 h-4" />
+                <span>Eildurchsage von {urgentBroadcast.sender || 'Kasse / Leitung'}</span>
               </span>
               <p className="text-lg font-black text-white mt-2 break-words">
                 {urgentBroadcast.message}

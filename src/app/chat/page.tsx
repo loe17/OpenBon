@@ -129,7 +129,7 @@ export default function ChatPage() {
             <button
               type="button"
               onClick={() => {
-                const text = prompt('🚨 Eildurchsage an alle Bedienungsansichten eingeben:');
+                const text = prompt('Eildurchsage an alle Bedienungsansichten eingeben:');
                 if (text && text.trim()) {
                   fetch('/api/chat', {
                     method: 'POST',
@@ -147,7 +147,7 @@ export default function ChatPage() {
               title="Sendet sofort ein lautes Pop-up an alle Bedienungs-Mobilteile"
             >
               <Radio className="w-3.5 h-3.5" />
-              <span>🚨 Eildurchsage</span>
+              <span>Eildurchsage</span>
             </button>
           )}
 

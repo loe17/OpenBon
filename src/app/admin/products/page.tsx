@@ -392,9 +392,9 @@ export default function AdminProductsPage() {
           {search && (
             <button
               onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs font-bold"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
             >
-              ✕
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>

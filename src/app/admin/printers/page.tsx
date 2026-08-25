@@ -285,13 +285,13 @@ export default function AdminPrintersPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-black text-white flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-blue-400" />
-            <span>So funktioniert das automatische Bon-Routing (Drucker ➔ Druckgruppen ➔ Artikel)</span>
+            <span>So funktioniert das automatische Bon-Routing (Drucker → Druckgruppen → Artikel)</span>
           </h2>
           <a
             href="/admin/products"
             className="text-xs font-bold text-blue-300 hover:text-white bg-blue-900/60 px-3 py-1 rounded-xl border border-blue-700 transition"
           >
-            Zu den Artikeln ➔
+            Zu den Artikeln →
           </a>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-300">
@@ -482,8 +482,9 @@ export default function AdminPrintersPage() {
                       </div>
                     </div>
                     {sp.alreadyExists ? (
-                      <span className="px-2.5 py-1 bg-emerald-950/80 text-emerald-400 border border-emerald-800/80 rounded-xl text-[11px] font-bold">
-                        ✓ Bereits eingerichtet
+                      <span className="px-2.5 py-1 bg-emerald-950/80 text-emerald-400 border border-emerald-800/80 rounded-xl text-[11px] font-bold flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Bereits eingerichtet</span>
                       </span>
                     ) : (
                       <button

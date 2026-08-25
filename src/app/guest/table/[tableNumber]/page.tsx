@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   Loader2,
   Trash2,
+  X,
 } from 'lucide-react';
 import { EU_ALLERGENS, filterProductsByExcludedAllergens } from '@/lib/compliance';
 import { useToast } from '@/components/ui/toast';
@@ -299,13 +300,14 @@ export default function GuestTableOrderPage() {
                       active ? prev.filter((c) => c !== code) : [...prev, code]
                     );
                   }}
-                  className={`text-xs px-2.5 py-1 rounded-lg font-semibold border transition-all ${
+                  className={`text-xs px-2.5 py-1 rounded-lg font-semibold border transition-all flex items-center gap-1 ${
                     active
                       ? 'bg-red-500/20 text-red-300 border-red-500/40 font-bold'
                       : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'
                   }`}
                 >
-                  {active ? `✕ Ohne ${label}` : `Ohne ${label}`}
+                  {active && <X className="w-3 h-3" />}
+                  <span>{active ? `Ohne ${label}` : `Ohne ${label}`}</span>
                 </button>
               );
             })}

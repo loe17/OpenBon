@@ -18,6 +18,7 @@ import {
   Layers,
   ArrowUpRight,
   Flame,
+  X,
 } from 'lucide-react';
 
 interface TapLineDTO {
@@ -444,9 +445,9 @@ export default function TapsMonitorPage() {
               </h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-1 rounded-xl text-slate-400 hover:text-white"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-white"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
