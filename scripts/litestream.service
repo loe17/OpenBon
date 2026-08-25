@@ -1,0 +1,14 @@
+[Unit]
+Description=Litestream Continuous SQLite WAL Replication for OpenBon
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/openbon
+ExecStart=/usr/local/bin/litestream replicate -config /opt/openbon/litestream.yml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

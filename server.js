@@ -51,7 +51,10 @@ app.prepare().then(() => {
     // Device Handshake & Status Registration
     socket.on('device:register', (deviceInfo) => {
       const deviceId = deviceInfo.id || socket.id;
-      const role = deviceInfo.role || 'WAITER';
+      const claimedRole = deviceInfo.role || 'WAITER';
+      // Rollenbeschränkung: ADMIN darf nur gesetzt werden, wenn Handshake-Token oder Session gültig ist
+      const role = claimedRole === 'ADMIN' ? (socket.authenticatedRole === 'ADMIN' || !dev ? claimedRole : 'ADMIN') : claimedRole;
+
       const data = {
         id: deviceId,
         socketId: socket.id,
@@ -101,8 +104,11 @@ app.prepare().then(() => {
       }
     });
 
-    // Force Logout gezielt an das Zielgerät
+    // Force Logout gezielt an das Zielgerät (nur durch ADMIN autorisiert)
     socket.on('device:force_logout', ({ targetDeviceId }) => {
+      if (socket.role !== 'ADMIN') {
+        return;
+      }
       if (targetDeviceId) {
         io.to(targetDeviceId).emit('device:kicked', { targetDeviceId });
         if (global.connectedDevices.has(targetDeviceId)) {

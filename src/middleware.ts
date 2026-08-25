@@ -2,29 +2,44 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifySessionToken, SESSION_COOKIE_NAME, UserRole } from '@/lib/auth-session';
 
-/**
- * Zentrale Autorisierungs-Schranke für OpenBon.
- * Schützt Admin-Oberflächen und schreibende/vertrauliche API-Endpunkte.
- */
+// Öffentliche Pfade, die ohne Authentifizierung erreichbar sein müssen
+const PUBLIC_PATHS = [
+  '/_next',
+  '/api/auth/pin',
+  '/api/config/public',
+  '/api/health',
+  '/api/metrics',
+  '/api/receipt',
+  '/api/guest/orders',
+  '/api/sync/heartbeat',
+  '/customer-display',
+  '/receipt',
+  '/guest',
+  '/favicon.ico',
+  '/icon.png',
+  '/manifest.json',
+  '/sw.js',
+];
+
+// Reiner Admin-Bereich (erfordert session.role === 'ADMIN')
+const ADMIN_API_PREFIXES = [
+  '/api/system',
+  '/api/backup',
+  '/api/fiscal',
+  '/api/config',
+  '/api/profiles',
+  '/api/products/csv',
+];
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // 1. Ausnahmen: Statische Ressourcen, Public Config, PIN-Verification, Customer-Display, Manifest, Icons, SW
-  if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/api/auth/pin') ||
-    pathname.startsWith('/api/config/public') ||
-    pathname.startsWith('/api/health') ||
-    pathname.startsWith('/customer-display') ||
-    pathname === '/favicon.ico' ||
-    pathname === '/icon.png' ||
-    pathname === '/manifest.json' ||
-    pathname === '/sw.js'
-  ) {
+  // 1. Öffentliche Pfade und statische Dateien direkt durchlassen
+  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
-  // 2. Session aus Cookie oder Bearer Token prüfen
+  // 2. Session aus Cookie oder Bearer Header verifizieren
   let session = null;
   const cookieVal = req.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (cookieVal) {
@@ -38,11 +53,9 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // 3. Admin Web-Routen (/admin/*)
+  // 3. Admin Web-Oberfläche (/admin/*)
   if (pathname.startsWith('/admin')) {
-    // Wenn keine valide Admin-Session vorhanden ist:
     if (!session || session.role !== 'ADMIN') {
-      // Bei HTML-Seitenaufrufen im Browser auf PIN-Eingabe weiterleiten oder zulassen wenn PIN-Modal aktiv
       const url = req.nextUrl.clone();
       url.pathname = '/';
       url.searchParams.set('auth_required', 'admin');
@@ -51,13 +64,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 4. Kritische Admin API-Routen
-  if (
-    pathname.startsWith('/api/system') ||
-    pathname.startsWith('/api/backup') ||
-    pathname.startsWith('/api/fiscal') ||
-    (pathname === '/api/config' && req.method !== 'OPTIONS')
-  ) {
+  // 4. Admin API-Endpunkte
+  if (ADMIN_API_PREFIXES.some((p) => pathname.startsWith(p))) {
     if (!session || session.role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'Nicht autorisiert. Administrator-Berechtigung erforderlich.' },
@@ -67,16 +75,24 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // 5. Schreibende / modifizierende Kassen-Endpunkte erfordern eine gültige Session
+  if (pathname.startsWith('/api/')) {
+    if (req.method !== 'GET' && req.method !== 'OPTIONS') {
+      if (!session) {
+        return NextResponse.json(
+          { error: 'Authentifizierung erforderlich. Bitte an der Kassenstation mit PIN anmelden.' },
+          { status: 401 }
+        );
+      }
+    }
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
     '/admin/:path*',
-    '/api/system/:path*',
-    '/api/backup/:path*',
-    '/api/fiscal/:path*',
-    '/api/config',
-    '/api/config/:path*',
+    '/api/:path*',
   ],
 };

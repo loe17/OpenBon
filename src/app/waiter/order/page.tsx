@@ -35,6 +35,7 @@ import type {
   ProductVariantDTO,
 } from '@/types/domain';
 import { playConfirm, playVoidAlert } from '@/lib/audio-feedback';
+import { sendWithOutboxFallback } from '@/lib/offline/outbox';
 
 const parseWordsList = (raw: any): string[] => {
   if (Array.isArray(raw)) return raw;
@@ -368,35 +369,35 @@ function WaiterOrderContent() {
 
     try {
       const deviceId = localStorage.getItem('pos_device_id');
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tableId,
-          waiterName,
-          deviceId,
-          items: cart.map((item) => ({
-            productId: item.productId,
-            name: item.name,
-            quantity: item.quantity,
-            unitPrice: item.price,
-            deposit: item.deposit,
-            variantName: item.variantName,
-            selectedOptions: item.selectedOptions,
-            customizationText: item.customizationText,
-            courseNumber: item.courseNumber,
-            isHold: item.isHold,
-          })),
-        }),
-      });
+      const payload = {
+        tableId,
+        waiterName,
+        deviceId,
+        items: cart.map((item) => ({
+          productId: item.productId,
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: item.price,
+          deposit: item.deposit,
+          variantName: item.variantName,
+          selectedOptions: item.selectedOptions,
+          customizationText: item.customizationText,
+          courseNumber: item.courseNumber,
+          isHold: item.isHold,
+        })),
+      };
 
-      if (res.ok) {
+      const result = await sendWithOutboxFallback('ORDER', '/api/orders', payload);
+
+      if (result.success) {
         triggerHapticFeedback();
         playConfirm();
+        if (result.queuedOffline) {
+          alert('WLAN nicht erreichbar: Bestellung wurde offline gesichert und wird automatisch übertragen.');
+        }
         router.push('/waiter');
       } else {
-        const err = (await res.json().catch(() => ({}))) as { error?: string };
-        setNotice(err.error || 'Fehler beim Übermitteln der Bestellung.');
+        setNotice(result.error || 'Fehler beim Übermitteln der Bestellung.');
       }
     } catch (e) {
       console.error(e);

@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { signSessionToken, verifySessionToken, getJwtSecretKey } from '../lib/auth-session';
 import { checkRateLimit, registerFailedAttempt, resetRateLimit } from '../lib/rate-limiter';
-import { verifyStationPin } from '../lib/auth-pin';
+import { createDatabaseBackup } from '../lib/backup-scheduler';
 import prisma from '../lib/db';
+import fs from 'fs';
 
 describe('OpenBon EMPFEHLUNGEN Hardening Tests', () => {
   describe('1.1 Echte serverseitige Authentifizierung', () => {
@@ -24,8 +25,14 @@ describe('OpenBon EMPFEHLUNGEN Hardening Tests', () => {
       expect(verified).toBeNull();
     });
 
+    it('sollte ein dynamisches 256-Bit Secret erzeugen (kein hardcoded static secret)', () => {
+      const key = getJwtSecretKey();
+      expect(key).toBeInstanceOf(Uint8Array);
+      expect(key.length).toBeGreaterThanOrEqual(16);
+    });
+
     it('sollte nach 5 Fehlversuchen den Rate-Limiter sperren', () => {
-      const testKey = 'test-client-ip-123:device:ADMIN';
+      const testKey = '192.168.1.100:ADMIN';
       resetRateLimit(testKey);
 
       for (let i = 1; i <= 4; i++) {
@@ -48,10 +55,11 @@ describe('OpenBon EMPFEHLUNGEN Hardening Tests', () => {
   });
 
   describe('1.4 Persistente Druck-Warteschlange & DB-Modelle', () => {
-    it('sollte PrintJobs in der Datenbank persistieren und abfragen können', async () => {
+    it('sollte PrintJobs mit rawPayload in der Datenbank persistieren und abfragen können', async () => {
       const job = await prisma.printJob.create({
         data: {
           title: 'Test-Küchenbon',
+          rawPayload: JSON.stringify({ items: [{ name: 'Bier', quantity: 2 }] }),
           status: 'PENDING',
           attempts: 0,
         },
@@ -59,6 +67,7 @@ describe('OpenBon EMPFEHLUNGEN Hardening Tests', () => {
 
       expect(job.id).toBeDefined();
       expect(job.status).toBe('PENDING');
+      expect(job.rawPayload).toContain('Bier');
 
       const retrieved = await prisma.printJob.findUnique({ where: { id: job.id } });
       expect(retrieved?.title).toBe('Test-Küchenbon');
@@ -82,6 +91,16 @@ describe('OpenBon EMPFEHLUNGEN Hardening Tests', () => {
       expect(JSON.parse(found!.responseJson).orderId).toBe('ord-123');
 
       await prisma.idempotencyKey.delete({ where: { key } });
+    });
+  });
+
+  describe('1.3 Automatischer Backup-Scheduler', () => {
+    it('sollte zeitgestempelte Datenbank-Backups anlegen', async () => {
+      const backupPath = await createDatabaseBackup();
+      expect(backupPath).not.toBeNull();
+      if (backupPath) {
+        expect(fs.existsSync(backupPath)).toBe(true);
+      }
     });
   });
 

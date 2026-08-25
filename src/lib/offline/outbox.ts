@@ -1,11 +1,12 @@
 export interface OutboxItem {
-  id: string; // Eindeutige UUID / Idempotency Key
+  id: string; // Eindeutige Idempotency-Key UUID
   type: 'ORDER' | 'PAYMENT';
   endpoint: string;
   payload: any;
   createdAt: number;
   attempts: number;
   lastError?: string;
+  status?: 'PENDING' | 'FAILED';
 }
 
 const DB_NAME = 'openbon_offline_db';
@@ -36,20 +37,25 @@ function getDb(): Promise<IDBDatabase> {
 }
 
 /**
- * Reiht eine Bestellung in die Offline-Outbox ein.
+ * Reiht einen Vorgang (Bestellung / Bezahlung) in die Offline-Outbox ein.
  */
 export async function enqueueOutboxItem(
   type: 'ORDER' | 'PAYMENT',
   endpoint: string,
   payload: any
 ): Promise<OutboxItem> {
+  const idempotencyKey =
+    payload.idempotencyKey ||
+    `ob_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
   const item: OutboxItem = {
-    id: payload.idempotencyKey || `outbox_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+    id: idempotencyKey,
     type,
     endpoint,
-    payload: { ...payload, idempotencyKey: payload.idempotencyKey || `outbox_${Date.now()}_${Math.random().toString(36).substring(2, 9)}` },
+    payload: { ...payload, idempotencyKey },
     createdAt: Date.now(),
     attempts: 0,
+    status: 'PENDING',
   };
 
   try {
@@ -74,6 +80,33 @@ export async function enqueueOutboxItem(
 }
 
 /**
+ * Aktualisiert den Status eines Eintrags in der IndexedDB.
+ */
+export async function updateOutboxItem(item: OutboxItem): Promise<void> {
+  try {
+    const db = await getDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).put(item);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    try {
+      const existing: OutboxItem[] = JSON.parse(localStorage.getItem('openbon_outbox') || '[]');
+      const idx = existing.findIndex((i) => i.id === item.id);
+      if (idx !== -1) {
+        existing[idx] = item;
+      } else {
+        existing.push(item);
+      }
+      localStorage.setItem('openbon_outbox', JSON.stringify(existing));
+    } catch {}
+  }
+  notifyOutboxListeners();
+}
+
+/**
  * Liest alle wartenden Outbox-Vorgänge aus.
  */
 export async function getPendingOutboxItems(): Promise<OutboxItem[]> {
@@ -82,12 +115,16 @@ export async function getPendingOutboxItems(): Promise<OutboxItem[]> {
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readonly');
       const request = tx.objectStore(STORE_NAME).getAll();
-      request.onsuccess = () => resolve(request.result || []);
+      request.onsuccess = () => {
+        const items: OutboxItem[] = request.result || [];
+        resolve(items.filter((i) => i.status !== 'FAILED'));
+      };
       request.onerror = () => reject(request.error);
     });
   } catch {
     try {
-      return JSON.parse(localStorage.getItem('openbon_outbox') || '[]');
+      const items: OutboxItem[] = JSON.parse(localStorage.getItem('openbon_outbox') || '[]');
+      return items.filter((i) => i.status !== 'FAILED');
     } catch {
       return [];
     }
@@ -114,6 +151,57 @@ export async function removeOutboxItem(id: string): Promise<void> {
     } catch {}
   }
   notifyOutboxListeners();
+}
+
+/**
+ * Sendet einen Request direkt. Bei Offline oder Netzwerkfehler wird der Request automatisch
+ * in die lokale Outbox eingereiht und liefert ein optimistisches OK zurück.
+ */
+export async function sendWithOutboxFallback(
+  type: 'ORDER' | 'PAYMENT',
+  endpoint: string,
+  payload: any
+): Promise<{ success: boolean; data?: any; queuedOffline?: boolean; error?: string }> {
+  const idempotencyKey =
+    payload.idempotencyKey ||
+    `ob_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+  const bodyWithKey = { ...payload, idempotencyKey };
+
+  // Wenn der Browser offline ist, direkt einreihen
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    await enqueueOutboxItem(type, endpoint, bodyWithKey);
+    return { success: true, queuedOffline: true };
+  }
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': idempotencyKey,
+      },
+      body: JSON.stringify(bodyWithKey),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return { success: true, data };
+    }
+
+    // Bei 5xx Server-Fehler in die Outbox legen für automatischen Retry
+    if (res.status >= 500) {
+      await enqueueOutboxItem(type, endpoint, bodyWithKey);
+      return { success: true, queuedOffline: true };
+    }
+
+    const errData = await res.json().catch(() => ({}));
+    return { success: false, error: errData.error || `Server-Fehler (${res.status})` };
+  } catch (netErr) {
+    // Netzwerk-Abbruch / Timeout -> in Outbox einreihen
+    await enqueueOutboxItem(type, endpoint, bodyWithKey);
+    return { success: true, queuedOffline: true };
+  }
 }
 
 /**
@@ -147,11 +235,19 @@ export async function syncOutboxWithServer(): Promise<{ synced: number; failed: 
       } else {
         item.attempts += 1;
         item.lastError = `Server-Status ${res.status}`;
+        if (item.attempts >= 5 || res.status === 400) {
+          item.status = 'FAILED';
+        }
+        await updateOutboxItem(item);
         failed++;
       }
     } catch (err) {
       item.attempts += 1;
       item.lastError = err instanceof Error ? err.message : String(err);
+      if (item.attempts >= 5) {
+        item.status = 'FAILED';
+      }
+      await updateOutboxItem(item);
       failed++;
     }
   }

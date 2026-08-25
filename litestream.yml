@@ -1,0 +1,24 @@
+# OpenBon Litestream Replikations-Konfiguration
+# Kontinuierliche Replikation der SQLite-WAL-Transaktionen (RPO < 1s)
+# Doku: https://litestream.io/reference/config/
+
+dbs:
+  - path: ./prisma/dev.db
+    replicas:
+      # Replikations-Ziel 1: Lokaler USB-Stick (Schutz vor SD-Karten-Defekt des Raspberry Pi)
+      - path: /media/usb/openbon-litestream
+        sync-interval: 1s
+        retention: 72h
+
+      # Replikations-Ziel 2: Lokales Sekundärverzeichnis / NFS / Samba-Share
+      - path: ./prisma/backups/litestream-replica
+        sync-interval: 5s
+        retention: 48h
+
+      # Replikations-Ziel 3 (Optional): S3-kompatibler Cloud-Speicher (AWS S3, Cloudflare R2, MinIO)
+      # - type: s3
+      #   bucket: mein-vereinsfest-backup
+      #   path: openbon/dev.db
+      #   endpoint: https://s3.eu-central-1.amazonaws.com
+      #   access-key-id: ${LITESTREAM_ACCESS_KEY_ID}
+      #   secret-access-key: ${LITESTREAM_SECRET_ACCESS_KEY}

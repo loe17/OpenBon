@@ -264,15 +264,21 @@ export default function PosCounterPage() {
       const waiterName = localStorage.getItem('pos_waiter_name') || 'Bonkasse Theke';
       const deviceId = localStorage.getItem('pos_device_id');
 
+      const idempotencyKey = `pos_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
       // 1. Create Counter / Voucher Order
       const orderRes = await fetch('/api/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Idempotency-Key': idempotencyKey,
+        },
         body: JSON.stringify({
-          orderType: mode === 'DIRECT' ? 'DIRECT_SALE' : 'VOUCHER',
+          orderType: mode === 'DIRECT' ? 'COUNTER_DIRECT' : 'COUNTER_VOUCHER',
           source: 'POS_CASHIER',
           waiterName,
           deviceId,
+          idempotencyKey,
           items: cart.map((item) => ({
             productId: item.productId,
             name: item.name,
@@ -284,6 +290,12 @@ export default function PosCounterPage() {
         }),
       });
 
+      if (!orderRes.ok) {
+        const err = await orderRes.json().catch(() => ({}));
+        alert(err.error || 'Fehler beim Anlegen des Bons an der Bonkasse.');
+        return;
+      }
+
       const orderData = await orderRes.json();
       if (orderData.tokenNumber) {
         setLastToken(orderData.tokenNumber);
@@ -292,7 +304,10 @@ export default function PosCounterPage() {
       // 2. Complete Payment
       const paymentRes = await fetch('/api/payments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Idempotency-Key': `pay_${idempotencyKey}`,
+        },
         body: JSON.stringify({
           orderId: orderData.id,
           waiterName,
@@ -300,6 +315,7 @@ export default function PosCounterPage() {
           paymentMethod,
           givenAmount: paymentMethod === 'CASH' ? givenAmount : totalAmount,
           printReceipt: mode !== 'DIRECT',
+          idempotencyKey: `pay_${idempotencyKey}`,
           itemsToPay: orderData.items.map((i: OrderItemDTO) => ({
             orderItemId: i.id,
             productName: i.productName,

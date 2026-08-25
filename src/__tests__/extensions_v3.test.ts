@@ -37,14 +37,18 @@ describe('OpenBon Erweiterungs-Paket: Neue Systemfunktionen', () => {
     tableCId = tC.id;
 
     // 2. Kategorie und Test-Artikel anlegen
-    const cat = await prisma.productCategory.findFirst();
+    const cat =
+      (await prisma.productCategory.findFirst()) ||
+      (await prisma.productCategory.create({
+        data: { name: 'Test-Getränke', sortIndex: 0 },
+      }));
     const product = await prisma.product.create({
       data: {
         name: 'Test Festbier 0,5l',
         price: 4.5,
         deposit: 1.0,
         taxRate: 19.0,
-        categoryId: cat!.id,
+        categoryId: cat.id,
         trackStock: true,
         stockQuantity: 3,
         minStockAlert: 8, // Unterschritten -> eilig

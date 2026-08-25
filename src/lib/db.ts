@@ -21,7 +21,7 @@ if (typeof process !== 'undefined') {
   prisma
     .$queryRawUnsafe('PRAGMA journal_mode = WAL;')
     .then(() => prisma.$queryRawUnsafe('PRAGMA busy_timeout = 5000;'))
-    .then(() => prisma.$queryRawUnsafe('PRAGMA synchronous = NORMAL;'))
+    .then(() => prisma.$queryRawUnsafe('PRAGMA synchronous = FULL;'))
     .catch(() => {});
 }
 

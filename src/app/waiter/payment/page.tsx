@@ -354,7 +354,10 @@ function WaiterPaymentContent() {
     try {
       const res = await fetch('/api/payments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Idempotency-Key': requestId,
+        },
         body: JSON.stringify({
           tableId: tableId || null,
           waiterName: localStorage.getItem('pos_waiter_name') || 'Bedienung 1',
@@ -372,6 +375,7 @@ function WaiterPaymentContent() {
           givenAmount: paymentMethod === 'CASH' ? givenAmount : 0,
           printReceipt: opts.printReceipt,
           requestId,
+          idempotencyKey: requestId,
           itemsToPay,
         }),
       });

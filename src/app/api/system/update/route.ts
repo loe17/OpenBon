@@ -166,14 +166,28 @@ export async function POST(req: Request) {
         'systemctl status openbon',
       ];
 
-      const isAllowed = ALLOWED_COMMANDS.some((cmd) => trimmed === cmd || trimmed.startsWith(cmd));
+      // Keine Shell-Meta-Zeichen erlauben (Command Injection Schutz)
+      if (/[;&|`$\n\r><]/.test(trimmed)) {
+        return NextResponse.json(
+          {
+            success: false,
+            command: trimmed,
+            stdout: '',
+            stderr: '[SICHERHEITSHINWEIS] Shell-Chaining und Steuerzeichen sind unzulässig.',
+            error: 'Ungültige Steuerzeichen im Befehl',
+          },
+          { status: 403 }
+        );
+      }
+
+      const isAllowed = ALLOWED_COMMANDS.includes(trimmed);
       if (!isAllowed) {
         return NextResponse.json(
           {
             success: false,
             command: trimmed,
             stdout: '',
-            stderr: `[SICHERHEITSHINWEIS] Der Befehl "${trimmed}" ist nicht in der System-Allowlist erlaubt. Erlaubte Befehle: git status, git pull, npm install, npx prisma db push --accept-data-loss, npm run build, restart`,
+            stderr: `[SICHERHEITSHINWEIS] Der Befehl "${trimmed}" ist nicht in der System-Allowlist erlaubt.`,
             error: 'Befehl nicht in der Allowlist',
           },
           { status: 403 }

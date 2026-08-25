@@ -90,18 +90,20 @@ export async function POST(req: Request) {
       );
     }
 
-    // Idempotenz: identischer requestId innerhalb von 5 Minuten -> bestehenden Beleg zurückgeben
-    if (body.requestId) {
-      const existing = await prisma.payment.findFirst({
-        where: {
-          nonPaidReason: null,
-          createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) },
-          invoiceNumber: { contains: body.requestId.slice(0, 8) },
-        },
-        include: { items: true, table: true },
+    const idempotencyKey =
+      req.headers.get('x-idempotency-key') ||
+      body.requestId ||
+      (body as any).idempotencyKey;
+
+    if (idempotencyKey) {
+      const existing = await prisma.idempotencyKey.findUnique({
+        where: { key: String(idempotencyKey) },
       });
       if (existing) {
-        return NextResponse.json(existing);
+        return NextResponse.json(JSON.parse(existing.responseJson), {
+          status: existing.statusCode,
+          headers: { 'X-Idempotent-Replay': 'true' },
+        });
       }
     }
 
@@ -169,7 +171,7 @@ export async function POST(req: Request) {
         });
       }
 
-      return tx.payment.create({
+      const createdPayment = await tx.payment.create({
         data: {
           invoiceNumber,
           tableId: body.tableId || null,
@@ -216,6 +218,19 @@ export async function POST(req: Request) {
         },
         include: { table: true, items: true },
       });
+
+      if (idempotencyKey) {
+        await tx.idempotencyKey.create({
+          data: {
+            key: String(idempotencyKey),
+            endpoint: '/api/payments',
+            statusCode: 200,
+            responseJson: JSON.stringify(createdPayment),
+          },
+        }).catch(() => {});
+      }
+
+      return createdPayment;
     });
 
     // 3. Tisch freigeben, wenn nichts mehr offen ist
@@ -263,7 +278,7 @@ export async function POST(req: Request) {
           tableLabel: payment.table?.label || 'Direktverkauf',
           waiterName: payment.waiterName,
           createdAt: payment.createdAt,
-          items: payment.items.map((i) => ({
+          items: payment.items.map((i: any) => ({
             name: i.productName,
             quantity: i.quantity,
             unitPrice: i.unitPrice,

@@ -11,11 +11,32 @@ export interface SessionPayload {
   exp?: number;
 }
 
-const DEFAULT_SECRET = 'openbon-jwt-super-secret-key-32-chars-min-2026';
+let runtimeSecret: string | null = null;
 
 export function getJwtSecretKey(): Uint8Array {
-  const secret = process.env.SESSION_SECRET || DEFAULT_SECRET;
-  return new TextEncoder().encode(secret);
+  if (process.env.SESSION_SECRET && process.env.SESSION_SECRET.trim().length >= 16) {
+    return new TextEncoder().encode(process.env.SESSION_SECRET.trim());
+  }
+
+  if (!runtimeSecret) {
+    if (typeof globalThis !== 'undefined' && (globalThis as any).__OPENBON_JWT_SECRET__) {
+      runtimeSecret = (globalThis as any).__OPENBON_JWT_SECRET__;
+    } else {
+      // Kryptografisch sicheres 256-Bit Secret generieren
+      const array = new Uint8Array(32);
+      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        crypto.getRandomValues(array);
+      } else {
+        for (let i = 0; i < 32; i++) array[i] = Math.floor(Math.random() * 256);
+      }
+      runtimeSecret = Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('');
+      if (typeof globalThis !== 'undefined') {
+        (globalThis as any).__OPENBON_JWT_SECRET__ = runtimeSecret;
+      }
+    }
+  }
+
+  return new TextEncoder().encode(runtimeSecret!);
 }
 
 export const SESSION_COOKIE_NAME = 'openbon_session';

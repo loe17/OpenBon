@@ -40,6 +40,7 @@ class NetworkSpooler {
           printGroupId: options?.printGroupId || null,
           orderId: options?.orderId || null,
           title: ticketData.title || 'Bon',
+          rawPayload: JSON.stringify(ticketData),
           status: printer.isVirtual ? 'PRINTED' : 'PENDING',
           attempts: 0,
           printedAt: printer.isVirtual ? new Date() : null,
@@ -240,9 +241,35 @@ class NetworkSpooler {
 
       if (pending.length > 0) {
         console.log(`[SPOOLER] ${pending.length} noch ausstehende Druckaufträge aus der Datenbank geladen.`);
+        const printers = await prisma.printer.findMany();
+        const printerMap = new Map(printers.map((pr) => [pr.id, pr]));
+
+        for (const p of pending) {
+          if (!p.printerId || !p.rawPayload) continue;
+          const printer = printerMap.get(p.printerId);
+          if (!printer) continue;
+
+          try {
+            const ticketData: TicketData = JSON.parse(p.rawPayload);
+            this.queue.push({
+              id: p.id,
+              dbJobId: p.id,
+              printerId: printer.id,
+              printerName: printer.name,
+              printerIp: printer.ipAddress,
+              printerPort: printer.port || 9100,
+              isVirtual: printer.isVirtual,
+              paperWidth: printer.paperWidth || 80,
+              ticketData,
+              retries: p.attempts || 0,
+              createdAt: p.createdAt,
+            });
+          } catch {}
+        }
+        this.processQueue();
       }
     } catch {
-      // Ignorieren bei Seed/Setup
+      // Ignorieren bei Initialisierung / DB-Setup
     }
   }
 

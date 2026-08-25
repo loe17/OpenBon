@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import prisma from '@/lib/db';
 import { checkAndTriggerLowStockAlert } from '@/lib/low-stock-notifier';
 import TicketSplitter from '@/lib/printer/ticket-splitter';
 import networkSpooler from '@/lib/printer/network-spooler';
@@ -14,6 +14,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Ungültige Bestelldaten' }, { status: 400 });
     }
 
+    // Mengenbegrenzung zum Schutz vor automatisierten Überlastungen
+    if (items.length > 20) {
+      return NextResponse.json(
+        { error: 'Maximal 20 Positionen pro Gastbestellung zulässig.' },
+        { status: 400 }
+      );
+    }
+
     const table = await prisma.diningTable.findUnique({
       where: { tableNumber: parseInt(tableNumber, 10) },
     });
@@ -22,9 +30,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Tisch nicht gefunden oder inaktiv' }, { status: 404 });
     }
 
-    // Wenn ein QR-Token am Tisch hinterlegt ist, muss dieser übereinstimmen
-    if (table.qrToken && qrToken && table.qrToken !== qrToken) {
-      return NextResponse.json({ error: 'Ungültiger oder abgelaufener QR-Code' }, { status: 403 });
+    // Wenn ein QR-Token am Tisch hinterlegt ist, MUSS er zwingend übergeben werden und übereinstimmen
+    if (table.qrToken) {
+      if (!qrToken || table.qrToken !== qrToken) {
+        return NextResponse.json(
+          { error: 'Ungültiger, fehlender oder abgelaufener QR-Code. Bitte scannen Sie den QR-Code am Tisch erneut.' },
+          { status: 403 }
+        );
+      }
     }
 
     const config = await prisma.eventConfig.findUnique({
@@ -35,131 +48,163 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Gäste-Selbstbestellung ist derzeit deaktiviert' }, { status: 403 });
     }
 
-    // Erhöhe Sequenzzähler atomar
-    const updatedConfig = await prisma.eventConfig.update({
-      where: { id: 'default' },
-      data: { orderSequence: { increment: 1 } },
-    });
-
     const now = new Date();
 
-    // Validiere und erstelle die Bestellpositionen
-    const orderItemsData: any[] = [];
-
-    for (const item of items) {
-      const product = await prisma.product.findUnique({
-        where: { id: item.productId },
-        include: { printGroup: true },
+    // Transaktionale Bestellabwicklung mit Single-Source-of-Truth StockItem
+    const { order, orderItemsData, printJobsToQueue } = await prisma.$transaction(async (tx) => {
+      const updatedConfig = await tx.eventConfig.update({
+        where: { id: 'default' },
+        data: { orderSequence: { increment: 1 } },
       });
 
-      if (!product) continue;
+      const itemsToCreate: any[] = [];
+      const stockAlerts: { productId: string; newStock: number }[] = [];
 
-      const { price: effectivePrice } = getEffectiveProductPrice(product, now);
-      const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
-
-      // Bestandsabzug & Meldebestand-Prüfung
-      if (product.trackStock) {
-        const newStock = Math.max(0, product.stockQuantity - qty);
-        await prisma.product.update({
-          where: { id: product.id },
-          data: {
-            stockQuantity: newStock,
-            isSoldOut: newStock === 0,
-          },
+      for (const item of items) {
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+          include: { printGroup: { include: { printer: true } }, stockItem: true },
         });
-        // Pruefe Meldebestand
-        await checkAndTriggerLowStockAlert(product.id, newStock);
+
+        if (!product || product.status === 'HIDDEN') continue;
+
+        const qty = Math.max(1, Math.min(10, parseInt(item.quantity, 10) || 1));
+        const { price: effectivePrice } = getEffectiveProductPrice(product, now);
+
+        // Bestandsabzug atomar auf StockItem
+        if (product.trackStock) {
+          const stock = await tx.stockItem.findUnique({ where: { productId: product.id } });
+          if (stock) {
+            if (stock.currentQuantity < qty) {
+              throw new Error(`Artikel "${product.name}" ist leider ausverkauft oder nicht in ausreichender Menge verfügbar.`);
+            }
+
+            const newStock = stock.currentQuantity - qty;
+            await tx.stockItem.update({
+              where: { id: stock.id },
+              data: { currentQuantity: newStock },
+            });
+
+            if (newStock === 0 && stock.isAutoDeactivate) {
+              await tx.product.update({
+                where: { id: product.id },
+                data: { isSoldOut: true },
+              });
+            }
+
+            stockAlerts.push({ productId: product.id, newStock });
+          }
+        }
+
+        itemsToCreate.push({
+          productId: product.id,
+          productName: product.name,
+          quantity: qty,
+          unitPrice: effectivePrice,
+          deposit: product.deposit,
+          taxRate: product.taxRate,
+          variantName: item.variantName || null,
+          selectedOptions: item.selectedOptions
+            ? typeof item.selectedOptions === 'string'
+              ? item.selectedOptions
+              : JSON.stringify(item.selectedOptions)
+            : '[]',
+          customizationText: item.customizationText || guestNote || null,
+          courseNumber: item.courseNumber || 1,
+          isHold: false,
+          status: 'PENDING',
+          printStatus: 'PENDING',
+          productPrintGroup: product.printGroup,
+          productCategory: product.categoryId,
+        });
       }
 
-      orderItemsData.push({
-        productId: product.id,
-        productName: product.name,
-        quantity: qty,
-        unitPrice: effectivePrice,
-        deposit: product.deposit,
-        taxRate: product.taxRate,
-        variantName: item.variantName || null,
-        selectedOptions: item.selectedOptions ? (typeof item.selectedOptions === 'string' ? item.selectedOptions : JSON.stringify(item.selectedOptions)) : '[]',
-        customizationText: item.customizationText || guestNote || null,
-        courseNumber: item.courseNumber || 1,
-        isHold: false,
-        status: 'PENDING',
-        printStatus: 'PENDING',
+      if (itemsToCreate.length === 0) {
+        throw new Error('Keine bestellbaren Artikel im Warenkorb.');
+      }
+
+      const createdOrder = await tx.order.create({
+        data: {
+          orderNumber: updatedConfig.orderSequence,
+          tableId: table.id,
+          waiterName: `Gast (Tisch ${table.tableNumber})`,
+          source: 'GUEST_QR',
+          status: 'OPEN',
+          orderType: 'TABLE',
+          isTraining: config?.trainingMode ?? false,
+          items: {
+            create: itemsToCreate.map((i) => ({
+              productId: i.productId,
+              productName: i.productName,
+              quantity: i.quantity,
+              unitPrice: i.unitPrice,
+              deposit: i.deposit,
+              taxRate: i.taxRate,
+              variantName: i.variantName,
+              selectedOptions: i.selectedOptions,
+              customizationText: i.customizationText,
+              courseNumber: i.courseNumber,
+              isHold: i.isHold,
+              status: i.status,
+              printStatus: i.printStatus,
+            })),
+          },
+        },
+        include: { items: true, table: true },
       });
-    }
 
-    const order = await prisma.order.create({
-      data: {
-        orderNumber: updatedConfig.orderSequence,
-        tableId: table.id,
-        waiterName: `Gast (Tisch ${table.tableNumber})`,
-        source: 'GUEST_QR',
-        status: 'OPEN',
-        orderType: 'TABLE',
-        isTraining: config?.trainingMode ?? false,
-        items: {
-          create: orderItemsData,
-        },
-      },
-      include: {
-        items: {
-          include: { product: true },
-        },
-        table: true,
-      },
-    });
-
-    // Tischstatus auf OCCUPIED setzen
-    if (table.status === 'FREE') {
-      await prisma.diningTable.update({
+      await tx.diningTable.update({
         where: { id: table.id },
         data: { status: 'OCCUPIED' },
       });
-    }
 
-    // Automatischer Druck auf den entsprechenden Druckergruppen
+      return {
+        order: createdOrder,
+        orderItemsData: itemsToCreate,
+        printJobsToQueue: stockAlerts,
+      };
+    });
+
+    // Nach erfolgreicher Transaktion Drucker ansteuern
     try {
-      const { printedItemIds } = await TicketSplitter.routeAndPrintOrder({
+      await TicketSplitter.routeAndPrintOrder({
         id: order.id,
         orderNumber: order.orderNumber,
         tableLabel: table.label || `Tisch ${table.tableNumber}`,
-        waiterName: 'Gast (QR-Bestellung)',
+        waiterName: order.waiterName,
         isTraining: order.isTraining,
         createdAt: order.createdAt,
         items: order.items.map((i) => ({
           id: i.id,
-          productId: i.productId,
           productName: i.productName,
-          alternativeName: i.product.alternativeTicketName,
           quantity: i.quantity,
           unitPrice: i.unitPrice,
           deposit: i.deposit,
           variantName: i.variantName,
           selectedOptions: i.selectedOptions,
           customizationText: i.customizationText,
+          productId: i.productId,
           courseNumber: i.courseNumber,
           isHold: i.isHold,
         })),
       });
+    } catch {}
 
-      if (printedItemIds.length > 0) {
-        await prisma.orderItem.updateMany({
-          where: { id: { in: printedItemIds } },
-          data: { printStatus: 'PRINTED' },
-        });
-      }
-    } catch (printErr) {
-      console.warn('Druckerausgabe fuer Gastbestellung fehlgeschlagen:', printErr);
+    if (global.io) {
+      global.io.emit('order:created', order);
+      global.io.emit('table:updated', { tableId: table.id, status: 'OCCUPIED' });
     }
 
     return NextResponse.json({
       success: true,
       orderId: order.id,
       orderNumber: order.orderNumber,
-      itemCount: order.items.length,
-    }, { status: 201 });
+      message: 'Bestellung erfolgreich an die Küche übermittelt!',
+    });
   } catch (error) {
-    console.error('POST /api/guest/orders error:', error);
-    return NextResponse.json({ error: 'Fehler beim Übermitteln der Gastbestellung' }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Fehler beim Aufgeben der Gastbestellung' },
+      { status: 500 }
+    );
   }
 }

@@ -4,14 +4,18 @@ import { prisma } from '@/lib/db';
 export async function GET() {
   try {
     const waiters = await prisma.waiterProfile.findMany({
-      include: {
+      select: {
+        id: true,
+        name: true,
+        isActive: true,
+        tipProfileId: true,
         tipProfile: true,
+        createdAt: true,
       },
       orderBy: { name: 'asc' },
     });
     return NextResponse.json(waiters);
   } catch (error) {
-    console.error('GET /api/waiters error:', error);
     return NextResponse.json({ error: 'Fehler beim Laden der Kellner' }, { status: 500 });
   }
 }

@@ -17,7 +17,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Dependencies
@@ -27,6 +27,7 @@ jobs:
         run: |
           DATABASE_URL="file:./dev.db" npx prisma generate
           DATABASE_URL="file:./dev.db" npx prisma db push --accept-data-loss --skip-generate
+          DATABASE_URL="file:./dev.db" node prisma/seed.js
 
       - name: TypeScript Typecheck & Unit / Integration Tests
         run: npm test

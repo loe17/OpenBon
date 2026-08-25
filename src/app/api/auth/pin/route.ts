@@ -13,9 +13,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { action, pin, newPin, stationType, deviceId, waiterName } = body;
 
-    // Client-Identifikator für Rate-Limiting ermitteln
-    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'local';
-    const rateLimitKey = `${clientIp}:${deviceId || 'device'}:${stationType || 'ADMIN'}`;
+    // Client-Identifikator für Rate-Limiting ermitteln (nur nach IP und Zielstation, manipulationssicher)
+    const clientIp = (req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'local').split(',')[0].trim();
+    const rateLimitKey = `${clientIp}:${stationType || 'ADMIN'}`;
 
     if (action === 'VERIFY') {
       const targetStation: StationPinType = stationType || 'ADMIN';
@@ -91,10 +91,21 @@ export async function POST(req: Request) {
     }
 
     if (action === 'CHANGE') {
+      const changeRateCheck = checkRateLimit(`change:${rateLimitKey}`);
+      if (!changeRateCheck.allowed) {
+        return NextResponse.json(
+          { error: `Zu viele Fehlversuche beim PIN-Ändern. Bitte warte ${changeRateCheck.remainingSeconds} Sekunden.` },
+          { status: 429 }
+        );
+      }
+
       const isCurrentValid = await verifyStationPin(pin || '', 'ADMIN');
       if (!isCurrentValid) {
+        registerFailedAttempt(`change:${rateLimitKey}`);
         return NextResponse.json({ error: 'Aktueller Admin-PIN ist falsch.' }, { status: 403 });
       }
+      resetRateLimit(`change:${rateLimitKey}`);
+
       const changed = await setAdminPin(newPin);
       if (changed) {
         return NextResponse.json({ success: true, message: 'Admin-PIN erfolgreich geändert.' });

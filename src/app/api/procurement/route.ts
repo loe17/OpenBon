@@ -12,8 +12,10 @@ export async function GET() {
     const products = await prisma.product.findMany({
       where: {
         trackStock: true,
+        status: { not: 'HIDDEN' },
       },
       include: {
+        stockItem: true,
         category: {
           select: {
             id: true,
@@ -25,9 +27,9 @@ export async function GET() {
     });
 
     const suggestions = products.map((prod) => {
-      const minStock = prod.minStockAlert || 5;
+      const minStock = prod.minStockAlert || prod.stockAlertThreshold || 5;
       const targetStock = minStock * 3; // Zielbestand = 3x Meldebestand
-      const currentStock = prod.stockQuantity || 0;
+      const currentStock = prod.stockItem?.currentQuantity ?? prod.stockQuantity ?? 0;
       const neededQty = Math.max(0, targetStock - currentStock);
       const isUrgent = currentStock <= minStock;
 
@@ -60,7 +62,6 @@ export async function GET() {
       grouped,
     });
   } catch (error) {
-    console.error('Error computing procurement suggestions:', error);
     return NextResponse.json(
       { error: 'Fehler bei der Berechnung des Bestellvorschlags.' },
       { status: 500 }
@@ -75,38 +76,53 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { items, note } = body; // items: [{ productId, receivedQty }]
+    const { items } = body; // items: [{ productId, receivedQty }]
 
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'Keine Artikel übergeben.' }, { status: 400 });
     }
 
-    const updates = [];
-    for (const item of items) {
-      if (!item.productId || !item.receivedQty || item.receivedQty <= 0) continue;
+    await prisma.$transaction(async (tx) => {
+      for (const item of items) {
+        if (!item.productId || !item.receivedQty || item.receivedQty <= 0) continue;
 
-      updates.push(
-        prisma.product.update({
-          where: { id: item.productId },
-          data: {
-            stockQuantity: { increment: Number(item.receivedQty) },
+        const qty = Number(item.receivedQty);
+        // 1. StockItem erhöhen
+        const stock = await tx.stockItem.upsert({
+          where: { productId: item.productId },
+          create: {
+            productId: item.productId,
+            currentQuantity: qty,
+            initialQuantity: qty,
+            isAutoDeactivate: true,
           },
-        })
-      );
-    }
+          update: {
+            currentQuantity: { increment: qty },
+          },
+        });
 
-    await prisma.$transaction(updates);
+        // 2. Product-Status bei Wiederverfügbarkeit reaktivieren
+        if (stock.currentQuantity > 0) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: {
+              stockQuantity: stock.currentQuantity,
+              isSoldOut: false,
+            },
+          });
+        }
+      }
+    });
 
     if (global.io) {
-      global.io.emit('inventory:updated');
+      global.io.emit('stock:updated');
     }
 
     return NextResponse.json({
       success: true,
-      message: `${updates.length} Artikel erfolgreich im Bestand eingebucht.`,
+      message: `${items.length} Artikel erfolgreich im Bestand eingebucht.`,
     });
   } catch (error) {
-    console.error('Error applying procurement received stock:', error);
     return NextResponse.json(
       { error: 'Fehler beim Einbuchen des Wareneingangs.' },
       { status: 500 }
