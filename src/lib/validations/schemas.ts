@@ -31,23 +31,26 @@ export const PaymentItemInputSchema = z.object({
   taxRate: z.number().default(19),
 });
 
+export const PaymentMethodEnum = z.enum([
+  'CASH',
+  'CARD_SUMUP',
+  'CARD_VRPAY',
+  'CARD_SPARKASSE',
+  'CARD_TERMINAL',
+  'TOKEN',
+  'NON_PAID_STAFF',
+  'NON_PAID_COMPLAINT',
+  'VOID_UNPAID',
+  'DISCOUNT',
+]);
+
 export const CreatePaymentSchema = z.object({
   tableId: z.string().nullable().optional(),
   orderId: z.string().nullable().optional(),
+  waiterId: z.string().nullable().optional(),
   waiterName: z.string().default('Bedienung'),
   deviceId: z.string().nullable().optional(),
-  paymentMethod: z.enum([
-    'CASH',
-    'CARD_SUMUP',
-    'CARD_VRPAY',
-    'CARD_SPARKASSE',
-    'CARD_TERMINAL',
-    'TOKEN',
-    'NON_PAID_STAFF',
-    'NON_PAID_COMPLAINT',
-    'VOID_UNPAID',
-    'DISCOUNT',
-  ]).default('CASH'),
+  paymentMethod: PaymentMethodEnum.default('CASH'),
   givenAmount: z.number().nonnegative().optional(),
   tipAmount: z.number().nonnegative().default(0),
   discountAmount: z.number().nonnegative().default(0),
@@ -57,8 +60,36 @@ export const CreatePaymentSchema = z.object({
   cardAuthCode: z.string().nullable().optional(),
   cardTerminalId: z.string().nullable().optional(),
   printReceipt: z.boolean().default(true),
+  openDrawer: z.boolean().default(true),
+  nonPaidReason: z.string().nullable().optional(),
+  requestId: z.string().optional(),
+  returnDepositCount: z.number().int().nonnegative().optional(),
+  returnDepositAmount: z.number().nonnegative().optional(),
   idempotencyKey: z.string().optional(),
-  itemsToPay: z.array(PaymentItemInputSchema).min(1, 'Mindestens ein Artikel muss bezahlt werden'),
+  itemsToPay: z.array(PaymentItemInputSchema).default([]),
+});
+
+/**
+ * Atomic Checkout: Bestellung + sofortige Vollzahlung in EINER serverseitigen Transaktion.
+ * Verhindert verwaiste Bons (Bestandsabzug ohne Zahlung) bei Netzwerkabbruch zwischen
+ * den bisher zwei getrennten Requests /api/orders und /api/payments.
+ */
+export const AtomicCheckoutSchema = z.object({
+  orderType: z
+    .enum(['COUNTER_DIRECT', 'COUNTER_VOUCHER', 'DIRECT_SALE', 'VOUCHER', 'KIOSK'])
+    .default('COUNTER_DIRECT'),
+  source: z.enum(['WAITER', 'GUEST_QR', 'KIOSK', 'POS_CASHIER']).default('POS_CASHIER'),
+  tableId: z.string().nullable().optional(),
+  waiterName: z.string().default('Bonkasse'),
+  deviceId: z.string().nullable().optional(),
+  items: z.array(OrderItemInputSchema).min(1, 'Bestellung muss mindestens einen Artikel enthalten'),
+  paymentMethod: PaymentMethodEnum.default('CASH'),
+  givenAmount: z.number().nonnegative().optional(),
+  tipAmount: z.number().nonnegative().default(0),
+  discountAmount: z.number().nonnegative().default(0),
+  openDrawer: z.boolean().default(true),
+  printReceipt: z.boolean().default(false),
+  idempotencyKey: z.string().optional(),
 });
 
 export const GuestOrderItemSchema = z.object({

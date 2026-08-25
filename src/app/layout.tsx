@@ -5,6 +5,7 @@ import { SocketProvider } from '@/components/providers/socket-provider';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import Navbar from '@/components/navigation/navbar';
 import TrainingWatermark from '@/components/ui/training-watermark';
+import OfflineBanner from '@/components/ui/offline-banner';
 
 // Spec 3.3: Fliesstext & Labels = Inter (500/600)
 const inter = Inter({
@@ -85,6 +86,7 @@ export default function RootLayout({
         <ThemeProvider>
           <ToastProvider>
             <SocketProvider>
+              <OfflineBanner />
               <Navbar />
               <TrainingWatermark />
               <main className="flex-1 flex flex-col overflow-hidden">{children}</main>

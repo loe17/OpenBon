@@ -36,6 +36,13 @@ function getDb(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
+function generateIdempotencyKey(prefix: string): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `${prefix}_${crypto.randomUUID()}`;
+  }
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+}
+
 /**
  * Reiht einen Vorgang (Bestellung / Bezahlung) in die Offline-Outbox ein.
  */
@@ -44,9 +51,7 @@ export async function enqueueOutboxItem(
   endpoint: string,
   payload: any
 ): Promise<OutboxItem> {
-  const idempotencyKey =
-    payload.idempotencyKey ||
-    `ob_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  const idempotencyKey = payload.idempotencyKey || generateIdempotencyKey('ob');
 
   const item: OutboxItem = {
     id: idempotencyKey,
@@ -162,9 +167,7 @@ export async function sendWithOutboxFallback(
   endpoint: string,
   payload: any
 ): Promise<{ success: boolean; data?: any; queuedOffline?: boolean; error?: string }> {
-  const idempotencyKey =
-    payload.idempotencyKey ||
-    `ob_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  const idempotencyKey = payload.idempotencyKey || generateIdempotencyKey('ob');
 
   const bodyWithKey = { ...payload, idempotencyKey };
 

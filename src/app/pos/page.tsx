@@ -33,6 +33,7 @@ import { SubCategoryIcon } from '@/components/ui/subcategory-icon';
 import { calculateMinBirthdate, EU_ALLERGENS, filterProductsByExcludedAllergens } from '@/lib/compliance';
 import { getEffectiveProductPrice } from '@/lib/pricing';
 import { hasAnyCardPaymentConfigured } from '@/lib/payment/methods';
+import { sendWithOutboxFallback } from '@/lib/offline/outbox';
 import { useToast } from '@/components/ui/toast';
 import type { ProductDTO, ProductVariantDTO, OrderItemDTO, ProductCategoryDTO, EventConfigDTO } from '@/types/domain';
 
@@ -282,86 +283,58 @@ export default function PosCounterPage() {
       const waiterName = localStorage.getItem('pos_waiter_name') || 'Bonkasse Theke';
       const deviceId = localStorage.getItem('pos_device_id');
 
-      const idempotencyKey = `pos_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      const idempotencyKey = `pos_${crypto.randomUUID()}`;
 
-      // 1. Create Counter / Voucher Order
-      const orderRes = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Idempotency-Key': idempotencyKey,
-        },
-        body: JSON.stringify({
-          orderType: mode === 'DIRECT' ? 'COUNTER_DIRECT' : 'COUNTER_VOUCHER',
-          source: 'POS_CASHIER',
-          waiterName,
-          deviceId,
-          idempotencyKey,
-          items: cart.map((item) => ({
-            productId: item.productId,
-            name: item.name,
-            quantity: item.quantity,
-            unitPrice: item.price,
-            deposit: item.deposit,
-            variantName: item.variantName,
-          })),
-        }),
+      // Atomic Checkout: Bestellung + Zahlung in einem Request (serverseitig eine Transaktion).
+      // Bei Netzwerkabbruch landet der Vorgang in der Offline-Outbox und wird automatisch nachgesendet.
+      const result = await sendWithOutboxFallback('ORDER', '/api/orders/checkout', {
+        orderType: mode === 'DIRECT' ? 'COUNTER_DIRECT' : 'COUNTER_VOUCHER',
+        source: 'POS_CASHIER',
+        waiterName,
+        deviceId,
+        idempotencyKey,
+        items: cart.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          variantName: item.variantName || undefined,
+        })),
+        paymentMethod,
+        givenAmount: paymentMethod === 'CASH' ? givenAmount : undefined,
+        openDrawer: false,
+        printReceipt: mode !== 'DIRECT',
       });
 
-      if (!orderRes.ok) {
-        const err = await orderRes.json().catch(() => ({}));
-        error(err.error || 'Fehler beim Anlegen des Bons an der Bonkasse.');
+      if (!result.success) {
+        error(result.error || 'Fehler beim Kassiervorgang.');
         return;
       }
 
-      const orderData = await orderRes.json();
-      if (orderData.tokenNumber) {
-        setLastToken(orderData.tokenNumber);
-      }
-
-      // 2. Complete Payment
-      const paymentRes = await fetch('/api/payments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Idempotency-Key': `pay_${idempotencyKey}`,
-        },
-        body: JSON.stringify({
-          orderId: orderData.id,
-          waiterName,
-          deviceId,
-          paymentMethod,
-          givenAmount: paymentMethod === 'CASH' ? givenAmount : totalAmount,
-          printReceipt: mode !== 'DIRECT',
-          idempotencyKey: `pay_${idempotencyKey}`,
-          itemsToPay: orderData.items.map((i: OrderItemDTO) => ({
-            orderItemId: i.id,
-            productName: i.productName,
-            quantityToPay: i.quantity,
-            unitPrice: i.unitPrice,
-            deposit: i.deposit,
-            taxRate: i.taxRate,
-          })),
-        }),
-      });
-
-      if (paymentRes.ok) {
-        const payData = await paymentRes.json();
-        if (enableDigitalReceipt && payData.digitalReceiptUrl) {
-          setCompletedPayment(payData);
-          QRCode.toDataURL(payData.digitalReceiptUrl, { width: 256, margin: 1 })
-            .then((url) => setQrDataUrl(url))
-            .catch(() => {});
-        } else {
-          setCompletedPayment(null);
-        }
-        triggerHapticFeedback();
-        success('Zahlung erfolgreich abgeschlossen!');
+      if (result.queuedOffline) {
+        warning('Keine Serververbindung – Vorgang wurde offline gespeichert und wird automatisch synchronisiert.');
         setCart([]);
         setGivenAmount(0);
-        if (paymentMethod === 'CASH') {
-          openDrawer();
-        }
+        return;
+      }
+
+      const payData = result.data;
+      if (payData?.tokenNumber) {
+        setLastToken(payData.tokenNumber);
+      }
+
+      if (enableDigitalReceipt && payData?.digitalReceiptUrl) {
+        setCompletedPayment(payData);
+        QRCode.toDataURL(payData.digitalReceiptUrl, { width: 256, margin: 1 })
+          .then((url) => setQrDataUrl(url))
+          .catch(() => {});
+      } else {
+        setCompletedPayment(null);
+      }
+      triggerHapticFeedback();
+      success('Zahlung erfolgreich abgeschlossen!');
+      setCart([]);
+      setGivenAmount(0);
+      if (paymentMethod === 'CASH') {
+        openDrawer();
       }
     } catch (e) {
       console.error(e);

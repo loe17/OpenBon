@@ -8,6 +8,7 @@ import { getPaymentLabel } from '@/lib/payment/methods';
 import { generateDigitalReceiptCode, buildReceiptUrl } from '@/lib/digital-receipt';
 import { calculateTipDistribution } from '@/lib/tips';
 import { deductTapVolumeForItems } from '@/lib/tap-manager';
+import { validateBody, CreatePaymentSchema } from '@/lib/validations/schemas';
 import type { TicketData } from '@/lib/printer/types';
 
 export async function GET(req: Request) {
@@ -45,34 +46,14 @@ interface PayableItemInput {
   taxRate?: number;
 }
 
-interface CheckoutBody {
-  tableId?: string | null;
-  orderId?: string | null;
-  waiterId?: string | null;
-  waiterName?: string;
-  deviceId?: string | null;
-  paymentMethod?: string;
-  nonPaidReason?: string | null;
-  cardAuthCode?: string | null;
-  cardTerminalId?: string | null;
-  returnDepositCount?: number;
-  returnDepositAmount?: number;
-  discountAmount?: number;
-  tipAmount?: number;
-  surchargeAmount?: number;
-  surchargePercent?: number;
-  surchargeReason?: string | null;
-  givenAmount?: number;
-  printReceipt?: boolean;
-  openDrawer?: boolean;
-  /** Idempotenz-Schlüssel des Clients gegen Doppelbuchung bei schlechtem WLAN */
-  requestId?: string;
-  itemsToPay: PayableItemInput[];
-}
-
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as CheckoutBody;
+    // Zod-Validierung: verhindert stillschweigend falsche Betraege durch Type-Cast + Number()-Zwangsumwandlung
+    const validation = await validateBody(req, CreatePaymentSchema);
+    if (!validation.success) {
+      return validation.response;
+    }
+    const body = validation.data;
 
     const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
     if (!config) {

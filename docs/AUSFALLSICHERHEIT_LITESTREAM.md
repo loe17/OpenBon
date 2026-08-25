@@ -101,3 +101,41 @@ Sollte der primäre Raspberry Pi hardwareseitig ausfallen (z. B. SD-Kartendefekt
 2. **Kassen-Server an eine USV oder Powerbank mit Durchladefunktion** hängen.
 3. **Zwei getrennte WLAN Access Points** für Kellner-Tablets im Festzelt betreiben.
 4. **Litestream-Replikation auf USB-Stick** vor Festbeginn prüfen (`litestream generations /opt/openbon/prisma/dev.db`).
+
+---
+
+## 🔁 Warm-Standby mit Lease-Fencing (Stand 3)
+
+Neben dem Kalt-Standby über Litestream-Restore unterstützt OpenBon einen **Warm-Standby**:
+Der Standby-Server läuft dauerhaft mit und überwacht den Primary per Heartbeat
+(/api/sync/heartbeat, alle 2 s). Bleiben 3 Heartbeats ohne Antwort, promoted er sich zum Primary.
+
+### Split-Brain-Schutz (Leader-Lease)
+
+Damit es bei Netzwerkpartition nie zwei schreibende Knoten gibt, verwaltet OpenBon eine
+**PRIMARY-Lease** (HaLease-Tabelle, TTL 10 Sekunden):
+
+- Ein Knoten darf die Rolle PRIMARY nur **mit gültiger Lease** innehaben.
+- Der PRIMARY erneuert seine Lease laufend; der STANDBY kann sie bei Ausfall **übernehmen**.
+- Hält beim Start einer Instanz noch eine fremde, gültige Lease, startet diese Instanz
+  sicherheitshalber als STANDBY statt als zweiter PRIMARY.
+- Rollenwechsel über die Admin-Einstellungen werden mit HTTP 409 abgelehnt, solange
+  eine fremde Lease läuft.
+
+### Sync-Absicherung
+
+Die Sync-Endpunkte (/api/sync/heartbeat, /api/sync/pull) sind durch ein **Shared Secret**
+geschützt: ENV HA_SYNC_SECRET oder DB-Feld haSyncSecret (Header X-HA-Secret).
+Primary und Standby müssen dasselbe Secret verwenden.
+
+### Restore-Drill
+
+Ein Backup ohne getesteten Restore ist kein Backup. Nächtlich ausführen:
+
+```bash
+/opt/openbon/scripts/litestream-restore-drill.sh
+```
+
+Das Skript prüft Replikat-Frische, stellt die DB isoliert wieder her und führt einen
+SQLite-Integritätscheck durch. Bei Cron-Einrichtung meldet es Fehler ins Log – idealerweise
+zusammen mit dem Preflight-Check im Admin-Bereich vor Festbeginn nutzen.

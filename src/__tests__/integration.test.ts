@@ -78,14 +78,20 @@ describe('Praxisnahe End-to-End Workflow Tests', () => {
     expect(kdsStatus).toBe('COMPLETED');
   });
 
-  it('Workflow 4: Hot-Standby Failover und Rollenwechsel', () => {
+  it('Workflow 4: Hot-Standby Failover und Rollenwechsel', async () => {
     const haService = new HighAvailabilityService();
-    haService.setRole('STANDBY');
+    await haService.ready;
+    await haService.setRole('STANDBY');
     expect(haService.getRole()).toBe('STANDBY');
 
-    // Simulierter Ausfall des Primärservers -> Promote
-    haService.promoteToPrimary();
+    // Simulierter Ausfall des Primärservers -> Promote (Lease vorher freigeben)
+    const prisma = (await import('../lib/db')).default;
+    await prisma.haLease.deleteMany().catch(() => {});
+    const promoted = await haService.promoteToPrimary();
+    expect(promoted).toBe(true);
     expect(haService.getRole()).toBe('PRIMARY');
+
+    haService.dispose();
   });
 
   it('Workflow 5: VR-Pay Me & Kartenzahlung mit prozentualem und festem Aufschlag', () => {

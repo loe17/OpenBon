@@ -165,7 +165,16 @@ export async function POST(req: Request) {
     });
 
     if (typeof data.haRole === 'string') {
-      haService.setRole(data.haRole as 'PRIMARY' | 'STANDBY');
+      const promoted = await haService.setRole(data.haRole as 'PRIMARY' | 'STANDBY');
+      if (!promoted) {
+        return NextResponse.json(
+          {
+            error:
+              'Rollenwechsel abgelehnt: Eine andere Instanz hält noch eine gültige PRIMARY-Lease (Split-Brain-Schutz).',
+          },
+          { status: 409 }
+        );
+      }
     }
 
     if (global.io) {

@@ -581,3 +581,22 @@ model Staff {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// HA-Split-Brain-Fencing: Nur der Knoten mit gueltiger Lease darf als PRIMARY schreiben
+model HaLease {
+  id        String   @id @default("primary") // immer genau ein Lease-Datensatz
+  holderId  String   // Instanz-UUID des aktuellen Primaerknotens
+  holderUrl String?  // Partner-Erreichbarkeit fuer Diagnose
+  expiresAt DateTime // Lease laeuft ab -> anderer Knoten darf uebernehmen
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Persistente PIN-Sperrversuche (ueberlebt Serverneustart)
+model AuthAttempt {
+  key          String    @id // z. B. "192.168.1.50:POS"
+  attempts     Int       @default(0)
+  firstAttempt DateTime  @default(now())
+  lockUntil    DateTime?
+  updatedAt    DateTime  @updatedAt
+}

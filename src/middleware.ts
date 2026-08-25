@@ -12,7 +12,7 @@ const PUBLIC_PATHS = [
   '/api/metrics',
   '/api/receipt',
   '/api/guest/orders',
-  '/api/sync/heartbeat',
+  '/api/sync', // HA-Sync (Heartbeat + Pull) – eigener Schutz über Shared Secret (X-HA-Secret)
   '/customer-display',
   '/receipt',
   '/guest',

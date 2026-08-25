@@ -22,6 +22,20 @@ import {
 
 import { useToast } from '@/components/ui/toast';
 
+interface PreflightCheck {
+  id: string;
+  label: string;
+  status: 'OK' | 'WARNING' | 'ERROR' | 'SKIPPED';
+  detail: string;
+}
+
+interface PreflightReport {
+  status: 'OK' | 'WARNING' | 'ERROR';
+  role: string;
+  checkedAt: string;
+  checks: PreflightCheck[];
+}
+
 interface DiagnosticReport {
   timestamp: string;
   durationMs: number;
@@ -81,6 +95,24 @@ export default function DiagnosticsPage() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationSteps, setSimulationSteps] = useState<{ name: string; success: boolean; details: string }[] | null>(null);
   const [lastCheckTime, setLastCheckTime] = useState<string>('');
+  const [preflight, setPreflight] = useState<PreflightReport | null>(null);
+  const [preflightLoading, setPreflightLoading] = useState(false);
+
+  const runPreflight = async () => {
+    setPreflightLoading(true);
+    try {
+      const res = await fetch('/api/system/preflight');
+      const data = await res.json();
+      setPreflight(data);
+      if (data.status === 'OK') success('Preflight-Check bestanden – alles bereit!');
+      else if (data.status === 'WARNING') error('Preflight-Check mit Hinweisen – Details unten.');
+      else error('Preflight-Check fehlgeschlagen – kritische Probleme gefunden!');
+    } catch {
+      error('Preflight-Check konnte nicht ausgeführt werden.');
+    } finally {
+      setPreflightLoading(false);
+    }
+  };
 
   const runDiagnostics = async () => {
     setLoading(true);
@@ -190,6 +222,16 @@ export default function DiagnosticsPage() {
           </button>
 
           <button
+            onClick={runPreflight}
+            disabled={preflightLoading}
+            className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 rounded-xl text-xs font-black transition shadow-md shadow-amber-950/50"
+            title="DB, HA-Partner, Drucker & Backup-Replikat vor Festbeginn prüfen"
+          >
+            <ShieldCheck className={`w-4 h-4 ${preflightLoading ? 'animate-pulse' : ''}`} />
+            <span>{preflightLoading ? 'Prüft...' : 'Preflight-Check'}</span>
+          </button>
+
+          <button
             onClick={() => window.print()}
             className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl text-xs font-bold transition border border-slate-800"
             title="Prüfprotokoll ausdrucken"
@@ -199,6 +241,46 @@ export default function DiagnosticsPage() {
           </button>
         </div>
       </div>
+
+      {/* Preflight-Check Ergebnis (Festbeginn-Checkliste) */}
+      {preflight && (
+        <div
+          className={`mb-6 p-4 rounded-2xl border print:hidden ${
+            preflight.status === 'OK'
+              ? 'bg-emerald-950/30 border-emerald-500/40'
+              : preflight.status === 'WARNING'
+              ? 'bg-amber-950/30 border-amber-500/40'
+              : 'bg-rose-950/30 border-rose-500/40'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-black text-sm flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4" />
+              Preflight-Check vor Festbeginn ({new Date(preflight.checkedAt).toLocaleTimeString('de-DE')})
+            </h3>
+            <span className="text-[11px] font-mono opacity-70">HA-Rolle: {preflight.role}</span>
+          </div>
+          <div className="grid gap-1.5 sm:grid-cols-2">
+            {preflight.checks.map((check) => (
+              <div key={check.id} className="flex items-start gap-2 text-xs bg-slate-950/50 rounded-lg px-3 py-2">
+                {check.status === 'OK' ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                ) : check.status === 'WARNING' ? (
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                ) : check.status === 'ERROR' ? (
+                  <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                ) : (
+                  <span className="w-4 h-4 rounded-full border border-slate-600 shrink-0 mt-0.5" title="Übersprungen" />
+                )}
+                <div>
+                  <div className="font-bold">{check.label}</div>
+                  <div className="opacity-75">{check.detail}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {loading && !report ? (
         <div className="flex-1 flex flex-col items-center justify-center p-12 text-slate-400">

@@ -21,6 +21,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { getEffectiveProductPrice } from '@/lib/pricing';
+import { sendWithOutboxFallback } from '@/lib/offline/outbox';
 import { useToast } from '@/components/ui/toast';
 
 interface Product {
@@ -159,47 +160,30 @@ export default function KioskPage() {
     setIsProcessing(true);
     resetTimer();
     try {
-      // 1. Erstelle Kiosk-Bestellung
-      const orderRes = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderType: 'KIOSK',
-          source: 'KIOSK',
-          waiterName: 'SB-Kiosk Terminal #1',
-          items: cart.map((i) => ({
-            productId: i.product.id,
-            quantity: i.quantity,
-          })),
-        }),
+      // Atomic Checkout: Bestellung + Kartenzahlung in einem Request (eine Transaktion).
+      // Bei Netzwerkabbruch wird der Vorgang in der Outbox zwischengespeichert und automatisch nachgesendet.
+      const result = await sendWithOutboxFallback('ORDER', '/api/orders/checkout', {
+        orderType: 'KIOSK',
+        source: 'KIOSK',
+        waiterName: 'SB-Kiosk Terminal #1',
+        idempotencyKey: `kiosk_${crypto.randomUUID()}`,
+        paymentMethod: 'CARD_TERMINAL',
+        givenAmount: totalGross,
+        printReceipt: true,
+        openDrawer: false,
+        items: cart.map((i) => ({
+          productId: i.product.id,
+          quantity: i.quantity,
+        })),
       });
 
-      if (!orderRes.ok) throw new Error('Bestellung fehlgeschlagen');
-      const orderData = await orderRes.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Bestellung fehlgeschlagen');
+      }
 
-      // 2. Erstelle automatische Kartenzahlung
-      const payRes = await fetch('/api/payments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: orderData.id,
-          waiterName: 'SB-Kiosk',
-          paymentMethod: 'CARD_TERMINAL',
-          givenAmount: totalGross,
-          printReceipt: true,
-          itemsToPay: cart.map((i) => ({
-            orderItemId: orderData.items?.find((it: any) => it.productId === i.product.id)?.id,
-            productName: i.product.name,
-            quantityToPay: i.quantity,
-            unitPrice: i.product.price,
-            deposit: i.product.deposit,
-            taxRate: i.product.taxRate,
-          })),
-        }),
-      });
-
-      const tokenStr = `#K-${String(orderData.tokenNumber || orderData.orderNumber).padStart(3, '0')}`;
-      setOrderResult({ tokenNumber: tokenStr, orderNumber: orderData.orderNumber });
+      const orderData = result.data;
+      const tokenStr = `#K-${String(orderData?.tokenNumber || orderData?.orderNumber).padStart(3, '0')}`;
+      setOrderResult({ tokenNumber: tokenStr, orderNumber: orderData?.orderNumber });
       setStep('SUCCESS');
       setCart([]);
     } catch (err) {
