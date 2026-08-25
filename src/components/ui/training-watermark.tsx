@@ -14,7 +14,7 @@ export function TrainingWatermark() {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch('/api/config');
+        const res = await fetch('/api/config/public');
         if (!res.ok) return;
         const data = await res.json();
         if (!cancelled) setActive(Boolean(data?.trainingMode));

@@ -36,9 +36,11 @@ export default function HomePage() {
   const [pinStationType, setPinStationType] = useState<'ADMIN' | 'POS' | 'KITCHEN' | 'WAITER'>('ADMIN');
 
   useEffect(() => {
-    fetch('/api/config')
-      .then((r) => r.json())
-      .then((d) => setConfig(d))
+    fetch('/api/config/public')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && !d.error) setConfig(d);
+      })
       .catch(() => {});
 
     fetch('/api/devices')

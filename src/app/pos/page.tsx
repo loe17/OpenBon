@@ -150,10 +150,10 @@ export default function PosCounterPage() {
   }, [socket, cart, totalGross, totalDeposit, stationId, stationName]);
 
   useEffect(() => {
-    fetch('/api/config')
-      .then((r) => r.json())
+    fetch('/api/config/public')
+      .then((r) => (r.ok ? r.json() : null))
       .then((cfg) => {
-        if (cfg) {
+        if (cfg && !cfg.error) {
           setConfig(cfg);
           setEnableDigitalReceipt(Boolean(cfg.enableDigitalReceipt || cfg.enableDigitalReceiptQr));
         }

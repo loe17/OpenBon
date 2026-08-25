@@ -26,6 +26,7 @@ export default function PinModal({
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -58,8 +59,6 @@ export default function PinModal({
     setPin('');
     setError(false);
   };
-
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const verifyPin = async (pinToVerify: string) => {
     setChecking(true);

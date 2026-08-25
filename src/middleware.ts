@@ -7,6 +7,7 @@ const PUBLIC_PATHS = [
   '/_next',
   '/api/auth/pin',
   '/api/config/public',
+  '/api/devices',
   '/api/health',
   '/api/metrics',
   '/api/receipt',

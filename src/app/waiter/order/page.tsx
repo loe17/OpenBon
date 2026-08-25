@@ -120,10 +120,10 @@ function WaiterOrderContent() {
   };
 
   useEffect(() => {
-    fetch('/api/config')
-      .then((r) => r.json())
+    fetch('/api/config/public')
+      .then((r) => (r.ok ? r.json() : null))
       .then((cfg) => {
-        if (cfg) {
+        if (cfg && !cfg.error) {
           setEnableCourses(Boolean(cfg.enableCourses));
           setEnableAgeAlerts(Boolean(cfg.enableAgeVerificationAlerts ?? true));
         }

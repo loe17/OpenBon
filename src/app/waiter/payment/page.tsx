@@ -123,10 +123,10 @@ function WaiterPaymentContent() {
   }, [tableId]);
 
   useEffect(() => {
-    fetch('/api/config')
-      .then((r) => r.json())
+    fetch('/api/config/public')
+      .then((r) => (r.ok ? r.json() : null))
       .then((cfg) => {
-        if (cfg) {
+        if (cfg && !cfg.error) {
           setConfig(cfg);
           if (cfg.enableGuestFacingDisplay !== undefined) {
             setGuestFacingMode(Boolean(cfg.enableGuestFacingDisplay));
