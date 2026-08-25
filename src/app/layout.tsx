@@ -30,7 +30,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'OpenBon - Kassensystem (v0.2.1)',
+  title: 'OpenBon - Kassensystem',
   description: 'Offenes Kassen- und Bestellsystem für Vereinsfeste und Gastronomie',
   manifest: '/manifest.json',
 };
