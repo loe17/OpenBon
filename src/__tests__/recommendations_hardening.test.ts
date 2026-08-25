@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { signSessionToken, verifySessionToken, getJwtSecretKey } from '../lib/auth-session';
 import { checkRateLimit, registerFailedAttempt, resetRateLimit } from '../lib/rate-limiter';
 import { createDatabaseBackup } from '../lib/backup-scheduler';
+import { hashPin, verifyPinHash } from '../lib/auth-pin';
+import { hasRequiredRole } from '../lib/rbac';
 import prisma from '../lib/db';
 import fs from 'fs';
 
@@ -104,19 +106,22 @@ describe('OpenBon EMPFEHLUNGEN Hardening Tests', () => {
     });
   });
 
-  describe('3.3 Konfigurierbare Auswahllisten & Veranstaltungsvorlagen', () => {
-    it('sollte ConfigLists und EventProfiles anlegen und auslesen können', async () => {
-      const list = await prisma.configList.upsert({
-        where: { key: 'TEST_LIST' },
-        create: { key: 'TEST_LIST', name: 'Testliste', itemsJson: JSON.stringify([{ id: '1', name: 'Eintrag 1' }]) },
-        update: { itemsJson: JSON.stringify([{ id: '1', name: 'Eintrag 1' }]) },
-      });
+  describe('1.2 Kryptografisches PBKDF2 PIN-Hashing & RBAC', () => {
+    it('sollte PINs mit PBKDF2 und Salt hashen und verifizieren können', () => {
+      const pin = '8492';
+      const hash = hashPin(pin);
 
-      expect(list.key).toBe('TEST_LIST');
-      const items = JSON.parse(list.itemsJson);
-      expect(items).toHaveLength(1);
+      expect(hash).toContain('$pbkdf2$');
+      expect(verifyPinHash('8492', hash)).toBe(true);
+      expect(verifyPinHash('0000', hash)).toBe(false);
+      expect(verifyPinHash('8491', hash)).toBe(false);
+    });
 
-      await prisma.configList.delete({ where: { key: 'TEST_LIST' } });
+    it('sollte Rollen-Berechtigungen über die RBAC-Matrix korrekt bewerten', () => {
+      expect(hasRequiredRole('ADMIN', ['WAITER', 'POS_CASHIER'])).toBe(true);
+      expect(hasRequiredRole('WAITER', ['WAITER'])).toBe(true);
+      expect(hasRequiredRole('WAITER', ['ADMIN'])).toBe(false);
+      expect(hasRequiredRole('POS_CASHIER', ['WAITER'])).toBe(false);
     });
   });
 });

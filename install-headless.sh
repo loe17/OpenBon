@@ -75,11 +75,35 @@ sudo -u "$SERVICE_USER" DATABASE_URL="file:./dev.db" node prisma/seed.js
 echo "[5/6] Baue Next.js Produktions-Build..."
 sudo -u "$SERVICE_USER" DATABASE_URL="file:./dev.db" npm run build
 
-# 6. Systemd Hintergrunddienst erstellen
-echo "[6/6] Richte systemd-Dienst ein (/etc/systemd/system/openbon.service)..."
+# 6. Litestream Replikation installieren & einrichten
+echo "[6/7] Installiere Litestream für kontinuierliche SQLite-WAL-Replikation..."
+ARCH=$(uname -m)
+LITESTREAM_VERSION="v0.3.13"
+if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+  LITESTREAM_PKG="litestream-${LITESTREAM_VERSION}-linux-arm64.tar.gz"
+elif [ "$ARCH" = "armv7l" ] || [ "$ARCH" = "armhf" ]; then
+  LITESTREAM_PKG="litestream-${LITESTREAM_VERSION}-linux-armv7.tar.gz"
+else
+  LITESTREAM_PKG="litestream-${LITESTREAM_VERSION}-linux-amd64.tar.gz"
+fi
+
+curl -fsSL "https://github.com/benbjohnson/litestream/releases/download/${LITESTREAM_VERSION}/${LITESTREAM_PKG}" -o /tmp/litestream.tar.gz 2>/dev/null || true
+if [ -f /tmp/litestream.tar.gz ]; then
+  tar -C /usr/local/bin -xzf /tmp/litestream.tar.gz 2>/dev/null || true
+  rm -f /tmp/litestream.tar.gz
+  chmod +x /usr/local/bin/litestream 2>/dev/null || true
+  cp "$INSTALL_DIR/scripts/litestream.service" /etc/systemd/system/ 2>/dev/null || true
+  systemctl daemon-reload
+  systemctl enable litestream 2>/dev/null || true
+  systemctl restart litestream 2>/dev/null || true
+  echo "  -> Litestream erfolgreich installiert und gestartet."
+fi
+
+# 7. Systemd Hintergrunddienst erstellen
+echo "[7/7] Richte systemd-Dienst ein (/etc/systemd/system/openbon.service)..."
 cat <<EOF > /etc/systemd/system/openbon.service
 [Unit]
-Description=OpenBon - Kassensystem Server (v0.2.1)
+Description=OpenBon - Kassensystem Server
 After=network.target
 
 [Service]
@@ -110,7 +134,7 @@ IP_ADDR=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1")
 
 echo ""
 echo "======================================================================"
-echo "  [ERFOLG] OpenBon v0.2.1 wurde erfolgreich installiert!"
+echo "  [ERFOLG] OpenBon wurde erfolgreich installiert!"
 echo "  Server laeuft im Hintergrunddienst: systemctl status openbon"
 echo "  Aufruf im Browser: http://openbon.local oder http://$IP_ADDR"
 echo "======================================================================"

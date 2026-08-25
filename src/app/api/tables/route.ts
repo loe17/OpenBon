@@ -94,6 +94,7 @@ export async function POST(req: Request) {
               gridY: r,
               status: 'FREE',
               isActive: true,
+              qrToken: Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10),
             },
           });
           createdTables.push(table);
@@ -144,6 +145,7 @@ export async function POST(req: Request) {
         gridY: body.gridY || 0,
         status: body.status || 'FREE',
         isActive: body.isActive ?? true,
+        qrToken: Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10),
       },
     });
 

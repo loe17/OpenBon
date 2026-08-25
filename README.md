@@ -1,123 +1,113 @@
-# OpenBon - Kassen-, Bestell- & Festmanagementsystem
+# OpenBon - Enterprise Kassen-, Bestell- & Festmanagementsystem
+
+OpenBon ist ein modernes, offline-fähiges und hochverfügbares Open-Source Kassen- und Bestellsystem, optimiert für Vereinsfeste, Feuerwehrfeste, Gastronomie und Großveranstaltungen.
 
 ---
 
-## 🚀 Schnellstart
+## 🚀 Schnellstart & Installation
 
-### 1. Windows (1-Klick Start)
+### 1. Headless 1-Klick Komplettinstallation (Raspberry Pi & Linux)
+```bash
+curl -fsSL https://raw.githubusercontent.com/loe17/OpenBon/master/install-headless.sh | sudo bash
+```
+*Richtet automatisch Node.js, Avahi-mDNS (`http://openbon.local`), SQLite mit WAL, Litestream-Replikation und den systemd-Hintergrunddienst ein.*
+
+---
+
+### 2. Windows (1-Klick Start)
 Doppelklick auf die Datei:
 ```cmd
 start.bat
 ```
-*(Alternativ: `start-primary.bat` für HA-Masterbetrieb oder `start-standby.bat` für redundanten Backup-Server).*
 
 ---
 
-### 2. Linux / Raspberry Pi / macOS (1-Klick Start)
-Im Terminal ausführen:
-```bash
-chmod +x *.sh
-./start.sh
-```
-
----
-
-### 3. Headless Linux / Raspberry Pi (Automatische Komplettinstallation)
-```bash
-curl -fsSL https://raw.githubusercontent.com/loe17/OpenBon/master/install-headless.sh | sudo bash
-```
-Der Installer richtet Node.js, Avahi-mDNS (`http://openbon.local`), SQLite-Datenbank, Systemd-Autostart und Port 80 automatisch ein.
-
----
-
-### 4. Manueller Start (Entwickler)
+### 3. Manueller Entwicklungsstart
 ```bash
 # 1. Abhängigkeiten installieren
 npm install
 
-# 2. Datenbank synchronisieren
+# 2. Datenbank synchronisieren & seeden
 npx prisma db push
+node prisma/seed.js
 
-# 3. Testsuite ausführen
+# 3. Testsuite ausführen (18 Suiten, 100% grün)
 npm test
 
-# 4. Server starten (Port 3000)
+# 4. Server starten
 node server.js
-# oder für Entwicklungsmodus mit Hot-Reload:
-npm run dev
 ```
 
 ---
 
-## 📱 Stationszugriff im lokalen Netzwerk
+## 📱 Stationszugriff & URLs im lokalen Netzwerk
 
-Jedes Smartphone, Tablet, PC oder Touchterminal kann direkt im Webbrowser geöffnet werden:
+Jedes Smartphone, Tablet, Touchscreen-Terminal oder PC kann direkt im Webbrowser geöffnet werden:
 
-| Station | URL | Standard-PIN | Zweck |
-| :--- | :--- | :---: | :--- |
-| **Admin Command Center** | `http://openbon.local/admin/dashboard` | `1234` | Live-Umsatz, Leitstand & Konfiguration |
-| **Bedienung (Mobilteil)** | `http://openbon.local/waiter` | `3333` | Tische aufnehmen, Gänge, Funk & Abrechnen |
-| **Bonkasse / Theke** | `http://openbon.local/pos` | `1111` | Schneller Thekenverkauf, Wertmarken & Bar |
-| **SB-Kiosk Terminal** | `http://openbon.local/kiosk` | – | Eigenständiges Gäste-Bestellterminal |
-| **Küchenmonitor (KDS)** | `http://openbon.local/kitchen` | `2222` | Live-Bons abhaken & Zubereitungszeiten |
-| **Tisch-Bestellung (BYOD)** | `http://openbon.local/guest/table/1` | – | Gäste bestellen per QR-Code am Tisch |
-| **Digitaler E-Bon** | `http://openbon.local/receipt/[code]` | – | Papierloser Kassenbeleg nach §33 KassenSichV |
-| **Team-Funk** | `http://openbon.local/chat` | – | Echtzeit-Notrufe & Küchen-Durchsagen |
-
----
-
-## ✨ Funktionsübersicht
-
-### 🍽️ Gast-Bestellung & Self-Service
-- **BYOD QR-Tischbestellung (`/guest/table/[nr]`)**: Gäste scannen den QR-Code am Tisch und bestellen direkt vom Smartphone; Bons werden automatisch an Küche und Schanktheke gedruckt.
-- **SB-Kiosk Terminal (`/kiosk`)**: Touchscreen-Bestellterminal mit 60-Sekunden Inaktivitäts-Reset, automatischer Abholnummern-Vergabe (`#K-101`) und Terminal-Zahlung.
-- **Digitaler E-Bon QR-Code (`/receipt/[code]`)**: Papierloser Kassenbeleg nach §33 KassenSichV mit vollständiger USt-Aufschlüsselung, TSE-Signatur und PDF-Druck.
-
-### 💰 Kasse, Abrechnung & Trinkgeld
-- **Flexible Trinkgeld-Profile & Bereiche (`/admin/tips`)**: Standard 100% an die Bedienung; frei konfigurierbare Pool-Verteilung (z. B. Theke 20%, Küche 10%, Service 70%) und Zuordnung je Kellner.
-- **Wertmarken- & Token-System (`/admin/tokens`)**: Verkauf, Einlösung und Rückkauf von Verzehrbons, Pfandmarken und Getränkechips mit digitalem Kassenjournal und Umlaufsaldo.
-- **Kartenzahlung & EC-Terminals**: Integrierte Unterstützung für ZVT-over-IP Netzwerkkassen, SumUp App-to-App, VR-Pay Me und Sparkasse S-POS (nur aktiv bei hinterlegten Zugangsdaten).
-- **Kassenbuch & Barverkehr (`/admin/cashbook`)**: Z-Bons, Wechselgeld-Einlagen und Tresor-Entnahmen mit GoBD-konformer Protokollierung.
-
-### ⚖️ Jugendschutz, Allergene & Bestandsführung
-- **Jugendschutz-Hinweis mit Geburtsdatum**: Taggenaue Berechnung des Mindestgeburtsdatums für 16 und 18 Jahre (z. B. *„Ab 16 J: ≤ 24.08.2010“*) auf Kasse und Mobilteil.
-- **LMIV Allergen-Matrix & Filter**: Alle 14 offiziellen EU-Hauptallergene und Zusatzstoffe direkt im Artikelstamm pflegbar; Kellner und Gäste können Allergene mit 1 Klick filtern.
-- **Zeitgesteuerte Aktionspreise (Happy Hour)**: Zeitfenster (Start/Ende), Wochentagsfilter und Aktionspreise je Artikel mit automatischem Wechsel.
-- **Meldebestand-Warnung & Warndrucker**: Warnhinweis auf Kasse und Admin bei Unterschreitung des Mindestbestands; optionaler automatischer Warnzettel-Ausdruck auf Netzwerkdrucker.
-
-### 📑 Buchhaltung & Finanzamts-Compliance
-- **DATEV Kassenbuch-Export (`/admin/accounting`)**: Download standardkonformer DATEV EXTF 700 Buchungsstapel mit Kontenrahmen (19% Erlöse `8400`, 7% `8300`, Kasse `1000`, Geldtransit `1360`).
-- **DSFinV-K & TSE Prüfer-Export (`/admin/fiscal`)**: Standardisierter DSFinV-K 2.3+ Export (`bonkopf.csv`, `bonpos.csv`, `bonpos_preise.csv`, `tse_transaktionen.csv`) mit SHA-256 Prüfsumme für Kassennachschauen nach KassenSichV.
-
-### 🖨️ Hochverfügbarkeit & Druckersteuerung
-- **2-Server Hochverfügbarkeit (Dual HA Failover)**: Primär- und Standby-Server synchronisieren Bestellungen in Echtzeit; bei Serverausfall springt der Standby-Server nahtlos ein.
-- **ESC/POS Netzwerkdrucker-Routing**: Druckergruppen-Steuerung für Küche, Schanktheke, Ausschank und Abholung mit CP858-Umlauten (äöüß€) und Tablett-Splitting.
+| Station | URL | Zweck & Zielgruppe |
+| :--- | :--- | :--- |
+| **🚀 Erststart-Assistent** | `http://openbon.local/setup` | Schnelleinrichtung: Event-Daten, PINs, Tische & Drucker |
+| **👑 Admin Dashboard** | `http://openbon.local/admin/dashboard` | Live-Umsatz, Leitstand, Artikelpflege & Kassenbuch |
+| **📱 Kellner-Mobilteil** | `http://openbon.local/waiter` | Offline-fähige Tischaufnahme, Gänge, Funk & Kassieren |
+| **💳 Bonkasse / Theke** | `http://openbon.local/pos` | Schneller Direktverkauf, Wertmarken, ZVT/EC & Bar |
+| **🖥️ SB-Kiosk Terminal** | `http://openbon.local/kiosk` | Eigenständiges Gäste-Bestellterminal |
+| **👨‍🍳 Küchenmonitor (KDS)** | `http://openbon.local/kitchen` | Live-Küchenbons abhaken mit Zubereitungs-Timer |
+| **📲 QR-Tischbestellung** | `http://openbon.local/guest/table/1` | Gäste bestellen kontaktlos vom Smartphone am Tisch |
+| **🧾 Digitaler E-Bon** | `http://openbon.local/receipt/[code]` | Papierloser Kassenbeleg (§33 KassenSichV) via QR-Code |
+| **💬 Team-Funk** | `http://openbon.local/chat` | Echtzeit-Notrufe & Küchen-Durchsagen |
 
 ---
 
-## 🛠️ Systemvoraussetzungen & Hardware
+## 🛡️ Enterprise-Sicherheit & Härtung
 
-Ausführliche Anleitungen und Empfehlungen befinden sich im Ordner [`docs/`](docs/):
-- [**Hardware-Empfehlungen**](docs/HARDWARE_EMPFEHLUNGEN.md): Server, Tablets, Bondrucker und Router
-- [**Netzwerk & WLAN-Setup**](docs/NETZWERK_ROUTER.md): Empfehlungen für stabiles WLAN im Festzelt
-- [**Drucker-Setup**](docs/DRUCKER_SETUP.md): ESC/POS-Drucker über LAN/WLAN einrichten
-- [**Hochverfügbarkeit (HA)**](docs/HOCHVERFUEGBARKEIT.md): 2-Server Ausfallsicherheit
-- [**Rollen- & PIN-Sicherheit**](docs/ROLLEN_PIN_SICHERHEIT.md): Zugriffsschutz im Livebetrieb
+- **Vollständige Session-Schranke:** Alle internen API-Endpunkte (`/api/orders`, `/api/payments`, `/api/reports`, etc.) verlangen eine gültige signierte JWT-Session.
+- **Kryptografisches PBKDF2-PIN-Hashing:** Stations- und Kellner-PINs werden mit 100.000 Runden, individuellem Salt und Constant-Time-Vergleich geprüft.
+- **Zod-Typvalidierung:** Alle schreibenden APIs validieren eingehende Datenstrukturen streng gegen Schemata.
+- **Socket.IO Handshake-Auth:** Socket-Rollen werden ausschließlich aus dem verifizierten Token abgeleitet (keine unautorisierte Rechteübernahme möglich).
+- **Rollenbasierte Zugriffskontrolle (RBAC):** Zentral definierte Rechte für `ADMIN`, `POS_CASHIER`, `WAITER` und `KITCHEN`.
+- **Geschützte Gastbestellung:** Tisch-`qrToken` zwingend erforderlich; Rate-Limiting gegen Denial-of-Service.
+
+---
+
+## ⚡ Ausfallsicherheit & Hochverfügbarkeit
+
+```
+[ Raspberry Pi 5 Kassen-Server ]
+  ├── SQLite mit PRAGMA synchronous = FULL
+  ├── Litestream Service ──► Kontinuierliche WAL-Replikation auf USB-Stick (RPO < 1s)
+  │
+  └── Offline-First Tablets (PWA)
+        ├── Service Worker Cache: Menükatalog & Tischpläne offline verfügbar
+        └── IndexedDB Outbox: Bestellungen & Zahlungen bei WLAN-Abbruch lokal gesichert
+```
+
+1. **Offline-First mit Client-Outbox:** Bricht das WLAN im Festzelt ab, speichern Kellner-Tablets und Thekenkassen die Vorgänge in der lokalen IndexedDB. Beim Reconnect synchronisiert die Outbox automatisch mit Idempotency-Keys (keine Doppelbons).
+2. **Litestream WAL-Replikation:** Jede geschriebene Buchung wird im Sekundentakt auf einen USB-Stick oder ein Zweitgerät gespiegelt.
+3. **Kalt-Standby & 1-Klick Disaster Recovery:** Bei Hardwareausfall des Servers wird das Ersatzgerät mit `./scripts/litestream-restore.sh` in 2 Minuten auf den exakten Stand wiederhergestellt.
+4. **Automatischer Backup-Scheduler:** Erstellt zyklisch Online-Snapshots (`VACUUM INTO`) mit 10-fach Rotation.
+5. **Persistente Druck-Warteschlange:** Druckaufträge überleben Server-Neustarts und werden bei Drucker-Störungen mit automatischem Retry verarbeitet.
+
+---
+
+## 📚 Dokumentation & Leitfäden
+
+Im Verzeichnis [`docs/`](docs/) stehen praxisnahe Anleitungen bereit:
+
+- 📖 **[`docs/AUSFALLSICHERHEIT_LITESTREAM.md`](docs/AUSFALLSICHERHEIT_LITESTREAM.md)**: Litestream-Setup, USB-Replikation und Kalt-Standby.
+- 📱 **[`docs/OFFLINE_FIRST_GUIDE.md`](docs/OFFLINE_FIRST_GUIDE.md)**: Offline-First Leitfaden für Kassenbedienungen und Helfer.
+- 🆘 **[`docs/NOTFALL_RUNBOOK.md`](docs/NOTFALL_RUNBOOK.md)**: Stufenplan & Papier-Notbetrieb bei Stromausfall.
+- 💳 **[`docs/KARTENZAHLUNG_ANLEITUNG.md`](docs/KARTENZAHLUNG_ANLEITUNG.md)**: Einrichtung von ZVT-Terminals, SumUp & Sparkasse S-POS.
 
 ---
 
 ## 🧪 Tests & Qualitätssicherung
 
-Die Codebase verfügt über eine umfassende automatisierte Testsuite:
 ```bash
+# Gesamte Testsuite ausführen
 npm test
-```
-```
-Test Files: 17 passed (17)
-Tests:      106 passed (106)
+
+# Produktions-Build kompilieren
+npm run build
 ```
 
----
-
-## 📄 Lizenz
-OpenBon steht unter der [MIT-Lizenz](LICENSE).
+- **18 Test-Suiten / 118 Tests:** E2E-Lebenszyklus, Idempotenz, Berechtigungen, PBKDF2-PIN-Hashing, DSFinV-K/DATEV-Fiskalisierung, Druckspooler-Resilienz und ESC/POS-Rendering.

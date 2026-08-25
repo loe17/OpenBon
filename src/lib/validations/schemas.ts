@@ -61,6 +61,22 @@ export const CreatePaymentSchema = z.object({
   itemsToPay: z.array(PaymentItemInputSchema).min(1, 'Mindestens ein Artikel muss bezahlt werden'),
 });
 
+export const GuestOrderItemSchema = z.object({
+  productId: z.string().min(1, 'Produkt-ID ist erforderlich'),
+  quantity: z.number().int().positive().max(10, 'Maximal 10 Stück pro Position'),
+  variantName: z.string().nullable().optional(),
+  selectedOptions: z.union([z.array(z.string()), z.string()]).nullable().optional(),
+  customizationText: z.string().nullable().optional(),
+  courseNumber: z.number().int().default(1),
+});
+
+export const GuestOrderSchema = z.object({
+  tableNumber: z.union([z.number().int().positive(), z.string().min(1)]),
+  qrToken: z.string().optional(),
+  items: z.array(GuestOrderItemSchema).min(1, 'Bestellung muss mindestens einen Artikel enthalten').max(20, 'Maximal 20 Artikel'),
+  guestNote: z.string().nullable().optional(),
+});
+
 export const CreateProductCategorySchema = z.object({
   name: z.string().min(1, 'Kategoriename ist erforderlich'),
   sortIndex: z.number().int().default(0),

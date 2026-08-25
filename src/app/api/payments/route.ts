@@ -95,18 +95,6 @@ export async function POST(req: Request) {
       body.requestId ||
       (body as any).idempotencyKey;
 
-    if (idempotencyKey) {
-      const existing = await prisma.idempotencyKey.findUnique({
-        where: { key: String(idempotencyKey) },
-      });
-      if (existing) {
-        return NextResponse.json(JSON.parse(existing.responseJson), {
-          status: existing.statusCode,
-          headers: { 'X-Idempotent-Replay': 'true' },
-        });
-      }
-    }
-
     // 1. Cent-genaue Berechnung
     const checkout = computeCheckout({
       lines: itemsToPay.map((i) => ({
@@ -142,8 +130,17 @@ export async function POST(req: Request) {
     const period = await getOrCreateOpenPeriod();
     const paymentMethod = body.paymentMethod || 'CASH';
 
-    // 2. Beleg + Positionen + Zähler in EINER Transaktion
-    const payment = await prisma.$transaction(async (tx) => {
+    // 2. Beleg + Positionen + Zähler + Idempotenz in EINER Transaktion
+    const paymentResult = await prisma.$transaction(async (tx) => {
+      if (idempotencyKey) {
+        const existing = await tx.idempotencyKey.findUnique({
+          where: { key: String(idempotencyKey) },
+        });
+        if (existing) {
+          return { isReplay: true, response: JSON.parse(existing.responseJson), statusCode: existing.statusCode };
+        }
+      }
+
       const current = await tx.eventConfig.update({
         where: { id: 'default' },
         data: { invoiceSequence: { increment: 1 } },
@@ -232,6 +229,15 @@ export async function POST(req: Request) {
 
       return createdPayment;
     });
+
+    if ('isReplay' in paymentResult && paymentResult.isReplay) {
+      return NextResponse.json(paymentResult.response, {
+        status: paymentResult.statusCode || 200,
+        headers: { 'X-Idempotent-Replay': 'true' },
+      });
+    }
+
+    const payment = paymentResult as any;
 
     // 3. Tisch freigeben, wenn nichts mehr offen ist
     if (body.tableId) {

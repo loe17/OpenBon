@@ -42,8 +42,42 @@ app.prepare().then(() => {
     pingTimeout: 5000,
   });
 
-  // Attach io to global for API routes
-  global.io = io;
+  // Handshake-Authentifizierung für Socket.IO
+  io.use(async (socket, next) => {
+    try {
+      const cookieHeader = socket.handshake.headers.cookie || '';
+      const authHeader = socket.handshake.headers.authorization || socket.handshake.auth?.token || '';
+      let token = '';
+
+      if (authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7).trim();
+      } else if (authHeader) {
+        token = authHeader.trim();
+      } else {
+        const match = cookieHeader.match(/openbon_session=([^;]+)/);
+        if (match) token = match[1];
+      }
+
+      if (token) {
+        try {
+          const { jwtVerify } = require('jose');
+          const secretStr = process.env.SESSION_SECRET || (global.__OPENBON_JWT_SECRET__ || '');
+          if (secretStr) {
+            const { payload } = await jwtVerify(token, new TextEncoder().encode(secretStr));
+            socket.authenticatedRole = payload.role || 'WAITER';
+            socket.authenticatedUser = payload.waiterName || 'Staff';
+          }
+        } catch {
+          socket.authenticatedRole = 'GUEST';
+        }
+      } else {
+        socket.authenticatedRole = 'GUEST';
+      }
+    } catch {
+      socket.authenticatedRole = 'GUEST';
+    }
+    next();
+  });
 
   io.on('connection', (socket) => {
     const clientIp = socket.handshake.address || socket.conn.remoteAddress;
@@ -52,8 +86,11 @@ app.prepare().then(() => {
     socket.on('device:register', (deviceInfo) => {
       const deviceId = deviceInfo.id || socket.id;
       const claimedRole = deviceInfo.role || 'WAITER';
-      // Rollenbeschränkung: ADMIN darf nur gesetzt werden, wenn Handshake-Token oder Session gültig ist
-      const role = claimedRole === 'ADMIN' ? (socket.authenticatedRole === 'ADMIN' || !dev ? claimedRole : 'ADMIN') : claimedRole;
+      
+      // Nur echte verifizierte Admins dürfen die Rolle ADMIN erhalten
+      const role = socket.authenticatedRole === 'ADMIN' 
+        ? 'ADMIN' 
+        : (claimedRole === 'ADMIN' ? 'WAITER' : claimedRole);
 
       const data = {
         id: deviceId,

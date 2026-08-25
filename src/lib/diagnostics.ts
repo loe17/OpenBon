@@ -381,9 +381,16 @@ export async function runDiagnostics(persist = true): Promise<DiagnosticsResult>
 
 let cycleTimer: NodeJS.Timeout | null = null;
 
-/** Startet den zyklischen Selbsttest (Spec 7.2: alle 60 Sekunden). */
+/** Startet den zyklischen Selbsttest (Spec 7.2: alle 60 Sekunden) und den Backup-Scheduler. */
 export function startDiagnosticsCycle(intervalMs = 60000): void {
   if (cycleTimer) return;
+
+  // Starte automatischen SQLite Backup-Scheduler
+  try {
+    const { startAutoBackupScheduler } = require('./backup-scheduler');
+    startAutoBackupScheduler();
+  } catch {}
+
   void runDiagnostics().catch(() => undefined);
   cycleTimer = setInterval(() => {
     void runDiagnostics().catch(() => undefined);

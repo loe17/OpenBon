@@ -75,9 +75,9 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 5. Schreibende / modifizierende Kassen-Endpunkte erfordern eine gültige Session
+  // 5. Alle weiteren API-Endpunkte erfordern eine gültige Session (auch GET für Payments, Orders, Reports, Logs)
   if (pathname.startsWith('/api/')) {
-    if (req.method !== 'GET' && req.method !== 'OPTIONS') {
+    if (req.method !== 'OPTIONS') {
       if (!session) {
         return NextResponse.json(
           { error: 'Authentifizierung erforderlich. Bitte an der Kassenstation mit PIN anmelden.' },

@@ -73,6 +73,30 @@ export default function Navbar() {
   const [pinTarget, setPinTarget] = useState<'ADMIN' | 'POS_CASHIER' | 'KITCHEN' | 'WAITER' | string>('ADMIN');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [pendingOutboxCount, setPendingOutboxCount] = useState(0);
+  const [isOnline, setIsOnline] = useState(true);
+
+  // Outbox & Online Tracker
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    let unsub = () => {};
+    try {
+      const { subscribeToOutbox, getPendingCount } = require('@/lib/offline/outbox');
+      unsub = subscribeToOutbox((count: number) => setPendingOutboxCount(count));
+      getPendingCount().then(setPendingOutboxCount).catch(() => {});
+    } catch {}
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      unsub();
+    };
+  }, []);
 
   // Expanded Group State in Admin Drawer
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
@@ -278,8 +302,33 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* Controls: Theme Switcher, Fullscreen, HA Status, Role */}
+          {/* Controls: Outbox Badge, Theme Switcher, Fullscreen, HA Status, Role */}
           <div className="flex items-center gap-2 sm:gap-3 text-xs relative">
+            {/* Offline / Outbox Status Badge */}
+            {(!isOnline || pendingOutboxCount > 0) && (
+              <div
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border font-bold text-[11px] animate-pulse ${
+                  !isOnline
+                    ? 'bg-rose-950/80 border-rose-700 text-rose-300'
+                    : 'bg-amber-950/80 border-amber-700 text-amber-300'
+                }`}
+                title={
+                  !isOnline
+                    ? 'Offline: Vorgänge werden lokal gespeichert'
+                    : `${pendingOutboxCount} Vorgänge in der Warteschlange`
+                }
+              >
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    !isOnline ? 'bg-rose-500' : 'bg-amber-400'
+                  }`}
+                />
+                <span>
+                  {!isOnline ? 'Offline' : `${pendingOutboxCount} wartend`}
+                </span>
+              </div>
+            )}
+
             {/* Theme Picker Dropdown Toggle */}
             <div className="relative">
               <button

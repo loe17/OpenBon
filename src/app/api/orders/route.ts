@@ -4,6 +4,7 @@ import TicketSplitter from '@/lib/printer/ticket-splitter';
 import haService from '@/lib/ha/ha-service';
 import { getEffectiveProductPrice } from '@/lib/pricing';
 import { checkAndTriggerLowStockAlert } from '@/lib/low-stock-notifier';
+import { validateBody, CreateOrderSchema } from '@/lib/validations/schemas';
 
 export async function GET(req: Request) {
   try {
@@ -47,21 +48,12 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const idempotencyKey = req.headers.get('x-idempotency-key') || body.idempotencyKey;
-
-    // 0. Idempotenz-Prüfung gegen doppelte Bestellungen bei Netzwerkabbrüchen
-    if (idempotencyKey) {
-      const existing = await prisma.idempotencyKey.findUnique({
-        where: { key: String(idempotencyKey) },
-      });
-      if (existing) {
-        return NextResponse.json(JSON.parse(existing.responseJson), {
-          status: existing.statusCode,
-          headers: { 'X-Idempotent-Replay': 'true' },
-        });
-      }
+    const validation = await validateBody(req, CreateOrderSchema);
+    if (!validation.success) {
+      return validation.response;
     }
+    const body = validation.data;
+    const idempotencyKey = req.headers.get('x-idempotency-key') || body.idempotencyKey;
 
     const normalizedOrderType =
       body.orderType === 'DIRECT_SALE'
@@ -89,8 +81,18 @@ export async function POST(req: Request) {
     });
     const productMap = new Map(products.map((p) => [p.id, p]));
 
-    // 2. Transaktionale Ausführung (Sequenzen, Bestandsabzug, Order, Table)
+    // 2. Transaktionale Ausführung (Sequenzen, Idempotenz, Bestandsabzug, Order, Table)
     const result = await prisma.$transaction(async (tx) => {
+      // 0. Idempotenz-Prüfung innerhalb der Transaktion
+      if (idempotencyKey) {
+        const existing = await tx.idempotencyKey.findUnique({
+          where: { key: String(idempotencyKey) },
+        });
+        if (existing) {
+          return { isReplay: true, response: JSON.parse(existing.responseJson), statusCode: existing.statusCode };
+        }
+      }
+
       // EventConfig laden & Sequenzen atomar hochzählen
       const config = await tx.eventConfig.findUnique({ where: { id: 'default' } });
       const isTraining = config?.trainingMode ?? false;
@@ -232,7 +234,14 @@ export async function POST(req: Request) {
       return { order: createdOrder, tokenNumber };
     });
 
-    const { order, tokenNumber } = result;
+    if ('isReplay' in result && result.isReplay) {
+      return NextResponse.json(result.response, {
+        status: result.statusCode || 200,
+        headers: { 'X-Idempotent-Replay': 'true' },
+      });
+    }
+
+    const { order, tokenNumber } = result as { order: any; tokenNumber: number | null };
 
     // 3. Low-Stock Alerts prüfen
     for (const item of order.items) {
@@ -254,11 +263,11 @@ export async function POST(req: Request) {
         tokenNumber: order.tokenNumber,
         isTraining: order.isTraining,
         createdAt: order.createdAt,
-        items: order.items.map((i) => ({
+        items: order.items.map((i: any) => ({
           id: i.id,
           productId: i.productId,
           productName: i.productName,
-          alternativeName: i.product.alternativeTicketName,
+          alternativeName: i.product?.alternativeTicketName,
           quantity: i.quantity,
           unitPrice: i.unitPrice,
           deposit: i.deposit,

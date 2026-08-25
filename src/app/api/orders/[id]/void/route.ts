@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import TicketSplitter from '@/lib/printer/ticket-splitter';
 import haService from '@/lib/ha/ha-service';
+import { round2 } from '@/lib/pricing';
 import { VOID_REASONS } from '@/types/domain';
 
 /**
@@ -169,30 +170,33 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     let unpaidPaymentId: string | null = null;
     if (body.markAsUnpaid) {
       const grossValue = targetItems.reduce(
-        (sum, i) => sum + (i.unitPrice + i.deposit) * i.quantity,
+        (sum, i) => sum + round2((Number(i.unitPrice) + Number(i.deposit || 0)) * Number(i.quantity)),
         0
       );
-      const invNum = `STORNO-${new Date().getFullYear()}-${String(config.invoiceSequence).padStart(5, '0')}`;
       const openPeriod = await prisma.registerPeriod.findFirst({ where: { status: 'OPEN' } });
 
       const unpaid = await prisma.$transaction(async (tx) => {
-        await tx.eventConfig.update({
+        const currentConfig = await tx.eventConfig.update({
           where: { id: 'default' },
           data: { invoiceSequence: { increment: 1 } },
         });
+        const seq = currentConfig.invoiceSequence - 1;
+        const invNum = `STORNO-${new Date().getFullYear()}-${String(seq).padStart(5, '0')}`;
+
         return tx.payment.create({
           data: {
             invoiceNumber: invNum,
             tableId: order.tableId,
             orderId: order.id,
-            periodId: openPeriod?.id ?? null,
+            periodId: openPeriod?.id || null,
             waiterName: order.waiterName,
-            totalGross: Math.round(grossValue * 100) / 100,
-            totalNet: 0,
-            totalTax: 0,
-            paymentMethod: 'VOID_UNPAID',
-            nonPaidReason: reason,
-            isTraining: order.isTraining,
+            totalGross: round2(grossValue),
+            totalNet: round2(grossValue / 1.19),
+            totalTax: round2(grossValue - grossValue / 1.19),
+            paymentMethod: 'NON_PAID_COMPLAINT',
+            nonPaidReason: `Storno: ${reason}`,
+            isCancelled: true,
+            cancellationReason: reason,
             items: {
               create: targetItems.map((i) => ({
                 orderItemId: i.id,
@@ -200,7 +204,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
                 quantity: i.quantity,
                 unitPrice: i.unitPrice,
                 deposit: i.deposit,
-                taxRate: i.taxRate,
               })),
             },
           },

@@ -231,6 +231,17 @@ export async function POST(req: Request) {
       const startTime = Date.now();
 
       try {
+        logs.push('[0/4] Erstelle Sicherheits-Backup vor dem Update...');
+        try {
+          const { createDatabaseBackup } = require('@/lib/backup-scheduler');
+          const backupPath = await createDatabaseBackup();
+          if (backupPath) {
+            logs.push(`[BACKUP] Sicherheits-Snapshot erstellt: ${backupPath}`);
+          }
+        } catch (bErr) {
+          logs.push(`[HINWEIS] Vorab-Backup übersprungen: ${bErr}`);
+        }
+
         logs.push('[1/4] Lade neuesten Code von GitHub herunter (git pull)...');
         await execAsync('git config --global --add safe.directory *', { cwd: projectRoot }).catch(() => {});
         const { stdout: pullOut } = await execAsync('git pull origin master', { cwd: projectRoot });
@@ -241,7 +252,7 @@ export async function POST(req: Request) {
         logs.push(npmOut.trim());
 
         logs.push('[3/4] Aktualisiere Datenbankschema (prisma db push)...');
-        const { stdout: dbOut } = await execAsync('npx prisma db push --accept-data-loss', {
+        const { stdout: dbOut } = await execAsync('npx prisma db push --accept-data-loss --skip-generate', {
           cwd: projectRoot,
           env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db' },
         });

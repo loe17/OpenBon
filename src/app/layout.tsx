@@ -44,6 +44,8 @@ export const viewport: Viewport = {
   themeColor: '#020617',
 };
 
+import { ToastProvider } from '@/components/ui/toast';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -81,11 +83,13 @@ export default function RootLayout({
       </head>
       <body className="font-sans min-h-full flex flex-col bg-slate-950 text-slate-100 antialiased transition-colors duration-200">
         <ThemeProvider>
-          <SocketProvider>
-            <Navbar />
-            <TrainingWatermark />
-            <main className="flex-1 flex flex-col overflow-hidden">{children}</main>
-          </SocketProvider>
+          <ToastProvider>
+            <SocketProvider>
+              <Navbar />
+              <TrainingWatermark />
+              <main className="flex-1 flex flex-col overflow-hidden">{children}</main>
+            </SocketProvider>
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>
