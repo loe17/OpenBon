@@ -10,15 +10,15 @@ import {
   GitBranch,
   Cpu,
   Clock,
-  Sparkles,
   Play,
   RotateCcw,
   Trash2,
   Tag,
   ExternalLink,
-  ShieldCheck,
   Copy,
   Check,
+  Layers,
+  ArrowDownCircle,
 } from 'lucide-react';
 import { APP_VERSION, GITHUB_REPO_URL } from '@/lib/version';
 import { triggerHapticFeedback } from '@/lib/socket-client';
@@ -41,6 +41,7 @@ interface SystemInfo {
   latestReleaseName?: string | null;
   latestReleaseBody?: string | null;
   latestReleaseUrl?: string | null;
+  availableTags?: string[];
   pendingCommits?: string[];
 }
 
@@ -60,6 +61,7 @@ export default function AdminSystemUpdatePage() {
   const [executing, setExecuting] = useState(false);
   const [terminalHistory, setTerminalHistory] = useState<TerminalLog[]>([]);
   const [copiedAll, setCopiedAll] = useState(false);
+  const [selectedTarget, setSelectedTarget] = useState<string>('v0.4.2');
 
   const copyAllLogs = async () => {
     triggerHapticFeedback();
@@ -93,6 +95,12 @@ export default function AdminSystemUpdatePage() {
       const data = await res.json();
       setSysInfo(data);
 
+      if (data.availableTags && data.availableTags.length > 0) {
+        if (!selectedTarget || selectedTarget === 'v0.4.2') {
+          setSelectedTarget(data.availableTags[0] || 'v0.4.2');
+        }
+      }
+
       if (data.updateType === 'RELEASE') {
         addTerminalLog(
           `[RELEASE-UPDATE] Neues offizielles Release v${data.latestReleaseVersion} (${data.latestReleaseName || ''}) auf GitHub verfügbar!\nAktuell installiert: v${APP_VERSION}`,
@@ -115,7 +123,7 @@ export default function AdminSystemUpdatePage() {
 
   useEffect(() => {
     addTerminalLog(
-      `[OPENBON SYSTEM-UPDATE & KONSOLE v${APP_VERSION}]\nBereit fuer Git-Befehle und System-Updates. Ziel: ${GITHUB_REPO_URL}`
+      `[OPENBON SYSTEM-UPDATE & VERSIONS-MANAGER v${APP_VERSION}]\nBereit für Releases, Tags, Rollbacks und Git-Befehle. Repository: ${GITHUB_REPO_URL}`
     );
     fetchSystemStatus();
   }, []);
@@ -187,16 +195,14 @@ export default function AdminSystemUpdatePage() {
     }
   };
 
-  const handleInstallUpdate = async () => {
-    if (!sysInfo?.hasUpdate) return;
-
-    const label = sysInfo.updateType === 'RELEASE'
-      ? `Release v${sysInfo.latestReleaseVersion}`
-      : `${sysInfo.pendingCommits?.length || 1} neue(n) Commit(s)`;
+  const handleInstallTarget = async (targetRef: string) => {
+    const isMaster = targetRef === 'master';
+    const isTag = targetRef.startsWith('v');
+    const label = isMaster ? 'Entwicklungs-Branch (master)' : `Release-Version ${targetRef}`;
 
     if (
       !confirm(
-        `OpenBon jetzt auf ${label} aktualisieren?\n\nDer Server lädt den neuesten Stand von GitHub, migriert die Datenbank, kompiliert den Build neu und startet sich automatisch wieder.`
+        `OpenBon jetzt auf ${label} setzen?\n\nDer Server führt vorab ein Sicherheits-Backup der Datenbank durch, lädt den Stand von GitHub herunter, führt eventuelle Datenbankmigrationen aus, kompiliert die Anwendung neu und startet den Dienst wieder.`
       )
     ) {
       return;
@@ -204,18 +210,22 @@ export default function AdminSystemUpdatePage() {
 
     triggerHapticFeedback();
     setUpdating(true);
-    addTerminalLog(`[UPDATE-START] Starte Update auf ${label}...`, false);
+    addTerminalLog(`[UPDATE-START] Wechsle zu ${label}...`, false);
 
     try {
       const res = await fetch('/api/system/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'INSTALL_UPDATE' }),
+        body: JSON.stringify({
+          action: 'INSTALL_UPDATE',
+          targetVersion: targetRef,
+          targetType: isTag ? 'TAG' : isMaster ? 'BRANCH' : 'COMMIT',
+        }),
       });
       const data = await res.json();
 
       if (data.success) {
-        addTerminalLog(data.logs || '[INFO] Update erfolgreich!', false);
+        addTerminalLog(data.logs || '[INFO] Aktualisierung erfolgreich abgeschlossen!', false);
         addTerminalLog('[INFO] Der Server startet jetzt neu. Die Seite lädt sich in Kürze automatisch neu...', false);
         setTimeout(() => {
           window.location.reload();
@@ -234,6 +244,10 @@ export default function AdminSystemUpdatePage() {
     setTerminalHistory([]);
   };
 
+  const tagsList = sysInfo?.availableTags && sysInfo.availableTags.length > 0
+    ? sysInfo.availableTags
+    : ['v0.4.2', 'v0.4.1', 'v0.4.0'];
+
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-950 text-white p-3 sm:p-6 overflow-hidden">
       {/* Header */}
@@ -244,7 +258,7 @@ export default function AdminSystemUpdatePage() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black">System-Update & Konsole</h1>
+              <h1 className="text-xl sm:text-2xl font-black">System-Update &amp; Versions-Manager</h1>
               <span className="bg-blue-950 text-blue-300 font-bold px-2.5 py-0.5 rounded-lg text-xs border border-blue-700">
                 v{APP_VERSION}
               </span>
@@ -260,7 +274,7 @@ export default function AdminSystemUpdatePage() {
           <button
             onClick={fetchSystemStatus}
             disabled={checking}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-200 border border-slate-700 transition active:scale-95"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-200 border border-slate-700 transition active:scale-95"
             title="Auf GitHub nach neuen Releases und Commits suchen"
           >
             <RefreshCw className={`w-4 h-4 ${checking ? 'animate-spin' : ''}`} />
@@ -269,60 +283,77 @@ export default function AdminSystemUpdatePage() {
 
           <button
             onClick={handleRestartServer}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-amber-950/60 hover:border-amber-700 text-amber-300 rounded-xl text-xs font-bold border border-slate-700 transition shadow active:scale-95"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-amber-950/60 hover:border-amber-700 text-amber-300 rounded-xl text-xs font-bold border border-slate-700 transition shadow active:scale-95"
             title="Startet den Server-Prozess im Hintergrunddienst neu"
           >
             <RotateCcw className="w-4 h-4" />
             <span>Server neu starten</span>
           </button>
+        </div>
+      </div>
 
-          {/* Intelligenter Update-Button (Option C) */}
-          <button
-            onClick={handleInstallUpdate}
-            disabled={updating || !sysInfo?.hasUpdate}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black shadow-lg transition ${
-              updating
-                ? 'bg-amber-600 text-white cursor-wait'
-                : !sysInfo?.hasUpdate
-                ? 'bg-slate-900 border border-slate-800 text-slate-500 cursor-not-allowed opacity-60 shadow-none'
-                : sysInfo.updateType === 'RELEASE'
-                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/50 animate-pulse active:scale-95'
-                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-950/50 active:scale-95'
-            }`}
-            title={
-              !sysInfo?.hasUpdate
-                ? 'Das System ist auf dem neuesten Stand. Kein Update erforderlich.'
-                : 'Klicken, um das Update von GitHub zu laden und zu installieren.'
-            }
-          >
-            {updating ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Installiert Update...</span>
-              </>
-            ) : !sysInfo?.hasUpdate ? (
-              <>
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                <span>System ist aktuell (v{APP_VERSION})</span>
-              </>
-            ) : sysInfo.updateType === 'RELEASE' ? (
-              <>
-                <DownloadCloud className="w-4 h-4 animate-bounce" />
-                <span>Update auf v{sysInfo.latestReleaseVersion} installieren</span>
-              </>
-            ) : (
-              <>
-                <DownloadCloud className="w-4 h-4" />
-                <span>Patch installieren ({sysInfo.pendingCommits?.length} Commits)</span>
-              </>
-            )}
-          </button>
+      {/* Version & Channel Chooser Card */}
+      <div className="p-4 rounded-3xl bg-slate-900 border border-slate-800 mb-4 shrink-0 shadow-lg">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-2xl bg-emerald-600/20 text-emerald-400 border border-emerald-800">
+              <Layers className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-sm font-black text-white flex items-center gap-2">
+                <span>Zielversion / Release auswählen</span>
+                <span className="text-[10px] font-mono font-bold bg-slate-800 text-slate-300 px-2 py-0.5 rounded">
+                  Aktiv: v{APP_VERSION} ({sysInfo?.localCommit || '-'})
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">
+                Wähle ein offizielles Release (Tag) für Festbetrieb oder den Master-Branch für Entwicklungsstände.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <select
+              value={selectedTarget}
+              onChange={(e) => setSelectedTarget(e.target.value)}
+              className="bg-slate-950 border border-slate-700 text-white text-xs font-bold font-mono rounded-xl px-3 py-2.5 focus:border-blue-500"
+            >
+              <optgroup label="🏷️ Stabile Releases (Tags)">
+                {tagsList.map((t) => (
+                  <option key={t} value={t}>
+                    Release {t} {t === `v${APP_VERSION}` ? '(Aktuell installiert)' : ''}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="🌿 Entwicklungs-Branch">
+                <option value="master">master (Neuester Stand auf GitHub)</option>
+              </optgroup>
+            </select>
+
+            <button
+              onClick={() => handleInstallTarget(selectedTarget)}
+              disabled={updating}
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg transition active:scale-95 disabled:opacity-50"
+            >
+              {updating ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Wird installiert...</span>
+                </>
+              ) : (
+                <>
+                  <ArrowDownCircle className="w-4 h-4" />
+                  <span>Auf {selectedTarget} wechseln</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Release Banner if new official release is available */}
       {sysInfo?.isNewRelease && sysInfo.latestReleaseVersion && (
-        <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 border-2 border-emerald-500/80 rounded-2xl p-4 mb-4 flex items-center justify-between shadow-xl animate-in slide-in-from-top">
+        <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 border-2 border-emerald-500/80 rounded-2xl p-4 mb-4 flex items-center justify-between shadow-xl animate-in slide-in-from-top shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/40">
               <Tag className="w-5 h-5" />
@@ -363,7 +394,7 @@ export default function AdminSystemUpdatePage() {
         <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800 flex items-center gap-3">
           <GitBranch className="w-5 h-5 text-blue-400 shrink-0" />
           <div className="min-w-0">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">Branch & Commit</span>
+            <span className="text-[10px] uppercase font-bold text-slate-400 block">Branch &amp; Commit</span>
             <span className="text-xs font-mono font-bold text-slate-200 truncate block">
               {sysInfo?.branch || 'master'} ({sysInfo?.localCommit || '-'})
             </span>
@@ -417,9 +448,9 @@ export default function AdminSystemUpdatePage() {
             <span className="w-3 h-3 rounded-full bg-rose-500/80 inline-block" />
             <span className="w-3 h-3 rounded-full bg-amber-500/80 inline-block" />
             <span className="w-3 h-3 rounded-full bg-emerald-500/80 inline-block" />
-            <span className="text-slate-400 font-bold ml-2 text-[11px]">Server-Konsole & Git-Runner</span>
+            <span className="text-slate-400 font-bold ml-2 text-[11px]">Server-Konsole &amp; Git-Runner</span>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <button
               onClick={copyAllLogs}

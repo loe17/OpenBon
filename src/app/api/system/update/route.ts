@@ -38,6 +38,14 @@ export async function GET(req: Request) {
     let latestReleaseBody: string | null = null;
     let latestReleaseUrl: string | null = null;
 
+    let availableTags: string[] = [];
+    try {
+      const { stdout: tagOut } = await execAsync('git tag -l "v*" --sort=-v:refname', { cwd: projectRoot }).catch(() => ({ stdout: '' }));
+      if (tagOut.trim()) {
+        availableTags = tagOut.trim().split('\n').map((t) => t.trim()).filter(Boolean);
+      }
+    } catch {}
+
     // 1. Prüfe offizielle GitHub Tags & Releases via GitHub API
     try {
       const ghTagsRes = await fetch('https://api.github.com/repos/loe17/OpenBon/tags', {
@@ -48,6 +56,10 @@ export async function GET(req: Request) {
       if (ghTagsRes.ok) {
         const tagsData = await ghTagsRes.json();
         if (Array.isArray(tagsData) && tagsData.length > 0) {
+          const apiTags = tagsData.map((t: any) => t.name).filter(Boolean);
+          // Kombiniere und dedupliziere Tags
+          availableTags = Array.from(new Set([...apiTags, ...availableTags]));
+
           const sorted = tagsData
             .map((t: any) => (t.name || '').replace(/^v/i, ''))
             .filter((v: string) => /^\d+\.\d+\.\d+/.test(v))
@@ -121,6 +133,7 @@ export async function GET(req: Request) {
       latestReleaseName,
       latestReleaseBody,
       latestReleaseUrl,
+      availableTags,
       pendingCommits,
       nodeVersion: process.version,
       platform: process.platform,
@@ -248,6 +261,9 @@ export async function POST(req: Request) {
     if (action === 'INSTALL_UPDATE') {
       const logs: string[] = [];
       const startTime = Date.now();
+      const body = await req.clone().json().catch(() => ({}));
+      const target = (body.targetVersion || 'master').trim();
+      const targetType = body.targetType || (target.startsWith('v') ? 'TAG' : 'BRANCH');
 
       try {
         logs.push('[0/4] Erstelle Sicherheits-Backup vor dem Update...');
@@ -261,11 +277,21 @@ export async function POST(req: Request) {
           logs.push(`[HINWEIS] Vorab-Backup übersprungen: ${bErr}`);
         }
 
-        logs.push('[1/4] Lade neuesten Code von GitHub herunter (git fetch & reset)...');
+        logs.push(`[1/4] Lade neuesten Code von GitHub & checke "${target}" aus...`);
         await execAsync('git config --global --add safe.directory *', { cwd: projectRoot }).catch(() => {});
-        await execAsync('git fetch origin master', { cwd: projectRoot, timeout: 20000 });
-        const { stdout: resetOut } = await execAsync('git reset --hard origin/master', { cwd: projectRoot });
-        logs.push(resetOut.trim() || 'Codebasis erfolgreich auf origin/master aktualisiert.');
+        await execAsync('git fetch --all --tags', { cwd: projectRoot, timeout: 25000 }).catch(() => {});
+
+        if (target.startsWith('v') || targetType === 'TAG') {
+          const { stdout: coOut } = await execAsync(`git checkout -f tags/${target}`, { cwd: projectRoot });
+          logs.push(coOut.trim() || `Erfolgreich auf Tag ${target} gewechselt.`);
+        } else if (target === 'master' || targetType === 'BRANCH') {
+          await execAsync(`git checkout -f ${target}`, { cwd: projectRoot });
+          const { stdout: resetOut } = await execAsync(`git reset --hard origin/${target}`, { cwd: projectRoot });
+          logs.push(resetOut.trim() || `Codebasis erfolgreich auf origin/${target} aktualisiert.`);
+        } else {
+          const { stdout: coOut } = await execAsync(`git checkout -f ${target}`, { cwd: projectRoot });
+          logs.push(coOut.trim() || `Erfolgreich auf ${target} gewechselt.`);
+        }
 
         logs.push('[2/4] Aktualisiere Abhängigkeiten (npm install)...');
         const { stdout: npmOut } = await execAsync('npm install --production=false', { cwd: projectRoot });
@@ -286,7 +312,7 @@ export async function POST(req: Request) {
         logs.push(buildOut.trim());
 
         const duration = Math.round((Date.now() - startTime) / 1000);
-        logs.push(`[ERFOLG] Update in ${duration}s abgeschlossen! Server startet automatisch neu...`);
+        logs.push(`[ERFOLG] Update/Wechsel auf ${target} in ${duration}s abgeschlossen! Server startet automatisch neu...`);
 
         setTimeout(() => {
           console.log('[UPDATE] Server startet neu, um die neue Version zu laden...');
@@ -297,7 +323,7 @@ export async function POST(req: Request) {
           action: 'SYSTEM_UPDATE',
           category: 'SYSTEM',
           actor: auth.session.waiterName || auth.session.role,
-          details: 'Systemaktualisierung ausgefuehrt.',
+          details: `Systemaktualisierung/Wechsel auf ${target} ausgefuehrt.`,
         }));
 
         return NextResponse.json({ success: true, logs: logs.join('\n\n'), restart: true });
