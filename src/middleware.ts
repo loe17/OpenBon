@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { decodeSessionToken, SESSION_COOKIE_NAME, UserRole } from '@/lib/auth-session';
+import { decodeSessionToken, verifySessionToken, SESSION_COOKIE_NAME, UserRole } from '@/lib/auth-session';
 
 // Öffentliche Pfade, die ohne Authentifizierung erreichbar sein müssen
 const PUBLIC_PATHS = [
   '/_next',
   '/api/auth/pin',
+  '/api/auth/session',
   '/api/config/public',
   '/api/devices',
   '/api/health',
@@ -41,19 +42,25 @@ export async function middleware(req: NextRequest) {
   }
 
   // 2. Session aus Cookie oder Bearer Header decodieren (Ablauf/Rolle).
-  //    WICHTIG: Die Edge-Middleware prueft nur Struktur & Ablaufzeit – die
-  //    kryptografische Signaturpruefung erfolgt Node-seitig im Admin-Layout-
-  //    Gate und in den API-Routen, da die Edge-Sandbox kein DB-Secret kennt.
+  //    Die Middleware ist ein Vorfilter, keine alleinige Schranke.
+  //    Liegt SESSION_SECRET als echte Umgebungsvariable vor (wird beim ersten
+  //    Start in die .env geschrieben), prueft die Middleware die Signatur voll.
+  //    Andernfalls dekodiert sie nur als Vorfilter - die verbindliche
+  //    Signaturpruefung erfolgt dann in jeder API-Route ueber requireApiAuth().
+  const canVerify = Boolean(process.env.SESSION_SECRET && process.env.SESSION_SECRET.trim().length >= 16);
+  const readToken = async (token: string) =>
+    canVerify ? await verifySessionToken(token) : decodeSessionToken(token);
+
   let session = null;
   const cookieVal = req.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (cookieVal) {
-    session = decodeSessionToken(cookieVal);
+    session = await readToken(cookieVal);
   }
 
   if (!session) {
     const authHeader = req.headers.get('authorization');
     if (authHeader?.startsWith('Bearer ')) {
-      session = decodeSessionToken(authHeader.substring(7).trim());
+      session = await readToken(authHeader.substring(7).trim());
     }
   }
 

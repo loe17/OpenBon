@@ -3,8 +3,12 @@ import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
 import { EscPosBuilder } from '@/lib/printer/escpos-builder';
 import { TicketData } from '@/lib/printer/types';
+import { requireApiAuth } from '@/lib/api-guard';
 
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
     const enableVirtual = config?.enableVirtualPrinters ?? true;
@@ -27,6 +31,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await req.json();
 
@@ -131,6 +138,9 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await req.json();
     if (!body.id) return NextResponse.json({ error: 'Drucker-ID fehlt' }, { status: 400 });
@@ -154,6 +164,9 @@ export async function PUT(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');

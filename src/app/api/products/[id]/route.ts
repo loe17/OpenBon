@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireApiAuth } from '@/lib/api-guard';
 
 interface VariantInput {
   name: string;
@@ -13,6 +14,9 @@ interface OptionInput {
 }
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await req.json();
     const productId = params.id;
@@ -21,6 +25,30 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       body.printGroupId === '' || body.printGroupId === 'none' || body.printGroupId === null
         ? null
         : body.printGroupId;
+
+    // Ein leerer String wuerde als Fremdschluessel scheitern und einen 500er
+    // erzeugen. Fehlt die Warengruppe, bleibt die bisherige erhalten.
+    const normalizedCategoryId =
+      typeof body.categoryId === 'string' && body.categoryId.trim().length > 0
+        ? body.categoryId.trim()
+        : undefined;
+
+    const existing = await prisma.product.findUnique({ where: { id: productId } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Artikel nicht gefunden' }, { status: 404 });
+    }
+
+    if (normalizedCategoryId) {
+      const category = await prisma.productCategory.findUnique({
+        where: { id: normalizedCategoryId },
+      });
+      if (!category) {
+        return NextResponse.json(
+          { error: 'Die gewählte Warengruppe existiert nicht.' },
+          { status: 400 }
+        );
+      }
+    }
 
     const updated = await prisma.$transaction(async (tx) => {
       if (body.variants !== undefined) {
@@ -88,7 +116,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
           tokenType: body.tokenType !== undefined ? body.tokenType : undefined,
           subCategory: body.subCategory !== undefined ? body.subCategory : undefined,
           sortIndex: body.sortIndex !== undefined ? parseInt(body.sortIndex, 10) : undefined,
-          categoryId: body.categoryId,
+          categoryId: normalizedCategoryId,
           printGroupId: normalizedPrintGroupId,
           variants: body.variants
             ? {
@@ -132,6 +160,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 }
 
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const productId = params.id;
     // Soft-Delete (auf HIDDEN setzen)

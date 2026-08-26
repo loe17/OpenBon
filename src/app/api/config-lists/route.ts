@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireApiAuth } from '@/lib/api-guard';
 
 const DEFAULT_LISTS: Record<string, { name: string; items: any[] }> = {
   SUB_CATEGORIES: {
@@ -55,6 +56,9 @@ const DEFAULT_LISTS: Record<string, { name: string; items: any[] }> = {
 };
 
 export async function GET(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const key = searchParams.get('key');
@@ -95,6 +99,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await req.json();
     const { key, name, items } = body;

@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { verifyHaSecret } from '@/lib/ha/ha-secret';
+import { requireApiAuth } from '@/lib/api-guard';
 
 export async function GET(req: Request) {
-  // Shared-Secret-Pruefung: nur der Partner-Knoten darf das SyncJournal ziehen
+  // Zwei gleichwertige Zugangswege: der Partner-Knoten authentifiziert sich mit
+  // dem HA-Shared-Secret, ein Administrator alternativ mit seiner Session.
   if (!(await verifyHaSecret(req))) {
-    return NextResponse.json({ error: 'Ungueltiges HA-Sync-Secret' }, { status: 401 });
+    const auth = await requireApiAuth(req, ['ADMIN']);
+    if (!auth.ok) {
+      return NextResponse.json(
+        { error: 'Ungueltiges HA-Sync-Secret oder fehlende Administrator-Session.' },
+        { status: 401 }
+      );
+    }
   }
 
   try {

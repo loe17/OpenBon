@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-guard';
+import { requireApiAuth } from '@/lib/api-guard';
 
 export async function GET(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   const denied = await requireAdmin(req);
   if (denied) return denied;
   try {
@@ -49,12 +53,15 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   const denied = await requireAdmin(req);
   if (denied) return denied;
   try {
     const { csvText } = await req.json();
     if (!csvText || typeof csvText !== 'string') {
-      return NextResponse.json({ error: 'Kein CSV-Inhalt Ã¼bermittelt' }, { status: 400 });
+      return NextResponse.json({ error: 'Kein CSV-Inhalt übermittelt' }, { status: 400 });
     }
 
     const lines = csvText
@@ -63,16 +70,16 @@ export async function POST(req: Request) {
       .filter((l) => l.length > 0);
 
     if (lines.length < 2) {
-      return NextResponse.json({ error: 'CSV-Datei ist leer oder enthÃ¤lt nur Kopfzeilen' }, { status: 400 });
+      return NextResponse.json({ error: 'CSV-Datei ist leer oder enthält nur Kopfzeilen' }, { status: 400 });
     }
 
-    // Kopfzeile Ã¼berspringen
+    // Kopfzeile überspringen
     const dataLines = lines.slice(1);
     let createdCount = 0;
     let updatedCount = 0;
 
     for (const line of dataLines) {
-      // CSV Semikolon-Split unter BerÃ¼cksichtigung von AnfÃ¼hrungszeichen
+      // CSV Semikolon-Split unter Berücksichtigung von Anführungszeichen
       const parts = line.split(';').map((p) => p.replace(/^"|"$/g, '').trim());
       if (parts.length < 4) continue;
 

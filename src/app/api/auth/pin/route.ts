@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemAction } from '@/lib/action-logger';
 import { verifyStationPin, setAdminPin, StationPinType } from '@/lib/auth-pin';
 import { checkRateLimit, registerFailedAttempt, resetRateLimit } from '@/lib/rate-limiter';
 import {
@@ -38,6 +39,15 @@ export async function POST(req: Request) {
       const isValid = await verifyStationPin(pin || '', targetStation);
       if (!isValid) {
         const attempt = registerFailedAttempt(rateLimitKey);
+        // Fehlversuche gehoeren ins Protokoll - sonst faellt ein Durchprobieren
+        // des PINs niemandem auf.
+        await logSystemAction({
+          action: 'LOGIN_FAILED',
+          category: 'AUTH',
+          actor: waiterName || deviceId || 'Unbekannt',
+          details: `Fehlgeschlagene Anmeldung an Station ${targetStation}${attempt.locked ? ' (gesperrt)' : ''}.`,
+          metadata: { station: targetStation, deviceId, locked: attempt.locked },
+        });
         return NextResponse.json(
           {
             success: false,
@@ -68,6 +78,14 @@ export async function POST(req: Request) {
         role,
         deviceId: deviceId || undefined,
         waiterName: waiterName || undefined,
+      });
+
+      await logSystemAction({
+        action: 'LOGIN_SUCCESS',
+        category: 'AUTH',
+        actor: waiterName || deviceId || role,
+        details: `Anmeldung an Station ${targetStation} als ${role}.`,
+        metadata: { station: targetStation, role, deviceId },
       });
 
       const res = NextResponse.json({
@@ -116,6 +134,12 @@ export async function POST(req: Request) {
 
       const changed = await setAdminPin(newPin);
       if (changed) {
+        await logSystemAction({
+          action: 'ADMIN_PIN_CHANGED',
+          category: 'AUTH',
+          actor: 'Administrator',
+          details: 'Der Administrator-PIN wurde geändert.',
+        });
         return NextResponse.json({ success: true, message: 'Admin-PIN erfolgreich geändert.' });
       }
       return NextResponse.json({ error: 'PIN muss mindestens 4 Stellen haben.' }, { status: 400 });

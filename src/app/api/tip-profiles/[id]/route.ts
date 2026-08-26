@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireApiAuth } from '@/lib/api-guard';
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const { id } = params;
     const body = await req.json();
@@ -34,6 +38,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const { id } = params;
     await prisma.tipProfile.delete({

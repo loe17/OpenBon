@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireApiAuth } from '@/lib/api-guard';
 
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     let profiles = await prisma.tipProfile.findMany({
       include: {
@@ -38,6 +42,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await req.json();
     const { name, waiterPercent, barPoolPercent, kitchenPoolPercent, servicePoolPercent, isDefault } = body;

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemAction } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
 import haService from '@/lib/ha/ha-service';
@@ -10,8 +11,12 @@ import { calculateTipDistribution } from '@/lib/tips';
 import { deductTapVolumeForItems } from '@/lib/tap-manager';
 import { validateBody, CreatePaymentSchema } from '@/lib/validations/schemas';
 import type { TicketData } from '@/lib/printer/types';
+import { requireApiAuth } from '@/lib/api-guard';
 
 export async function GET(req: Request) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const tableId = searchParams.get('tableId');
@@ -47,6 +52,9 @@ interface PayableItemInput {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     // Zod-Validierung: verhindert stillschweigend falsche Betraege durch Type-Cast + Number()-Zwangsumwandlung
     const validation = await validateBody(req, CreatePaymentSchema);
@@ -319,6 +327,21 @@ export async function POST(req: Request) {
     const receiptUrl = payment.digitalReceiptCode
       ? buildReceiptUrl(config.baseUrl || 'http://openbon.local', payment.digitalReceiptCode)
       : null;
+
+    await logSystemAction({
+      action: 'PAYMENT_COMPLETED',
+      category: 'SALES',
+      actor: payment.waiterName || auth.session.waiterName || auth.session.role,
+      details: `Zahlung ${payment.invoiceNumber || payment.id} über ${payment.amount.toFixed(2)} € (${getPaymentLabel(payment.method)}) gebucht.`,
+      metadata: {
+        paymentId: payment.id,
+        invoiceNumber: payment.invoiceNumber,
+        orderId: payment.orderId,
+        method: payment.method,
+        amount: payment.amount,
+        tipAmount: payment.tipAmount,
+      },
+    });
 
     return NextResponse.json({
       ...payment,

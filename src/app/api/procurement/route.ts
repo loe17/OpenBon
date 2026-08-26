@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireApiAuth } from '@/lib/api-guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,7 +8,10 @@ export const dynamic = 'force-dynamic';
  * GET /api/procurement
  * Berechnet automatische Nachbestellvorschläge für Lieferanten basierend auf Meldebeständen.
  */
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const products = await prisma.product.findMany({
       where: {
@@ -74,6 +78,9 @@ export async function GET() {
  * Bucht Wareneingang für ausgewählte Artikel (Bestandserhöhung).
  */
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await req.json();
     const { items } = body; // items: [{ productId, receivedQty }]

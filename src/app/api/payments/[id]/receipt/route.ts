@@ -3,12 +3,16 @@ import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
 import { getPaymentLabel } from '@/lib/payment/methods';
 import type { TicketData } from '@/lib/printer/types';
+import { requireApiAuth } from '@/lib/api-guard';
 
 /**
  * Spec 5.4: Beleg-Option "Beleg drucken" nach Abschluss der Zahlung.
  * Druckt den Kassenbeleg zu einem bereits verbuchten Zahlvorgang nach.
  */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = (await req.json().catch(() => ({}))) as { printerId?: string };
 

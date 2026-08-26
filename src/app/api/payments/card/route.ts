@@ -7,6 +7,7 @@ import {
 } from '@/lib/payment/deep-links';
 import { runZvtPayment, probeZvtTerminal } from '@/lib/payment/zvt-client';
 import { toCents } from '@/lib/pricing';
+import { requireApiAuth } from '@/lib/api-guard';
 
 /**
  * Spec 4: Einheitlicher Einstieg in alle Kartenzahlverfahren.
@@ -18,6 +19,9 @@ import { toCents } from '@/lib/pricing';
  *      -> führt eine ZVT-over-IP Transaktion am stationären/mobilen Terminal aus
  */
 export async function GET(req: Request) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const method = searchParams.get('method') ?? 'CARD_SUMUP';
@@ -76,6 +80,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = (await req.json()) as {
       method?: string;

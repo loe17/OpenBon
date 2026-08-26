@@ -620,6 +620,52 @@ export default function AdminProductsPage() {
                 </div>
               </div>
 
+              {/* Zuordnung: Warengruppe und Druckgruppe
+                  Beide Felder fehlten bisher im Formular. Ein Artikel liess sich
+                  dadurch nachtraeglich weder umhaengen noch einem anderen Drucker
+                  zuordnen – neue Getraenke landeten immer auf dem Kuechendrucker. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">
+                    Warengruppe
+                  </label>
+                  <select
+                    value={formData.categoryId}
+                    onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                  >
+                    {categories.length === 0 && <option value="">Keine Warengruppe vorhanden</option>}
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">
+                    Druckgruppe (Bon-Ziel)
+                  </label>
+                  <select
+                    value={formData.printGroupId || ''}
+                    onChange={(e) => setFormData({ ...formData, printGroupId: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                  >
+                    <option value="">Kein Bondruck</option>
+                    {printGroups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                        {g.printer?.name ? ` – ${g.printer.name}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-500 font-semibold mt-1">
+                    Bestimmt, an welcher Station der Bon für diesen Artikel gedruckt wird.
+                  </p>
+                </div>
+              </div>
+
               {/* Jugendschutz & Altersprüfung */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-2">
                 <label className="flex items-center gap-2 text-xs font-bold text-white cursor-pointer">

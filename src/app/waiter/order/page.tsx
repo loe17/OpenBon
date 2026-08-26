@@ -41,6 +41,7 @@ import { playConfirm, playVoidAlert } from '@/lib/audio-feedback';
 import { sendWithOutboxFallback } from '@/lib/offline/outbox';
 import { useToast } from '@/components/ui/toast';
 
+import StationGate from '@/components/auth/station-gate';
 const parseWordsList = (raw: any): string[] => {
   if (Array.isArray(raw)) return raw;
   if (typeof raw === 'string') {
@@ -396,8 +397,12 @@ function WaiterOrderContent() {
       if (result.success) {
         triggerHapticFeedback();
         playConfirm();
-        if (result.queuedOffline) {
-          warning('WLAN nicht erreichbar: Bestellung wurde offline gesichert und wird automatisch übertragen.');
+        if (result.pending) {
+          warning(
+            result.reason === 'SERVER_ERROR'
+              ? `Server meldet einen Fehler – Bestellung wurde gesichert und wird erneut gesendet. Noch NICHT gebucht. (${result.error || ''})`
+              : 'WLAN nicht erreichbar: Bestellung wurde offline gesichert und wird automatisch übertragen.'
+          );
         }
 
         if (shouldPayNow) {
@@ -1102,7 +1107,7 @@ function WaiterOrderContent() {
   );
 }
 
-export default function WaiterOrderPage() {
+function WaiterOrderPageInner() {
   return (
     <Suspense
       fallback={
@@ -1114,5 +1119,17 @@ export default function WaiterOrderPage() {
     >
       <WaiterOrderContent />
     </Suspense>
+  );
+}
+
+/**
+ * Session-Gate: prueft beim Laden, ob an dieser Station eine gueltige
+ * Anmeldung besteht, und zeigt sonst sofort das PIN-Pad.
+ */
+export default function WaiterOrderPage() {
+  return (
+    <StationGate station="WAITER" label="Bestellung aufnehmen" allow={['WAITER']}>
+      <WaiterOrderPageInner />
+    </StationGate>
   );
 }

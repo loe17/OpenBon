@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
+import { requireApiAuth } from '@/lib/api-guard';
 
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);

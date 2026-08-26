@@ -3,6 +3,7 @@ import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
 import { computeTaxBreakdown } from '@/lib/pricing';
 import type { TicketData } from '@/lib/printer/types';
+import { requireApiAuth } from '@/lib/api-guard';
 
 /**
  * Spec 6.10: Gast-Vorabrechnung / Bewirtungsbeleg (Zwischenrechnung).
@@ -14,6 +15,9 @@ import type { TicketData } from '@/lib/printer/types';
  * POST { tableId: string, printerId?: string }
  */
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = (await req.json()) as { tableId?: string; printerId?: string; waiterName?: string };
     if (!body.tableId) {

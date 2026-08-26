@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
+import { logSystemAction } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import TicketSplitter from '@/lib/printer/ticket-splitter';
 import haService from '@/lib/ha/ha-service';
 import { round2 } from '@/lib/pricing';
 import { VOID_REASONS } from '@/types/domain';
+import { requireApiAuth } from '@/lib/api-guard';
 
 /**
  * Spec 6.4: Storno- & Korrektur-Workflow nach dem Abschicken.
@@ -14,6 +16,9 @@ import { VOID_REASONS } from '@/types/domain';
  * - Optionale Kennzeichnung als "Nicht bezahlt" (Freiverzehr / Schwund)
  */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = (await req.json()) as {
       pin?: string;
@@ -225,6 +230,22 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         global.io.emit('table:updated', { tableId: order.tableId });
       }
     }
+
+    // Stornos sind der kritischste Vorgang einer Kasse - luecklose Protokollierung.
+    await logSystemAction({
+      action: 'ORDER_VOIDED',
+      category: 'ORDERS',
+      actor: cancelledBy || 'Unbekannt',
+      details: `Storno an Bestellung #${order.orderNumber}: ${targetItems.length} Position(en), Grund: ${reason}`,
+      metadata: {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        itemIds: targetItems.map((i) => i.id),
+        reason,
+        cancelledBy,
+        unpaidPaymentId,
+      },
+    });
 
     return NextResponse.json({
       success: true,

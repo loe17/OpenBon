@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import TicketSplitter from '@/lib/printer/ticket-splitter';
+import { requireApiAuth } from '@/lib/api-guard';
 
 /**
  * Spec 6.5: Manueller Postenabruf für zurückgehaltene Positionen (HOLD)
@@ -10,6 +11,9 @@ import TicketSplitter from '@/lib/printer/ticket-splitter';
  * Ohne Angabe werden alle noch gehaltenen Positionen der Bestellung abgerufen.
  */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = (await req.json().catch(() => ({}))) as {
       itemIds?: string[];

@@ -19,6 +19,7 @@ import {
   Check,
 } from 'lucide-react';
 
+import StationGate from '@/components/auth/station-gate';
 interface KitchenOrder {
   id: string;
   orderNumber: number;
@@ -53,7 +54,7 @@ interface CategoryOption {
   name: string;
 }
 
-export default function KitchenMonitorPage() {
+function KitchenMonitorContent() {
   const { socket } = useSocket();
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
@@ -538,5 +539,17 @@ export default function KitchenMonitorPage() {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Session-Gate: prueft beim Laden, ob an dieser Station eine gueltige
+ * Anmeldung besteht, und zeigt sonst sofort das PIN-Pad.
+ */
+export default function KitchenMonitorPage() {
+  return (
+    <StationGate station="KITCHEN" label="Küchenmonitor" allow={['KITCHEN']}>
+      <KitchenMonitorContent />
+    </StationGate>
   );
 }

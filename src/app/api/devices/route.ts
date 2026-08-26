@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
+import { requireApiAuth } from '@/lib/api-guard';
 
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const now = Date.now();
     const devicesMap = global.connectedDevices || new Map();
@@ -21,6 +25,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await req.json();
     const { action, targetDeviceId, newRole, newName } = body;

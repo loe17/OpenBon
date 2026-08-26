@@ -24,10 +24,31 @@ import {
 
 import { useToast } from '@/components/ui/toast';
 
+interface PrinterRow {
+  id: string;
+  name: string;
+  ipAddress: string;
+  port: number;
+  paperWidth: number;
+  characterSet: string;
+  isVirtual: boolean;
+  isActive?: boolean;
+}
+
+interface PrintGroupRow {
+  id: string;
+  name: string;
+  printerId: string | null;
+  fallbackPrinterId?: string | null;
+  maxItemsPerTicket: number;
+  autoCut: boolean;
+  printer?: PrinterRow | null;
+}
+
 export default function AdminPrintersPage() {
   const { success, error, warning } = useToast();
-  const [printers, setPrinters] = useState<any[]>([]);
-  const [printGroups, setPrintGroups] = useState<any[]>([]);
+  const [printers, setPrinters] = useState<PrinterRow[]>([]);
+  const [printGroups, setPrintGroups] = useState<PrintGroupRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPrinterModal, setShowPrinterModal] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
@@ -39,6 +60,7 @@ export default function AdminPrintersPage() {
   const [showScanModal, setShowScanModal] = useState(false);
 
   const [printerForm, setPrinterForm] = useState({
+    id: '',
     name: '',
     ipAddress: '192.168.1.200',
     port: 9100,
@@ -174,16 +196,50 @@ export default function AdminPrintersPage() {
     }
   };
 
+  const openPrinterEditor = (printer?: PrinterRow) => {
+    if (printer) {
+      setPrinterForm({
+        id: printer.id,
+        name: printer.name ?? '',
+        ipAddress: printer.ipAddress ?? '192.168.1.200',
+        port: printer.port ?? 9100,
+        paperWidth: printer.paperWidth ?? 80,
+        characterSet: printer.characterSet ?? 'CP858',
+        isVirtual: Boolean(printer.isVirtual),
+      });
+    } else {
+      setPrinterForm({
+        id: '',
+        name: '',
+        ipAddress: '192.168.1.200',
+        port: 9100,
+        paperWidth: 80,
+        characterSet: 'CP858',
+        isVirtual: false,
+      });
+    }
+    setShowPrinterModal(true);
+  };
+
   const handleSavePrinter = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await fetch('/api/printers', {
-        method: 'POST',
+      // Mit ID wird aktualisiert (PUT), ohne ID neu angelegt (POST).
+      // Bisher wurde immer POST gesendet – ein Bearbeiten war dadurch unmoeglich.
+      const isEdit = Boolean(printerForm.id);
+      const res = await fetch('/api/printers', {
+        method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(printerForm),
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        error(body.error || 'Der Drucker konnte nicht gespeichert werden.');
+        return;
+      }
       setShowPrinterModal(false);
       setPrinterForm({
+        id: '',
         name: '',
         ipAddress: '192.168.1.200',
         port: 9100,
@@ -198,14 +254,48 @@ export default function AdminPrintersPage() {
     }
   };
 
+  const openGroupEditor = (group?: PrintGroupRow) => {
+    setGroupForm({
+      id: group?.id ?? '',
+      name: group?.name ?? '',
+      printerId: group?.printerId ?? '',
+      fallbackPrinterId: group?.fallbackPrinterId ?? '',
+      maxItemsPerTicket: group?.maxItemsPerTicket ?? 0,
+      autoCut: group?.autoCut ?? true,
+    });
+    setShowGroupModal(true);
+  };
+
+  const handleDeleteGroup = async (group: PrintGroupRow) => {
+    if (!window.confirm(`Druckgruppe "${group.name}" wirklich loeschen?`)) return;
+    try {
+      const res = await fetch(`/api/print-groups?id=${group.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        error(body.error || 'Die Druckgruppe konnte nicht geloescht werden.');
+        return;
+      }
+      fetchPrintersAndGroups();
+      success('Druckgruppe geloescht.');
+    } catch {
+      error('Verbindungsfehler beim Loeschen der Druckgruppe.');
+    }
+  };
+
   const handleSaveGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await fetch('/api/print-groups', {
-        method: 'POST',
+      // Vorhandene Gruppe aktualisieren statt ein Duplikat anzulegen
+      const res = await fetch('/api/print-groups', {
+        method: groupForm.id ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(groupForm),
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        error(body.error || 'Die Druckgruppe konnte nicht gespeichert werden.');
+        return;
+      }
       setShowGroupModal(false);
       setGroupForm({
         id: '',
@@ -263,7 +353,7 @@ export default function AdminPrintersPage() {
           </button>
 
           <button
-            onClick={() => setShowGroupModal(true)}
+            onClick={() => openGroupEditor()}
             className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -271,7 +361,7 @@ export default function AdminPrintersPage() {
           </button>
 
           <button
-            onClick={() => setShowPrinterModal(true)}
+            onClick={() => openPrinterEditor()}
             className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -388,6 +478,13 @@ export default function AdminPrintersPage() {
                       <span>Testdruck</span>
                     </button>
                     <button
+                      onClick={() => openPrinterEditor(p)}
+                      className="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-slate-700"
+                      title="Drucker bearbeiten"
+                    >
+                      <Edit2 className="w-3.5 h-3.5 text-blue-400" />
+                    </button>
+                    <button
                       onClick={() => handleOpenDrawer(p.id)}
                       className="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-slate-700"
                       title="Kassenlade öffnen"
@@ -429,6 +526,21 @@ export default function AdminPrintersPage() {
                 <div className="text-[11px] text-slate-400">
                   Auto-Cut: {g.autoCut ? 'Ja' : 'Nein'} | Max Items:{' '}
                   {g.maxItemsPerTicket || 'Unbegrenzt'}
+                </div>
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-800">
+                  <button
+                    onClick={() => openGroupEditor(g)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-[11px] font-bold text-slate-200 transition"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    <span>Bearbeiten</span>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteGroup(g)}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-950/60 hover:bg-rose-900 border border-rose-800 rounded-xl text-[11px] font-bold text-rose-300 transition"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
             ))}
@@ -507,7 +619,7 @@ export default function AdminPrintersPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-lg text-white">Drucker manuell hinzufügen</h3>
+              <h3 className="font-bold text-lg text-white">{printerForm.id ? 'Drucker bearbeiten' : 'Drucker manuell hinzufügen'}</h3>
               <button
                 onClick={() => setShowPrinterModal(false)}
                 className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800"
@@ -592,6 +704,136 @@ export default function AdminPrintersPage() {
           </div>
         </div>
       )}
+
+      {/* Druckgruppen-Modal
+          Bisher setzte der Knopf "Druckgruppe" nur ein Flag – das Modal wurde
+          nie gerendert, weshalb sich keine Druckgruppe anlegen liess. */}
+      {showGroupModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-emerald-400" />
+                <h3 className="font-bold text-lg text-white">
+                  {groupForm.id ? 'Druckgruppe bearbeiten' : 'Neue Druckgruppe'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowGroupModal(false)}
+                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800"
+                aria-label="Schließen"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveGroup} className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">
+                  Name der Gruppe
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="z. B. Küche, Ausschank, Kasse"
+                  value={groupForm.name}
+                  onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">Drucker</label>
+                <select
+                  value={groupForm.printerId}
+                  onChange={(e) => setGroupForm({ ...groupForm, printerId: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white font-semibold"
+                >
+                  <option value="">Kein Drucker (nur Bildschirm)</option>
+                  {printers.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} {p.isVirtual ? '(virtuell)' : `– ${p.ipAddress}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">
+                  Ersatzdrucker bei Ausfall
+                </label>
+                <select
+                  value={groupForm.fallbackPrinterId}
+                  onChange={(e) =>
+                    setGroupForm({ ...groupForm, fallbackPrinterId: e.target.value })
+                  }
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white font-semibold"
+                >
+                  <option value="">Keiner</option>
+                  {printers
+                    .filter((p) => p.id !== groupForm.printerId)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">
+                  Tablett-Limit (Positionen pro Bon)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={groupForm.maxItemsPerTicket}
+                  onChange={(e) =>
+                    setGroupForm({
+                      ...groupForm,
+                      maxItemsPerTicket: parseInt(e.target.value, 10) || 0,
+                    })
+                  }
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white font-mono font-bold"
+                />
+                <p className="text-[11px] text-slate-500 font-semibold mt-1">
+                  0 = unbegrenzt · 1 = Einzelbons je Stück · sonst wird der Druck automatisch
+                  auf mehrere Bons mit Kopfzeile &bdquo;BON 1 von 3&ldquo; aufgeteilt.
+                </p>
+              </div>
+
+              <label className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">
+                <span className="text-xs font-bold text-slate-300">
+                  Bon nach dem Druck automatisch abschneiden
+                </span>
+                <input
+                  type="checkbox"
+                  checked={groupForm.autoCut}
+                  onChange={(e) => setGroupForm({ ...groupForm, autoCut: e.target.checked })}
+                  className="w-5 h-5 rounded bg-slate-800 border-slate-700"
+                />
+              </label>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowGroupModal(false)}
+                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-bold"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow"
+                >
+                  Speichern
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

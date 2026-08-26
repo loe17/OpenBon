@@ -8,96 +8,96 @@ generator client {
 }
 
 model EventConfig {
-  id                            String   @id @default("default")
-  name                          String   @default("Vereinsfest 2026")
-  currency                      String   @default("EUR")
-  taxRateNormal                 Float    @default(19.0)
-  taxRateReduced                Float    @default(7.0)
-  trainingMode                  Boolean  @default(false)
-  trayMaxItems                  Int      @default(6)   // Globales Tablett-Limit (Fallback fuer Druckgruppen)
-  adminPin                      String   @default("1234")
-  posPin                        String   @default("1111")
-  kitchenPin                    String   @default("2222")
-  waiterPin                     String   @default("3333")
-  enableVirtualPrinters         Boolean  @default(false)
-  enableTax                     Boolean  @default(false) // Standardmäßig deaktiviert (Vereine/Kleinunternehmer)
-  
+  id                    String  @id @default("default")
+  name                  String  @default("Vereinsfest 2026")
+  currency              String  @default("EUR")
+  taxRateNormal         Float   @default(19.0)
+  taxRateReduced        Float   @default(7.0)
+  trainingMode          Boolean @default(false)
+  trayMaxItems          Int     @default(6) // Globales Tablett-Limit (Fallback fuer Druckgruppen)
+  adminPin              String  @default("1234")
+  posPin                String  @default("1111")
+  kitchenPin            String  @default("2222")
+  waiterPin             String  @default("3333")
+  enableVirtualPrinters Boolean @default(false)
+  enableTax             Boolean @default(false) // Standardmäßig deaktiviert (Vereine/Kleinunternehmer)
+
   // V2/V3 Schalter & Features
-  enableCourses                 Boolean  @default(false)
-  enableDigitalReceipt          Boolean  @default(false)
-  enableAgeVerificationAlerts   Boolean  @default(true)
-  enableDigitalReceiptQr        Boolean  @default(false)
-  enableGuestSelfOrder          Boolean  @default(false) // Standardmäßig deaktiviert
-  enableGuestFacingDisplay      Boolean  @default(false) // Gastansicht beim Kassieren standardmäßig deaktiviert
-  enableKioskMode               Boolean  @default(false)
-  activeTheme                   String   @default("dark") // dark, light, contrast, modern, minimal, plain
-  lowStockAlertPrinterId        String?
+  enableCourses               Boolean @default(false)
+  enableDigitalReceipt        Boolean @default(false)
+  enableAgeVerificationAlerts Boolean @default(true)
+  enableDigitalReceiptQr      Boolean @default(false)
+  enableGuestSelfOrder        Boolean @default(false) // Standardmäßig deaktiviert
+  enableGuestFacingDisplay    Boolean @default(false) // Gastansicht beim Kassieren standardmäßig deaktiviert
+  enableKioskMode             Boolean @default(false)
+  activeTheme                 String  @default("dark") // dark, light, contrast, modern, minimal, plain
+  lowStockAlertPrinterId      String?
 
   // Beleg- & Bon-Druck Layout
-  receiptHeader                 String?  @default("Vereinsfest 2026")
-  receiptSubHeader              String?  @default("Freiwillige Feuerwehr e.V.")
-  receiptFooterText             String?  @default("Vielen Dank für Ihren Besuch!")
-  receiptShowTimestamp          Boolean  @default(true)
-  receiptShowWaiter             Boolean  @default(true)
-  receiptShowTable              Boolean  @default(true)
-  receiptShowTse                Boolean  @default(true)
-  receiptTableFontSize          Int      @default(3) // Stufenlose Skalierung
-  receiptSingleItemKitchenSlips Boolean  @default(true) // Legacy Fallback
-  receiptSingleItemFoodSlips    Boolean  @default(true) // Einzelbon fuer Speisen (Kueche)
-  receiptSingleItemDrinkSlips   Boolean  @default(true) // Einzelbon fuer Getraenke (Ausschank)
-  receiptFoodShowHeader         Boolean  @default(true)
-  receiptFoodShowTable          Boolean  @default(true)
-  receiptFoodShowWaiter         Boolean  @default(true)
-  receiptFoodShowTimestamp      Boolean  @default(true)
-  receiptFoodShowOptions        Boolean  @default(true)
-  receiptDrinkShowHeader        Boolean  @default(true)
-  receiptDrinkShowTable         Boolean  @default(true)
-  receiptDrinkShowWaiter        Boolean  @default(true)
-  receiptDrinkShowTimestamp     Boolean  @default(true)
-  receiptDrinkShowOptions       Boolean  @default(true)
+  receiptHeader                 String? @default("Vereinsfest 2026")
+  receiptSubHeader              String? @default("Freiwillige Feuerwehr e.V.")
+  receiptFooterText             String? @default("Vielen Dank für Ihren Besuch!")
+  receiptShowTimestamp          Boolean @default(true)
+  receiptShowWaiter             Boolean @default(true)
+  receiptShowTable              Boolean @default(true)
+  receiptShowTse                Boolean @default(true)
+  receiptTableFontSize          Int     @default(3) // Stufenlose Skalierung
+  receiptSingleItemKitchenSlips Boolean @default(true) // Legacy Fallback
+  receiptSingleItemFoodSlips    Boolean @default(true) // Einzelbon fuer Speisen (Kueche)
+  receiptSingleItemDrinkSlips   Boolean @default(true) // Einzelbon fuer Getraenke (Ausschank)
+  receiptFoodShowHeader         Boolean @default(true)
+  receiptFoodShowTable          Boolean @default(true)
+  receiptFoodShowWaiter         Boolean @default(true)
+  receiptFoodShowTimestamp      Boolean @default(true)
+  receiptFoodShowOptions        Boolean @default(true)
+  receiptDrinkShowHeader        Boolean @default(true)
+  receiptDrinkShowTable         Boolean @default(true)
+  receiptDrinkShowWaiter        Boolean @default(true)
+  receiptDrinkShowTimestamp     Boolean @default(true)
+  receiptDrinkShowOptions       Boolean @default(true)
 
   // Kartenzahlungs-IDs
-  sumupMerchantCode             String?
-  sumupAppId                    String?
-  vrPayTerminalId               String?
-  sparkasseMerchantId           String?  // S-POS Haendler-/Filial-ID
-  zvtHost                       String?  // ZVT-over-IP Terminal (Sparkasse / klassisches EC-Terminal)
-  zvtPort                       Int      @default(20007)
-  zvtPassword                   String   @default("000000")
-  baseUrl                       String   @default("http://openbon.local") // Basis fuer App-to-App Callbacks
-  
+  sumupMerchantCode   String?
+  sumupAppId          String?
+  vrPayTerminalId     String?
+  sparkasseMerchantId String? // S-POS Haendler-/Filial-ID
+  zvtHost             String? // ZVT-over-IP Terminal (Sparkasse / klassisches EC-Terminal)
+  zvtPort             Int     @default(20007)
+  zvtPassword         String  @default("000000")
+  baseUrl             String  @default("http://openbon.local") // Basis fuer App-to-App Callbacks
+
   // Fiskalisierung & DATEV
-  tseProvider                   String   @default("NONE") // NONE, SWISSBIT_USB, FISKALTRUST_CLOUD
-  tseSerialNumber               String?
-  datevConsultantNumber         String?
-  datevClientNumber             String?
-  datevCashAccount              String   @default("1000")
+  tseProvider           String  @default("NONE") // NONE, SWISSBIT_USB, FISKALTRUST_CLOUD
+  tseSerialNumber       String?
+  datevConsultantNumber String?
+  datevClientNumber     String?
+  datevCashAccount      String  @default("1000")
 
   // Hochverfuegbarkeit & Lizenz & Sicherheit
-  sessionSecret                 String?  // Kryptografischer Secret-Schlüssel für signierte JWT-Session-Cookies
-  haSyncSecret                  String?  @default("openbon-ha-sync-secret-2026")
-  licenseKey                    String   @default("OPENBON-COMMUNITY-FREE")
-  haRole                        String   @default("PRIMARY") // PRIMARY, STANDBY
-  haPartnerUrl                  String?  @default("http://192.168.1.101:3000")
-  haAutoFailover                Boolean  @default(true)
-  tokenSequence                 Int      @default(1)
-  invoiceSequence               Int      @default(1)
-  orderSequence                 Int      @default(1)
-  updatedAt                     DateTime @updatedAt
-  createdAt                     DateTime @default(now())
+  sessionSecret   String? // Kryptografischer Secret-Schlüssel für signierte JWT-Session-Cookies
+  haSyncSecret    String?  @default("openbon-ha-sync-secret-2026")
+  licenseKey      String   @default("OPENBON-COMMUNITY-FREE")
+  haRole          String   @default("PRIMARY") // PRIMARY, STANDBY
+  haPartnerUrl    String?  @default("http://192.168.1.101:3000")
+  haAutoFailover  Boolean  @default(true)
+  tokenSequence   Int      @default(1)
+  invoiceSequence Int      @default(1)
+  orderSequence   Int      @default(1)
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
 }
 
 model TipProfile {
-  id                  String          @id @default(cuid())
-  name                String          // z. B. "Standard Service (100%)", "Bar-Team (20% Pool)"
-  waiterPercent       Float           @default(100.0) // Default: 100% an Bedienung
-  barPoolPercent      Float           @default(0.0)
-  kitchenPoolPercent  Float           @default(0.0)
-  servicePoolPercent  Float           @default(0.0)
-  isDefault           Boolean         @default(false)
-  waiters             WaiterProfile[]
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
+  id                 String          @id @default(cuid())
+  name               String // z. B. "Standard Service (100%)", "Bar-Team (20% Pool)"
+  waiterPercent      Float           @default(100.0) // Default: 100% an Bedienung
+  barPoolPercent     Float           @default(0.0)
+  kitchenPoolPercent Float           @default(0.0)
+  servicePoolPercent Float           @default(0.0)
+  isDefault          Boolean         @default(false)
+  waiters            WaiterProfile[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 }
 
 model WaiterProfile {
@@ -123,85 +123,85 @@ model ProductCategory {
 }
 
 model Product {
-  id                    String            @id @default(cuid())
+  id                    String  @id @default(cuid())
   name                  String
   alternativeTicketName String?
-  price                 Float             @default(0.0)
-  deposit               Float             @default(0.0)
-  taxRate               Float             @default(19.0)
-  buttonColor           String?           @default("#3b82f6")
-  status                String            @default("ACTIVE") // ACTIVE, INACTIVE, HIDDEN
-  isSoldOut             Boolean           @default(false)
-  
+  price                 Float   @default(0.0)
+  deposit               Float   @default(0.0)
+  taxRate               Float   @default(19.0)
+  buttonColor           String? @default("#3b82f6")
+  status                String  @default("ACTIVE") // ACTIVE, INACTIVE, HIDDEN
+  isSoldOut             Boolean @default(false)
+
   // Bestandsfuehrung & Mindestmengen-Alerts
-  trackStock            Boolean           @default(false)
-  stockQuantity         Int               @default(0)
-  minStockAlert         Int?              // Meldebestand fuer Warnung
-  minStockAlertPrinted  Boolean           @default(false)
-  stockAlertThreshold   Int               @default(10)
-  
+  trackStock           Boolean @default(false)
+  stockQuantity        Int     @default(0)
+  minStockAlert        Int? // Meldebestand fuer Warnung
+  minStockAlertPrinted Boolean @default(false)
+  stockAlertThreshold  Int     @default(10)
+
   // Jugendschutz & Alterspruefung
-  hasAgeRestriction     Boolean           @default(false)
-  minAge                Int?              // 16, 18
+  hasAgeRestriction Boolean @default(false)
+  minAge            Int? // 16, 18
 
   // Allergene & Zusatzstoffe (LMIV)
-  allergens             String            @default("[]") // JSON Array z. B. ["GLUTEN", "MILCH"]
-  additives             String            @default("[]") // JSON Array z. B. ["KOFFEIN", "FARBSTOFF"]
+  allergens String @default("[]") // JSON Array z. B. ["GLUTEN", "MILCH"]
+  additives String @default("[]") // JSON Array z. B. ["KOFFEIN", "FARBSTOFF"]
 
   // Happy Hour & Dynamische Preise
-  happyHourPrice        Float?
-  happyHourStart        String?           // z. B. "18:00"
-  happyHourEnd          String?           // z. B. "19:00"
-  happyHourDays         String            @default("[]") // JSON Array [1,2,3,4,5]
+  happyHourPrice Float?
+  happyHourStart String? // z. B. "18:00"
+  happyHourEnd   String? // z. B. "19:00"
+  happyHourDays  String  @default("[]") // JSON Array [1,2,3,4,5]
 
   // Wertmarken-Klassifizierung
-  isTokenProduct        Boolean           @default(false)
-  tokenType             String?           // DRINK, FOOD, DEPOSIT, GENERAL
+  isTokenProduct Boolean @default(false)
+  tokenType      String? // DRINK, FOOD, DEPOSIT, GENERAL
 
-  subCategory           String?           // BIER, WEIN, ALKOHOLFREI, HEISS, BAR, SPEISE
-  sortIndex             Int               @default(0)
-  categoryId            String
-  category              ProductCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  variants              ProductVariant[]
-  options               ProductOption[]
-  printGroupId          String?
-  printGroup            PrintGroup?       @relation(fields: [printGroupId], references: [id], onDelete: SetNull)
-  stockItem             StockItem?
-  orderItems            OrderItem[]
-  tapLines              TapLine[]
+  subCategory  String? // BIER, WEIN, ALKOHOLFREI, HEISS, BAR, SPEISE
+  sortIndex    Int              @default(0)
+  categoryId   String
+  category     ProductCategory  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  variants     ProductVariant[]
+  options      ProductOption[]
+  printGroupId String?
+  printGroup   PrintGroup?      @relation(fields: [printGroupId], references: [id], onDelete: SetNull)
+  stockItem    StockItem?
+  orderItems   OrderItem[]
+  tapLines     TapLine[]
 
   @@index([categoryId])
   @@index([status])
 }
 
 model ProductVariant {
-  id         String   @id @default(cuid())
+  id         String  @id @default(cuid())
   productId  String
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   name       String
-  priceDelta Float    @default(0.0)
-  isSoldOut  Boolean  @default(false)
-  sortIndex  Int      @default(0)
+  priceDelta Float   @default(0.0)
+  isSoldOut  Boolean @default(false)
+  sortIndex  Int     @default(0)
 
   @@index([productId])
 }
 
 model ProductOption {
-  id         String   @id @default(cuid())
+  id         String  @id @default(cuid())
   productId  String
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   name       String
-  priceDelta Float    @default(0.0)
-  sortIndex  Int      @default(0)
+  priceDelta Float   @default(0.0)
+  sortIndex  Int     @default(0)
 
   @@index([productId])
 }
 
 model CustomizationWordGroup {
-  id        String   @id @default(cuid())
+  id        String @id @default(cuid())
   name      String
-  words     String   // JSON-Array: ["ohne", "extra", "wenig", "viel"]
-  sortIndex Int      @default(0)
+  words     String // JSON-Array: ["ohne", "extra", "wenig", "viel"]
+  sortIndex Int    @default(0)
 }
 
 model DiningTable {
@@ -214,7 +214,7 @@ model DiningTable {
   status           String    @default("FREE") // FREE, OCCUPIED, BILL_REQUESTED, HIDDEN, INACTIVE
   isActive         Boolean   @default(true)
   activeWaiterName String?
-  qrToken          String?   // Token fuer Gast-QR-Bestellung
+  qrToken          String? // Token fuer Gast-QR-Bestellung
   orders           Order[]
   payments         Payment[]
 
@@ -255,8 +255,8 @@ model Order {
   waiterName         String         @default("Bedienung")
   deviceId           String?
   source             String         @default("WAITER") // WAITER, GUEST_QR, KIOSK
-  status             String         @default("OPEN")   // OPEN, IN_PREPARATION, READY, COMPLETED, CANCELLED
-  orderType          String         @default("TABLE")  // TABLE, COUNTER_VOUCHER, COUNTER_DIRECT, KIOSK
+  status             String         @default("OPEN") // OPEN, IN_PREPARATION, READY, COMPLETED, CANCELLED
+  orderType          String         @default("TABLE") // TABLE, COUNTER_VOUCHER, COUNTER_DIRECT, KIOSK
   tokenNumber        Int?
   digitalReceiptCode String?        @unique
   isTraining         Boolean        @default(false)
@@ -268,33 +268,36 @@ model Order {
   @@index([tableId])
   @@index([status])
   @@index([createdAt])
+  // Bewusst KEIN @unique: der Z-Bon setzt orderSequence auf 1 zurueck, die
+  // Bestellnummer ist also nur innerhalb eines Kassenabschlusses eindeutig.
+  @@index([orderNumber])
 }
 
 model OrderItem {
-  id                String        @id @default(cuid())
-  orderId           String
-  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId         String
-  product           Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
-  productName       String
-  quantity          Int           @default(1)
-  unitPrice         Float
-  deposit           Float         @default(0.0)
-  taxRate           Float         @default(19.0)
-  variantName       String?
-  selectedOptions   String?       // JSON Array String
-  customizationText String?
-  courseNumber      Int           @default(1)     // Gang 1 = Vorspeise, 2 = Hauptgang, 3 = Dessert
-  isHold            Boolean       @default(false) // Zurueckhalten bis manueller Postenabruf
-  printStatus       String        @default("PENDING") // PENDING, HELD, PRINTED, ERROR
-  kdsStatus         String        @default("PENDING") // PENDING, IN_PROGRESS, READY, COMPLETED
-  kdsCompletedAt    DateTime?
-  paidQuantity      Int           @default(0)
-  isCancelled       Boolean       @default(false) // = isVoided (Storno)
-  cancellationReason String?                      // = voidReason (Stornogrund)
-  cancelledBy       String?
-  cancelledAt       DateTime?
-  paymentItems      PaymentItem[]
+  id                 String        @id @default(cuid())
+  orderId            String
+  order              Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId          String
+  product            Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productName        String
+  quantity           Int           @default(1)
+  unitPrice          Float
+  deposit            Float         @default(0.0)
+  taxRate            Float         @default(19.0)
+  variantName        String?
+  selectedOptions    String? // JSON Array String
+  customizationText  String?
+  courseNumber       Int           @default(1) // Gang 1 = Vorspeise, 2 = Hauptgang, 3 = Dessert
+  isHold             Boolean       @default(false) // Zurueckhalten bis manueller Postenabruf
+  printStatus        String        @default("PENDING") // PENDING, HELD, PRINTED, ERROR
+  kdsStatus          String        @default("PENDING") // PENDING, IN_PROGRESS, READY, COMPLETED
+  kdsCompletedAt     DateTime?
+  paidQuantity       Int           @default(0)
+  isCancelled        Boolean       @default(false) // = isVoided (Storno)
+  cancellationReason String? // = voidReason (Stornogrund)
+  cancelledBy        String?
+  cancelledAt        DateTime?
+  paymentItems       PaymentItem[]
 
   @@index([orderId])
   @@index([productId])
@@ -337,7 +340,7 @@ model Payment {
   // CASH, CARD_SUMUP, CARD_VRPAY, CARD_SPARKASSE, CARD_TERMINAL, TOKEN,
   // NON_PAID_STAFF, NON_PAID_COMPLAINT, VOID_UNPAID, DISCOUNT
   paymentMethod      String          @default("CASH")
-  cardAuthCode       String?         // Autorisierungscode Terminal / App
+  cardAuthCode       String? // Autorisierungscode Terminal / App
   cardTerminalId     String?
   nonPaidReason      String?
   isCancelled        Boolean         @default(false)
@@ -366,20 +369,20 @@ model PaymentItem {
 }
 
 model TokenTransaction {
-  id          String   @id @default(cuid())
-  tokenType   String   @default("GENERAL") // DRINK, FOOD, DEPOSIT, GENERAL
-  action      String   // ISSUE, REDEEM, RETURN
-  quantity    Int
-  unitValue   Float
-  totalValue  Float
-  waiterName  String   @default("Kasse")
-  deviceId    String?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  tokenType  String   @default("GENERAL") // DRINK, FOOD, DEPOSIT, GENERAL
+  action     String // ISSUE, REDEEM, RETURN
+  quantity   Int
+  unitValue  Float
+  totalValue Float
+  waiterName String   @default("Kasse")
+  deviceId   String?
+  createdAt  DateTime @default(now())
 }
 
 model FiscalExport {
   id             String   @id @default(cuid())
-  exportType     String   // DATEV_CASHBOOK, DSFINVK_TAR, TSE_AUDIT
+  exportType     String // DATEV_CASHBOOK, DSFINVK_TAR, TSE_AUDIT
   periodStart    DateTime
   periodEnd      DateTime
   filename       String
@@ -403,7 +406,7 @@ model ChatMessage {
   id             String   @id @default(cuid())
   senderName     String
   senderDeviceId String?
-  targetDeviceId String?  // null = Broadcast an alle
+  targetDeviceId String? // null = Broadcast an alle
   message        String
   isUrgent       Boolean  @default(false)
   isRead         Boolean  @default(false)
@@ -425,53 +428,53 @@ model Device {
 
 // Kassenperiode: wird durch den Z-Bon (Tagesabschluss) geschlossen
 model RegisterPeriod {
-  id               String        @id @default(cuid())
+  id               String         @id @default(cuid())
   periodNumber     Int
-  openedAt         DateTime      @default(now())
+  openedAt         DateTime       @default(now())
   closedAt         DateTime?
-  status           String        @default("OPEN") // OPEN, CLOSED
+  status           String         @default("OPEN") // OPEN, CLOSED
   closedBy         String?
   // Fiskalblock: Snapshot der Kennzahlen zum Abschlusszeitpunkt
-  totalGross       Float         @default(0.0)
-  totalNet         Float         @default(0.0)
-  taxAmount19      Float         @default(0.0)
-  taxAmount7       Float         @default(0.0)
-  taxBase0         Float         @default(0.0)
-  totalCash        Float         @default(0.0)
-  totalCard        Float         @default(0.0)
-  totalTips        Float         @default(0.0)
-  totalDepositOut  Float         @default(0.0)
-  cashIn           Float         @default(0.0)
-  cashOut          Float         @default(0.0)
-  cashExpected     Float         @default(0.0)
+  totalGross       Float          @default(0.0)
+  totalNet         Float          @default(0.0)
+  taxAmount19      Float          @default(0.0)
+  taxAmount7       Float          @default(0.0)
+  taxBase0         Float          @default(0.0)
+  totalCash        Float          @default(0.0)
+  totalCard        Float          @default(0.0)
+  totalTips        Float          @default(0.0)
+  totalDepositOut  Float          @default(0.0)
+  cashIn           Float          @default(0.0)
+  cashOut          Float          @default(0.0)
+  cashExpected     Float          @default(0.0)
   cashCounted      Float?
   cashDifference   Float?
-  transactionCount Int           @default(0)
-  fiscalSignature  String?       // HMAC-SHA256 ueber den Abschlussblock
-  reportJson       String?       // Vollstaendiger Z-Bon als JSON-Snapshot
+  transactionCount Int            @default(0)
+  fiscalSignature  String? // HMAC-SHA256 ueber den Abschlussblock
+  reportJson       String? // Vollstaendiger Z-Bon als JSON-Snapshot
   payments         Payment[]
   cashMovements    CashMovement[]
 }
 
 // Kassenbuch: Wechselgeld-Einlagen und Entnahmen in den Tresor
 model CashMovement {
-  id          String          @id @default(cuid())
-  periodId    String?
-  period      RegisterPeriod? @relation(fields: [periodId], references: [id], onDelete: SetNull)
-  type        String          @default("CASH_IN") // CASH_IN, CASH_OUT
-  amount      Float
-  reason      String
-  waiterName  String          @default("Kasse")
-  deviceId    String?
-  isTraining  Boolean         @default(false)
-  createdAt   DateTime        @default(now())
+  id         String          @id @default(cuid())
+  periodId   String?
+  period     RegisterPeriod? @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  type       String          @default("CASH_IN") // CASH_IN, CASH_OUT
+  amount     Float
+  reason     String
+  waiterName String          @default("Kasse")
+  deviceId   String?
+  isTraining Boolean         @default(false)
+  createdAt  DateTime        @default(now())
 }
 
 // Ergebnisse der zyklischen Selbstdiagnose (Self-Healing)
 model DiagnosticRun {
   id           String   @id @default(cuid())
   status       String   @default("OK") // OK, WARNING, ERROR
-  checksJson   String   // JSON-Array der Einzelpruefungen
+  checksJson   String // JSON-Array der Einzelpruefungen
   repairsCount Int      @default(0)
   durationMs   Int      @default(0)
   createdAt    DateTime @default(now())
@@ -479,10 +482,10 @@ model DiagnosticRun {
 
 model SyncJournal {
   id         Int      @id @default(autoincrement())
-  entityType String   // ORDER, PAYMENT, PRODUCT, TABLE, etc.
+  entityType String // ORDER, PAYMENT, PRODUCT, TABLE, etc.
   entityId   String
-  operation  String   // INSERT, UPDATE, DELETE
-  payload    String   // JSON Snapshot
+  operation  String // INSERT, UPDATE, DELETE
+  payload    String // JSON Snapshot
   createdAt  DateTime @default(now())
 }
 
@@ -490,13 +493,13 @@ model SyncJournal {
 model TapLine {
   id                  String   @id @default(cuid())
   tapNumber           Int      @default(1)
-  name                String   // z. B. "Hahn 1 - Helles Festbier"
+  name                String // z. B. "Hahn 1 - Helles Festbier"
   kegVolumeLiters     Float    @default(50.0)
   currentVolumeLiters Float    @default(50.0)
   portionSizeLiters   Float    @default(0.5)
   lossPercentage      Float    @default(3.0) // Schankverlust in % (Schaum/Zapfverlust)
   warningLevelPercent Float    @default(10.0) // Warnung bei unter X %
-  kegsTapped          Int      @default(1)    // Anzahl angeschlagener Fässer heute
+  kegsTapped          Int      @default(1) // Anzahl angeschlagener Fässer heute
   productId           String?
   product             Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   isActive            Boolean  @default(true)
@@ -507,11 +510,11 @@ model TapLine {
 // System- und Revisionsprotokoll (Audit-Log aller Aktionen)
 model ActionLog {
   id        String   @id @default(cuid())
-  action    String   // ORDER_CREATED, ITEM_VOIDED, PAYMENT_COMPLETED, SHIFT_SETTLED, CASH_MOVEMENT, CONFIG_CHANGED, DIAGNOSTICS_RUN, TABLE_TRANSFERRED, SYSTEM_EVENT
+  action    String // ORDER_CREATED, ITEM_VOIDED, PAYMENT_COMPLETED, SHIFT_SETTLED, CASH_MOVEMENT, CONFIG_CHANGED, DIAGNOSTICS_RUN, TABLE_TRANSFERRED, SYSTEM_EVENT
   category  String   @default("GENERAL") // SALES, ORDERS, AUTH, CASHBOOK, SYSTEM, ADMIN
-  actor     String   @default("System")  // Waiter Name, Admin, POS Station ID
-  details   String   // Human readable description
-  metadata  String?  // JSON metadata string
+  actor     String   @default("System") // Waiter Name, Admin, POS Station ID
+  details   String // Human readable description
+  metadata  String? // JSON metadata string
   createdAt DateTime @default(now())
 
   @@index([action])
@@ -531,7 +534,7 @@ model PrintJob {
   attempts       Int       @default(0)
   maxAttempts    Int       @default(3)
   lastError      String?
-  rawPayload     String?   // Base64 oder formatierter ESC/POS Text
+  rawPayload     String? // Base64 oder formatierter ESC/POS Text
   createdAt      DateTime  @default(now())
   printedAt      DateTime?
 
@@ -557,7 +560,7 @@ model ConfigList {
   id        String   @id @default(cuid())
   key       String   @unique // z.B. "SUB_CATEGORIES", "DEPOSIT_TIERS", "TIP_PRESETS", "VOID_REASONS", "COURSE_NAMES"
   name      String
-  itemsJson String   // JSON array
+  itemsJson String // JSON array
   updatedAt DateTime @updatedAt
 }
 
@@ -566,7 +569,7 @@ model EventProfile {
   id          String   @id @default(cuid())
   name        String   @unique
   description String?
-  profileJson String   // JSON Snapshot
+  profileJson String // JSON Snapshot
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -585,8 +588,8 @@ model Staff {
 // HA-Split-Brain-Fencing: Nur der Knoten mit gueltiger Lease darf als PRIMARY schreiben
 model HaLease {
   id        String   @id @default("primary") // immer genau ein Lease-Datensatz
-  holderId  String   // Instanz-UUID des aktuellen Primaerknotens
-  holderUrl String?  // Partner-Erreichbarkeit fuer Diagnose
+  holderId  String // Instanz-UUID des aktuellen Primaerknotens
+  holderUrl String? // Partner-Erreichbarkeit fuer Diagnose
   expiresAt DateTime // Lease laeuft ab -> anderer Knoten darf uebernehmen
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

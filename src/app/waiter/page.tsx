@@ -29,6 +29,7 @@ import { VOID_REASONS, type OrderDTO } from '@/types/domain';
 import { playConfirm, playVoidAlert, playOrderReadyChime } from '@/lib/audio-feedback';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 
+import StationGate from '@/components/auth/station-gate';
 interface TableData {
   id: string;
   tableNumber: number;
@@ -56,7 +57,7 @@ interface RepeatLine {
   isSoldOut: boolean;
 }
 
-export default function WaiterTablesPage() {
+function WaiterTablesContent() {
   const router = useRouter();
   const { socket } = useSocket();
   const [tables, setTables] = useState<TableData[]>([]);
@@ -348,6 +349,15 @@ export default function WaiterTablesPage() {
     localStorage.setItem('pos_waiter_name', finalName);
     setWaiterName(finalName);
     setShowWaiterPrompt(false);
+
+    // Bedienung serverseitig anmelden, damit sie in der Schichtabrechnung und
+    // in der Trinkgeldverteilung auftaucht. Bisher blieb der Name ausschliesslich
+    // im localStorage des Geraets – die Kellnerliste war deshalb immer leer.
+    void fetch('/api/waiters/checkin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: finalName }),
+    }).catch(() => undefined);
   };
 
   const myTablesCount = tables.filter(
@@ -1089,5 +1099,17 @@ export default function WaiterTablesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Session-Gate: prueft beim Laden, ob an dieser Station eine gueltige
+ * Anmeldung besteht, und zeigt sonst sofort das PIN-Pad.
+ */
+export default function WaiterTablesPage() {
+  return (
+    <StationGate station="WAITER" label="Bedienung (Tische)" allow={['WAITER']}>
+      <WaiterTablesContent />
+    </StationGate>
   );
 }

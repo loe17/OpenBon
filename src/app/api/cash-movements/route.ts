@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
+import { logSystemAction } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
 import { EscPosBuilder } from '@/lib/printer/escpos-builder';
 import haService from '@/lib/ha/ha-service';
 import { getOrCreateOpenPeriod } from '@/lib/register-period';
+import { requireApiAuth } from '@/lib/api-guard';
 
 /**
  * Spec 6.8: Kassenbuch & Geldbewegungen.
@@ -12,6 +14,9 @@ import { getOrCreateOpenPeriod } from '@/lib/register-period';
  * Jede Bewegung wird quittiert (Belegdruck).
  */
 export async function GET(req: Request) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const periodId = searchParams.get('periodId');
@@ -47,6 +52,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = (await req.json()) as {
       type?: 'CASH_IN' | 'CASH_OUT';
@@ -125,6 +133,19 @@ export async function POST(req: Request) {
     if (global.io) {
       global.io.emit('cashbook:updated', movement);
     }
+
+    await logSystemAction({
+      action: 'CASH_MOVEMENT',
+      category: 'CASHBOOK',
+      actor: movement.waiterName || auth.session.waiterName || auth.session.role,
+      details: `${movement.type}: ${movement.amount.toFixed(2)} € – ${movement.reason}`,
+      metadata: {
+        movementId: movement.id,
+        type: movement.type,
+        amount: movement.amount,
+        reason: movement.reason,
+      },
+    });
 
     return NextResponse.json(movement);
   } catch (error) {

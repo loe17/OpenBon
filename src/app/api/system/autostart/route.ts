@@ -6,8 +6,12 @@ import os from 'os';
 const execPromise = util.promisify(exec);
 
 import { requireAdmin } from '@/lib/admin-guard';
+import { requireApiAuth } from '@/lib/api-guard';
 
 export async function GET(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   const denied = await requireAdmin(req);
   if (denied) return denied;
   const isLinux = os.platform() === 'linux';
@@ -31,6 +35,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   const denied = await requireAdmin(req);
   if (denied) return denied;
   try {

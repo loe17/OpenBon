@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireApiAuth } from '@/lib/api-guard';
 
 /**
  * Spec 6.6: Schnell-Nachbestellung "Gleiche Runde noch einmal".
@@ -12,6 +13,9 @@ import prisma from '@/lib/db';
  * GET /api/orders/repeat?tableId=...&scope=last|all
  */
 export async function GET(req: Request) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const tableId = searchParams.get('tableId');

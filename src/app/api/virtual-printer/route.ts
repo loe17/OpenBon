@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
+import { requireApiAuth } from '@/lib/api-guard';
 
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const history = global.virtualPrinterHistory || [];
     return NextResponse.json(history);
@@ -9,7 +13,10 @@ export async function GET() {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     global.virtualPrinterHistory = [];
     if (global.io) {

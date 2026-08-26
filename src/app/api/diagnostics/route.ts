@@ -5,6 +5,7 @@ import prisma from '@/lib/db';
 import { parseAndValidateLicense } from '@/lib/license';
 import { EscPosBuilder } from '@/lib/printer/escpos-builder';
 import networkSpooler from '@/lib/printer/network-spooler';
+import { requireApiAuth } from '@/lib/api-guard';
 
 // Hilfsfunktion: TCP Socket Ping für Bondrucker
 async function testPrinterSocket(ip: string, port: number, timeoutMs = 2500): Promise<{ reachable: boolean; latencyMs: number; error?: string }> {
@@ -43,7 +44,10 @@ async function testPrinterSocket(ip: string, port: number, timeoutMs = 2500): Pr
   });
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const startTime = Date.now();
 
@@ -179,6 +183,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await req.json();
     const action = body.action;

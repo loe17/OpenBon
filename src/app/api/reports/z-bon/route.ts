@@ -4,6 +4,7 @@ import networkSpooler from '@/lib/printer/network-spooler';
 import { EscPosBuilder, type ZBonReport } from '@/lib/printer/escpos-builder';
 import { computePeriodTotals, getOrCreateOpenPeriod, signFiscalBlock } from '@/lib/register-period';
 import haService from '@/lib/ha/ha-service';
+import { requireApiAuth } from '@/lib/api-guard';
 
 /**
  * Spec 6.7: Z-Bon (offizieller Kassenabschluss).
@@ -12,7 +13,10 @@ import haService from '@/lib/ha/ha-service';
  */
 
 /** Vorschau des Z-Bons ohne Abschluss */
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const period = await getOrCreateOpenPeriod();
     const totals = await computePeriodTotals({ periodId: period.id, includeUnassigned: true });
@@ -31,6 +35,9 @@ export async function GET() {
 
 /** Führt den Tagesabschluss durch */
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = (await req.json().catch(() => ({}))) as {
       pin?: string;

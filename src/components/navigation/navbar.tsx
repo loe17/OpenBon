@@ -89,9 +89,12 @@ export default function Navbar() {
 
     let unsub = () => {};
     try {
-      const { subscribeToOutbox, getPendingCount } = require('@/lib/offline/outbox');
-      unsub = subscribeToOutbox((count: number) => setPendingOutboxCount(count));
-      getPendingCount().then(setPendingOutboxCount).catch(() => {});
+      // subscribeToOutbox liefert den aktuellen Stand sofort beim Abonnieren mit;
+      // ein zusaetzlicher Einzelabruf ist nicht noetig.
+      const { subscribeToOutbox } = require('@/lib/offline/outbox');
+      unsub = subscribeToOutbox((count: number, failed: number) =>
+        setPendingOutboxCount(count + failed)
+      );
     } catch {}
 
     return () => {
@@ -248,7 +251,11 @@ export default function Navbar() {
   const nonAdminLinks: Record<string, NavItem[]> = {
     WAITER: [
       { href: '/waiter', label: 'Bedienung (Tischübersicht)', icon: Smartphone, roles: ['WAITER'] },
+      // Die Schichtabrechnung existierte, war aber von keiner Oberflaeche aus
+      // erreichbar - die Bedienung konnte ihre Schicht gar nicht abschliessen.
+      { href: '/waiter/settle', label: 'Schichtabrechnung', icon: Wallet, roles: ['WAITER'] },
       { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['WAITER'] },
+      { href: '/docs', label: 'Handbuch & Anleitungen', icon: BookOpen, roles: ['WAITER'] },
     ],
     POS_CASHIER: [
       { href: '/pos', label: 'Bonkasse (Thekenverkauf)', icon: CreditCard, roles: ['POS_CASHIER'] },

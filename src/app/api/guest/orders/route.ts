@@ -125,7 +125,8 @@ export async function POST(req: NextRequest) {
 
       const createdOrder = await tx.order.create({
         data: {
-          orderNumber: updatedConfig.orderSequence,
+          // Wert VOR dem Inkrement - identisch zu /api/orders und /api/orders/checkout.
+          orderNumber: updatedConfig.orderSequence - 1,
           tableId: table.id,
           waiterName: `Gast (Tisch ${table.tableNumber})`,
           source: 'GUEST_QR',

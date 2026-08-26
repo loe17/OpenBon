@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server';
+import { logSystemAction } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import TicketSplitter from '@/lib/printer/ticket-splitter';
 import haService from '@/lib/ha/ha-service';
 import { getEffectiveProductPrice } from '@/lib/pricing';
 import { checkAndTriggerLowStockAlert } from '@/lib/low-stock-notifier';
 import { validateBody, CreateOrderSchema } from '@/lib/validations/schemas';
+import { requireApiAuth } from '@/lib/api-guard';
 
 export async function GET(req: Request) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const tableId = searchParams.get('tableId');
@@ -48,6 +53,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const validation = await validateBody(req, CreateOrderSchema);
     if (!validation.success) {
@@ -98,25 +106,23 @@ export async function POST(req: Request) {
       const config = await tx.eventConfig.findUnique({ where: { id: 'default' } });
       const isTraining = config?.trainingMode ?? false;
 
+      // Sequenzen zuerst atomar hochzaehlen und anschliessend den Wert VOR dem
+      // Inkrement verwenden. Ein vorheriges Lesen mit spaeterem Update konnte
+      // dieselbe Nummer zweimal vergeben, sobald parallel ueber
+      // /api/orders/checkout oder /api/guest/orders kassiert wurde.
+      const bumped = await tx.eventConfig.update({
+        where: { id: 'default' },
+        data: {
+          orderSequence: { increment: 1 },
+          ...(isCounterOrKiosk ? { tokenSequence: { increment: 1 } } : {}),
+        },
+      });
+
+      const nextOrderNum = bumped.orderSequence - 1;
       let tokenNumber: number | null = null;
-      let nextOrderNum = config?.orderSequence || 1;
 
       if (isCounterOrKiosk) {
-        tokenNumber = config?.tokenSequence || 100;
-        await tx.eventConfig.update({
-          where: { id: 'default' },
-          data: {
-            tokenSequence: { increment: 1 },
-            orderSequence: { increment: 1 },
-          },
-        });
-      } else {
-        await tx.eventConfig.update({
-          where: { id: 'default' },
-          data: {
-            orderSequence: { increment: 1 },
-          },
-        });
+        tokenNumber = bumped.tokenSequence - 1;
       }
 
       // Bestände prüfen & OrderItems vorbereiten
@@ -300,6 +306,21 @@ export async function POST(req: Request) {
         global.io.emit('table:updated', { tableId: body.tableId, status: 'OCCUPIED' });
       }
     }
+
+    // 7. Revisionssichere Protokollierung (GoBD): Wer hat wann was erfasst.
+    await logSystemAction({
+      action: 'ORDER_CREATED',
+      category: 'ORDERS',
+      actor: order.waiterName || auth.session.waiterName || auth.session.role,
+      details: `Bestellung #${order.orderNumber} mit ${order.items?.length ?? 0} Position(en) erfasst.`,
+      metadata: {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        tableId: order.tableId,
+        orderType: order.orderType,
+        totalAmount: order.totalAmount,
+      },
+    });
 
     return NextResponse.json(order);
   } catch (error) {

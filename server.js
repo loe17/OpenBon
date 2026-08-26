@@ -42,6 +42,12 @@ app.prepare().then(() => {
     pingTimeout: 5000,
   });
 
+  // WICHTIG: Die Instanz global verfuegbar machen. Die Next.js-API-Routen
+  // senden ihre Echtzeit-Ereignisse ueber `global.io` (Bestellungen, Zahlungen,
+  // KDS-Status, Storno, Tischstatus, Chat, virtueller Drucker, Audit-Log).
+  // Ohne diese Zuweisung laufen saemtliche `if (global.io)`-Bloecke still ins Leere.
+  global.io = io;
+
   // Handshake-Authentifizierung für Socket.IO
   io.use(async (socket, next) => {
     try {

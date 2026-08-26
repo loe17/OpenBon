@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemAction } from '@/lib/action-logger';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/db';
 import TicketSplitter from '@/lib/printer/ticket-splitter';
@@ -14,6 +15,7 @@ import { generateDigitalReceiptCode, buildReceiptUrl } from '@/lib/digital-recei
 import { calculateTipDistribution } from '@/lib/tips';
 import { deductTapVolumeForItems } from '@/lib/tap-manager';
 import type { TicketData } from '@/lib/printer/types';
+import { requireApiAuth } from '@/lib/api-guard';
 
 /**
  * Atomic Checkout: legt die Bestellung UND die sofortige Vollzahlung in EINER
@@ -21,6 +23,9 @@ import type { TicketData } from '@/lib/printer/types';
  * mit Bestandsabzug ohne Zahlung noch eine Zahlung ohne Bon.
  */
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const validation = await validateBody(req, AtomicCheckoutSchema);
     if (!validation.success) {
@@ -74,7 +79,11 @@ export async function POST(req: Request) {
         },
       });
 
-      const nextOrderNum = config.orderSequence; // bereits inkrementiert
+      // WICHTIG: Ueberall im System gilt "Wert VOR dem Inkrement" (siehe
+      // invoiceSequence/tokenSequence sowie /api/orders). Wurde hier der Wert
+      // NACH dem Inkrement verwendet, vergaben /api/orders und /api/orders/checkout
+      // im Wechselbetrieb dieselbe Bestellnummer doppelt.
+      const nextOrderNum = config.orderSequence - 1;
       let tokenNumber: number | null = null;
       const invoiceSeq = config.invoiceSequence - 1; // konsistent zur /api/payments-Nummerierung
 
@@ -384,6 +393,21 @@ export async function POST(req: Request) {
       payment.digitalReceiptCode && config?.baseUrl
         ? buildReceiptUrl(config.baseUrl, payment.digitalReceiptCode)
         : null;
+
+    await logSystemAction({
+      action: 'CHECKOUT_COMPLETED',
+      category: 'SALES',
+      actor: order.waiterName || auth.session.waiterName || auth.session.role,
+      details: `Direktverkauf #${order.orderNumber} über ${payment.amount.toFixed(2)} € (${getPaymentLabel(payment.method)}) abgeschlossen.`,
+      metadata: {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        paymentId: payment.id,
+        invoiceNumber: payment.invoiceNumber,
+        method: payment.method,
+        amount: payment.amount,
+      },
+    });
 
     return NextResponse.json({
       ...payment,

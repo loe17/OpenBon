@@ -7,10 +7,14 @@ import {
   DsfinvkBonposPreise,
 } from '@/lib/dsfinvk-exporter';
 import { requireAdmin } from '@/lib/admin-guard';
+import { requireApiAuth } from '@/lib/api-guard';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   const denied = await requireAdmin(req);
   if (denied) return denied;
   try {

@@ -2,8 +2,12 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { APP_VERSION } from '@/lib/version';
 import { requireAdmin } from '@/lib/admin-guard';
+import { requireApiAuth } from '@/lib/api-guard';
 
 export async function GET(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   const denied = await requireAdmin(req);
   if (denied) return denied;
   try {
@@ -80,6 +84,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   const denied = await requireAdmin(req);
   if (denied) return denied;
   try {
@@ -97,7 +104,7 @@ export async function POST(req: Request) {
     };
 
     if (!backupData.categories && !backupData.tables && !backupData.config) {
-      return NextResponse.json({ error: 'UngÃ¼ltige OpenBon Backup-Datei' }, { status: 400 });
+      return NextResponse.json({ error: 'Ungültige OpenBon Backup-Datei' }, { status: 400 });
     }
 
     // 1. Restore Config
@@ -222,7 +229,7 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, message: 'AusgewÃ¤hlte Backup-Bereiche erfolgreich wiederhergestellt!' });
+    return NextResponse.json({ success: true, message: 'Ausgewählte Backup-Bereiche erfolgreich wiederhergestellt!' });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }

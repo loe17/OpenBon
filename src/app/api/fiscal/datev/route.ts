@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { generateDatevCsv, DatevBookingLine } from '@/lib/datev-exporter';
 import { requireAdmin } from '@/lib/admin-guard';
+import { requireApiAuth } from '@/lib/api-guard';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   const denied = await requireAdmin(req);
   if (denied) return denied;
   try {
@@ -36,7 +40,7 @@ export async function GET(req: NextRequest) {
     const bookingLines: DatevBookingLine[] = [];
 
     for (const p of periods) {
-      // 1. UmsatzerlÃ¶se 19% USt
+      // 1. Umsatzerlöse 19% USt
       if (p.taxAmount19 > 0 || p.totalGross > 0) {
         const gross19 = p.taxAmount19 > 0 ? (p.totalGross - (p.taxAmount7 ? p.taxAmount7 / 0.07 * 1.07 : 0)) : p.totalGross;
         if (gross19 > 0) {
@@ -44,7 +48,7 @@ export async function GET(req: NextRequest) {
             amountGross: gross19,
             isDebit: true,
             account: config?.datevCashAccount || '1000',
-            contraAccount: '8400', // ErlÃ¶se 19% USt
+            contraAccount: '8400', // Erlöse 19% USt
             bookingDate: p.closedAt || p.openedAt,
             documentNumber: `Z-${p.periodNumber.toString().padStart(4, '0')}`,
             text: `Tagesumsatz 19% Z-Bon #${p.periodNumber}`,
@@ -52,14 +56,14 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // 2. UmsatzerlÃ¶se 7% USt
+      // 2. Umsatzerlöse 7% USt
       if (p.taxAmount7 > 0) {
         const gross7 = (p.taxAmount7 / 0.07) * 1.07;
         bookingLines.push({
           amountGross: gross7,
           isDebit: true,
           account: config?.datevCashAccount || '1000',
-          contraAccount: '8300', // ErlÃ¶se 7% USt
+          contraAccount: '8300', // Erlöse 7% USt
           bookingDate: p.closedAt || p.openedAt,
           documentNumber: `Z-${p.periodNumber.toString().padStart(4, '0')}`,
           text: `Tagesumsatz 7% Z-Bon #${p.periodNumber}`,

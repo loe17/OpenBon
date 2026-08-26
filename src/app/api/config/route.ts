@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
+import { logSystemAction } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import haService from '@/lib/ha/ha-service';
 import { requireAdmin } from '@/lib/admin-guard';
+import { requireApiAuth } from '@/lib/api-guard';
 
 /**
- * Nur ausdrÃ¼cklich freigegebene Felder werden Ã¼bernommen â€“ so fÃ¼hrt ein
+ * Nur ausdrücklich freigegebene Felder werden übernommen – so führt ein
  * versehentlich mitgesendetes Feld (z. B. `updatedAt`) nicht zum Fehler.
  */
 const ALLOWED_FIELDS = [
@@ -140,6 +142,9 @@ function sanitize(body: Record<string, unknown>): Record<string, unknown> {
 }
 
 export async function GET(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   const denied = await requireAdmin(req);
   if (denied) return denied;
   try {
@@ -157,6 +162,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   const denied = await requireAdmin(req);
   if (denied) return denied;
   try {
@@ -175,7 +183,7 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             error:
-              'Rollenwechsel abgelehnt: Eine andere Instanz hÃ¤lt noch eine gÃ¼ltige PRIMARY-Lease (Split-Brain-Schutz).',
+              'Rollenwechsel abgelehnt: Eine andere Instanz hält noch eine gültige PRIMARY-Lease (Split-Brain-Schutz).',
           },
           { status: 409 }
         );
@@ -185,6 +193,14 @@ export async function POST(req: Request) {
     if (global.io) {
       global.io.emit('config:updated', updated);
     }
+
+    await logSystemAction({
+      action: 'CONFIG_UPDATED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: `Konfiguration geändert: ${Object.keys(data).join(', ') || '(keine Felder)'}`,
+      metadata: { changedFields: Object.keys(data) },
+    });
 
     return NextResponse.json(updated);
   } catch (error) {

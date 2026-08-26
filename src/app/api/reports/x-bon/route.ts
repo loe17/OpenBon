@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
+import { logSystemAction } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
 import { EscPosBuilder } from '@/lib/printer/escpos-builder';
 import { computePeriodTotals, getOrCreateOpenPeriod } from '@/lib/register-period';
+import { requireApiAuth } from '@/lib/api-guard';
 
 /**
  * Spec 6.7: X-Bon (Kellner-Zwischenstand).
@@ -47,6 +49,9 @@ async function buildXBon(waiterName: string | null) {
 }
 
 export async function GET(req: Request) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const waiterName = searchParams.get('waiterName');
@@ -59,6 +64,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = (await req.json().catch(() => ({}))) as {
       waiterName?: string;
@@ -82,6 +90,14 @@ export async function POST(req: Request) {
     );
 
     const result = await networkSpooler.sendRawBuffer(printer, rawBuffer, textRepresentation);
+
+    await logSystemAction({
+      action: 'X_BON_PRINTED',
+      category: 'CASHBOOK',
+      actor: body.waiterName || auth.session.waiterName || auth.session.role,
+      details: `X-Bon (Zwischenbericht) gedruckt${body.waiterName ? ` für ${body.waiterName}` : ''}.`,
+      metadata: { waiterName: body.waiterName ?? null, printerId: printer.id },
+    });
 
     return NextResponse.json({ success: result.success, isVirtual: result.isVirtual, report });
   } catch (error) {

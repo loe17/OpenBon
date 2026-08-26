@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { logSystemAction } from '@/lib/action-logger';
+import { requireApiAuth } from '@/lib/api-guard';
 
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await req.json();
     const { waiterName, waiterId, totalGross, cashGross, tips, handoverAmount, notes } = body;
@@ -22,15 +26,23 @@ export async function POST(req: Request) {
       metadata: { totalGross, cashGross, tips, handoverAmount, notes },
     });
 
-    // 2. Falls WaiterProfile in der Datenbank existiert, löschen (Schicht beenden)
-    if (waiterId) {
-      await prisma.waiterProfile.deleteMany({
-        where: { id: waiterId },
-      });
-    } else if (waiterName) {
-      await prisma.waiterProfile.deleteMany({
-        where: { name: waiterName },
-      });
+    // 2. Schicht beenden – das Profil wird NICHT geloescht.
+    //    Frueher wurde hier deleteMany aufgerufen: Damit verschwand die Bedienung
+    //    nach der ersten Abrechnung samt PIN und Trinkgeldprofil dauerhaft aus
+    //    allen Listen. Stattdessen wird sie nur auf inaktiv gesetzt und kann zur
+    //    naechsten Schicht wieder aktiviert werden.
+    const where = waiterId ? { id: waiterId } : { name: waiterName };
+    const updated = await prisma.waiterProfile.updateMany({
+      where,
+      data: { isActive: false },
+    });
+
+    if (updated.count === 0) {
+      // Bedienung war nur lokal am Geraet angemeldet: Profil nachtraeglich anlegen,
+      // damit die Abrechnung nachvollziehbar bleibt.
+      await prisma.waiterProfile
+        .create({ data: { name, isActive: false } })
+        .catch(() => undefined);
     }
 
     // 3. Tische freigeben die dieser Bedienung zugewiesen waren und keine offenen Posten haben

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import net from 'net';
 import os from 'os';
 import prisma from '@/lib/db';
+import { requireApiAuth } from '@/lib/api-guard';
 
 function testTcpPort(ip: string, port = 9100, timeout = 350): Promise<boolean> {
   return new Promise((resolve) => {
@@ -58,6 +59,9 @@ function getLocalSubnetPrefix(): string {
 }
 
 export async function GET(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const customPrefix = searchParams.get('subnet');

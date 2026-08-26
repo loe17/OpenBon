@@ -16,6 +16,7 @@ import {
   CreditCard,
   ChefHat,
 } from 'lucide-react';
+import StationGate from '@/components/auth/station-gate';
 interface ChatMessage {
   id: string;
   senderName: string;
@@ -27,7 +28,7 @@ interface ChatMessage {
   createdAt: string;
 }
 
-export default function ChatPage() {
+function ChatPageContent() {
   const { socket } = useSocket();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -240,5 +241,13 @@ export default function ChatPage() {
         </button>
       </form>
     </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <StationGate station="WAITER" label="Team-Funk" allow={['WAITER', 'POS_CASHIER', 'KITCHEN']}>
+      <ChatPageContent />
+    </StationGate>
   );
 }

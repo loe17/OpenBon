@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireApiAuth } from '@/lib/api-guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,6 +9,9 @@ export const dynamic = 'force-dynamic';
  * Führt zwei Tische zusammen (Tisch A wird in Tisch B integriert).
  */
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await req.json();
     const { sourceTableId, targetTableId, waiterName } = body;

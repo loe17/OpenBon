@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireApiAuth } from '@/lib/api-guard';
 
 interface VariantInput {
   name: string;
@@ -12,7 +13,10 @@ interface OptionInput {
   priceDelta?: number;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const products = await prisma.product.findMany({
       where: { status: { not: 'HIDDEN' } },
@@ -34,6 +38,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await req.json();
     const created = await prisma.product.create({

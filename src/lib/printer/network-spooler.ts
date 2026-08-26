@@ -20,10 +20,14 @@ interface SpoolJob {
 class NetworkSpooler {
   private queue: SpoolJob[] = [];
   private isProcessing = false;
+  /** Verhindert, dass ein zweiter Aufruf dieselben Jobs erneut einreiht (Doppeldruck). */
+  private recoveryRunning = false;
 
   constructor() {
-    // Beim Initialisieren nicht abgeschlossene Jobs aus der DB nachladen
-    this.recoverPendingJobs();
+    // Beim Initialisieren nicht abgeschlossene Jobs aus der DB nachladen.
+    // Zusaetzlich ruft `src/instrumentation.ts` die Wiederaufnahme beim
+    // Serverstart auf, falls dieses Modul erst spaeter geladen wird.
+    void this.recoverPendingJobs();
   }
 
   public async printTicket(
@@ -300,6 +304,8 @@ class NetworkSpooler {
    * Lädt beim Serverstart unvollendete Jobs aus der DB nach.
    */
   public async recoverPendingJobs(): Promise<void> {
+    if (this.recoveryRunning) return;
+    this.recoveryRunning = true;
     try {
       const pending = await prisma.printJob.findMany({
         where: { status: 'PENDING' },
@@ -314,6 +320,8 @@ class NetworkSpooler {
 
         for (const p of pending) {
           if (!p.printerId || !p.rawPayload) continue;
+          // Bereits eingereihte Jobs nicht ein zweites Mal aufnehmen.
+          if (this.queue.some((q) => q.dbJobId === p.id)) continue;
           const printer = printerMap.get(p.printerId);
           if (!printer) continue;
 
@@ -338,6 +346,8 @@ class NetworkSpooler {
       }
     } catch {
       // Ignorieren bei Initialisierung / DB-Setup
+    } finally {
+      this.recoveryRunning = false;
     }
   }
 

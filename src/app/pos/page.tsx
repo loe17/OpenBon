@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSocket } from '@/components/providers/socket-provider';
 import QRCode from 'qrcode';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, generateIdempotencyKey } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import {
   Ticket,
@@ -37,7 +37,8 @@ import { sendWithOutboxFallback } from '@/lib/offline/outbox';
 import { useToast } from '@/components/ui/toast';
 import type { ProductDTO, ProductVariantDTO, OrderItemDTO, ProductCategoryDTO, EventConfigDTO } from '@/types/domain';
 
-export default function PosCounterPage() {
+import StationGate from '@/components/auth/station-gate';
+function PosCounterContent() {
   const { success, error, warning } = useToast();
   const { socket } = useSocket();
   const [config, setConfig] = useState<EventConfigDTO | null>(null);
@@ -69,8 +70,9 @@ export default function PosCounterPage() {
   const [stationName, setStationName] = useState<string>('Bonkasse 1');
   const [stationId, setStationId] = useState<string>('POS_1');
   const [showStationModal, setShowStationModal] = useState(false);
-  const [editStationName, setEditStationName] = useState('Bonkasse 1');
 
+  const [editStationName, setEditStationName] = useState('Bonkasse 1');
+  const [editDrawerConnected, setEditDrawerConnected] = useState(true);
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedName = localStorage.getItem('openbon_pos_name') || 'Bonkasse 1';
@@ -259,18 +261,30 @@ export default function PosCounterPage() {
 
   const openDrawer = async () => {
     triggerHapticFeedback();
+    // Kassenlade-Erkennung: Nur versuchen, wenn an dieser Station eine Lade
+    // konfiguriert ist (Standard: an, Verhalten wie bisher).
+    const drawerConnected = localStorage.getItem('pos_drawer_connected') !== '0';
+    if (!drawerConnected) return;
     try {
       const prnRes = await fetch('/api/printers');
       const prns = await prnRes.json();
       if (Array.isArray(prns) && prns.length > 0) {
-        await fetch('/api/printers', {
+        const res = await fetch('/api/printers', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'OPEN_DRAWER', printerId: prns[0].id }),
         });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          warning(
+            `Kassenlade konnte nicht geöffnet werden${data.error ? `: ${data.error}` : ''}. Der Verkauf wurde erfolgreich abgeschlossen.`
+          );
+        }
+      } else {
+        warning('Kein Drucker für die Kassenlade konfiguriert – Verkauf wurde erfolgreich abgeschlossen.');
       }
     } catch {
-      // Ignore
+      warning('Kassenlade nicht erreichbar (Netzwerk). Der Verkauf wurde erfolgreich abgeschlossen.');
     }
   };
 
@@ -283,7 +297,7 @@ export default function PosCounterPage() {
       const waiterName = localStorage.getItem('pos_waiter_name') || 'Bonkasse Theke';
       const deviceId = localStorage.getItem('pos_device_id');
 
-      const idempotencyKey = `pos_${crypto.randomUUID()}`;
+      const idempotencyKey = generateIdempotencyKey('pos');
 
       // Atomic Checkout: Bestellung + Zahlung in einem Request (serverseitig eine Transaktion).
       // Bei Netzwerkabbruch landet der Vorgang in der Offline-Outbox und wird automatisch nachgesendet.
@@ -309,8 +323,14 @@ export default function PosCounterPage() {
         return;
       }
 
-      if (result.queuedOffline) {
-        warning('Keine Serververbindung – Vorgang wurde offline gespeichert und wird automatisch synchronisiert.');
+      // WICHTIG: `pending` bedeutet, dass der Server den Vorgang NICHT bestaetigt hat.
+      // Es darf weder ein Bon gedruckt noch ein Abholtoken vergeben werden.
+      if (result.pending) {
+        warning(
+          result.reason === 'SERVER_ERROR'
+            ? `Server meldet einen Fehler – Vorgang wurde gesichert und wird erneut gesendet. Bon noch NICHT gebucht. (${result.error || ''})`
+            : 'Keine Serververbindung – Vorgang wurde offline gespeichert und wird automatisch synchronisiert.'
+        );
         setCart([]);
         setGivenAmount(0);
         return;
@@ -338,7 +358,14 @@ export default function PosCounterPage() {
       }
     } catch (e) {
       console.error(e);
-      error('Fehler beim Kassiervorgang.');
+      const detail = e instanceof Error ? e.message : String(e);
+      if (detail.includes('randomUUID') || detail.includes('crypto')) {
+        error('Interner Fehler beim Erstellen der Vorgangs-ID. Bitte Seite neu laden und erneut versuchen.');
+      } else if (detail) {
+        error(`Fehler beim Kassiervorgang: ${detail}`);
+      } else {
+        error('Fehler beim Kassiervorgang. Bitte Verbindung prüfen und erneut versuchen.');
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -955,6 +982,20 @@ export default function PosCounterPage() {
               placeholder="z. B. Bonkasse 2, Grillkasse"
               className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-bold"
             />
+            <label className="flex items-center justify-between gap-3 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 cursor-pointer">
+              <span className="text-xs font-bold text-slate-300">
+                Kassenlade angeschlossen
+                <span className="block text-[10px] font-semibold text-slate-500">
+                  Deaktivieren, wenn an diesem Terminal keine Lade hängt – dann erscheint beim Kassieren keine Warnung.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={editDrawerConnected}
+                onChange={(e) => setEditDrawerConnected(e.target.checked)}
+                className="w-5 h-5 accent-emerald-500 shrink-0"
+              />
+            </label>
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
@@ -970,8 +1011,10 @@ export default function PosCounterPage() {
                   const cleanId = clean.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'pos_1';
                   setStationName(clean);
                   setStationId(cleanId);
+                  setEditDrawerConnected(editDrawerConnected);
                   localStorage.setItem('openbon_pos_name', clean);
                   localStorage.setItem('openbon_pos_id', cleanId);
+                  localStorage.setItem('pos_drawer_connected', editDrawerConnected ? '1' : '0');
                   if (socket) {
                     socket.emit('pos:station_online', { stationId: cleanId, stationName: clean });
                   }
@@ -995,5 +1038,17 @@ export default function PosCounterPage() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Session-Gate: prueft beim Laden, ob an dieser Station eine gueltige
+ * Anmeldung besteht, und zeigt sonst sofort das PIN-Pad.
+ */
+export default function PosCounterPage() {
+  return (
+    <StationGate station="POS" label="Bonkasse (Theke)" allow={['POS_CASHIER']}>
+      <PosCounterContent />
+    </StationGate>
   );
 }

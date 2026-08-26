@@ -18,7 +18,8 @@ import { useToast } from '@/components/ui/toast';
 import { formatCurrency } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 
-export default function WaiterSettlePage() {
+import StationGate from '@/components/auth/station-gate';
+function WaiterSettlePageContent() {
   const router = useRouter();
   const { success, error } = useToast();
 
@@ -247,6 +248,14 @@ export default function WaiterSettlePage() {
           </div>
         </div>
 
+        {/* Hinweis, wenn ueberhaupt keine Bedienung ermittelt werden konnte */}
+        {waiterList.length === 0 && (
+          <div className="mb-5 bg-amber-950/40 border border-amber-800/60 text-amber-200 p-3 rounded-2xl text-xs font-bold">
+            Keine Bedienung gefunden. Bitte zuerst auf der Tischübersicht einen Namen
+            hinterlegen – erst danach kann eine Schicht abgerechnet werden.
+          </div>
+        )}
+
         {/* Kellner-Schnellauswahl */}
         {waiterList.length > 1 && (
           <div className="mb-5 bg-slate-900 p-3 rounded-2xl border border-slate-800 space-y-1.5">
@@ -360,5 +369,13 @@ export default function WaiterSettlePage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function WaiterSettlePage() {
+  return (
+    <StationGate station="WAITER" label="Schichtabrechnung" allow={['WAITER']}>
+      <WaiterSettlePageContent />
+    </StationGate>
   );
 }

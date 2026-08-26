@@ -10,6 +10,11 @@ const nextConfig = {
     "127.0.0.1:3000"
   ],
   experimental: {
+    // WICHTIG (Next.js 14): Ohne diesen Schalter wird `src/instrumentation.ts`
+    // gar nicht ausgefuehrt. Genau dort werden das JWT-Session-Secret erzeugt
+    // sowie Diagnose-, Aufraeum- und Backup-Zyklus gestartet - ohne den Hook
+    // liefen alle vier still ins Leere.
+    instrumentationHook: true,
     serverComponentsExternalPackages: ["@prisma/client", "prisma", "iconv-lite"]
   }
 };

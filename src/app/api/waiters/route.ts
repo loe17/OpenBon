@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireApiAuth } from '@/lib/api-guard';
 
-export async function GET() {
+export async function GET(req: Request) {
+  // Lesend fuer jede angemeldete Station: die Schichtabrechnung an der
+  // Bedienstation braucht die Liste. Die Antwort enthaelt bewusst keine PINs.
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const waiters = await prisma.waiterProfile.findMany({
       select: {
@@ -21,6 +27,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await req.json();
     const { name, pin, tipProfileId, isActive } = body;

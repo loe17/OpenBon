@@ -21,7 +21,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import { getEffectiveProductPrice } from '@/lib/pricing';
-import { sendWithOutboxFallback } from '@/lib/offline/outbox';
+import { generateIdempotencyKey } from '@/lib/utils';
+import { sendWithOutboxFallback, removeOutboxItem } from '@/lib/offline/outbox';
 import { useToast } from '@/components/ui/toast';
 
 interface Product {
@@ -162,11 +163,12 @@ export default function KioskPage() {
     try {
       // Atomic Checkout: Bestellung + Kartenzahlung in einem Request (eine Transaktion).
       // Bei Netzwerkabbruch wird der Vorgang in der Outbox zwischengespeichert und automatisch nachgesendet.
+      const kioskIdempotencyKey = generateIdempotencyKey('kiosk');
       const result = await sendWithOutboxFallback('ORDER', '/api/orders/checkout', {
         orderType: 'KIOSK',
         source: 'KIOSK',
         waiterName: 'SB-Kiosk Terminal #1',
-        idempotencyKey: `kiosk_${crypto.randomUUID()}`,
+        idempotencyKey: kioskIdempotencyKey,
         paymentMethod: 'CARD_TERMINAL',
         givenAmount: totalGross,
         printReceipt: true,
@@ -181,13 +183,27 @@ export default function KioskPage() {
         throw new Error(result.error || 'Bestellung fehlgeschlagen');
       }
 
+      // Ohne Serverbestaetigung gibt es keine Abholnummer. Der Selbstbedienungs-
+      // Kiosk darf hier KEINEN Erfolg vortaeuschen, sonst wartet der Gast auf eine
+      // Nummer, die nie aufgerufen wird.
+      if (result.pending) {
+        // Der Vorgang wird bewusst NICHT nachgesendet: am Selbstbedienungs-Kiosk
+        // steht niemand bereit, der eine spaeter entstandene Bestellung zuordnen
+        // koennte. Der Gast bestellt stattdessen neu oder beim Personal.
+        await removeOutboxItem(kioskIdempotencyKey);
+        throw new Error(
+          result.error || 'Kasse ist derzeit nicht erreichbar. Bitte wenden Sie sich an das Personal.'
+        );
+      }
+
       const orderData = result.data;
       const tokenStr = `#K-${String(orderData?.tokenNumber || orderData?.orderNumber).padStart(3, '0')}`;
       setOrderResult({ tokenNumber: tokenStr, orderNumber: orderData?.orderNumber });
       setStep('SUCCESS');
       setCart([]);
     } catch (err) {
-      error('Zahlungsvorgang abgebrochen oder fehlgeschlagen. Bitte erneut versuchen.');
+      const detail = err instanceof Error ? err.message : '';
+      error(detail ? `Zahlungsvorgang fehlgeschlagen: ${detail}` : 'Zahlungsvorgang abgebrochen oder fehlgeschlagen. Bitte erneut versuchen.');
     } finally {
       setIsProcessing(false);
     }

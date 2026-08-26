@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, generateIdempotencyKey } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import { computeCheckout, CASH_QUICK_NOTES } from '@/lib/pricing';
 import { PAYMENT_METHODS, isPaymentMethodAvailable } from '@/lib/payment/methods';
@@ -26,6 +26,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 
+import StationGate from '@/components/auth/station-gate';
 type Stage = 'SPLIT' | 'METHOD' | 'CASH' | 'CARD' | 'DONE';
 
 interface PayableItem {
@@ -81,11 +82,11 @@ function WaiterPaymentContent() {
   const [receiptPrinted, setReceiptPrinted] = useState(false);
   const [guestFacingMode, setGuestFacingMode] = useState(false);
   const [guestFacingRotated, setGuestFacingRotated] = useState(true);
-  const [requestId] = useState(() =>
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : `req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-  );
+  // WICHTIG: Der Idempotenz-Schluessel gilt fuer GENAU EINEN Kassiervorgang.
+  // Bleibt er ueber mehrere Zahlungen gleich, erkennt der Server die zweite
+  // Zahlung als Wiederholung, bucht nichts und liefert den alten Beleg zurueck -
+  // genau das liess das Teilen einer Rechnung wirkungslos erscheinen.
+  const [requestId, setRequestId] = useState(() => generateIdempotencyKey('pay'));
 
   const haptic = () => triggerHapticFeedback();
 
@@ -130,9 +131,9 @@ function WaiterPaymentContent() {
       .then((cfg) => {
         if (cfg && !cfg.error) {
           setConfig(cfg);
-          if (cfg.enableGuestFacingDisplay !== undefined) {
-            setGuestFacingMode(Boolean(cfg.enableGuestFacingDisplay));
-          }
+          // Die Kundenanzeige ist eine Einstellungssache: ist sie deaktiviert,
+          // darf sie sich auch nicht ueber den Knopf einschalten lassen.
+          setGuestFacingMode(Boolean(cfg.enableGuestFacingDisplay));
         }
       })
       .catch(() => {});
@@ -185,6 +186,62 @@ function WaiterPaymentContent() {
   const isCashSufficient = givenAmount >= checkout.amountDueWithTip;
 
   /* ----------------------------------------------------- Stufe 1: Auswahl */
+
+  /**
+   * Spec 5.1: "1/n" teilt die Rechnung auf n Personen auf.
+   *
+   * Die bisherige Umsetzung rechnete Math.ceil(Menge / n) je Position. Bei einem
+   * Tisch mit lauter Einzelstuecken ergab das ueberall 1 – "1/2" markierte also
+   * genauso alles wie "Alles". Stattdessen wird jetzt nach WERT aufgeteilt:
+   * es werden so lange Einheiten ausgewaehlt, bis der Zielanteil erreicht ist.
+   */
+  const applyValueSplit = (parts: number) => {
+    haptic();
+    const openTotal = items.reduce(
+      (sum, i) => sum + (i.unitPrice + i.deposit) * i.totalUnpaidQty,
+      0
+    );
+    if (openTotal <= 0 || parts < 2) return;
+
+    const target = openTotal / parts;
+
+    // Teuerste Positionen zuerst, damit der Zielwert moeglichst genau getroffen wird
+    const order = [...items].sort(
+      (a, b) => b.unitPrice + b.deposit - (a.unitPrice + a.deposit)
+    );
+
+    const selected = new Map<string, number>();
+    let acc = 0;
+
+    for (const item of order) {
+      const unitValue = item.unitPrice + item.deposit;
+      let take = 0;
+      while (take < item.totalUnpaidQty) {
+        // Einheit nur nehmen, wenn sie den Zielwert nicht deutlicher ueberschreitet,
+        // als sie ihn unterschreiten wuerde
+        const withUnit = acc + unitValue;
+        if (withUnit <= target || target - acc > withUnit - target) {
+          acc = withUnit;
+          take++;
+        } else {
+          break;
+        }
+      }
+      if (take > 0) selected.set(item.orderItemId, take);
+    }
+
+    // Mindestens eine Position auswaehlen, damit der Knopf nie folgenlos bleibt
+    if (selected.size === 0 && items.length > 0) {
+      const cheapest = [...items].sort(
+        (a, b) => a.unitPrice + a.deposit - (b.unitPrice + b.deposit)
+      )[0];
+      selected.set(cheapest.orderItemId, 1);
+    }
+
+    setItems((prev) =>
+      prev.map((i) => ({ ...i, selectedQty: selected.get(i.orderItemId) ?? 0 }))
+    );
+  };
 
   const toggleSelectAll = (select: boolean) => {
     haptic();
@@ -391,6 +448,8 @@ function WaiterPaymentContent() {
 
       haptic();
       if (paymentMethod === 'CASH') playPaymentSuccess();
+      // Neuer Schluessel fuer den naechsten Teilbetrag / naechsten Gast
+      setRequestId(generateIdempotencyKey('pay'));
       setCompletedInvoice(data.invoiceNumber ?? null);
       setCompletedPaymentId(data.id ?? null);
       setReceiptPrinted(opts.printReceipt);
@@ -404,6 +463,8 @@ function WaiterPaymentContent() {
   };
 
   /* ------------------------------------------------------------- Rendering */
+
+  const guestFacingAllowed = Boolean(config?.enableGuestFacingDisplay);
 
   const stageIndex = { SPLIT: 1, METHOD: 2, CASH: 3, CARD: 3, DONE: 4 }[stage];
 
@@ -419,7 +480,7 @@ function WaiterPaymentContent() {
       {/* ===================== STICKY TOP CONTAINER (Permanent ganz oben über der Tischnummer fixiert) ===================== */}
       <div className="sticky top-0 z-50 shadow-2xl bg-slate-950 shrink-0">
         {/* XXL Gast-Display Banner (Ganz oben) */}
-        {guestFacingMode && (
+        {guestFacingAllowed && guestFacingMode && (
           <div
             className={`p-5 sm:p-7 bg-gradient-to-br from-blue-950 via-slate-950 to-blue-950 border-b-4 border-blue-500 shadow-2xl transition-transform ${
               guestFacingRotated ? 'rotate-180 origin-center' : ''
@@ -445,8 +506,11 @@ function WaiterPaymentContent() {
           </div>
         )}
 
-        {/* Gast-Sicht Widget Steuerung */}
+        {/* Gast-Sicht Widget Steuerung
+            Nur sichtbar, wenn die Kundenanzeige in den Einstellungen freigegeben
+            ist - sonst bliebe ein Knopf stehen, der nichts bewirken darf. */}
         <div className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-800 p-2 px-4 flex items-center justify-between">
+          {guestFacingAllowed ? (
           <button
             onClick={() => {
               haptic();
@@ -462,8 +526,11 @@ function WaiterPaymentContent() {
             <span>Gast-Sicht</span>
             <span className="text-[10px] opacity-75">{guestFacingMode ? '(Aktiv)' : ''}</span>
           </button>
+          ) : (
+            <span className="text-xs text-slate-500 font-bold">Kassieren</span>
+          )}
 
-          {guestFacingMode ? (
+          {guestFacingAllowed && guestFacingMode ? (
             <button
               onClick={() => {
                 haptic();
@@ -548,17 +615,9 @@ function WaiterPaymentContent() {
                 {[2, 3, 4].map((n) => (
                   <button
                     key={n}
-                    onClick={() => {
-                      haptic();
-                      setItems((prev) =>
-                        prev.map((i) => ({
-                          ...i,
-                          selectedQty: Math.max(0, Math.min(i.totalUnpaidQty, Math.ceil(i.totalUnpaidQty / n))),
-                        }))
-                      );
-                    }}
+                    onClick={() => applyValueSplit(n)}
                     className="px-2.5 py-1 rounded-xl bg-slate-800 border border-slate-700 hover:border-blue-500 text-slate-300 font-mono font-bold text-[11px] transition"
-                    title={`Auf ${n} Personen aufteilen`}
+                    title={`Rechnung wertmäßig auf ${n} Personen aufteilen`}
                   >
                     1/{n}
                   </button>
@@ -1058,7 +1117,7 @@ function WaiterPaymentContent() {
   );
 }
 
-export default function WaiterPaymentPage() {
+function WaiterPaymentPageInner() {
   return (
     <Suspense
       fallback={
@@ -1070,5 +1129,17 @@ export default function WaiterPaymentPage() {
     >
       <WaiterPaymentContent />
     </Suspense>
+  );
+}
+
+/**
+ * Session-Gate: prueft beim Laden, ob an dieser Station eine gueltige
+ * Anmeldung besteht, und zeigt sonst sofort das PIN-Pad.
+ */
+export default function WaiterPaymentPage() {
+  return (
+    <StationGate station="WAITER" label="Kassieren" allow={['WAITER', 'POS_CASHIER']}>
+      <WaiterPaymentPageInner />
+    </StationGate>
   );
 }

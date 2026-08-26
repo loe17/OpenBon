@@ -1,11 +1,21 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { computeHourlySales, computeForecast } from '@/lib/forecast';
+import { requireApiAuth } from '@/lib/api-guard';
 
 export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const format = searchParams.get('format'); // 'json' or 'csv'
+  const waiterFilter = searchParams.get('waiterName');
+
+  // Der Gesamtbericht ist Chefsache. Fragt eine Station dagegen gezielt die
+  // Zahlen einer einzelnen Bedienung ab (Schichtabrechnung), genuegt eine
+  // gueltige Stations-Session – sonst koennte niemand seine eigene Schicht
+  // abrechnen, ohne Admin zu sein.
+  const auth = await requireApiAuth(req, waiterFilter ? undefined : ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   try {
-    const { searchParams } = new URL(req.url);
-    const format = searchParams.get('format'); // 'json' or 'csv'
 
     // 1. Fetch real (non-training) completed payments, orders, products & categories schlank
     const [payments, orders, products, categories] = await Promise.all([

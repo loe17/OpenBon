@@ -3,6 +3,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { APP_VERSION, GITHUB_REPO_URL } from '@/lib/version';
 import { requireAdmin } from '@/lib/admin-guard';
+import { requireApiAuth } from '@/lib/api-guard';
 
 const execAsync = promisify(exec);
 const projectRoot = process.cwd();
@@ -20,6 +21,9 @@ function compareSemver(vA: string, vB: string): number {
 }
 
 export async function GET(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   const denied = await requireAdmin(req);
   if (denied) return denied;
   try {
@@ -33,7 +37,7 @@ export async function GET(req: Request) {
     let latestReleaseBody: string | null = null;
     let latestReleaseUrl: string | null = null;
 
-    // 1. PrÃ¼fe offizielle GitHub Tags & Releases via GitHub API
+    // 1. Prüfe offizielle GitHub Tags & Releases via GitHub API
     try {
       const ghTagsRes = await fetch('https://api.github.com/repos/loe17/OpenBon/tags', {
         headers: { 'User-Agent': 'OpenBon-POS-System' },
@@ -61,10 +65,10 @@ export async function GET(req: Request) {
         }
       }
     } catch {
-      // Offline oder API-Ratelimit -> ignorieren und via Git prÃ¼fen
+      // Offline oder API-Ratelimit -> ignorieren und via Git prüfen
     }
 
-    // 2. PrÃ¼fe Git-Commits auf master
+    // 2. Prüfe Git-Commits auf master
     try {
       const { stdout: bOut } = await execAsync('git rev-parse --abbrev-ref HEAD', { cwd: projectRoot });
       branch = bOut.trim();
@@ -97,9 +101,9 @@ export async function GET(req: Request) {
 
     let remoteStatus = 'System ist auf dem neuesten Stand';
     if (updateType === 'RELEASE') {
-      remoteStatus = `Neues offizielles Release v${latestReleaseVersion} verfÃ¼gbar`;
+      remoteStatus = `Neues offizielles Release v${latestReleaseVersion} verfügbar`;
     } else if (updateType === 'HOTFIX') {
-      remoteStatus = `${pendingCommits.length} neue(r) Hotfix-Commit(s) verfÃ¼gbar`;
+      remoteStatus = `${pendingCommits.length} neue(r) Hotfix-Commit(s) verfügbar`;
     }
 
     return NextResponse.json({
@@ -128,6 +132,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
   const denied = await requireAdmin(req);
   if (denied) return denied;
   try {
@@ -184,8 +191,8 @@ export async function POST(req: Request) {
             success: false,
             command: trimmed,
             stdout: '',
-            stderr: '[SICHERHEITSHINWEIS] Shell-Chaining und Steuerzeichen sind unzulÃ¤ssig.',
-            error: 'UngÃ¼ltige Steuerzeichen im Befehl',
+            stderr: '[SICHERHEITSHINWEIS] Shell-Chaining und Steuerzeichen sind unzulässig.',
+            error: 'Ungültige Steuerzeichen im Befehl',
           },
           { status: 403 }
         );
@@ -250,7 +257,7 @@ export async function POST(req: Request) {
             logs.push(`[BACKUP] Sicherheits-Snapshot erstellt: ${backupPath}`);
           }
         } catch (bErr) {
-          logs.push(`[HINWEIS] Vorab-Backup Ã¼bersprungen: ${bErr}`);
+          logs.push(`[HINWEIS] Vorab-Backup übersprungen: ${bErr}`);
         }
 
         logs.push('[1/4] Lade neuesten Code von GitHub herunter (git fetch & reset)...');
@@ -259,7 +266,7 @@ export async function POST(req: Request) {
         const { stdout: resetOut } = await execAsync('git reset --hard origin/master', { cwd: projectRoot });
         logs.push(resetOut.trim() || 'Codebasis erfolgreich auf origin/master aktualisiert.');
 
-        logs.push('[2/4] Aktualisiere AbhÃ¤ngigkeiten (npm install)...');
+        logs.push('[2/4] Aktualisiere Abhängigkeiten (npm install)...');
         const { stdout: npmOut } = await execAsync('npm install --production=false', { cwd: projectRoot });
         logs.push(npmOut.trim());
 

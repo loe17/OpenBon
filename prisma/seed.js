@@ -373,6 +373,40 @@ async function main() {
     }
   }
 
+  // ---------------------------------------------------------------------
+  // Personal: Trinkgeldprofile und Beispiel-Bedienungen
+  //
+  // Ohne mindestens ein WaiterProfile bleibt die Kellner-Abrechnung leer und
+  // die Trinkgeldverteilung laesst sich nicht einrichten.
+  // ---------------------------------------------------------------------
+  const standardTip = await prisma.tipProfile.create({
+    data: {
+      name: 'Standard Service (100 % an die Bedienung)',
+      waiterPercent: 100.0,
+      isDefault: true,
+    },
+  });
+
+  await prisma.tipProfile.create({
+    data: {
+      name: 'Team-Pool (60 % Bedienung, 20 % Theke, 20 % Kueche)',
+      waiterPercent: 60.0,
+      barPoolPercent: 20.0,
+      kitchenPoolPercent: 20.0,
+    },
+  });
+
+  for (const name of ['Lisa', 'Max']) {
+    await prisma.waiterProfile.create({
+      data: {
+        name,
+        pin: '3333',
+        isActive: true,
+        tipProfileId: standardTip.id,
+      },
+    });
+  }
+
   console.log('[OK] Demo-Stammdaten erfolgreich eingespielt.');
 }
 
