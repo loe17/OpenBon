@@ -222,19 +222,29 @@ export default function AdminSystemUpdatePage() {
           targetType: isTag ? 'TAG' : isMaster ? 'BRANCH' : 'COMMIT',
         }),
       });
-      const data = await res.json();
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        const text = await res.text().catch(() => '');
+        data = {
+          success: false,
+          error: text || `HTTP-Status ${res.status}: ${res.statusText}`,
+          logs: text ? `Server-Antwort:\n${text}` : undefined,
+        };
+      }
 
-      if (data.success) {
+      if (data && data.success) {
         addTerminalLog(data.logs || '[INFO] Aktualisierung erfolgreich abgeschlossen!', false);
         addTerminalLog('[INFO] Der Server startet jetzt neu. Die Seite lädt sich in Kürze automatisch neu...', false);
         setTimeout(() => {
           window.location.reload();
         }, 5000);
       } else {
-        addTerminalLog(data.logs || data.error || 'Fehler beim Update-Vorgang', true);
+        addTerminalLog(data?.logs || data?.error || 'Fehler beim Update-Vorgang', true);
       }
     } catch (e) {
-      addTerminalLog(`Update-Fehler: ${e instanceof Error ? e.message : String(e)}`, true);
+      addTerminalLog(`Netzwerk-/Verbindungsabbruch: ${e instanceof Error ? e.message : String(e)}\nHinweis: Auf Single-Board-Computern (Raspberry Pi) kann das Bauen 2-3 Minuten dauern. Bitte prüfe per Terminal mit "journalctl -u openbon -f" den Status.`, true);
     } finally {
       setUpdating(false);
     }

@@ -279,11 +279,21 @@ export async function POST(req: Request) {
 
         logs.push(`[1/4] Lade neuesten Code von GitHub & checke "${target}" aus...`);
         await execAsync('git config --global --add safe.directory *', { cwd: projectRoot }).catch(() => {});
-        await execAsync('git fetch --all --tags', { cwd: projectRoot, timeout: 25000 }).catch(() => {});
+        await execAsync('git fetch origin --tags --prune --force', { cwd: projectRoot, timeout: 35000 }).catch(() => {});
 
         if (target.startsWith('v') || targetType === 'TAG') {
-          const { stdout: coOut } = await execAsync(`git checkout -f tags/${target}`, { cwd: projectRoot });
-          logs.push(coOut.trim() || `Erfolgreich auf Tag ${target} gewechselt.`);
+          // Versuche zunächst refs/tags/vX.X.X, dann Tag direkt, dann Fallback
+          try {
+            const { stdout: coOut } = await execAsync(`git checkout -f refs/tags/${target} || git checkout -f ${target}`, {
+              cwd: projectRoot,
+              timeout: 20000,
+            });
+            logs.push(coOut.trim() || `Erfolgreich auf Tag ${target} gewechselt.`);
+          } catch (coErr) {
+            // Falls detached HEAD oder Tag-Ref abweicht
+            const { stdout: coOut2 } = await execAsync(`git checkout -f ${target}`, { cwd: projectRoot });
+            logs.push(coOut2.trim() || `Erfolgreich auf ${target} gewechselt.`);
+          }
         } else if (target === 'master' || targetType === 'BRANCH') {
           await execAsync(`git checkout -f ${target}`, { cwd: projectRoot });
           const { stdout: resetOut } = await execAsync(`git reset --hard origin/${target}`, { cwd: projectRoot });
@@ -294,22 +304,36 @@ export async function POST(req: Request) {
         }
 
         logs.push('[2/4] Aktualisiere Abhängigkeiten (npm install)...');
-        const { stdout: npmOut } = await execAsync('npm install --production=false', { cwd: projectRoot });
-        logs.push(npmOut.trim());
+        const { stdout: npmOut } = await execAsync('npm install --production=false --no-audit --no-fund', {
+          cwd: projectRoot,
+          timeout: 120000,
+        });
+        logs.push(npmOut.trim() || 'Abhängigkeiten aktuell.');
 
         logs.push('[3/4] Aktualisiere Datenbankschema (prisma db push)...');
+        await execAsync('npx prisma generate', {
+          cwd: projectRoot,
+          timeout: 45000,
+          env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db' },
+        }).catch(() => {});
         const { stdout: dbOut } = await execAsync('npx prisma db push --accept-data-loss --skip-generate', {
           cwd: projectRoot,
+          timeout: 45000,
           env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db' },
         });
-        logs.push(dbOut.trim());
+        logs.push(dbOut.trim() || 'Datenbankschema aktuell.');
 
         logs.push('[4/4] Kompiliere Produktions-Build (npm run build)...');
         const { stdout: buildOut } = await execAsync('npm run build', {
           cwd: projectRoot,
-          env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db' },
+          timeout: 240000,
+          env: {
+            ...process.env,
+            NODE_OPTIONS: '--max-old-space-size=1536',
+            DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db',
+          },
         });
-        logs.push(buildOut.trim());
+        logs.push(buildOut.trim() || 'Build erfolgreich erstellt.');
 
         const duration = Math.round((Date.now() - startTime) / 1000);
         logs.push(`[ERFOLG] Update/Wechsel auf ${target} in ${duration}s abgeschlossen! Server startet automatisch neu...`);
