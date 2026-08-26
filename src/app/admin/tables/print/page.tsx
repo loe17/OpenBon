@@ -66,40 +66,62 @@ export default function PrintTableOverviewPage() {
           </div>
         </div>
 
-        {/* Tables Grid */}
-        <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 mb-8">
-          {tables.map((t) => (
-            <div
-              key={t.id}
-              className={`p-3 rounded-lg border-2 text-center flex flex-col justify-between min-h-[70px] ${
-                t.isActive !== false
-                  ? 'border-slate-800 bg-slate-50'
-                  : 'border-slate-300 bg-slate-100 opacity-40 line-through'
-              }`}
-            >
-              <div className="text-[10px] font-bold text-slate-500 uppercase">Nr. {t.tableNumber}</div>
-              <div className="text-base font-black">{t.label}</div>
-              <div className="text-[9px] text-slate-600 font-semibold">
-                {t.isActive !== false ? 'Aktiv' : 'Inaktiv'}
-              </div>
-            </div>
-          ))}
-        </div>
+        {/* Tables Spatial Room Grid */}
+        {(() => {
+          const maxCols = Math.max(6, Math.min(12, ...tables.map((t) => t.gridX || 1)));
+          const maxRows = Math.max(4, Math.min(12, ...tables.map((t) => t.gridY || 1)));
 
-        {/* Footer Notes for Waiters */}
-        <div className="border-t border-slate-400 pt-4 grid grid-cols-2 gap-4 text-xs">
-          <div>
-            <span className="font-bold block mb-1">Hinweise für das Servicepersonal:</span>
-            <ul className="list-disc list-inside space-y-0.5 text-slate-700 text-[11px]">
-              <li>Tischbestellungen immer sofort am Smartphone eingeben.</li>
-              <li>Sonderwünsche über die Wortgruppen-Tasten erfassen.</li>
-              <li>Rechnungs-Splitting direkt am Tisch möglich.</li>
-            </ul>
-          </div>
-          <div className="text-right">
-            <span className="font-bold block mb-1">OpenBon Kassensystem</span>
-            <p className="text-slate-600 text-[11px]">Erstellt am {new Date().toLocaleString('de-DE')}</p>
-          </div>
+          return (
+            <div
+              className="grid gap-2 mb-8"
+              style={{
+                gridTemplateColumns: `repeat(${maxCols}, minmax(0, 1fr))`,
+              }}
+            >
+              {Array.from({ length: maxRows }).map((_, rIdx) => {
+                const y = rIdx + 1;
+                return Array.from({ length: maxCols }).map((__, cIdx) => {
+                  const x = cIdx + 1;
+                  const t = tables.find((tbl) => (tbl.gridX || 1) === x && (tbl.gridY || 1) === y);
+
+                  if (t) {
+                    return (
+                      <div
+                        key={`t-${t.id}`}
+                        className={`p-2.5 rounded-lg border-2 text-center flex flex-col justify-between min-h-[72px] ${
+                          t.isActive !== false
+                            ? 'border-black bg-slate-50'
+                            : 'border-slate-300 bg-slate-100 opacity-40 line-through'
+                        }`}
+                      >
+                        <div className="text-[10px] font-bold text-slate-600 font-mono">Nr. {t.tableNumber}</div>
+                        <div className="text-sm font-black truncate">{t.label}</div>
+                        <div className="text-[9px] text-slate-500 font-mono">
+                          ({x},{y}) {t.isActive !== false ? '✓' : '✗'}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={`empty-${x}-${y}`}
+                      className="p-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 text-center flex flex-col justify-center items-center min-h-[72px] text-slate-400"
+                    >
+                      <span className="text-[10px] font-mono">Gang / Frei</span>
+                      <span className="text-[8px] font-mono text-slate-400">({x},{y})</span>
+                    </div>
+                  );
+                });
+              })}
+            </div>
+          );
+        })()}
+
+        {/* Clean Footer Timestamp */}
+        <div className="border-t border-slate-400 pt-3 flex justify-between items-center text-xs text-slate-600">
+          <div>OpenBon Kassensystem · Offizielle Raumübersicht</div>
+          <div>Erstellt am {new Date().toLocaleString('de-DE')}</div>
         </div>
       </div>
     </div>

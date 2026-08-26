@@ -160,6 +160,10 @@ export class TicketSplitter {
 
     const foodTableFontSize = config?.receiptFoodTableFontSize ?? config?.receiptTableFontSize ?? 4;
     const drinkTableFontSize = config?.receiptDrinkTableFontSize ?? config?.receiptTableFontSize ?? 4;
+    const foodItemFontSize = config?.receiptFoodItemFontSize ?? config?.receiptItemFontSize ?? 3;
+    const drinkItemFontSize = config?.receiptDrinkItemFontSize ?? config?.receiptItemFontSize ?? 3;
+    const foodOptionsFontSize = config?.receiptFoodOptionsFontSize ?? config?.receiptOptionsFontSize ?? 1;
+    const drinkOptionsFontSize = config?.receiptDrinkOptionsFontSize ?? config?.receiptOptionsFontSize ?? 1;
     const foodTemplate = config?.receiptFoodTemplate ?? config?.receiptTemplate ?? 'CLASSIC';
     const drinkTemplate = config?.receiptDrinkTemplate ?? config?.receiptTemplate ?? 'CLASSIC';
 
@@ -171,6 +175,8 @@ export class TicketSplitter {
         bucket.printGroupName.toLowerCase().includes('speis');
 
       const chosenFontSize = isFoodBucket ? foodTableFontSize : drinkTableFontSize;
+      const chosenItemFontSize = isFoodBucket ? foodItemFontSize : drinkItemFontSize;
+      const chosenOptionsFontSize = isFoodBucket ? foodOptionsFontSize : drinkOptionsFontSize;
       const chosenTemplate = isFoodBucket ? foodTemplate : drinkTemplate;
 
       const chunks = splitItemsIntoChunks(bucket.items, bucket.maxItemsPerTicket);
@@ -193,7 +199,12 @@ export class TicketSplitter {
           tokenNumber: order.tokenNumber || undefined,
           tableLabel: order.tableLabel,
           tableFontSize: chosenFontSize,
+          itemFontSize: chosenItemFontSize,
+          optionsFontSize: chosenOptionsFontSize,
           template: chosenTemplate,
+          eventName: config?.name,
+          subHeader: config?.receiptSubHeader || undefined,
+          customHeader: config?.receiptHeader || undefined,
           waiterName: order.waiterName,
           createdAt: order.createdAt,
           items: chunk,

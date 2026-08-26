@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Building2,
   GraduationCap,
@@ -10,6 +10,11 @@ import {
   Lock,
   Palette,
   Percent,
+  RotateCcw,
+  AlertTriangle,
+  Trash2,
+  Check,
+  X,
 } from 'lucide-react';
 import type { EventConfigDTO } from '@/types/domain';
 
@@ -76,6 +81,62 @@ export function GeneralTab({
   onToggleAutostart,
   togglingAutostart,
 }: GeneralTabProps) {
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetOrders, setResetOrders] = useState(true);
+  const [resetPayments, setResetPayments] = useState(true);
+  const [resetTables, setResetTables] = useState(false);
+  const [resetProducts, setResetProducts] = useState(false);
+  const [resetWaiters, setResetWaiters] = useState(false);
+  const [resetPrinters, setResetPrinters] = useState(false);
+  const [resetConfig, setResetConfig] = useState(false);
+
+  const [confirmText, setConfirmText] = useState('');
+  const [countdown, setCountdown] = useState(5);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetResult, setResetResult] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (showResetModal) {
+      setCountdown(5);
+      setConfirmText('');
+      setResetResult(null);
+      timer = setInterval(() => {
+        setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [showResetModal]);
+
+  const handleExecuteReset = async () => {
+    setIsResetting(true);
+    try {
+      const res = await fetch('/api/system/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resetOrders,
+          resetPayments,
+          resetTables,
+          resetProducts,
+          resetWaiters,
+          resetPrinters,
+          resetConfig,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setResetResult(data.summary || ['Erfolgreich zurückgesetzt']);
+      } else {
+        alert(data.error || 'Fehler beim Zurücksetzen');
+      }
+    } catch {
+      alert('Netzwerkfehler beim Zurücksetzen');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Event Grunddaten */}
@@ -162,25 +223,6 @@ export function GeneralTab({
               Ab dieser Anzahl wird ein Bon geteilt, damit eine Bestellung auf ein Tablett passt.
               0 schaltet die Teilung ab. Druckgruppen können davon abweichen.
             </p>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-300 mb-1">
-              <span className="inline-flex items-center gap-1.5">
-                <Palette className="w-3.5 h-3.5" />
-                Erscheinungsbild
-              </span>
-            </label>
-            <select
-              value={config.activeTheme || 'dark'}
-              onChange={(e) => onChange({ activeTheme: e.target.value })}
-              className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-medium focus:border-blue-500"
-            >
-              {THEMES.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
           </div>
         </div>
       </div>
@@ -387,6 +429,198 @@ export function GeneralTab({
           </div>
         </div>
       </div>
+
+      {/* Betriebsdaten & Veranstaltung zurücksetzen */}
+      <div className="bg-slate-900 border border-rose-900/50 rounded-3xl p-6 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-3 text-rose-400">
+            <RotateCcw className="w-5 h-5" />
+            <h3 className="font-bold text-base text-white">Veranstaltung &amp; Daten zurücksetzen</h3>
+          </div>
+          <span className="px-2.5 py-0.5 rounded-full bg-rose-950/80 border border-rose-800 text-[10px] font-bold text-rose-300">
+            Wartung &amp; Bereinigung
+          </span>
+        </div>
+
+        <p className="text-xs text-slate-400 leading-relaxed">
+          Bereinige Testbuchungen vor einem Fest oder setze einzelne Bereiche wie Artikel, Tische oder Umsätze selektiv zurück.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => setShowResetModal(true)}
+          className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-rose-950/60 hover:bg-rose-900/80 text-rose-200 border border-rose-800 font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 touch-manipulation"
+        >
+          <Trash2 className="w-4 h-4 text-rose-400" />
+          <span>Veranstaltungsdaten selektiv zurücksetzen...</span>
+        </button>
+      </div>
+
+      {/* Selective Reset Modal Dialog */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border border-rose-700/80 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-rose-400">
+                <AlertTriangle className="w-6 h-6 shrink-0" />
+                <h3 className="font-black text-lg text-white">Veranstaltung zurücksetzen</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowResetModal(false)}
+                className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {resetResult ? (
+              <div className="space-y-4 text-center py-4">
+                <div className="w-14 h-14 mx-auto rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <Check className="w-8 h-8" />
+                </div>
+                <h4 className="text-base font-black text-white">Reset erfolgreich durchgeführt</h4>
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-left space-y-1 text-xs text-slate-300">
+                  {resetResult.map((msg, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-emerald-400">✓</span>
+                      <span>{msg}</span>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResetModal(false);
+                    window.location.reload();
+                  }}
+                  className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-xs shadow"
+                >
+                  Schließen &amp; Seite aktualisieren
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-slate-300">
+                  Wähle genau aus, welche Datenbereiche unwiderruflich gelöscht werden sollen:
+                </p>
+
+                <div className="space-y-2">
+                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700">
+                    <span className="text-xs font-bold text-white">Bestellungen, Bons &amp; KDS-Aufträge</span>
+                    <input
+                      type="checkbox"
+                      checked={resetOrders}
+                      onChange={(e) => setResetOrders(e.target.checked)}
+                      className="w-4 h-4 rounded text-rose-600 bg-slate-900 border-slate-700"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700">
+                    <span className="text-xs font-bold text-white">Umsätze, Zahlungen &amp; Kassenbuch</span>
+                    <input
+                      type="checkbox"
+                      checked={resetPayments}
+                      onChange={(e) => setResetPayments(e.target.checked)}
+                      className="w-4 h-4 rounded text-rose-600 bg-slate-900 border-slate-700"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700">
+                    <span className="text-xs font-bold text-white">Tische &amp; 2D-Raumplan</span>
+                    <input
+                      type="checkbox"
+                      checked={resetTables}
+                      onChange={(e) => setResetTables(e.target.checked)}
+                      className="w-4 h-4 rounded text-rose-600 bg-slate-900 border-slate-700"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700">
+                    <span className="text-xs font-bold text-white">Speisekarte, Artikel, Warengruppen &amp; Bestand</span>
+                    <input
+                      type="checkbox"
+                      checked={resetProducts}
+                      onChange={(e) => setResetProducts(e.target.checked)}
+                      className="w-4 h-4 rounded text-rose-600 bg-slate-900 border-slate-700"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700">
+                    <span className="text-xs font-bold text-white">Bedienungsprofile &amp; Trinkgeldmodelle</span>
+                    <input
+                      type="checkbox"
+                      checked={resetWaiters}
+                      onChange={(e) => setResetWaiters(e.target.checked)}
+                      className="w-4 h-4 rounded text-rose-600 bg-slate-900 border-slate-700"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700">
+                    <span className="text-xs font-bold text-white">Drucker &amp; Druckgruppen</span>
+                    <input
+                      type="checkbox"
+                      checked={resetPrinters}
+                      onChange={(e) => setResetPrinters(e.target.checked)}
+                      className="w-4 h-4 rounded text-rose-600 bg-slate-900 border-slate-700"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl bg-rose-950/40 border border-rose-800/80 cursor-pointer">
+                    <div>
+                      <span className="text-xs font-bold text-rose-300 block">Vollständiger Werksreset</span>
+                      <span className="text-[10px] text-rose-400">Setzt auch alle PINs und Systemeinstellungen zurück</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={resetConfig}
+                      onChange={(e) => setResetConfig(e.target.checked)}
+                      className="w-4 h-4 rounded text-rose-600 bg-slate-900 border-rose-700"
+                    />
+                  </label>
+                </div>
+
+                <div className="space-y-2 pt-2 border-t border-slate-800">
+                  <label className="text-xs font-bold text-slate-300 block">
+                    Tippe zur Sicherheitsbestätigung <span className="font-mono text-rose-400 font-black">RESET</span> ein:
+                  </label>
+                  <input
+                    type="text"
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value.toUpperCase())}
+                    placeholder="RESET"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-center font-mono font-black text-rose-400 tracking-widest uppercase focus:border-rose-500"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowResetModal(false)}
+                    className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold"
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    type="button"
+                    disabled={countdown > 0 || confirmText !== 'RESET' || isResetting}
+                    onClick={handleExecuteReset}
+                    className="flex-1 py-3 bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-xs font-black shadow transition active:scale-95"
+                  >
+                    {isResetting ? (
+                      'Wird bereinigt...'
+                    ) : countdown > 0 ? (
+                      `Warte ${countdown}s...`
+                    ) : (
+                      'Löschung jetzt ausführen'
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

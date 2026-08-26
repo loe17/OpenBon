@@ -27,7 +27,7 @@ import { APP_VERSION } from '@/lib/version';
  * Spec 8: Vollständige, interaktive Offline-Dokumentation.
  * Alle Inhalte sind Teil des Bundles - kein Internet erforderlich.
  * Beim Klick auf Drucken wird das gesamte Handbuch mit Titelblatt,
- * Versionsnummer (v0.4.4) und Inhaltsverzeichnis ausgegeben.
+ * Versionsnummer (v0.4.5) und Inhaltsverzeichnis ausgegeben.
  */
 
 const ICONS: Record<DocChapter['icon'], React.ComponentType<{ className?: string }>> = {
@@ -348,7 +348,7 @@ export default function DocsPage() {
         {/* All Chapters Sequentially */}
         <div className="space-y-12">
           {HANDBOOK.map((chapter) => (
-            <div key={chapter.id} className="space-y-6" style={{ pageBreakBefore: 'always' }}>
+            <div key={chapter.id} className="page-break-before space-y-6">
               <div className="border-b-2 border-slate-900 pb-3">
                 <div className="text-xs font-black uppercase tracking-wider text-slate-500">
                   Kapitel {chapter.chapterNumber}
@@ -358,7 +358,7 @@ export default function DocsPage() {
               </div>
 
               {chapter.sections.map((section, idx) => (
-                <div key={idx} className="space-y-3 text-sm leading-relaxed border-b border-slate-200 pb-4">
+                <div key={idx} className="page-break-inside-avoid space-y-3 text-sm leading-relaxed border-b border-slate-200 pb-4">
                   <h3 className="text-base font-black text-slate-900">{section.heading}</h3>
 
                   {section.paragraphs?.map((p, pIdx) => (

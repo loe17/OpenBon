@@ -10,18 +10,63 @@ export async function GET(req: Request) {
   if (!auth.ok) return auth.response;
 
   try {
-    const waiters = await prisma.waiterProfile.findMany({
-      select: {
-        id: true,
-        name: true,
-        isActive: true,
-        tipProfileId: true,
-        tipProfile: true,
-        createdAt: true,
-      },
-      orderBy: { name: 'asc' },
+    const [profiles, distinctOrders, distinctPayments, recentSettles] = await Promise.all([
+      prisma.waiterProfile.findMany({
+        select: {
+          id: true,
+          name: true,
+          isActive: true,
+          tipProfileId: true,
+          tipProfile: true,
+          createdAt: true,
+        },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.order.findMany({
+        select: { waiterName: true },
+        distinct: ['waiterName'],
+      }),
+      prisma.payment.findMany({
+        select: { waiterName: true },
+        distinct: ['waiterName'],
+      }),
+      prisma.actionLog.findMany({
+        where: { action: 'WAITER_SETTLED' },
+        select: { actor: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    const namesMap = new Map<string, { id?: string; name: string; isActive: boolean; isSettled?: boolean; lastSettledAt?: Date | null }>();
+
+    profiles.forEach((p: any) => {
+      namesMap.set(p.name.trim(), { id: p.id, name: p.name.trim(), isActive: p.isActive });
     });
-    return NextResponse.json(waiters);
+
+    distinctOrders.forEach((o: any) => {
+      const name = (o.waiterName || '').trim();
+      if (name && !namesMap.has(name)) {
+        namesMap.set(name, { id: `adhoc-${name}`, name, isActive: true });
+      }
+    });
+
+    distinctPayments.forEach((p: any) => {
+      const name = (p.waiterName || '').trim();
+      if (name && !namesMap.has(name)) {
+        namesMap.set(name, { id: `adhoc-${name}`, name, isActive: true });
+      }
+    });
+
+    const result = Array.from(namesMap.values()).map((w) => {
+      const settle = recentSettles.find((s: any) => s.actor === w.name);
+      return {
+        ...w,
+        isSettled: Boolean(settle),
+        lastSettledAt: settle?.createdAt || null,
+      };
+    });
+
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json({ error: 'Fehler beim Laden der Kellner' }, { status: 500 });
   }

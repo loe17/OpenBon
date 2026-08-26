@@ -1,8 +1,11 @@
-export const APP_VERSION = '0.4.4';
+export const APP_VERSION = '0.4.5';
 export const APP_NAME = 'OpenBon';
 export const APP_BUILD_DATE = '2026-08-26';
 export const APP_IS_BETA = false;
 export const APP_AUTHOR = 'OpenBon Community';
 export const APP_LICENSE = 'MIT';
-export const APP_DISCLAIMER = 'OpenBon v0.4.4 - Nutzung auf eigene Verantwortung ohne Gewähr.';
+export const APP_REPOSITORY = 'https://github.com/loe17/OpenBon';
+export const APP_RELEASE_DATE = '2026-08-26';
+export const APP_DESCRIPTION = 'OpenBon - Modernes, ausfallsicheres Fest- und Gastronomiekassensystem.';
+export const APP_DISCLAIMER = 'OpenBon v0.4.5 - Nutzung auf eigene Verantwortung ohne Gewähr.';
 export const GITHUB_REPO_URL = 'https://github.com/loe17/OpenBon';

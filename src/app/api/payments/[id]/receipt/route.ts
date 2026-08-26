@@ -47,6 +47,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       title: 'KASSENBELEG / QUITTUNG',
       invoiceNumber: payment.invoiceNumber,
       tableLabel: payment.table?.label || 'Direktverkauf',
+      tableFontSize: config?.receiptTableFontSize ?? 3,
+      itemFontSize: config?.receiptItemFontSize ?? 2,
+      optionsFontSize: config?.receiptOptionsFontSize ?? 1,
+      metaFontSize: config?.receiptMetaFontSize ?? 1,
+      template: config?.receiptTemplate || 'CLASSIC',
       waiterName: payment.waiterName,
       createdAt: payment.createdAt,
       items: payment.items.map((i) => ({
@@ -72,7 +77,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       taxSplits,
       isTraining: payment.isTraining,
       eventName: config?.name,
-      footerText: 'Vielen Dank für Ihren Besuch!',
+      subHeader: config?.receiptSubHeader || undefined,
+      customHeader: config?.receiptHeader || undefined,
+      addressStreet: config?.addressStreet || undefined,
+      addressCity: config?.addressCity || undefined,
+      taxNumber: config?.taxNumber || undefined,
+      vatId: config?.vatId || undefined,
+      footerText: config?.receiptFooterText || 'Vielen Dank für Ihren Besuch!',
     };
 
     const result = await networkSpooler.printTicket(printer, ticket);

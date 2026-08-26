@@ -349,3 +349,45 @@ html, body {
 ::-webkit-scrollbar-thumb {
   @apply bg-slate-700 rounded-full hover:bg-slate-600;
 }
+
+/* ========================================================================== */
+/* Print & PDF Media Styling (Handbook, Table Plan, Reports)                  */
+/* ========================================================================== */
+@media print {
+  html, body, #__next, div, main {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print\:block {
+    display: block !important;
+  }
+
+  /* Page break helpers */
+  .page-break-before {
+    break-before: page !important;
+    page-break-before: always !important;
+  }
+
+  .page-break-after {
+    break-after: page !important;
+    page-break-after: always !important;
+  }
+
+  .page-break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}

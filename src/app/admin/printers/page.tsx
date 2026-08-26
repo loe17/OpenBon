@@ -78,6 +78,26 @@ export default function AdminPrintersPage() {
     autoCut: true,
   });
 
+  const [pingStatus, setPingStatus] = useState<Record<string, { online: boolean; latencyMs?: number; isVirtual: boolean }>>({});
+  const [pinging, setPinging] = useState(false);
+
+  const checkPrinterPings = async () => {
+    setPinging(true);
+    try {
+      const res = await fetch('/api/printers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'PING_ALL' }),
+      });
+      const data = await res.json();
+      if (data.results) {
+        setPingStatus(data.results);
+      }
+    } catch {} finally {
+      setPinging(false);
+    }
+  };
+
   const fetchPrintersAndGroups = async () => {
     try {
       const [pRes, pgRes, cfgRes] = await Promise.all([
@@ -94,6 +114,7 @@ export default function AdminPrintersPage() {
       if (cfgData && cfgData.enableVirtualPrinters !== undefined) {
         setEnableVirtual(cfgData.enableVirtualPrinters);
       }
+      checkPrinterPings();
     } catch (e) {
       console.error(e);
     } finally {
@@ -103,6 +124,8 @@ export default function AdminPrintersPage() {
 
   useEffect(() => {
     fetchPrintersAndGroups();
+    const interval = setInterval(() => checkPrinterPings(), 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleToggleVirtualPrinters = async () => {
@@ -421,8 +444,18 @@ export default function AdminPrintersPage() {
                       <span className="px-2 py-0.5 bg-blue-950 text-blue-400 border border-blue-800 rounded-full text-[10px] font-bold">
                         Virtuell (Browser)
                       </span>
+                    ) : pingStatus[p.id]?.online ? (
+                      <span className="px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800 rounded-full text-[10px] font-bold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Online {pingStatus[p.id]?.latencyMs !== undefined ? `(${pingStatus[p.id].latencyMs}ms)` : ''}
+                      </span>
+                    ) : pingStatus[p.id] && !pingStatus[p.id].online ? (
+                      <span className="px-2 py-0.5 bg-rose-950 text-rose-400 border border-rose-800 rounded-full text-[10px] font-bold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                        Offline / Getrennt
+                      </span>
                     ) : (
-                      <span className="px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800 rounded-full text-[10px] font-bold">
+                      <span className="px-2 py-0.5 bg-slate-800 text-slate-400 rounded-full text-[10px] font-bold">
                         Netzwerk
                       </span>
                     )}
@@ -444,30 +477,17 @@ export default function AdminPrintersPage() {
                 </div>
 
                 <div className="space-y-2 pt-3 border-t border-slate-800">
-                  {/* Web Interface Link Button */}
-                  {p.isVirtual ? (
-                    <a
-                      href={`/admin/virtual-printer?printerName=${encodeURIComponent(p.name)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-1.5 px-3 bg-blue-950/60 hover:bg-blue-900/80 text-blue-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-blue-800/60"
-                    >
-                      <Globe className="w-3.5 h-3.5 text-blue-400" />
-                      <span>Virtueller Monitor (Browser) öffnen</span>
-                      <ExternalLink className="w-3 h-3 opacity-70" />
-                    </a>
-                  ) : (
-                    <a
-                      href={`http://${p.ipAddress}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-1.5 px-3 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-slate-700"
-                    >
-                      <Globe className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Web-Interface öffnen (http://{p.ipAddress})</span>
-                      <ExternalLink className="w-3 h-3 opacity-70" />
-                    </a>
-                  )}
+                  {/* Virtual Printer Monitor Button */}
+                  <a
+                    href={`/admin/virtual-printer?printerName=${encodeURIComponent(p.name)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-1.5 px-3 bg-blue-950/60 hover:bg-blue-900/80 text-blue-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-blue-800/60"
+                  >
+                    <Globe className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Virtueller Monitor (Browser) öffnen</span>
+                    <ExternalLink className="w-3 h-3 opacity-70" />
+                  </a>
 
                   <div className="flex items-center gap-2">
                     <button

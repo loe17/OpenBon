@@ -144,7 +144,25 @@ export default function AdminProductsPage() {
 
   const handleDeleteCategory = async (catId: string, catName: string) => {
     try {
-      await fetch(`/api/categories?id=${catId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/categories?id=${catId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 409) {
+          const cascade = window.confirm(
+            `${data.error}\n\nMöchtest du die Warengruppe "${catName}" samt aller darin enthaltenen Artikel trotzdem unwiderruflich löschen?`
+          );
+          if (cascade) {
+            const forceRes = await fetch(`/api/categories?id=${catId}&force=true`, { method: 'DELETE' });
+            if (forceRes.ok) {
+              fetchData();
+              success(`Warengruppe "${catName}" und zugehörige Artikel gelöscht.`);
+              return;
+            }
+          }
+        }
+        error(data.error || 'Fehler beim Löschen der Warengruppe');
+        return;
+      }
       fetchData();
       success(`Warengruppe "${catName}" gelöscht`);
     } catch {

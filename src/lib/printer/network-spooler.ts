@@ -72,6 +72,8 @@ class NetworkSpooler {
       const res = await this.processVirtualPrint(job);
       return { success: res.success, isVirtual: true, jobId: job.id };
     } else {
+      // Spiegelung auch für Netzwerkdrucker im virtuellen Monitor
+      await this.processVirtualPrint(job);
       this.queue.push(job);
       this.processQueue();
       return { success: true, isVirtual: false, jobId: job.id };
@@ -83,23 +85,25 @@ class NetworkSpooler {
     rawBuffer: Buffer,
     textRepresentation?: string
   ): Promise<{ success: boolean; isVirtual: boolean; error?: string }> {
+    // Immer Spiegelung für den Virtuellen Monitor bereithalten
+    const record: VirtualTicketRecord = {
+      id: Math.random().toString(36).substring(2, 9),
+      printerName: printer.name,
+      printerIp: printer.ipAddress,
+      ticketData: { title: 'Druckauftrag', items: [] },
+      rawText: textRepresentation || '[ESC/POS Binärdaten]',
+      printedAt: new Date().toISOString(),
+    };
+
+    if (!global.virtualPrinterHistory) global.virtualPrinterHistory = [];
+    global.virtualPrinterHistory.unshift(record);
+    if (global.virtualPrinterHistory.length > 100) global.virtualPrinterHistory.pop();
+
+    if (global.io) {
+      global.io.emit('virtual_printer:new_ticket', record);
+    }
+
     if (printer.isVirtual) {
-      const record: VirtualTicketRecord = {
-        id: Math.random().toString(36).substring(2, 9),
-        printerName: printer.name,
-        printerIp: printer.ipAddress,
-        ticketData: { title: 'Druckauftrag', items: [] },
-        rawText: textRepresentation || '[ESC/POS Binärdaten]',
-        printedAt: new Date().toISOString(),
-      };
-
-      if (!global.virtualPrinterHistory) global.virtualPrinterHistory = [];
-      global.virtualPrinterHistory.unshift(record);
-      if (global.virtualPrinterHistory.length > 100) global.virtualPrinterHistory.pop();
-
-      if (global.io) {
-        global.io.emit('virtual_printer:new_ticket', record);
-      }
       return { success: true, isVirtual: true };
     }
 

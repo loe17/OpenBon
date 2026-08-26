@@ -79,6 +79,8 @@ function AdminSettleContent() {
   const [printers, setPrinters] = useState<{ id: string; name: string; isActive: boolean }[]>([]);
   const [printerId, setPrinterId] = useState('');
   const [settleTemplate, setSettleTemplate] = useState<'OFFICIAL_A4' | 'RECEIPT_SLIP' | 'DASHBOARD_SUMMARY'>('OFFICIAL_A4');
+  const [rawWaiters, setRawWaiters] = useState<{ name: string; isSettled?: boolean; lastSettledAt?: string | null }[]>([]);
+  const [filterMode, setFilterMode] = useState<'ALL' | 'OPEN' | 'SETTLED'>('ALL');
 
   /* ------------------------------------------------------------ Laden */
 
@@ -87,13 +89,20 @@ function AdminSettleContent() {
       try {
         const [wRes, pRes] = await Promise.all([fetch('/api/waiters'), fetch('/api/printers')]);
         const names = new Set<string>();
+        const rawList: { name: string; isSettled?: boolean; lastSettledAt?: string | null }[] = [];
         if (wRes.ok) {
           const data = await wRes.json();
           if (Array.isArray(data)) {
-            data.forEach((w: { name?: string }) => w.name && names.add(w.name));
+            data.forEach((w: { name?: string; isSettled?: boolean; lastSettledAt?: string | null }) => {
+              if (w.name) {
+                names.add(w.name);
+                rawList.push({ name: w.name, isSettled: w.isSettled, lastSettledAt: w.lastSettledAt });
+              }
+            });
           }
         }
         setWaiters(Array.from(names).sort((a, b) => a.localeCompare(b, 'de')));
+        setRawWaiters(rawList);
 
         if (pRes.ok) {
           const pData = await pRes.json();
@@ -268,34 +277,95 @@ function AdminSettleContent() {
       {/* ============================================ Schritt 1: Bedienung */}
       {step === 1 && (
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 print:hidden">
-          <h2 className="font-bold text-lg">Wen rechnen Sie ab?</h2>
-          {waiters.length === 0 ? (
-            <div className="bg-amber-950/40 border border-amber-800/60 text-amber-200 p-4 rounded-2xl text-sm font-bold">
-              Keine Bedienung gefunden. Es muss sich zuerst jemand an der
-              Tischübersicht angemeldet haben.
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <h2 className="font-bold text-lg">Wen rechnen Sie ab?</h2>
+            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setFilterMode('ALL')}
+                className={`px-3 py-1 rounded-lg transition ${
+                  filterMode === 'ALL' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Alle ({waiters.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterMode('OPEN')}
+                className={`px-3 py-1 rounded-lg transition ${
+                  filterMode === 'OPEN' ? 'bg-amber-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Offen ({rawWaiters.filter((w) => !w.isSettled).length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterMode('SETTLED')}
+                className={`px-3 py-1 rounded-lg transition ${
+                  filterMode === 'SETTLED' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Bereits abgerechnet ({rawWaiters.filter((w) => w.isSettled).length})
+              </button>
             </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {waiters.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => {
-                    triggerHapticFeedback();
-                    setSelected(name);
-                  }}
-                  className={`min-h-[56px] px-3 rounded-2xl text-sm font-black border transition active:scale-95 touch-manipulation flex items-center justify-center gap-2 ${
-                    selected === name
-                      ? 'bg-blue-600 border-blue-400 text-white shadow'
-                      : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-600'
-                  }`}
-                >
-                  <User className="w-4 h-4" />
-                  <span className="truncate">{name}</span>
-                </button>
-              ))}
-            </div>
-          )}
+          </div>
+
+          {(() => {
+            const filtered = waiters.filter((name) => {
+              const info = rawWaiters.find((r) => r.name === name);
+              if (filterMode === 'OPEN') return !info?.isSettled;
+              if (filterMode === 'SETTLED') return Boolean(info?.isSettled);
+              return true;
+            });
+
+            if (filtered.length === 0) {
+              return (
+                <div className="bg-slate-950 border border-slate-800 text-slate-400 p-6 rounded-2xl text-center text-sm font-bold">
+                  Keine Bedienungen für diesen Filter gefunden.
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {filtered.map((name) => {
+                  const info = rawWaiters.find((r) => r.name === name);
+                  const isSelected = selected === name;
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => {
+                        triggerHapticFeedback();
+                        setSelected(name);
+                      }}
+                      className={`min-h-[64px] p-3 rounded-2xl text-sm font-black border transition active:scale-95 touch-manipulation flex flex-col justify-between items-start text-left ${
+                        isSelected
+                          ? 'bg-blue-600 border-blue-400 text-white shadow-lg'
+                          : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-600'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 w-full">
+                        <User className="w-4 h-4 shrink-0 opacity-70" />
+                        <span className="truncate flex-1">{name}</span>
+                      </div>
+                      <div className="text-[10px] font-semibold mt-1">
+                        {info?.isSettled ? (
+                          <span className={isSelected ? 'text-emerald-200' : 'text-emerald-400'}>
+                            ✓ Bereits abgerechnet
+                          </span>
+                        ) : (
+                          <span className={isSelected ? 'text-amber-200' : 'text-amber-400'}>
+                            ● Schicht aktiv / Offen
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           <button
             type="button"
@@ -303,7 +373,7 @@ function AdminSettleContent() {
             onClick={async () => {
               if (await loadReport(selected)) setStep(2);
             }}
-            className="w-full min-h-[52px] rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 font-black text-sm flex items-center justify-center gap-2 transition active:scale-95"
+            className="w-full min-h-[52px] rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 font-black text-sm flex items-center justify-center gap-2 transition active:scale-95 shadow"
           >
             {busy ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
             Umsätze anzeigen

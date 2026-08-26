@@ -56,6 +56,8 @@ export default function AdminTablesPage() {
   const [genCols, setGenCols] = useState(6);
   const [genStart, setGenStart] = useState(1);
   const [genStep, setGenStep] = useState(1);
+  const [genStepX, setGenStepX] = useState(1);
+  const [genStepY, setGenStepY] = useState(1);
 
   // Edit table form
   const [editingTable, setEditingTable] = useState<AdminTableRow | null>(null);
@@ -224,6 +226,8 @@ export default function AdminTablesPage() {
           cols: genCols,
           startNumber: genStart,
           step: genStep,
+          stepX: genStepX,
+          stepY: genStepY,
         }),
       });
       if (res.ok) {
@@ -395,7 +399,13 @@ export default function AdminTablesPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {tables.map((t) => (
+              {[...tables]
+                .sort((a, b) =>
+                  (a.gridY || 1) !== (b.gridY || 1)
+                    ? (a.gridY || 1) - (b.gridY || 1)
+                    : (a.gridX || 1) - (b.gridX || 1)
+                )
+                .map((t) => (
                 <div
                   key={t.id}
                   className={`relative rounded-2xl p-3 border transition flex flex-col justify-between min-h-[95px] ${
@@ -406,7 +416,7 @@ export default function AdminTablesPage() {
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px] font-mono font-bold text-slate-400">
-                      Nr. {t.tableNumber}
+                      Nr. {t.tableNumber} <span className="opacity-60">({t.gridX || 1},{t.gridY || 1})</span>
                     </span>
                     <div className="flex items-center gap-1">
                       <button
@@ -591,7 +601,7 @@ export default function AdminTablesPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">Schrittweite</label>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">Nr.-Schrittweite</label>
                   <input
                     type="number"
                     min="1"
@@ -602,9 +612,37 @@ export default function AdminTablesPage() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">
+                    Schrittweite X (Spalten / Gänge)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5"
+                    value={genStepX}
+                    onChange={(e) => setGenStepX(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-center font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">
+                    Schrittweite Y (Reihen / Gänge)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5"
+                    value={genStepY}
+                    onChange={(e) => setGenStepY(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-center font-bold"
+                  />
+                </div>
+              </div>
+
               <div className="p-3 bg-blue-950/40 border border-blue-800 rounded-xl text-xs text-blue-200">
-                Erzeugt insgesamt <strong>{genRows * genCols}</strong> Tische von Tisch {genStart} bis Tisch{' '}
-                {genStart + (genRows * genCols - 1) * genStep}.
+                Erzeugt insgesamt <strong>{genRows * genCols}</strong> Tische im Raumplan. Bei Schrittweite &gt; 1 werden freie Gänge zwischen den Tischen angelegt.
               </div>
 
               <div className="flex gap-2 pt-2">

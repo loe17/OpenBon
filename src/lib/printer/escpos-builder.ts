@@ -247,8 +247,28 @@ export class EscPosBuilder {
     }
 
     if (data.eventName) {
-      builder.align('center').textLine(data.eventName);
+      builder.align('center').bold(true).textLine(data.eventName).bold(false);
       addText(data.eventName);
+    }
+    if (data.subHeader) {
+      builder.align('center').textLine(data.subHeader);
+      addText(data.subHeader);
+    }
+    if (data.customHeader) {
+      builder.align('center').textLine(data.customHeader);
+      addText(data.customHeader);
+    }
+    if (data.template === 'GASTRO') {
+      if (data.addressStreet && data.addressCity) {
+        const addr = `${data.addressStreet} · ${data.addressCity}`;
+        builder.align('center').textLine(addr);
+        addText(addr);
+      }
+      const taxLine = [data.taxNumber ? `St.-Nr: ${data.taxNumber}` : '', data.vatId ? `USt-ID: ${data.vatId}` : ''].filter(Boolean).join(' · ');
+      if (taxLine) {
+        builder.align('center').textLine(taxLine);
+        addText(taxLine);
+      }
     }
 
     builder.doubleDivider();
@@ -287,6 +307,9 @@ export class EscPosBuilder {
       : data.items;
     let lastCourse = 0;
 
+    const itemFs = typeof data.itemFontSize === 'number' ? data.itemFontSize : parseInt(String(data.itemFontSize || 2), 10) || 2;
+    const optFs = typeof data.optionsFontSize === 'number' ? data.optionsFontSize : parseInt(String(data.optionsFontSize || 1), 10) || 1;
+
     for (const item of sortedItems) {
       if (hasCourses && (item.courseNumber ?? 1) !== lastCourse) {
         lastCourse = item.courseNumber ?? 1;
@@ -297,8 +320,25 @@ export class EscPosBuilder {
       const displayName = item.alternativeName || item.name;
       const priceStr = item.unitPrice !== undefined ? `${(item.unitPrice * item.quantity).toFixed(2)} EUR` : '';
 
-      builder.bold(true).twoColumn(`${item.quantity}x ${displayName}`, priceStr).bold(false);
+      // Item Size scaling (Stufen 1-10)
+      if (itemFs >= 7) {
+        builder.charSize(2, 2).bold(true);
+      } else if (itemFs >= 4) {
+        builder.charSize(1, 2).bold(true);
+      } else if (itemFs >= 2) {
+        builder.bold(true);
+      }
+
+      builder.twoColumn(`${item.quantity}x ${displayName}`, priceStr);
+      builder.resetCharSize().bold(false);
       addText(`${item.quantity}x ${displayName}   ${priceStr}`);
+
+      // Options & Details scaling (Stufen 1-10)
+      if (optFs >= 5) {
+        builder.charSize(1, 2).bold(true);
+      } else if (optFs >= 2) {
+        builder.bold(true);
+      }
 
       if (item.variantName) {
         builder.textLine(`   Variante: ${item.variantName}`);
@@ -313,6 +353,10 @@ export class EscPosBuilder {
       if (item.customizationText) {
         builder.bold(true).textLine(`   ! WUNSCH: ${item.customizationText}`).bold(false);
         addText(`   ! WUNSCH: ${item.customizationText}`);
+      }
+
+      if (optFs >= 2) {
+        builder.resetCharSize().bold(false);
       }
 
       if (item.deposit && item.deposit > 0) {

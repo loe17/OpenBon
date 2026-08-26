@@ -117,6 +117,51 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, retriedCount });
     }
 
+    // 6. TCP Connection Probe / Ping Check
+    if (body.action === 'PING_PRINTER' || body.action === 'PING_ALL') {
+      const net = await import('net');
+      const printers = body.printerId
+        ? await prisma.printer.findMany({ where: { id: body.printerId } })
+        : await prisma.printer.findMany();
+
+      const results: Record<string, { online: boolean; latencyMs?: number; isVirtual: boolean }> = {};
+
+      await Promise.all(
+        printers.map((p) => {
+          if (p.isVirtual) {
+            results[p.id] = { online: true, isVirtual: true, latencyMs: 0 };
+            return Promise.resolve();
+          }
+
+          return new Promise<void>((resolve) => {
+            const start = Date.now();
+            const socket = new net.Socket();
+            socket.setTimeout(800);
+
+            let finished = false;
+            const finish = (online: boolean) => {
+              if (!finished) {
+                finished = true;
+                socket.destroy();
+                results[p.id] = {
+                  online,
+                  isVirtual: false,
+                  latencyMs: online ? Date.now() - start : undefined,
+                };
+                resolve();
+              }
+            };
+
+            socket.connect(p.port || 9100, p.ipAddress, () => finish(true));
+            socket.on('error', () => finish(false));
+            socket.on('timeout', () => finish(false));
+          });
+        })
+      );
+
+      return NextResponse.json({ success: true, results });
+    }
+
     if (!body.name) {
       return NextResponse.json({ error: 'Druckername ist erforderlich' }, { status: 400 });
     }

@@ -78,13 +78,14 @@ export default function AdminSettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         success('Einstellungen erfolgreich gespeichert!');
       } else {
-        error('Fehler beim Speichern der Einstellungen');
+        error(data.error || data.message || data.details || 'Fehler beim Speichern der Einstellungen');
       }
-    } catch {
-      error('Netzwerkfehler beim Speichern');
+    } catch (err) {
+      error(err instanceof Error ? err.message : 'Netzwerkfehler beim Speichern');
     } finally {
       setSaving(false);
     }

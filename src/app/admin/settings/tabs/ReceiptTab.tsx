@@ -217,7 +217,15 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
         : config.receiptDrinkItemFontSize ?? 3
     );
 
-    const lines: string[] = [];
+    const optionsFs = Number(
+      isReceipt
+        ? config.receiptOptionsFontSize ?? 1
+        : isFood
+        ? config.receiptFoodOptionsFontSize ?? 1
+        : config.receiptDrinkOptionsFontSize ?? 1
+    );
+
+    const headerLines: string[] = [];
 
     // 1. Kopfzeilen-Hierarchie:
     // Zeile 1: Name der Veranstaltung
@@ -228,43 +236,41 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
       const organizer = config.receiptSubHeader || '';
       const customHeader = config.receiptHeader || '';
 
-      lines.push(center(eventName.toUpperCase()));
-      if (organizer) lines.push(center(organizer));
-      if (customHeader) lines.push(center(customHeader));
+      headerLines.push(center(eventName.toUpperCase()));
+      if (organizer) headerLines.push(center(organizer));
+      if (customHeader) headerLines.push(center(customHeader));
 
       if (tpl === 'GASTRO') {
         const street = config.addressStreet || 'Musterstraße 1';
         const city = config.addressCity || '12345 Musterstadt';
         const tax = config.taxNumber ? `St.-Nr: ${config.taxNumber}` : '';
         const vat = config.vatId ? `USt-ID: ${config.vatId}` : '';
-        lines.push(center(`${street} · ${city}`));
+        headerLines.push(center(`${street} · ${city}`));
         const taxLine = [tax, vat].filter(Boolean).join(' · ');
-        if (taxLine) lines.push(center(taxLine));
+        if (taxLine) headerLines.push(center(taxLine));
       }
-      lines.push('');
+      headerLines.push('');
     }
 
     if (!isReceipt) {
       if (tpl === 'HIGH_VISIBILITY') {
-        lines.push(center(DBL_LINE));
-        lines.push(center(isFood ? '*** KÜCHENAUFTRAG (SOFORT) ***' : '*** AUSSCHANK / THEKE ***'));
-        lines.push(center(DBL_LINE));
+        headerLines.push(center(DBL_LINE));
+        headerLines.push(center(isFood ? '*** KÜCHENAUFTRAG (SOFORT) ***' : '*** AUSSCHANK / THEKE ***'));
+        headerLines.push(center(DBL_LINE));
       } else {
-        lines.push(center(isFood ? '*** KÜCHE ***' : '*** AUSSCHANK ***'));
+        headerLines.push(center(isFood ? '*** KÜCHE ***' : '*** AUSSCHANK ***'));
       }
-      lines.push('');
+      headerLines.push('');
     }
 
-    // 2. Tischnummer (mittig zentriert, sauber ohne Zusatzsymbole)
-    if (showTable) {
-      lines.push(center(`Tisch 7`));
-      lines.push('');
-    }
+    // 2. Tischnummer
+    const tableText = showTable ? 'Tisch 7' : null;
 
     // 3. Metadaten
-    if (showWaiter) lines.push(row('Bedienung:', sample.waiter));
-    if (showStamp) lines.push(row('Uhrzeit:', sample.stamp));
-    if (showTable || showWaiter || showStamp) lines.push(LINE);
+    const metaLines: string[] = [];
+    if (showWaiter) metaLines.push(row('Bedienung:', sample.waiter));
+    if (showStamp) metaLines.push(row('Uhrzeit:', sample.stamp));
+    if (showTable || showWaiter || showStamp) metaLines.push(LINE);
 
     // 4. Positionen
     const visible = isFood
@@ -273,67 +279,108 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
       ? sample.items.filter((i) => i.name.includes('Helles'))
       : sample.items;
 
+    const formattedItems: {
+      qty: number;
+      name: string;
+      priceStr: string;
+      subText?: string;
+      optionText?: string;
+    }[] = [];
+
+    const itemLines: string[] = [];
+
     for (const item of visible) {
+      const priceFormatted = item.price.toFixed(2);
+      let subText: string | undefined;
+      let optionText: string | undefined;
+
       if (isReceipt) {
         if (tpl === 'GASTRO') {
-          lines.push(row(`${item.qty}x ${item.name}`, item.price.toFixed(2)));
-          lines.push(`   (Einzelpreis: ${(item.price / item.qty).toFixed(2)} € | MwSt: 19%)`);
+          itemLines.push(row(`${item.qty}x ${item.name}`, priceFormatted));
+          subText = `(Einzelpreis: ${(item.price / item.qty).toFixed(2)} € | MwSt: 19%)`;
+          itemLines.push(`   ${subText}`);
         } else {
-          lines.push(row(`${item.qty}x ${item.name}`, item.price.toFixed(2)));
+          itemLines.push(row(`${item.qty}x ${item.name}`, priceFormatted));
         }
       } else {
         if (tpl === 'HIGH_VISIBILITY') {
-          lines.push(`-> ${item.qty}x ${item.name.toUpperCase()}`);
+          itemLines.push(`-> ${item.qty}x ${item.name.toUpperCase()}`);
         } else {
-          lines.push(`${item.qty}x ${item.name}`);
+          itemLines.push(`${item.qty}x ${item.name}`);
         }
       }
+
       if (showOptions && item.option) {
-        lines.push(tpl === 'HIGH_VISIBILITY' ? `   ! WUNSCH: ${item.option.toUpperCase()}` : `     > ${item.option}`);
+        optionText = tpl === 'HIGH_VISIBILITY' ? `! WUNSCH: ${item.option.toUpperCase()}` : `> ${item.option}`;
+        itemLines.push(`   ${optionText}`);
       }
+
+      formattedItems.push({
+        qty: item.qty,
+        name: isReceipt || tpl !== 'HIGH_VISIBILITY' ? item.name : item.name.toUpperCase(),
+        priceStr: isReceipt ? `${priceFormatted} €` : '',
+        subText,
+        optionText,
+      });
     }
 
     // 5. Gesamtsumme & Fußzeile
+    const footerLines: string[] = [];
     if (isReceipt) {
       const total = visible.reduce((s, i) => s + i.price, 0);
-      lines.push(LINE);
+      footerLines.push(LINE);
       if (tpl === 'HIGH_VISIBILITY') {
-        lines.push(center(`GESAMTBETRAG: ${total.toFixed(2)} ${config.currency || 'EUR'}`));
-        lines.push(center(DBL_LINE));
+        footerLines.push(center(`GESAMTBETRAG: ${total.toFixed(2)} ${config.currency || 'EUR'}`));
+        footerLines.push(center(DBL_LINE));
       } else {
-        lines.push(row('GESAMTSUMME', `${total.toFixed(2)} ${config.currency || 'EUR'}`));
+        footerLines.push(row('GESAMTSUMME', `${total.toFixed(2)} ${config.currency || 'EUR'}`));
       }
 
       if (config.enableTax) {
         const net = total / (1 + (config.taxRateNormal || 19) / 100);
-        lines.push(row(`darin MwSt ${config.taxRateNormal || 19}%`, (total - net).toFixed(2)));
+        footerLines.push(row(`darin MwSt ${config.taxRateNormal || 19}%`, (total - net).toFixed(2)));
       }
 
       if (config.receiptShowTse !== false) {
-        lines.push('');
-        lines.push('TSE-Signatur:');
-        lines.push('A1B2-C3D4-E5F6-7890');
+        footerLines.push('');
+        footerLines.push('TSE-Signatur:');
+        footerLines.push('A1B2-C3D4-E5F6-7890');
       }
 
       if (tpl === 'GASTRO') {
-        lines.push('');
-        lines.push('--- BEWIRTUNGSBELEG (§ 4 Abs. 5 EStG) ---');
-        lines.push('Bewirtete Personen: _____________________');
-        lines.push('Anlass: _________________________________');
-        lines.push('Trinkgeld: ____________ € Datum: ________');
-        lines.push('Unterschrift: ___________________________');
+        footerLines.push('');
+        footerLines.push('--- BEWIRTUNGSBELEG (§ 4 Abs. 5 EStG) ---');
+        footerLines.push('Bewirtete Personen: _____________________');
+        footerLines.push('Anlass: _________________________________');
+        footerLines.push('Trinkgeld: ____________ € Datum: ________');
+        footerLines.push('Unterschrift: ___________________________');
       }
 
       if (config.receiptFooterText) {
-        lines.push('');
-        lines.push(center(config.receiptFooterText));
+        footerLines.push('');
+        footerLines.push(center(config.receiptFooterText));
       }
     }
 
+    const fullLines: string[] = [
+      ...headerLines,
+      ...(tableText ? [center(tableText), ''] : []),
+      ...metaLines,
+      ...itemLines,
+      ...footerLines,
+    ];
+
     return {
-      text: lines.join('\n'),
+      text: fullLines.join('\n'),
+      headerLines,
+      tableText,
+      metaLines,
+      items: formattedItems,
+      footerLines,
       tableFs,
       itemFs,
+      optionsFs,
+      tpl,
     };
   }, [config, preview, paperWidth, widthCols]);
 
@@ -769,18 +816,81 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
               </div>
 
               <div
-                className={`bg-white text-slate-950 rounded-xl border-y-4 border-dashed border-slate-400 p-4 mx-auto transition-all shadow-inner overflow-x-auto ${
+                className={`bg-white text-slate-950 rounded-xl border-y-4 border-dashed border-slate-400 p-4 mx-auto transition-all shadow-inner overflow-x-auto font-mono select-all ${
                   paperWidth === 58 ? 'max-w-[280px]' : 'max-w-[380px]'
                 }`}
+                style={{ fontSize: paperWidth === 58 ? '10px' : '11px', lineHeight: 1.35 }}
               >
-                <pre
-                  className="font-mono leading-[1.4] whitespace-pre select-all text-slate-950 font-medium"
-                  style={{
-                    fontSize: paperWidth === 58 ? '10px' : '11px',
-                  }}
-                >
-                  {previewContent.text}
-                </pre>
+                {/* Header Lines */}
+                {previewContent.headerLines.length > 0 && (
+                  <div className="text-center font-medium mb-2 whitespace-pre leading-snug">
+                    {previewContent.headerLines.join('\n')}
+                  </div>
+                )}
+
+                {/* Table Number (Scaled dynamically with 10-step tableFs) */}
+                {previewContent.tableText && (
+                  <div
+                    className={`my-2 py-1 text-center transition-all rounded ${
+                      previewContent.tableFs >= 9
+                        ? 'bg-black text-white px-2 py-1 font-black'
+                        : 'font-bold'
+                    }`}
+                    style={{
+                      fontSize: `${0.85 + (previewContent.tableFs - 1) * 0.16}rem`,
+                      letterSpacing: previewContent.tableFs >= 5 ? '0.05em' : 'normal',
+                    }}
+                  >
+                    {previewContent.tableText}
+                  </div>
+                )}
+
+                {/* Meta Lines */}
+                {previewContent.metaLines.length > 0 && (
+                  <div className="text-xs text-slate-800 my-1 whitespace-pre leading-snug">
+                    {previewContent.metaLines.join('\n')}
+                  </div>
+                )}
+
+                {/* Items (Scaled dynamically with 10-step itemFs & optionsFs) */}
+                <div className="space-y-1.5 my-2">
+                  {previewContent.items.map((item, idx) => (
+                    <div key={idx} className="transition-all">
+                      <div
+                        className="flex justify-between items-baseline gap-2 font-mono"
+                        style={{
+                          fontSize: `${0.75 + (previewContent.itemFs - 1) * 0.08}rem`,
+                          fontWeight: previewContent.itemFs >= 2 ? 800 : 500,
+                        }}
+                      >
+                        <span className="truncate">{item.qty}x {item.name}</span>
+                        <span className="shrink-0">{item.priceStr}</span>
+                      </div>
+                      {item.subText && (
+                        <div className="text-[10px] text-slate-600 pl-4">
+                          {item.subText}
+                        </div>
+                      )}
+                      {item.optionText && (
+                        <div
+                          className="pl-4 font-mono font-bold text-slate-700"
+                          style={{
+                            fontSize: `${0.7 + (previewContent.optionsFs - 1) * 0.06}rem`,
+                          }}
+                        >
+                          {item.optionText}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Footer Lines */}
+                {previewContent.footerLines.length > 0 && (
+                  <div className="mt-3 pt-1 text-xs text-slate-800 whitespace-pre leading-snug">
+                    {previewContent.footerLines.join('\n')}
+                  </div>
+                )}
               </div>
 
               {singleSlipHint && (

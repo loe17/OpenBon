@@ -86,7 +86,9 @@ export async function POST(req: Request) {
       const rows = parseInt(body.rows || 4, 10);
       const cols = parseInt(body.cols || 6, 10);
       const startNum = parseInt(body.startNumber || 1, 10);
-      const step = parseInt(body.step || 1, 10);
+      const stepNum = parseInt(body.step || body.stepNumber || 1, 10);
+      const stepX = Math.max(1, parseInt(body.stepX || 1, 10));
+      const stepY = Math.max(1, parseInt(body.stepY || 1, 10));
 
       await prisma.diningTable.deleteMany({});
 
@@ -94,19 +96,21 @@ export async function POST(req: Request) {
       const createdTables = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
+          const posX = 1 + c * stepX;
+          const posY = 1 + r * stepY;
           const table = await prisma.diningTable.create({
             data: {
               tableNumber: num,
               label: `Tisch ${num}`,
-              gridX: c,
-              gridY: r,
+              gridX: posX,
+              gridY: posY,
               status: 'FREE',
               isActive: true,
               qrToken: Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10),
             },
           });
           createdTables.push(table);
-          num += step;
+          num += stepNum;
         }
       }
 

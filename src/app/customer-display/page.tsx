@@ -67,7 +67,11 @@ export default function CustomerDisplayPage() {
     return () => document.removeEventListener('fullscreenchange', handleFullscreen);
   }, []);
 
-  const [activeStations, setActiveStations] = useState<{ id: string; name: string }[]>([]);
+  const [activeStations, setActiveStations] = useState<{ id: string; name: string }[]>([
+    { id: 'POS_MAIN', name: 'Hauptkasse (Kasse 1)' },
+    { id: 'POS_2', name: 'Kasse 2 (Ausschank / Theke)' },
+    { id: 'POS_3', name: 'Kasse 3 (Grill & Speisen)' },
+  ]);
 
   const fetchDevices = async () => {
     try {
@@ -80,6 +84,10 @@ export default function CustomerDisplayPage() {
         setDevices(devs);
         setActiveStations((prev) => {
           const map = new Map<string, string>();
+          // Defaults erhalten
+          map.set('POS_MAIN', 'Hauptkasse (Kasse 1)');
+          map.set('POS_2', 'Kasse 2 (Ausschank / Theke)');
+          map.set('POS_3', 'Kasse 3 (Grill & Speisen)');
           devs.forEach((d) => map.set(d.id, d.name));
           prev.forEach((p) => map.set(p.id, p.name));
           return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
