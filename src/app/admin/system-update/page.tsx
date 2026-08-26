@@ -62,6 +62,50 @@ export default function AdminSystemUpdatePage() {
   const [terminalHistory, setTerminalHistory] = useState<TerminalLog[]>([]);
   const [copiedAll, setCopiedAll] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<string>('v0.4.2');
+  const [updateProgress, setUpdateProgress] = useState(0);
+  const [updateStage, setUpdateStage] = useState('Vorbereitung...');
+  const [updateElapsed, setUpdateElapsed] = useState(0);
+
+  // Live Timer & Progress Simulation waehrend des Update-Laufs
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (updating) {
+      setUpdateElapsed(0);
+      setUpdateProgress(8);
+      setUpdateStage('Sicherheits-Backup der Datenbank wird erstellt...');
+
+      interval = setInterval(() => {
+        setUpdateElapsed((prev) => {
+          const next = prev + 1;
+          if (next <= 5) {
+            setUpdateProgress(15);
+            setUpdateStage('1/5: Sicherheits-Snapshot der Datenbank wird gespeichert...');
+          } else if (next <= 12) {
+            setUpdateProgress(32);
+            setUpdateStage('2/5: Neuesten Code von GitHub laden & Tag auschecken...');
+          } else if (next <= 22) {
+            setUpdateProgress(52);
+            setUpdateStage('3/5: Node.js-Abhängigkeiten installieren (npm install)...');
+          } else if (next <= 34) {
+            setUpdateProgress(68);
+            setUpdateStage('4/5: Datenbankschema synchronisieren (prisma db push)...');
+          } else if (next <= 120) {
+            // Langsamer Anstieg während des next build (dauert auf Raspberry Pi am längsten)
+            setUpdateProgress((p) => Math.min(93, p + 0.5));
+            setUpdateStage('5/5: Produktions-Build kompilieren (next build)... Dies kann auf Einplatinencomputern 1-2 Minuten dauern.');
+          }
+          return next;
+        });
+      }, 1000);
+    } else {
+      if (updateProgress > 0 && updateProgress < 100) {
+        setUpdateProgress(100);
+      }
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [updating]);
 
   const copyAllLogs = async () => {
     triggerHapticFeedback();
@@ -449,6 +493,62 @@ export default function AdminSystemUpdatePage() {
           </div>
         </div>
       </div>
+
+      {/* Live Update Progress & Stage Indicator Bar */}
+      {updating && (
+        <div className="bg-slate-900 border-2 border-emerald-500/80 rounded-3xl p-4 sm:p-5 mb-4 shadow-2xl animate-in zoom-in-95 shrink-0 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center shrink-0">
+                <RefreshCw className="w-5 h-5 animate-spin" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-black text-white flex items-center gap-2">
+                  <span>System-Update läuft...</span>
+                  <span className="font-mono text-xs text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-700">
+                    {Math.round(updateProgress)}%
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 font-medium mt-0.5 truncate">{updateStage}</p>
+              </div>
+            </div>
+
+            <div className="text-right shrink-0">
+              <div className="text-[10px] uppercase font-bold text-slate-400">Dauer</div>
+              <div className="text-sm font-mono font-black text-emerald-300">
+                {String(Math.floor(updateElapsed / 60)).padStart(2, '0')}:{String(updateElapsed % 60).padStart(2, '0')} min
+              </div>
+            </div>
+          </div>
+
+          {/* Progress Bar Track & Glow Fill */}
+          <div className="w-full bg-slate-950 h-3.5 rounded-full overflow-hidden border border-slate-800 p-0.5">
+            <div
+              className="bg-gradient-to-r from-blue-500 via-emerald-400 to-emerald-500 h-full rounded-full transition-all duration-500 ease-out shadow-[0_0_12px_rgba(16,185,129,0.5)]"
+              style={{ width: `${Math.max(5, Math.min(100, updateProgress))}%` }}
+            />
+          </div>
+
+          {/* Progress Stages Pills */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 pt-1 text-center">
+            <div className={`p-1.5 rounded-xl text-[10px] font-bold border transition ${updateProgress >= 15 ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300' : 'bg-slate-950/60 border-slate-800 text-slate-500'}`}>
+              💾 1. Backup
+            </div>
+            <div className={`p-1.5 rounded-xl text-[10px] font-bold border transition ${updateProgress >= 32 ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300' : 'bg-slate-950/60 border-slate-800 text-slate-500'}`}>
+              📥 2. Checkout
+            </div>
+            <div className={`p-1.5 rounded-xl text-[10px] font-bold border transition ${updateProgress >= 52 ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300' : 'bg-slate-950/60 border-slate-800 text-slate-500'}`}>
+              📦 3. npm install
+            </div>
+            <div className={`p-1.5 rounded-xl text-[10px] font-bold border transition ${updateProgress >= 68 ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300' : 'bg-slate-950/60 border-slate-800 text-slate-500'}`}>
+              🗄️ 4. Prisma DB
+            </div>
+            <div className={`p-1.5 rounded-xl text-[10px] font-bold border transition ${updateProgress >= 85 ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300 animate-pulse' : 'bg-slate-950/60 border-slate-800 text-slate-500'}`}>
+              ⚙️ 5. Build
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Terminal View Container */}
       <div className="flex-1 flex flex-col bg-black border border-slate-800 rounded-3xl overflow-hidden shadow-2xl font-mono text-xs min-h-0">

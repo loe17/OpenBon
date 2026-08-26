@@ -279,18 +279,19 @@ export async function POST(req: Request) {
 
         logs.push(`[1/4] Lade neuesten Code von GitHub & checke "${target}" aus...`);
         await execAsync('git config --global --add safe.directory *', { cwd: projectRoot }).catch(() => {});
-        await execAsync('git fetch origin --tags --prune --force', { cwd: projectRoot, timeout: 35000 }).catch(() => {});
+        await execAsync('git fetch origin master --tags --force', { cwd: projectRoot, timeout: 45000 }).catch(() => {});
 
         if (target.startsWith('v') || effectiveTargetType === 'TAG') {
-          // Versuche zunächst refs/tags/vX.X.X, dann Tag direkt, dann Fallback
+          // Lösche veralteten lokalen Tag-Cache und lade den frischen Remote-Tag
+          await execAsync(`git tag -d ${target}`, { cwd: projectRoot }).catch(() => {});
+          await execAsync(`git fetch origin refs/tags/${target}:refs/tags/${target} --force`, { cwd: projectRoot, timeout: 35000 }).catch(() => {});
           try {
             const { stdout: coOut } = await execAsync(`git checkout -f refs/tags/${target} || git checkout -f ${target}`, {
               cwd: projectRoot,
-              timeout: 20000,
+              timeout: 25000,
             });
             logs.push(coOut.trim() || `Erfolgreich auf Tag ${target} gewechselt.`);
           } catch (coErr) {
-            // Falls detached HEAD oder Tag-Ref abweicht
             const { stdout: coOut2 } = await execAsync(`git checkout -f ${target}`, { cwd: projectRoot });
             logs.push(coOut2.trim() || `Erfolgreich auf ${target} gewechselt.`);
           }
