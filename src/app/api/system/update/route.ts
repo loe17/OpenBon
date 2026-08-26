@@ -329,7 +329,7 @@ export async function POST(req: Request) {
           timeout: 240000,
           env: {
             ...process.env,
-            NODE_OPTIONS: '--max-old-space-size=1536',
+            NODE_OPTIONS: '--max-old-space-size=2048',
             DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db',
           },
         });
@@ -352,8 +352,15 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ success: true, logs: logs.join('\n\n'), restart: true });
       } catch (updateErr) {
-        logs.push(`[FEHLER]: ${updateErr instanceof Error ? updateErr.message : String(updateErr)}`);
-        return NextResponse.json({ success: false, error: updateErr instanceof Error ? updateErr.message : String(updateErr), logs: logs.join('\n\n') }, { status: 500 });
+        const errObj = updateErr as { stdout?: string; stderr?: string; message?: string };
+        const details = [
+          errObj.message,
+          errObj.stderr ? `[STDERR]:\n${errObj.stderr}` : '',
+          errObj.stdout ? `[STDOUT]:\n${errObj.stdout}` : '',
+        ].filter(Boolean).join('\n\n');
+
+        logs.push(`[FEHLER]: ${details || String(updateErr)}`);
+        return NextResponse.json({ success: false, error: errObj.message || String(updateErr), logs: logs.join('\n\n') }, { status: 500 });
       }
     }
 

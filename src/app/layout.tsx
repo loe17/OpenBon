@@ -34,6 +34,10 @@ export const metadata: Metadata = {
   title: 'OpenBon - Kassensystem',
   description: 'Offenes Kassen- und Bestellsystem für Vereinsfeste und Gastronomie',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/icon.png',
+    apple: '/icon.png',
+  },
 };
 
 export const viewport: Viewport = {
