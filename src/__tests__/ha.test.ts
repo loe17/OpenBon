@@ -1,13 +1,25 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import prisma from '../lib/db';
 import { HighAvailabilityService } from '../lib/ha/ha-service';
 
 describe('High Availability & Replikation Engine', () => {
+  beforeEach(async () => {
+    await prisma.haLease.deleteMany().catch(() => {});
+    await prisma.eventConfig.upsert({
+      where: { id: 'default' },
+      update: { haRole: 'PRIMARY' },
+      create: { id: 'default', name: 'Test Event', haRole: 'PRIMARY' },
+    }).catch(() => {});
+  });
+
+  afterEach(async () => {
+    await prisma.haLease.deleteMany().catch(() => {});
+  });
+
   it('should initialize with default PRIMARY role', async () => {
     const ha = new HighAvailabilityService();
-    await prisma.haLease.deleteMany().catch(() => {});
-    expect(ha.getRole()).toBe('PRIMARY');
     await ha.ready;
+    expect(ha.getRole()).toBe('PRIMARY');
     ha.dispose();
   });
 
@@ -22,14 +34,10 @@ describe('High Availability & Replikation Engine', () => {
     await ha.setRole('PRIMARY');
     expect(ha.getRole()).toBe('PRIMARY');
 
-    // Watcher stoppen, damit die Lease nicht weiter erneuert wird
-    await prisma.haLease.deleteMany().catch(() => {});
     ha.dispose();
   });
 
   it('should fence a second node while the first holds a valid lease', async () => {
-    await prisma.haLease.deleteMany().catch(() => {});
-
     const primaryNode = new HighAvailabilityService();
     await primaryNode.ready;
     const acquired = await primaryNode.setRole('PRIMARY');
@@ -48,6 +56,5 @@ describe('High Availability & Replikation Engine', () => {
 
     rogueNode.dispose();
     primaryNode.dispose();
-    await prisma.haLease.deleteMany().catch(() => {});
   });
 });
