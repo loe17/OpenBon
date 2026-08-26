@@ -152,7 +152,8 @@ export async function POST(req: Request) {
   const denied = await requireAdmin(req);
   if (denied) return denied;
   try {
-    const { action, customCommand } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { action, customCommand, targetVersion, targetType } = body;
 
     if (action === 'RESTART' || (action === 'EXEC' && /restart|reboot|systemctl restart/i.test(customCommand || ''))) {
       setTimeout(() => {
@@ -261,9 +262,8 @@ export async function POST(req: Request) {
     if (action === 'INSTALL_UPDATE') {
       const logs: string[] = [];
       const startTime = Date.now();
-      const body = await req.clone().json().catch(() => ({}));
-      const target = (body.targetVersion || 'master').trim();
-      const targetType = body.targetType || (target.startsWith('v') ? 'TAG' : 'BRANCH');
+      const target = (targetVersion || 'master').trim();
+      const effectiveTargetType = targetType || (target.startsWith('v') ? 'TAG' : 'BRANCH');
 
       try {
         logs.push('[0/4] Erstelle Sicherheits-Backup vor dem Update...');
@@ -281,7 +281,7 @@ export async function POST(req: Request) {
         await execAsync('git config --global --add safe.directory *', { cwd: projectRoot }).catch(() => {});
         await execAsync('git fetch origin --tags --prune --force', { cwd: projectRoot, timeout: 35000 }).catch(() => {});
 
-        if (target.startsWith('v') || targetType === 'TAG') {
+        if (target.startsWith('v') || effectiveTargetType === 'TAG') {
           // Versuche zunächst refs/tags/vX.X.X, dann Tag direkt, dann Fallback
           try {
             const { stdout: coOut } = await execAsync(`git checkout -f refs/tags/${target} || git checkout -f ${target}`, {
@@ -294,7 +294,7 @@ export async function POST(req: Request) {
             const { stdout: coOut2 } = await execAsync(`git checkout -f ${target}`, { cwd: projectRoot });
             logs.push(coOut2.trim() || `Erfolgreich auf ${target} gewechselt.`);
           }
-        } else if (target === 'master' || targetType === 'BRANCH') {
+        } else if (target === 'master' || effectiveTargetType === 'BRANCH') {
           await execAsync(`git checkout -f ${target}`, { cwd: projectRoot });
           const { stdout: resetOut } = await execAsync(`git reset --hard origin/${target}`, { cwd: projectRoot });
           logs.push(resetOut.trim() || `Codebasis erfolgreich auf origin/${target} aktualisiert.`);
