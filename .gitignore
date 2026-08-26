@@ -38,9 +38,9 @@ yarn-error.log*
 
 # Markdown & Internal Documentation (Ignore all markdown except README.md)
 *.md
+**/*.md
 !README.md
-docs/*.md
-!docs/README.md
+!**/README.md
 
 # Backup & Planning Files
 github-1-click*.bat
