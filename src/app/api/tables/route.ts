@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
 import { EscPosBuilder } from '@/lib/printer/escpos-builder';
@@ -160,6 +161,13 @@ export async function POST(req: Request) {
       global.io.emit('table:updated', created);
     }
 
+    await logSystemActionSafe(() => ({
+      action: 'TABLE_CREATED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Tisch angelegt.',
+    }));
+
     return NextResponse.json(created);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
@@ -208,6 +216,13 @@ export async function PUT(req: Request) {
       global.io.emit('table:updated', updated);
     }
 
+    await logSystemActionSafe(() => ({
+      action: 'TABLE_UPDATED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Tisch geaendert.',
+    }));
+
     return NextResponse.json(updated);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
@@ -227,6 +242,13 @@ export async function DELETE(req: Request) {
     if (global.io) {
       global.io.emit('tables:updated_all');
     }
+    await logSystemActionSafe(() => ({
+      action: 'TABLE_DELETED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Tisch geloescht.',
+    }));
+
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });

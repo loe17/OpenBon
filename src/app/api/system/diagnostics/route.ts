@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { runDiagnostics, startDiagnosticsCycle } from '@/lib/diagnostics';
 import { requireAdmin } from '@/lib/admin-guard';
@@ -56,6 +57,13 @@ export async function POST(req: Request) {
   if (denied) return denied;
   try {
     const result = await runDiagnostics();
+    await logSystemActionSafe(() => ({
+      action: 'DIAGNOSTICS_RUN',
+      category: 'SYSTEM',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Selbstdiagnose ausgeloest.',
+    }));
+
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unbekannter Fehler';

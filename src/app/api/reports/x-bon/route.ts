@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { logSystemAction } from '@/lib/action-logger';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
 import { EscPosBuilder } from '@/lib/printer/escpos-builder';
@@ -91,13 +91,13 @@ export async function POST(req: Request) {
 
     const result = await networkSpooler.sendRawBuffer(printer, rawBuffer, textRepresentation);
 
-    await logSystemAction({
+    await logSystemActionSafe(() => ({
       action: 'X_BON_PRINTED',
       category: 'CASHBOOK',
       actor: body.waiterName || auth.session.waiterName || auth.session.role,
       details: `X-Bon (Zwischenbericht) gedruckt${body.waiterName ? ` für ${body.waiterName}` : ''}.`,
       metadata: { waiterName: body.waiterName ?? null, printerId: printer.id },
-    });
+    }));
 
     return NextResponse.json({ success: result.success, isVirtual: result.isVirtual, report });
   } catch (error) {

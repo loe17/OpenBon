@@ -801,6 +801,125 @@ export class EscPosBuilder {
     return { rawBuffer: builder.build(), textRepresentation: lines.join('\n') };
   }
 
+  /**
+   * Beleg der Schichtabrechnung einer Bedienung.
+   *
+   * Die Zahlen kommen ausschliesslich aus der serverseitigen Berechnung
+   * (/api/waiters/settle/report), damit Papierbeleg und Bildschirmansicht
+   * niemals auseinanderlaufen koennen.
+   */
+  public static buildSettlementTicket(
+    data: {
+      waiterName: string;
+      eventName?: string;
+      isTraining?: boolean;
+      settledAt?: string | Date;
+      settledBy?: string;
+      totalGross: number;
+      transactionCount: number;
+      byMethod: { label: string; amount: number }[];
+      tipsTotal: number;
+      tipWaiterShare: number;
+      tipPoolShare: number;
+      tipProfileName?: string | null;
+      cashExpected: number;
+      cashCounted: number;
+      cashDifference: number;
+      notes?: string;
+    },
+    paperWidth = 80
+  ): { rawBuffer: Buffer; textRepresentation: string } {
+    const builder = new EscPosBuilder(paperWidth);
+    const lines: string[] = [];
+    const add = (t: string) => lines.push(t);
+    const money = (v: number) => `${v.toFixed(2)} EUR`;
+
+    if (data.isTraining) {
+      builder.align('center').bold(true).invert(true).textLine(' *** UEBUNGSBON *** ').invert(false).bold(false);
+      add('*** UEBUNGSBON ***');
+    }
+
+    builder.align('center').size(true, true).bold(true).textLine('SCHICHTABRECHNUNG').size(false, false).bold(false);
+    add('[ SCHICHTABRECHNUNG ]');
+    if (data.eventName) {
+      builder.textLine(data.eventName);
+      add(data.eventName);
+    }
+    builder.doubleDivider();
+    add('='.repeat(paperWidth === 58 ? 32 : 42));
+
+    builder.align('left');
+    builder.size(true, true).bold(true).textLine(data.waiterName).size(false, false).bold(false);
+    add(`Bedienung: ${data.waiterName}`);
+    const ts = data.settledAt ? new Date(data.settledAt) : new Date();
+    builder.textLine(`Abgerechnet: ${ts.toLocaleString('de-DE')}`);
+    add(`Abgerechnet: ${ts.toLocaleString('de-DE')}`);
+    if (data.settledBy) {
+      builder.textLine(`Aufgenommen von: ${data.settledBy}`);
+      add(`Aufgenommen von: ${data.settledBy}`);
+    }
+
+    // --- Umsatz nach Zahlart
+    builder.divider();
+    builder.bold(true).textLine('UMSATZ NACH ZAHLART').bold(false);
+    add('-- Umsatz nach Zahlart --');
+    for (const m of data.byMethod) {
+      builder.twoColumn(m.label, money(m.amount));
+      add(`${m.label}: ${money(m.amount)}`);
+    }
+    builder.divider();
+    builder.bold(true);
+    builder.twoColumn('GESAMTUMSATZ', money(data.totalGross));
+    builder.bold(false);
+    add(`GESAMTUMSATZ: ${money(data.totalGross)}`);
+    builder.twoColumn('Vorgaenge', String(data.transactionCount));
+    add(`Vorgaenge: ${data.transactionCount}`);
+
+    // --- Trinkgeld
+    builder.divider();
+    builder.bold(true).textLine('TRINKGELD').bold(false);
+    add('-- Trinkgeld --');
+    builder.twoColumn('Gesamt', money(data.tipsTotal));
+    add(`Trinkgeld gesamt: ${money(data.tipsTotal)}`);
+    builder.twoColumn('davon Bedienung', money(data.tipWaiterShare));
+    add(`davon Bedienung: ${money(data.tipWaiterShare)}`);
+    builder.twoColumn('davon Team-Pool', money(data.tipPoolShare));
+    add(`davon Team-Pool: ${money(data.tipPoolShare)}`);
+    if (data.tipProfileName) {
+      builder.textLine(`Verteilung nach: ${data.tipProfileName}`);
+      add(`Verteilung nach: ${data.tipProfileName}`);
+    }
+
+    // --- Kassensturz
+    builder.doubleDivider();
+    builder.bold(true).textLine('KASSENSTURZ').bold(false);
+    add('== Kassensturz ==');
+    builder.twoColumn('Soll-Barbestand', money(data.cashExpected));
+    add(`Soll-Barbestand: ${money(data.cashExpected)}`);
+    builder.twoColumn('Gezaehlt', money(data.cashCounted));
+    add(`Gezaehlt: ${money(data.cashCounted)}`);
+    builder.size(true, true).bold(true);
+    const diffLabel = data.cashDifference >= 0 ? 'UEBERSCHUSS' : 'FEHLBETRAG';
+    builder.twoColumn('', `${data.cashDifference >= 0 ? '+' : ''}${data.cashDifference.toFixed(2)}`);
+    builder.size(false, false).bold(false);
+    builder.textLine(diffLabel);
+    add(`DIFFERENZ: ${data.cashDifference >= 0 ? '+' : ''}${money(data.cashDifference)} (${diffLabel})`);
+
+    if (data.notes) {
+      builder.divider();
+      builder.textLine(`Bemerkung: ${data.notes}`);
+      add(`Bemerkung: ${data.notes}`);
+    }
+
+    builder.lineFeed(2);
+    builder.textLine('Bedienung: ____________________________');
+    builder.lineFeed(1);
+    builder.textLine('Kassenleitung: ________________________');
+    builder.cut();
+
+    return { rawBuffer: builder.build(), textRepresentation: lines.join('\n') };
+  }
+
   // 3. Official Z-Bon Tagesabschluss Report Ticket
   public static buildZBonTicket(
     report: ZBonReport,

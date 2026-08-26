@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { APP_VERSION, GITHUB_REPO_URL } from '@/lib/version';
@@ -291,6 +292,13 @@ export async function POST(req: Request) {
           console.log('[UPDATE] Server startet neu, um die neue Version zu laden...');
           process.exit(0);
         }, 1500);
+
+        await logSystemActionSafe(() => ({
+          action: 'SYSTEM_UPDATE',
+          category: 'SYSTEM',
+          actor: auth.session.waiterName || auth.session.role,
+          details: 'Systemaktualisierung ausgefuehrt.',
+        }));
 
         return NextResponse.json({ success: true, logs: logs.join('\n\n'), restart: true });
       } catch (updateErr) {

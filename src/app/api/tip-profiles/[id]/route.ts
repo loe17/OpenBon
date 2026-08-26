@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import { prisma } from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 
@@ -30,6 +31,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       },
     });
 
+    await logSystemActionSafe(() => ({
+      action: 'TIP_PROFILE_UPDATED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Trinkgeld-Profil geaendert.',
+    }));
+
     return NextResponse.json(updated);
   } catch (error) {
     console.error('PUT /api/tip-profiles/[id] error:', error);
@@ -46,6 +54,13 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     await prisma.tipProfile.delete({
       where: { id },
     });
+    await logSystemActionSafe(() => ({
+      action: 'TIP_PROFILE_DELETED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Trinkgeld-Profil geloescht.',
+    }));
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('DELETE /api/tip-profiles/[id] error:', error);

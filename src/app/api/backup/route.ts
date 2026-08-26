@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { APP_VERSION } from '@/lib/version';
 import { requireAdmin } from '@/lib/admin-guard';
@@ -228,6 +229,13 @@ export async function POST(req: Request) {
         });
       }
     }
+
+    await logSystemActionSafe(() => ({
+      action: 'BACKUP_CREATED',
+      category: 'SYSTEM',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Datensicherung angelegt.',
+    }));
 
     return NextResponse.json({ success: true, message: 'Ausgewählte Backup-Bereiche erfolgreich wiederhergestellt!' });
   } catch (error) {

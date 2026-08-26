@@ -1,15 +1,42 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { logSystemAction } from '@/lib/action-logger';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import { requireApiAuth } from '@/lib/api-guard';
+import networkSpooler from '@/lib/printer/network-spooler';
+import { EscPosBuilder } from '@/lib/printer/escpos-builder';
 
+/**
+ * Schliesst die Schicht einer Bedienung ab.
+ *
+ * Nur fuer Administratoren: Die Abrechnung entscheidet ueber Bargeldabgabe und
+ * Trinkgeldverteilung. Frueher konnte jede Station diesen Aufruf ausloesen -
+ * eine Bedienung haette ihre eigene Schicht abrechnen koennen.
+ */
 export async function POST(req: Request) {
-  const auth = await requireApiAuth(req);
+  const auth = await requireApiAuth(req, ['ADMIN']);
   if (!auth.ok) return auth.response;
 
   try {
     const body = await req.json();
-    const { waiterName, waiterId, totalGross, cashGross, tips, handoverAmount, notes } = body;
+    const {
+      waiterName,
+      waiterId,
+      totalGross,
+      cashGross,
+      tips,
+      handoverAmount,
+      notes,
+      // Neu: Kassensturz-Werte und Beleg-Ausgabe
+      cashExpected,
+      cashCounted,
+      tipWaiterShare,
+      tipPoolShare,
+      tipProfileName,
+      byMethod,
+      transactionCount,
+      printReceipt,
+      printerId,
+    } = body;
 
     if (!waiterName && !waiterId) {
       return NextResponse.json({ error: 'Bedienungsname oder ID erforderlich' }, { status: 400 });
@@ -18,13 +45,32 @@ export async function POST(req: Request) {
     const name = waiterName || 'Bedienung';
 
     // 1. Audit Log der Abrechnung
-    await logSystemAction({
+    await logSystemActionSafe(() => ({
       action: 'WAITER_SETTLED',
       category: 'AUTH',
       actor: name,
-      details: `Schichtabrechnung für ${name} abgeschlossen. Umsatz: ${(totalGross || 0).toFixed(2)} €, Bar: ${(cashGross || 0).toFixed(2)} €, Trinkgeld: ${(tips || 0).toFixed(2)} €, Barabgabe: ${(handoverAmount || 0).toFixed(2)} €`,
-      metadata: { totalGross, cashGross, tips, handoverAmount, notes },
-    });
+      details:
+        `Schichtabrechnung für ${name} abgeschlossen. ` +
+        `Umsatz: ${Number(totalGross || 0).toFixed(2)} €, ` +
+        `Soll-Bar: ${Number(cashExpected ?? cashGross ?? 0).toFixed(2)} €, ` +
+        `gezählt: ${Number(cashCounted ?? handoverAmount ?? 0).toFixed(2)} €, ` +
+        `Differenz: ${(Number(cashCounted ?? handoverAmount ?? 0) - Number(cashExpected ?? cashGross ?? 0)).toFixed(2)} €, ` +
+        `Trinkgeld: ${Number(tips || 0).toFixed(2)} €`,
+      metadata: {
+        totalGross,
+        cashGross,
+        cashExpected,
+        cashCounted,
+        tips,
+        tipWaiterShare,
+        tipPoolShare,
+        handoverAmount,
+        transactionCount,
+        byMethod,
+        notes,
+        settledBy: auth.session.waiterName || auth.session.role,
+      },
+    }));
 
     // 2. Schicht beenden – das Profil wird NICHT geloescht.
     //    Frueher wurde hier deleteMany aufgerufen: Damit verschwand die Bedienung
@@ -57,8 +103,64 @@ export async function POST(req: Request) {
       (global as any).io.emit('table:updated');
     }
 
+    // 5. Abrechnungsbeleg drucken (optional).
+    //    Die Zahlen kommen unveraendert aus /api/waiters/settle/report - so
+    //    zeigen Bildschirm, Papier und PDF garantiert dasselbe.
+    let printed = false;
+    let printError: string | null = null;
+    if (printReceipt) {
+      try {
+        const [config, printer] = await Promise.all([
+          prisma.eventConfig.findUnique({ where: { id: 'default' } }),
+          printerId
+            ? prisma.printer.findUnique({ where: { id: printerId } })
+            : prisma.printer.findFirst({ where: { isActive: true } }),
+        ]);
+
+        if (!printer) {
+          printError = 'Kein aktiver Drucker konfiguriert.';
+        } else {
+          const expected = Number(cashExpected ?? cashGross ?? 0);
+          const counted = Number(cashCounted ?? handoverAmount ?? 0);
+          const { rawBuffer, textRepresentation } = EscPosBuilder.buildSettlementTicket(
+            {
+              waiterName: name,
+              eventName: config?.name || undefined,
+              isTraining: config?.trainingMode ?? false,
+              settledAt: new Date(),
+              settledBy: auth.session.waiterName || auth.session.role,
+              totalGross: Number(totalGross || 0),
+              transactionCount: Number(transactionCount || 0),
+              byMethod: Array.isArray(byMethod)
+                ? byMethod.map((m: { label?: string; method?: string; amount?: number }) => ({
+                    label: String(m.label || m.method || 'Zahlart'),
+                    amount: Number(m.amount || 0),
+                  }))
+                : [],
+              tipsTotal: Number(tips || 0),
+              tipWaiterShare: Number(tipWaiterShare || 0),
+              tipPoolShare: Number(tipPoolShare || 0),
+              tipProfileName: tipProfileName || null,
+              cashExpected: expected,
+              cashCounted: counted,
+              cashDifference: Math.round((counted - expected) * 100) / 100,
+              notes: notes || undefined,
+            },
+            printer.paperWidth
+          );
+          const result = await networkSpooler.sendRawBuffer(printer, rawBuffer, textRepresentation);
+          printed = result.success;
+        }
+      } catch (printErr) {
+        printError = printErr instanceof Error ? printErr.message : String(printErr);
+        console.error('[ABRECHNUNG] Beleg konnte nicht gedruckt werden:', printError);
+      }
+    }
+
     return NextResponse.json({
       success: true,
+      printed,
+      printError,
       message: `Schicht für ${name} erfolgreich abgerechnet und abgemeldet.`,
     });
   } catch (error: any) {

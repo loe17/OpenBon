@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { logSystemAction } from '@/lib/action-logger';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import TicketSplitter from '@/lib/printer/ticket-splitter';
 import haService from '@/lib/ha/ha-service';
@@ -232,7 +232,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
 
     // Stornos sind der kritischste Vorgang einer Kasse - luecklose Protokollierung.
-    await logSystemAction({
+    await logSystemActionSafe(() => ({
       action: 'ORDER_VOIDED',
       category: 'ORDERS',
       actor: cancelledBy || 'Unbekannt',
@@ -245,7 +245,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         cancelledBy,
         unpaidPaymentId,
       },
-    });
+    }));
 
     return NextResponse.json({
       success: true,

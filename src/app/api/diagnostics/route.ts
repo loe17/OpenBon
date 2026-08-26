@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import os from 'os';
 import net from 'net';
 import prisma from '@/lib/db';
@@ -359,6 +360,13 @@ export async function POST(req: Request) {
       } catch (cleanupErr: any) {
         console.error('Diagnostics cleanup error:', cleanupErr);
       }
+
+      await logSystemActionSafe(() => ({
+        action: 'DIAGNOSTICS_RUN',
+        category: 'SYSTEM',
+        actor: auth.session.waiterName || auth.session.role,
+        details: 'Selbstdiagnose ausgeloest.',
+      }));
 
       return NextResponse.json({
         success: true,

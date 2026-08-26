@@ -136,3 +136,84 @@ export async function setAdminPin(newPin: string): Promise<boolean> {
     return false;
   }
 }
+
+export interface StationPinsInput {
+  adminPin: string;
+  posPin: string;
+  kitchenPin: string;
+  waiterPin: string;
+}
+
+/**
+ * Setzt alle 4 Stations-PINs gehasht und markiert die Ersteinrichtung als abgeschlossen.
+ */
+export async function setAllStationPins(pins: StationPinsInput): Promise<boolean> {
+  const admin = (pins.adminPin || '').trim();
+  const pos = (pins.posPin || '').trim();
+  const kitchen = (pins.kitchenPin || '').trim();
+  const waiter = (pins.waiterPin || '').trim();
+
+  if (admin.length < 4 || pos.length < 4 || kitchen.length < 4 || waiter.length < 4) {
+    return false;
+  }
+
+  try {
+    const hashedAdmin = hashPin(admin);
+    const hashedPos = hashPin(pos);
+    const hashedKitchen = hashPin(kitchen);
+    const hashedWaiter = hashPin(waiter);
+
+    await prisma.eventConfig.upsert({
+      where: { id: 'default' },
+      update: {
+        adminPin: hashedAdmin,
+        posPin: hashedPos,
+        kitchenPin: hashedKitchen,
+        waiterPin: hashedWaiter,
+        initialPinSet: true,
+      },
+      create: {
+        id: 'default',
+        adminPin: hashedAdmin,
+        posPin: hashedPos,
+        kitchenPin: hashedKitchen,
+        waiterPin: hashedWaiter,
+        initialPinSet: true,
+      },
+    });
+
+    // Staff-Rollen synchronisieren
+    await prisma.staff.upsert({
+      where: { name: 'Administrator' },
+      create: { name: 'Administrator', role: 'ADMIN', pinHash: hashedAdmin, isActive: true },
+      update: { pinHash: hashedAdmin, isActive: true },
+    });
+
+    return true;
+  } catch (err) {
+    console.error('Fehler beim Setzen aller Stations-PINs:', err);
+    return false;
+  }
+}
+
+/**
+ * Prüft, ob noch mindestens eine Standard-Werks-PIN aktiv ist oder die Ersteinrichtung noch aussteht.
+ */
+export async function hasFactoryPin(): Promise<boolean> {
+  try {
+    const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
+    if (!config) return true;
+    if (!config.initialPinSet) return true;
+
+    // Prüfen, ob Standard-PINs 1234/1111/2222/3333 noch matchen
+    if (verifyPinHash('1234', config.adminPin)) return true;
+    if (verifyPinHash('1111', config.posPin)) return true;
+    if (verifyPinHash('2222', config.kitchenPin)) return true;
+    if (verifyPinHash('3333', config.waiterPin)) return true;
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+

@@ -3,6 +3,7 @@ import networkSpooler from './network-spooler';
 import { PrintItem, TicketData, TraySplitInfo } from './types';
 import { splitItemsIntoChunks, buildTraySummary } from './tray-split';
 
+import { parseSelectedOptions } from '../stock';
 // Re-Export, damit bestehende Importpfade weiterhin funktionieren
 export { splitItemsIntoChunks, buildTraySummary };
 
@@ -75,7 +76,13 @@ export class TicketSplitter {
 
     const products = await prisma.product.findMany({
       where: { id: { in: candidates.map((i) => i.productId) } },
-      include: { category: true, printGroup: { include: { printer: true } } },
+      include: {
+        category: true,
+        printGroup: { include: { printer: true } },
+        // Untereintraege duerfen eine eigene Druckgruppe und einen eigenen
+        // Bontext tragen (Vererbung, siehe src/lib/product-resolve.ts).
+        variants: { include: { printGroup: { include: { printer: true } } } },
+      },
     });
     const productMap = new Map(products.map((p) => [p.id, p]));
 
@@ -84,7 +91,11 @@ export class TicketSplitter {
 
     for (const item of candidates) {
       const prod = productMap.get(item.productId);
-      const printGroup = prod?.printGroup;
+      const variant = item.variantName
+        ? prod?.variants.find((v) => v.name === item.variantName)
+        : undefined;
+      // Der Untereintrag gewinnt, wenn er eine eigene Druckgruppe hat.
+      const printGroup = variant?.printGroup || prod?.printGroup;
       const printer = printGroup?.printer;
       if (!printGroup || !printer || !printer.isActive) continue;
 
@@ -123,13 +134,17 @@ export class TicketSplitter {
         });
       }
 
-      const options_: string[] = item.selectedOptions
-        ? (JSON.parse(item.selectedOptions) as string[])
-        : [];
+      // Optionen koennen als reine Namen (alte Bestellungen) oder mit Anzahl
+      // gespeichert sein. Ein blosses JSON.parse lieferte bei der neuen Form
+      // Objekte und haette "[object Object]" auf den Bon gedruckt.
+      const options_: string[] = parseSelectedOptions(item.selectedOptions).map((o) =>
+        o.quantity > 1 ? `${o.quantity}x ${o.name}` : o.name
+      );
 
       buckets.get(printGroup.id)!.items.push({
         name: item.productName,
-        alternativeName: item.alternativeName || prod?.alternativeTicketName,
+        alternativeName:
+          variant?.alternativeTicketName || item.alternativeName || prod?.alternativeTicketName,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         deposit: item.deposit,

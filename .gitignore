@@ -42,7 +42,15 @@ IMPLEMENTIERUNGSPLAN*.md
 implementation_plan.md
 walkthrough.md
 SPEC_ABGLEICH.md
-UMSETZUNG.md
+UMSETZUNG*.md
+*umsetzung*.md
+EMPFEHLUNGEN*.md
+*empfehlungen*.md
+PRUEFUNG*.md
+*pruefung*.md
+2608*.md
+*Optimierungen*.md
+*optimierungen*.md
 docs/SPECIFICATION.md
 docs/SPECIFICATION_V2.md
 docs/IMPLEMENTATION_PLAN_V2.md
@@ -55,6 +63,10 @@ _to_delete/
 .gemini/
 .system_generated/
 scratch/
+*.backup
+*.bak
+*.orig
+*.rej
 
 # Vercel & IDE
 license-generator.html

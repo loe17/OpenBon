@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { logSystemAction } from '@/lib/action-logger';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/db';
 import TicketSplitter from '@/lib/printer/ticket-splitter';
@@ -17,6 +17,8 @@ import { deductTapVolumeForItems } from '@/lib/tap-manager';
 import type { TicketData } from '@/lib/printer/types';
 import { requireApiAuth } from '@/lib/api-guard';
 
+import { assertStockUnitsAvailable, applyStockConsumption } from '@/lib/stock';
+import { resolveOrderItem } from '@/lib/product-resolve';
 /**
  * Atomic Checkout: legt die Bestellung UND die sofortige Vollzahlung in EINER
  * Datenbank-Transaktion an. Bricht das Netz ab, gibt es weder einen offenen Bon
@@ -91,6 +93,9 @@ export async function POST(req: Request) {
         tokenNumber = config.tokenSequence - 1; // Wert VOR Inkrement = laufende Marke
       }
 
+      // Lagerposten pruefen, bevor gebucht wird (siehe src/lib/stock.ts)
+      await assertStockUnitsAvailable(tx, body.items || []);
+
       // Positionen vorbereiten: Preise serverseitig autoritativ berechnen
       const orderItemsData: Prisma.OrderItemUncheckedCreateWithoutOrderInput[] = [];
       for (const item of body.items) {
@@ -102,33 +107,26 @@ export async function POST(req: Request) {
         }
 
         const { price: effectiveBasePrice } = getEffectiveProductPrice(prod, now);
-        let unitPrice = effectiveBasePrice;
 
-        if (item.variantName) {
-          const variant = prod.variants.find((v) => v.name === item.variantName);
-          if (variant) unitPrice += variant.priceDelta;
-        }
-
-        if (item.selectedOptions && Array.isArray(item.selectedOptions)) {
-          for (const optName of item.selectedOptions) {
-            const opt = prod.options.find((o) => o.name === optName);
-            if (opt) unitPrice += opt.priceDelta;
-          }
-        }
+        // Untereintrag und Optionen an EINER Stelle aufloesen (src/lib/product-resolve.ts):
+        // Vererbung der Untereintrags-Felder, Optionen mit Anzahl, Preis serverseitig.
+        const resolved = resolveOrderItem(prod, effectiveBasePrice, {
+          variantName: item.variantName,
+          selectedOptions: item.selectedOptions,
+        });
+        const unitPrice = resolved.unitPrice;
 
         orderItemsData.push({
           productId: prod.id,
           productName: prod.name,
           quantity: item.quantity,
           unitPrice,
-          deposit: prod.deposit || 0,
-          taxRate: prod.taxRate || 19,
-          variantName: item.variantName || null,
-          selectedOptions: item.selectedOptions
-            ? typeof item.selectedOptions === 'string'
-              ? item.selectedOptions
-              : JSON.stringify(item.selectedOptions)
-            : null,
+          deposit: resolved.deposit,
+          taxRate: resolved.taxRate,
+          variantName: resolved.variantName,
+          // Normalisiert als [{name, quantity}] speichern, damit Auswertung,
+          // Bondruck und Lagerabbau dieselbe Anzahl sehen.
+          selectedOptions: resolved.options.length > 0 ? JSON.stringify(resolved.options) : null,
           customizationText: item.customizationText || null,
           courseNumber: Number(item.courseNumber) > 0 ? Number(item.courseNumber) : 1,
           isHold: Boolean(item.isHold),
@@ -160,6 +158,9 @@ export async function POST(req: Request) {
       const digitalReceiptCode = generateDigitalReceiptCode(invoiceNumber);
 
       // Bestellung anlegen (Positionen inklusive)
+      // Verbrauch der Lagerposten abbuchen
+      await applyStockConsumption(tx, body.items || [], { isTraining: config.trainingMode });
+
       const createdOrder = await tx.order.create({
         data: {
           orderNumber: nextOrderNum,
@@ -322,6 +323,19 @@ export async function POST(req: Request) {
           isHold: i.isHold,
         })),
       });
+      // WICHTIG: Positionen als gedruckt kennzeichnen - genau wie in /api/orders.
+      // Fehlte das hier, blieb jede Thekenbestellung dauerhaft auf PENDING
+      // stehen. Die Selbstdiagnose hielt sie fuer haengende Druckauftraege und
+      // startete den (leeren) Spooler im Minutentakt neu.
+      const printableIds = order.items
+        .filter((i: any) => !i.isHold)
+        .map((i: any) => i.id);
+      if (printableIds.length > 0) {
+        await prisma.orderItem.updateMany({
+          where: { id: { in: printableIds } },
+          data: { printStatus: 'PRINTED' },
+        });
+      }
     } catch (printErr) {
       console.error('[CHECKOUT] Fehler beim Bon-Druck:', printErr);
     }
@@ -394,20 +408,21 @@ export async function POST(req: Request) {
         ? buildReceiptUrl(config.baseUrl, payment.digitalReceiptCode)
         : null;
 
-    await logSystemAction({
+    await logSystemActionSafe(() => ({
       action: 'CHECKOUT_COMPLETED',
       category: 'SALES',
       actor: order.waiterName || auth.session.waiterName || auth.session.role,
-      details: `Direktverkauf #${order.orderNumber} über ${payment.amount.toFixed(2)} € (${getPaymentLabel(payment.method)}) abgeschlossen.`,
+      // Feldnamen laut Datenmodell: totalGross / paymentMethod (siehe /api/payments).
+      details: `Direktverkauf #${order.orderNumber} über ${Number(payment.totalGross ?? 0).toFixed(2)} € (${getPaymentLabel(payment.paymentMethod)}) abgeschlossen.`,
       metadata: {
         orderId: order.id,
         orderNumber: order.orderNumber,
         paymentId: payment.id,
         invoiceNumber: payment.invoiceNumber,
-        method: payment.method,
-        amount: payment.amount,
+        paymentMethod: payment.paymentMethod,
+        totalGross: payment.totalGross,
       },
-    });
+    }));
 
     return NextResponse.json({
       ...payment,

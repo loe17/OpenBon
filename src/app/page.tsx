@@ -20,6 +20,7 @@ import {
   QrCode,
   Lock,
   Terminal,
+  RefreshCw,
 } from 'lucide-react';
 import { useSocket } from '@/components/providers/socket-provider';
 import PinModal from '@/components/auth/pin-modal';
@@ -34,14 +35,65 @@ export default function HomePage() {
   const [pendingPath, setPendingPath] = useState<string | null>(null);
   const [pendingRole, setPendingRole] = useState<string>('ADMIN');
   const [pinStationType, setPinStationType] = useState<'ADMIN' | 'POS' | 'KITCHEN' | 'WAITER'>('ADMIN');
+  // Zustand der Eingangssperre: solange 'checking' wird nichts angezeigt,
+  // damit die Stationsauswahl nicht kurz aufblitzt.
+  const [gate, setGate] = useState<'checking' | 'locked' | 'open'>('checking');
 
   useEffect(() => {
+    let cancelled = false;
+
+    // Startseite sperren, solange keine gueltige Anmeldung vorliegt.
+    // Vorher war die Stationsauswahl sofort bedienbar und der PIN wurde erst
+    // beim Antippen einer Kachel verlangt - eine Anmeldung "im Vorbeigehen".
+    const evaluateGate = async (cfg: EventConfigDTO | null) => {
+      const lockWanted = cfg?.lockStartScreen !== false;
+      if (!lockWanted) {
+        if (!cancelled) setGate('open');
+        return;
+      }
+      try {
+        const res = await fetch('/api/auth/session', { cache: 'no-store' });
+        const data = res.ok ? await res.json() : null;
+        if (cancelled) return;
+        if (data?.authenticated) {
+          setGate('open');
+        } else {
+          setGate('locked');
+          // Zuletzt benutzte Station vorschlagen, damit an einem festen
+          // Geraet nur noch der PIN eingegeben werden muss.
+          const remembered = localStorage.getItem('openbon_last_station');
+          if (remembered === 'ADMIN' || remembered === 'POS' || remembered === 'KITCHEN' || remembered === 'WAITER') {
+            setPinStationType(remembered);
+            setPendingRole(
+              remembered === 'POS' ? 'POS_CASHIER' : remembered === 'ADMIN' ? 'ADMIN' : remembered
+            );
+            setPendingPath(
+              remembered === 'POS'
+                ? '/pos'
+                : remembered === 'KITCHEN'
+                ? '/kitchen'
+                : remembered === 'ADMIN'
+                ? '/admin/dashboard'
+                : '/waiter'
+            );
+            setShowPinModal(true);
+          }
+        }
+      } catch {
+        // Ohne Serverkontakt bleibt die Auswahl bedienbar - eine gesperrte
+        // Startseite ohne Netz wuerde die Kasse im Festbetrieb lahmlegen.
+        if (!cancelled) setGate('open');
+      }
+    };
+
     fetch('/api/config/public')
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (d && !d.error) setConfig(d);
+        const cfg = d && !d.error ? d : null;
+        if (cfg && !cancelled) setConfig(cfg);
+        return evaluateGate(cfg);
       })
-      .catch(() => {});
+      .catch(() => evaluateGate(null));
 
     fetch('/api/devices')
       .then((r) => r.json())
@@ -52,6 +104,10 @@ export default function HomePage() {
         }
       })
       .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const selectRole = (role: string, targetPath: string) => {
@@ -81,11 +137,91 @@ export default function HomePage() {
     }
     setShowPinModal(false);
     localStorage.setItem('pos_user_role', pendingRole);
+    // Station merken, damit die Sperre beim naechsten Oeffnen direkt das
+    // richtige PIN-Feld anbietet.
+    localStorage.setItem('openbon_last_station', pinStationType);
+    setGate('open');
     if (pendingPath) {
       router.push(pendingPath);
     }
     setPendingPath(null);
   };
+
+  // Solange die Sitzung geprueft wird, nichts anzeigen - sonst blitzt die
+  // Stationsauswahl fuer einen Moment auf, obwohl sie gesperrt ist.
+  if (gate === 'checking') {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400">
+        <RefreshCw className="w-6 h-6 animate-spin" />
+        <span className="text-sm font-bold">Anmeldung wird geprüft …</span>
+      </div>
+    );
+  }
+
+  if (gate === 'locked') {
+    const STATIONS: { key: 'WAITER' | 'POS' | 'KITCHEN' | 'ADMIN'; role: string; path: string; label: string; icon: typeof Smartphone }[] = [
+      { key: 'WAITER', role: 'WAITER', path: '/waiter', label: 'Bedienung', icon: Smartphone },
+      { key: 'POS', role: 'POS_CASHIER', path: '/pos', label: 'Bonkasse', icon: CreditCard },
+      { key: 'KITCHEN', role: 'KITCHEN', path: '/kitchen', label: 'Küche', icon: ChefHat },
+      { key: 'ADMIN', role: 'ADMIN', path: '/admin/dashboard', label: 'Verwaltung', icon: ShieldCheck },
+    ];
+
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 w-full max-w-lg mx-auto">
+        <div className="w-16 h-16 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-amber-400 mb-5 shadow-xl">
+          <Lock className="w-8 h-8" />
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-black text-white text-center mb-2">
+          {config?.name || 'OpenBon Kassensystem'}
+        </h1>
+        <p className="text-sm text-slate-400 text-center mb-8 font-medium">
+          Bitte an einer Station anmelden. Ohne PIN ist keine Kasse bedienbar.
+        </p>
+
+        <div className="grid grid-cols-2 gap-3 w-full">
+          {STATIONS.map((st) => {
+            const Icon = st.icon;
+            return (
+              <button
+                key={st.key}
+                onClick={() => {
+                  setPinStationType(st.key);
+                  setPendingRole(st.role);
+                  setPendingPath(st.path);
+                  setShowPinModal(true);
+                }}
+                className="min-h-[88px] flex flex-col items-center justify-center gap-2 rounded-2xl border border-slate-800 bg-slate-900 hover:border-blue-500 hover:bg-slate-800 text-slate-200 font-bold transition active:scale-95 touch-manipulation"
+              >
+                <Icon className="w-6 h-6 text-blue-400" />
+                <span className="text-sm">{st.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <p className="mt-8 text-[11px] text-slate-600 text-center">
+          Die Sperre lässt sich in den Einstellungen unter „Allgemein“ abschalten.
+        </p>
+
+        <PinModal
+          isOpen={showPinModal}
+          title={
+            pinStationType === 'ADMIN'
+              ? 'Administrator-PIN eingeben'
+              : pinStationType === 'POS'
+              ? 'Bonkassen-PIN eingeben'
+              : pinStationType === 'KITCHEN'
+              ? 'Küchen-PIN eingeben'
+              : 'Bedienungs-PIN eingeben'
+          }
+          stationType={pinStationType}
+          onClose={() => setShowPinModal(false)}
+          onCancel={() => setShowPinModal(false)}
+          onSuccess={handlePinSuccess}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col items-center justify-center max-w-6xl mx-auto w-full">

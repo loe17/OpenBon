@@ -199,24 +199,63 @@ async function checkPrinters(): Promise<DiagnosticCheck> {
       if (!ok) unreachable.push(`${printer.name} (${printer.ipAddress}:${printer.port})`);
     }
 
-    // Hängende Druckaufträge erkennen und den Spooler neu anstoßen
-    const stuck = await prisma.orderItem.count({
+    // Haengende Bonpositionen erkennen.
+    //
+    // Bisher wurde hier nur `restartSpooler()` aufgerufen. Da die betroffenen
+    // Positionen nie den Status wechselten, fand die naechste Runde exakt
+    // dieselben wieder: der leere Spooler wurde im Minutentakt endlos neu
+    // gestartet ("[SPOOLER] Neustart - 0 Auftraege") und die Diagnose meldete
+    // jedes Mal eine Reparatur, die nichts bewirkt hat.
+    //
+    // Jetzt wird unterschieden: Gibt es zu einer Position noch einen offenen
+    // Druckauftrag, ist der Spooler tatsaechlich zustaendig und wird angestossen.
+    // Gibt es keinen, ist der Auftrag unwiederbringlich verloren gegangen (etwa
+    // durch einen Absturz vor dem Einreihen) - dann wird die Position als
+    // fehlerhaft gekennzeichnet, damit sie sichtbar wird und die Pruefung
+    // beim naechsten Lauf zur Ruhe kommt.
+    const stuckItems = await prisma.orderItem.findMany({
       where: {
         printStatus: 'PENDING',
         isHold: false,
         order: { createdAt: { lt: new Date(Date.now() - 3 * 60 * 1000) } },
       },
+      select: { id: true, orderId: true },
+      take: 200,
     });
+    const stuck = stuckItems.length;
+    let requeued = 0;
+    let markedFailed = 0;
 
     if (stuck > 0) {
-      const { networkSpooler } = await import('./printer/network-spooler');
-      networkSpooler.restartSpooler();
-      repaired++;
+      const affectedOrderIds = Array.from(new Set(stuckItems.map((i) => i.orderId)));
+      const openJobs = await prisma.printJob.count({
+        where: { status: 'PENDING', orderId: { in: affectedOrderIds } },
+      });
+
+      if (openJobs > 0) {
+        const { networkSpooler } = await import('./printer/network-spooler');
+        networkSpooler.restartSpooler();
+        requeued = openJobs;
+        repaired++;
+      } else {
+        const updated = await prisma.orderItem.updateMany({
+          where: { id: { in: stuckItems.map((i) => i.id) } },
+          data: { printStatus: 'ERROR' },
+        });
+        markedFailed = updated.count;
+        if (markedFailed > 0) repaired++;
+      }
     }
 
     const details: string[] = [];
     if (unreachable.length > 0) details.push(`Nicht erreichbar: ${unreachable.join(', ')}`);
-    if (stuck > 0) details.push(`${stuck} hängende Druckauftrag/-aufträge – Spooler neu gestartet`);
+    if (requeued > 0) {
+      details.push(`${stuck} hängende Position(en), ${requeued} Druckauftrag/-aufträge erneut angestoßen`);
+    } else if (markedFailed > 0) {
+      details.push(
+        `${markedFailed} Position(en) ohne zugehörigen Druckauftrag – als fehlgeschlagen markiert, bitte am Ausgabeplatz prüfen`
+      );
+    }
 
     return {
       id: 'printers',

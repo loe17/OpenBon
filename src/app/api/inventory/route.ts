@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 
@@ -93,6 +94,13 @@ export async function POST(req: Request) {
     if (global.io) {
       global.io.emit('stock:updated', updated);
     }
+
+    await logSystemActionSafe(() => ({
+      action: 'STOCK_CHANGED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Warenbestand geaendert.',
+    }));
 
     return NextResponse.json(updated);
   } catch (error) {

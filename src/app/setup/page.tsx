@@ -31,6 +31,7 @@ export default function SetupWizardPage() {
   // Step 2: PINs (Sicherheit)
   const [adminPin, setAdminPin] = useState('');
   const [posPin, setPosPin] = useState('');
+  const [kitchenPin, setKitchenPin] = useState('');
   const [waiterPin, setWaiterPin] = useState('');
 
   // Step 3: Tische
@@ -41,9 +42,32 @@ export default function SetupWizardPage() {
   const [enableVirtual, setEnableVirtual] = useState(true);
 
   const handleFinish = async () => {
+    if (adminPin.length < 4 || posPin.length < 4 || kitchenPin.length < 4 || waiterPin.length < 4) {
+      error('Bitte alle 4 PINs mit mindestens 4 Ziffern angeben.');
+      setStep(2);
+      return;
+    }
+
     setLoading(true);
     try {
-      // 1. EventConfig speichern
+      // 1. Initial-PINs setzen
+      const pinRes = await fetch('/api/auth/initial-setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminPin,
+          posPin,
+          kitchenPin,
+          waiterPin,
+        }),
+      });
+
+      if (!pinRes.ok) {
+        const pinData = await pinRes.json();
+        throw new Error(pinData.error || 'Fehler beim Einrichten der PINs');
+      }
+
+      // 2. EventConfig Grunddaten speichern
       const configRes = await fetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -53,9 +77,6 @@ export default function SetupWizardPage() {
           currency,
           enableTax,
           enableVirtualPrinters: enableVirtual,
-          adminPin: adminPin || '4321',
-          posPin: posPin || '5555',
-          waiterPin: waiterPin || '7777',
         }),
       });
 
@@ -197,6 +218,20 @@ export default function SetupWizardPage() {
                 onChange={(e) => setPosPin(e.target.value)}
                 className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
                 placeholder="z. B. 6214"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1">
+                Küchen- & Ausschank-PIN
+              </label>
+              <input
+                type="password"
+                inputMode="numeric"
+                value={kitchenPin}
+                onChange={(e) => setKitchenPin(e.target.value)}
+                className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
+                placeholder="z. B. 4519"
               />
             </div>
 

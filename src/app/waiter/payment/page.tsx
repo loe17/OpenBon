@@ -7,6 +7,8 @@ import { triggerHapticFeedback } from '@/lib/socket-client';
 import { computeCheckout, CASH_QUICK_NOTES } from '@/lib/pricing';
 import { PAYMENT_METHODS, isPaymentMethodAvailable } from '@/lib/payment/methods';
 import { playPaymentSuccess, playPaymentFailure } from '@/lib/audio-feedback';
+import { ChangeCalculator } from '@/components/ui/change-calculator';
+import PaymentService from '@/lib/payment/payment-service';
 import type { DiningTableDTO, OrderDTO, PaymentMethod, EventConfigDTO } from '@/types/domain';
 import {
   ArrowLeft,
@@ -301,69 +303,51 @@ function WaiterPaymentContent() {
       setStage('CARD');
       setCardStatus('WAITING');
       setCardAuthCode(null);
-      setCardMessage('Bitte Karte an das Terminal halten...');
+      setCardMessage('Kartenzahlung wird initialisiert...');
 
       const amount = checkout.amountDueWithTip;
       const title = table ? `OrderBon Tisch ${table.label}` : 'OrderBon Direktverkauf';
 
       try {
-        if (method === 'CARD_TERMINAL') {
-          // ZVT-over-IP: Server spricht direkt mit dem Terminal
-          setCardMessage('Terminal wird angesprochen (ZVT)...');
-          const res = await fetch('/api/payments/card', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ method, amount, reference: requestId }),
-          });
-          const data = (await res.json()) as {
-            success?: boolean;
-            authCode?: string | null;
-            error?: string | null;
-          };
-          if (data.success) {
+        const init = await PaymentService.initiate({
+          provider: method,
+          amount,
+          tableId: table?.id,
+          title,
+          context: {
+            requestId,
+            amountDue: checkout.amountDue,
+            tipAmount: checkout.tipAmount,
+            discountAmount: checkout.discountAmount,
+            returnDeposit: checkout.returnDeposit,
+            selectedItems: items.filter((i) => i.selectedQty > 0),
+          },
+        });
+
+        if (init.kind === 'sync') {
+          const syncResult = init.result as any;
+          if (syncResult?.status === 'SUCCESS') {
             setCardStatus('OK');
-            setCardAuthCode(data.authCode ?? null);
+            setCardAuthCode(syncResult.authCode ?? null);
             setCardMessage('Zahlung autorisiert.');
             playPaymentSuccess();
           } else {
             setCardStatus('FAILED');
-            setCardMessage(data.error || 'Die Zahlung wurde abgebrochen.');
+            setCardMessage(syncResult?.errorMessage || 'Die Zahlung wurde abgebrochen.');
             playPaymentFailure();
           }
-          return;
+        } else if (init.kind === 'qr' && init.url) {
+          setCardMessage('Bitte QR-Code scannen oder am Terminal autorisieren...');
+        } else {
+          setCardMessage('Kartendienst wird geöffnet. Bitte Zahlung in der App abschließen...');
         }
-
-        // App-to-App Deep Link (SumUp / VR-Pay Me / Sparkasse S-POS)
-        const params = new URLSearchParams({
-          method,
-          amount: String(amount),
-          reference: requestId,
-          title,
-        });
-        const res = await fetch(`/api/payments/card?${params.toString()}`);
-        const data = (await res.json()) as { deepLink?: string; error?: string };
-
-        if (!res.ok || !data.deepLink) {
-          setCardStatus('FAILED');
-          setCardMessage(data.error || 'Der Kartendienst ist nicht konfiguriert.');
-          playPaymentFailure();
-          return;
-        }
-
-        setCardMessage('Kartendienst wird geöffnet. Bitte Zahlung in der App abschließen...');
-        try {
-          sessionStorage.removeItem('openbon_card_result');
-        } catch {
-          /* ignorieren */
-        }
-        window.location.href = data.deepLink;
-      } catch {
+      } catch (err) {
         setCardStatus('FAILED');
-        setCardMessage('Der Kartendienst ist nicht erreichbar.');
+        setCardMessage(err instanceof Error ? err.message : 'Der Kartendienst ist nicht erreichbar.');
         playPaymentFailure();
       }
     },
-    [checkout.amountDueWithTip, requestId, table]
+    [checkout, requestId, table, items]
   );
 
   // Rückkehr aus der Karten-App auswerten (Spec 4.1 Callback)
@@ -875,6 +859,20 @@ function WaiterPaymentContent() {
                 {formatCurrency(checkout.changeAmount)}
               </div>
             </div>
+
+            {/* Stückelungs-Rechner mit Scheinen und Münzen */}
+            {paymentMethod === 'CASH' && (
+              <div className="mb-4">
+                <ChangeCalculator
+                  amountDue={checkout.amountDueWithTip}
+                  givenAmount={givenAmount}
+                  onGivenChange={(val) => {
+                    setKeypadValue(val > 0 ? val.toFixed(2).replace('.', ',') : '');
+                  }}
+                  defaultExpanded={true}
+                />
+              </div>
+            )}
 
             {paymentMethod.startsWith('NON_PAID') && (
               <div className="mt-4">

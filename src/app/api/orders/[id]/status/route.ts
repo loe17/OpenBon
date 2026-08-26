@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 
@@ -47,6 +48,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         global.io.emit('kds:item_updated', { orderId, item: updatedItem, allDone });
       }
 
+      await logSystemActionSafe(() => ({
+        action: 'ORDER_STATUS_CHANGED',
+        category: 'ORDERS',
+        actor: auth.session.waiterName || auth.session.role,
+        details: 'Bestellstatus geaendert.',
+      }));
+
       return NextResponse.json({ success: true, item: updatedItem, allDone });
     }
 
@@ -78,6 +86,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
           });
         }
       }
+
+      await logSystemActionSafe(() => ({
+        action: 'ORDER_STATUS_CHANGED',
+        category: 'ORDERS',
+        actor: auth.session.waiterName || auth.session.role,
+        details: 'Bestellstatus geaendert.',
+      }));
 
       return NextResponse.json(updatedOrder);
     }

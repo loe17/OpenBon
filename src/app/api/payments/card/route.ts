@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import {
   buildDeepLinkFor,
@@ -121,6 +122,13 @@ export async function POST(req: Request) {
     }
 
     const result = await runZvtPayment(terminal, toCents(amount), body.receiptNumber);
+
+    await logSystemActionSafe(() => ({
+      action: 'CARD_PAYMENT',
+      category: 'SALES',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Kartenzahlung am Terminal ausgeloest.',
+    }));
 
     return NextResponse.json({
       success: result.success,

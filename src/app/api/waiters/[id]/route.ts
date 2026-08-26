@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import { prisma } from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 
@@ -24,6 +25,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       },
     });
 
+    await logSystemActionSafe(() => ({
+      action: 'WAITER_UPDATED',
+      category: 'AUTH',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Bedienung geaendert.',
+    }));
+
     return NextResponse.json(updated);
   } catch (error) {
     console.error('PUT /api/waiters/[id] error:', error);
@@ -40,6 +48,13 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     await prisma.waiterProfile.delete({
       where: { id },
     });
+    await logSystemActionSafe(() => ({
+      action: 'WAITER_DELETED',
+      category: 'AUTH',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Bedienung entfernt.',
+    }));
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('DELETE /api/waiters/[id] error:', error);

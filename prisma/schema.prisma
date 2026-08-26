@@ -30,7 +30,9 @@ model EventConfig {
   enableGuestSelfOrder        Boolean @default(false) // Standardmäßig deaktiviert
   enableGuestFacingDisplay    Boolean @default(false) // Gastansicht beim Kassieren standardmäßig deaktiviert
   enableKioskMode             Boolean @default(false)
-  activeTheme                 String  @default("dark") // dark, light, contrast, modern, minimal, plain
+  // Startseite verlangt eine PIN-Anmeldung, bevor eine Station gewaehlt werden kann
+  lockStartScreen             Boolean @default(true)
+  activeTheme                 String  @default("dark") // dark, light, contrast, modern, minimal, plain, klassisch
   lowStockAlertPrinterId      String?
 
   // Beleg- & Bon-Druck Layout
@@ -56,15 +58,21 @@ model EventConfig {
   receiptDrinkShowTimestamp     Boolean @default(true)
   receiptDrinkShowOptions       Boolean @default(true)
 
-  // Kartenzahlungs-IDs
+  // Kartenzahlungs-IDs & Provider-Konfiguration
+  activeCardProvider  String  @default("SUMUP") // SUMUP, VRPAY, SPARKASSE, ZETTLE, STRIPE, ZVT
   sumupMerchantCode   String?
   sumupAppId          String?
+  vrPayApiKey         String?
   vrPayTerminalId     String?
   sparkasseMerchantId String? // S-POS Haendler-/Filial-ID
+  stripeSecretKey     String?
+  stripePublishableKey String?
+  stripeLocationId    String?
   zvtHost             String? // ZVT-over-IP Terminal (Sparkasse / klassisches EC-Terminal)
   zvtPort             Int     @default(20007)
   zvtPassword         String  @default("000000")
   baseUrl             String  @default("http://openbon.local") // Basis fuer App-to-App Callbacks
+  initialPinSet       Boolean @default(false)
 
   // Fiskalisierung & DATEV
   tseProvider           String  @default("NONE") // NONE, SWISSBIT_USB, FISKALTRUST_CLOUD
@@ -159,16 +167,17 @@ model Product {
   tokenType      String? // DRINK, FOOD, DEPOSIT, GENERAL
 
   subCategory  String? // BIER, WEIN, ALKOHOLFREI, HEISS, BAR, SPEISE
-  sortIndex    Int              @default(0)
+  sortIndex    Int                @default(0)
   categoryId   String
-  category     ProductCategory  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  category     ProductCategory    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   variants     ProductVariant[]
   options      ProductOption[]
   printGroupId String?
-  printGroup   PrintGroup?      @relation(fields: [printGroupId], references: [id], onDelete: SetNull)
+  printGroup   PrintGroup?        @relation(fields: [printGroupId], references: [id], onDelete: SetNull)
   stockItem    StockItem?
   orderItems   OrderItem[]
   tapLines     TapLine[]
+  consumptions StockConsumption[]
 
   @@index([categoryId])
   @@index([status])
@@ -183,6 +192,17 @@ model ProductVariant {
   isSoldOut  Boolean @default(false)
   sortIndex  Int     @default(0)
 
+  // Untereintraege duerfen eigene Werte tragen. Bleibt ein Feld leer,
+  // gilt der Wert des Hauptartikels (Vererbung, siehe src/lib/product-resolve.ts).
+  alternativeTicketName String?
+  color                 String?
+  printGroupId          String?
+  printGroup            PrintGroup? @relation(fields: [printGroupId], references: [id], onDelete: SetNull)
+  deposit               Float?
+  taxRate               Float?
+
+  consumptions StockConsumption[]
+
   @@index([productId])
 }
 
@@ -193,6 +213,13 @@ model ProductOption {
   name       String
   priceDelta Float   @default(0.0)
   sortIndex  Int     @default(0)
+
+  // Mehrfach waehlbare Optionen: voreingestellte und hoechstens waehlbare Anzahl.
+  // maxQuantity = 1 verhaelt sich wie bisher (an/aus).
+  defaultQuantity Int @default(0)
+  maxQuantity     Int @default(1)
+
+  consumptions StockConsumption[]
 
   @@index([productId])
 }
@@ -235,14 +262,15 @@ model Printer {
 }
 
 model PrintGroup {
-  id                String    @id @default(cuid())
+  id                String           @id @default(cuid())
   name              String
   printerId         String?
-  printer           Printer?  @relation(fields: [printerId], references: [id], onDelete: SetNull)
+  printer           Printer?         @relation(fields: [printerId], references: [id], onDelete: SetNull)
   fallbackPrinterId String?
-  maxItemsPerTicket Int       @default(0) // 0 = unbegrenzt, 1 = Einzelbons
-  autoCut           Boolean   @default(true)
+  maxItemsPerTicket Int              @default(0) // 0 = unbegrenzt, 1 = Einzelbons
+  autoCut           Boolean          @default(true)
   products          Product[]
+  variants          ProductVariant[]
 }
 
 model Order {
@@ -400,6 +428,59 @@ model StockItem {
   alertThreshold   Int      @default(10)
   isAutoDeactivate Boolean  @default(true)
   updatedAt        DateTime @updatedAt
+}
+
+/// Eigenstaendiger Lagerposten - z. B. "Broetchen", "Schnitzel", "Fass Helles".
+///
+/// Unterschied zu StockItem: StockItem haengt fest an EINEM Artikel
+/// (productId @unique) und kann deshalb nicht abbilden, dass mehrere Artikel
+/// denselben Vorrat aufbrauchen. Genau das ist auf einem Fest aber der
+/// Normalfall - Bratwurstsemmel und Steaksemmel greifen auf dieselben
+/// Broetchen zu. StockUnit ist der Vorrat, StockConsumption sagt, wer wie
+/// viel davon nimmt. StockItem bleibt unveraendert bestehen.
+model StockUnit {
+  id              String  @id @default(cuid())
+  name            String  @unique
+  /// Einheit fuer die Anzeige: Stück, Liter, kg, Portion …
+  unitLabel       String  @default("Stück")
+  initialQuantity Float   @default(0)
+  currentQuantity Float   @default(0)
+  alertThreshold  Float   @default(10)
+  isActive        Boolean @default(true)
+  /// Ist der Vorrat aufgebraucht, sind die verbrauchenden Artikel nicht mehr bestellbar.
+  blockWhenEmpty  Boolean @default(true)
+  note            String?
+
+  consumptions StockConsumption[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Verbrauch: wie viel eines Lagerpostens zieht ein Artikel, ein Untereintrag
+/// oder eine Option ab. Genau EINES der drei Ziele ist gesetzt.
+model StockConsumption {
+  id          String    @id @default(cuid())
+  stockUnitId String
+  stockUnit   StockUnit @relation(fields: [stockUnitId], references: [id], onDelete: Cascade)
+
+  productId String?
+  product   Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  optionId  String?
+  option    ProductOption?  @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  /// Verbrauch je einer Einheit des Ziels. 0.5 = eine halbe Einheit.
+  amount Float @default(1)
+
+  // Kein @@unique: NULL kollidiert in SQLite nicht mit NULL, der Schluessel
+  // waere wirkungslos. Die Eindeutigkeit stellt /api/stock-units/consumption
+  // beim Speichern her (vorhandene Zuordnung loeschen, dann neu anlegen).
+  @@index([stockUnitId])
+  @@index([productId])
+  @@index([variantId])
+  @@index([optionId])
 }
 
 model ChatMessage {
@@ -603,3 +684,32 @@ model AuthAttempt {
   lockUntil    DateTime?
   updatedAt    DateTime  @updatedAt
 }
+
+// Payment-Sessions zur Abwicklung von App-to-App-, Webhook- und Terminal-Kartenzahlungen
+model PaymentSession {
+  id                String    @id @default(cuid())
+  provider          String    // VR_PAYME, SPARKASSE_SPOS, SUMUP, ZETTLE, STRIPE, ZVT
+  status            String    @default("PENDING") // PENDING, SUCCESS, FAILED, CANCELLED, TIMEOUT
+  amountCents       Int
+  currency          String    @default("EUR")
+  orderId           String?
+  tableId           String?
+  deviceId          String?
+  waiterName        String?
+  customerReference String?   // Externe User-Reference an den Zahlungsanbieter
+  externalTxId      String?
+  cardBrand         String?
+  authCode          String?
+  errorMessage      String?
+  idempotencyKey    String    @unique
+  contextJson       String?   // Snapshot des Bezahlkontexts (items, Trinkgeld, Rabatt, etc.)
+  paymentId         String?
+  initiatedAt       DateTime  @default(now())
+  resolvedAt        DateTime?
+  expiresAt         DateTime
+
+  @@index([status])
+  @@index([customerReference])
+  @@index([idempotencyKey])
+}
+

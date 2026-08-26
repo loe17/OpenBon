@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import { requireApiAuth } from '@/lib/api-guard';
 
-export async function GET(req: Request) {
-  const auth = await requireApiAuth(req, ['ADMIN']);
-  if (!auth.ok) return auth.response;
-
+/**
+ * Praesenzliste der verbundenen Geraete.
+ *
+ * BEWUSST OHNE Anmeldung: die Startseite (Rollenauswahl) und das Kundendisplay
+ * rufen sie ohne Session auf, um anzuzeigen welche Stationen online sind.
+ * Die Middleware fuehrt `/api/devices` deshalb unter den oeffentlichen Pfaden.
+ * Ausgeliefert werden nur Geraetename, Rolle und Zeitpunkt des letzten
+ * Lebenszeichens - keine Umsaetze, keine PINs.
+ */
+export async function GET() {
   try {
     const now = Date.now();
     const devicesMap = global.connectedDevices || new Map();
@@ -24,6 +31,11 @@ export async function GET(req: Request) {
   }
 }
 
+/**
+ * Geraeteverwaltung (Suchton, Abmelden, Umbenennen, Rolle wechseln).
+ * Nur fuer Administratoren. Die Anmeldung eines Geraets laeuft NICHT hierueber,
+ * sondern ueber das Socket-Ereignis `device:register` in `server.js`.
+ */
 export async function POST(req: Request) {
   const auth = await requireApiAuth(req, ['ADMIN']);
   if (!auth.ok) return auth.response;
@@ -81,6 +93,13 @@ export async function POST(req: Request) {
         global.io.emit('device:role_changed', { targetDeviceId, newRole });
         global.io.emit('device:update', Array.from((global.connectedDevices || new Map()).values()));
       }
+      await logSystemActionSafe(() => ({
+        action: 'DEVICE_ACTION',
+        category: 'SYSTEM',
+        actor: auth.session.waiterName || auth.session.role,
+        details: 'Geraeteverwaltung.',
+      }));
+
       return NextResponse.json({ success: true, message: 'Rolle aktualisiert' });
     }
 

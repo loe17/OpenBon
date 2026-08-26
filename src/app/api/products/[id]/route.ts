@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 
@@ -6,11 +7,21 @@ interface VariantInput {
   name: string;
   priceDelta?: number;
   isSoldOut?: boolean;
+  // Eigene Werte des Untereintrags. Bleibt ein Feld leer, gilt der Wert des
+  // Hauptartikels (Vererbung, siehe src/lib/product-resolve.ts).
+  alternativeTicketName?: string | null;
+  color?: string | null;
+  printGroupId?: string | null;
+  deposit?: number | null;
+  taxRate?: number | null;
 }
 
 interface OptionInput {
   name: string;
   priceDelta?: number;
+  // Mehrfach waehlbare Optionen: Voreinstellung und Hoechstzahl.
+  defaultQuantity?: number;
+  maxQuantity?: number;
 }
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
@@ -125,6 +136,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
                   priceDelta: Number(v.priceDelta ?? 0),
                   isSoldOut: v.isSoldOut ?? false,
                   sortIndex: idx,
+                  alternativeTicketName: v.alternativeTicketName?.trim() || null,
+                  color: v.color?.trim() || null,
+                  printGroupId: v.printGroupId || null,
+                  deposit: v.deposit === undefined || v.deposit === null ? null : Number(v.deposit),
+                  taxRate: v.taxRate === undefined || v.taxRate === null ? null : Number(v.taxRate),
                 })),
               }
             : undefined,
@@ -134,6 +150,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
                   name: o.name,
                   priceDelta: Number(o.priceDelta ?? 0),
                   sortIndex: idx,
+                  defaultQuantity: Math.max(0, Number(o.defaultQuantity ?? 0)),
+                  maxQuantity: Math.max(1, Number(o.maxQuantity ?? 1)),
                 })),
               }
             : undefined,
@@ -151,6 +169,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     if (global.io) {
       global.io.emit('product:updated', updated);
     }
+
+    await logSystemActionSafe(() => ({
+      action: 'PRODUCT_UPDATED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Artikel geaendert.',
+    }));
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -174,6 +199,13 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     if (global.io) {
       global.io.emit('product:deleted', { id: productId });
     }
+
+    await logSystemActionSafe(() => ({
+      action: 'PRODUCT_DELETED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Artikel deaktiviert.',
+    }));
 
     return NextResponse.json({ success: true, product: updated });
   } catch (error) {

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 
@@ -43,6 +44,13 @@ export async function POST(req: Request) {
         });
       }
     }
+
+    await logSystemActionSafe(() => ({
+      action: 'CHAT_MESSAGE',
+      category: 'GENERAL',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Team-Funk Nachricht gesendet.',
+    }));
 
     return NextResponse.json(created);
   } catch (error) {

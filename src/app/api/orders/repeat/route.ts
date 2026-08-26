@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 
+import { parseSelectedOptions } from '@/lib/stock';
 /**
  * Spec 6.6: Schnell-Nachbestellung "Gleiche Runde noch einmal".
  *
@@ -80,7 +81,10 @@ export async function GET(req: Request) {
           deposit: item.deposit,
           taxRate: item.taxRate,
           variantName: item.variantName,
-          selectedOptions: item.selectedOptions ? (JSON.parse(item.selectedOptions) as string[]) : [],
+          // Gespeicherte Optionen koennen als Namen oder mit Anzahl vorliegen.
+          selectedOptions: parseSelectedOptions(item.selectedOptions).map((o) =>
+            o.quantity > 1 ? `${o.quantity}x ${o.name}` : o.name
+          ),
           customizationText: item.customizationText,
           subCategory: item.product.subCategory,
           isSoldOut: item.product.isSoldOut || item.product.status !== 'ACTIVE',

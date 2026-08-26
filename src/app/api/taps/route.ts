@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 
@@ -89,6 +90,13 @@ export async function POST(req: Request) {
     if (global.io) {
       global.io.emit('tap:updated', tap);
     }
+
+    await logSystemActionSafe(() => ({
+      action: 'TAP_CREATED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Zapfstelle angelegt.',
+    }));
 
     return NextResponse.json(tap);
   } catch (error) {

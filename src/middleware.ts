@@ -10,7 +10,8 @@ const PUBLIC_PATHS = [
   '/api/config/public',
   '/api/devices',
   '/api/health',
-  '/api/metrics',
+  // '/api/metrics' ist bewusst NICHT oeffentlich: die Antwort enthaelt den
+  // Tagesumsatz. Der Endpunkt verlangt eine Administrator-Session.
   '/api/receipt',
   '/api/guest/orders',
   '/api/sync', // HA-Sync (Heartbeat + Pull) – eigener Schutz über Shared Secret (X-HA-Secret)

@@ -34,9 +34,11 @@ import {
   Moon,
   Zap,
   Square,
+  LayoutGrid,
   Check,
   Server,
   Package,
+  Boxes,
   Wallet,
   BookOpen,
   Ticket,
@@ -200,7 +202,9 @@ export default function Navbar() {
       icon: Package,
       items: [
         { href: '/admin/products', label: 'Artikel & Speisekarte', icon: Utensils, roles: ['ADMIN'] },
-        { href: '/admin/inventory', label: 'Warenbestand & Lager', icon: Package, roles: ['ADMIN'] },
+        { href: '/admin/inventory', label: 'Warenbestand je Artikel', icon: Package, roles: ['ADMIN'] },
+        // Lagerposten, von denen mehrere Artikel gemeinsam abziehen (Broetchen, Schnitzel).
+        { href: '/admin/stock-units', label: 'Lagerposten & Verbrauch', icon: Boxes, roles: ['ADMIN'] },
         { href: '/admin/procurement', label: 'Lieferanten-Bestellvorschlag', icon: Truck, roles: ['ADMIN'] },
         { href: '/taps', label: 'Fass- & Schankmonitor', icon: Beer, roles: ['ADMIN'] },
       ],
@@ -214,7 +218,8 @@ export default function Navbar() {
         { href: '/admin/cashbook', label: 'Kassenbuch & Barverkehr', icon: Wallet, roles: ['ADMIN'] },
         { href: '/admin/accounting', label: 'DATEV Kassenbuch Export', icon: BookOpen, roles: ['ADMIN'] },
         { href: '/admin/fiscal', label: 'DSFinV-K & TSE Archiv', icon: ShieldCheck, roles: ['ADMIN'] },
-        { href: '/admin/tips', label: 'Kellner-Abrechnung & Trinkgeld', icon: Coins, roles: ['ADMIN'] },
+        { href: '/admin/settle', label: 'Schichtabrechnung (Kassensturz)', icon: Wallet, roles: ['ADMIN'] },
+        { href: '/admin/tips', label: 'Trinkgeld-Profile & Auswertung', icon: Coins, roles: ['ADMIN'] },
         { href: '/admin/tokens', label: 'Wertmarken & Bons', icon: Ticket, roles: ['ADMIN'] },
       ],
     },
@@ -242,7 +247,7 @@ export default function Navbar() {
         { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['ADMIN'] },
         { href: '/admin/settings', label: 'Grundeinstellungen & Bon-Design', icon: Settings, roles: ['ADMIN'] },
         { href: '/admin/system-update', label: 'System-Update & Konsole', icon: HardDrive, roles: ['ADMIN'] },
-        { href: '/docs', label: 'Handbuch & Anleitungen', icon: BookOpen, roles: ['ADMIN'] },
+        { href: '/admin/docs', label: 'Handbuch & Anleitungen', icon: BookOpen, roles: ['ADMIN'] },
       ],
     },
   ];
@@ -251,17 +256,12 @@ export default function Navbar() {
   const nonAdminLinks: Record<string, NavItem[]> = {
     WAITER: [
       { href: '/waiter', label: 'Bedienung (Tischübersicht)', icon: Smartphone, roles: ['WAITER'] },
-      // Die Schichtabrechnung existierte, war aber von keiner Oberflaeche aus
-      // erreichbar - die Bedienung konnte ihre Schicht gar nicht abschliessen.
-      { href: '/waiter/settle', label: 'Schichtabrechnung', icon: Wallet, roles: ['WAITER'] },
       { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['WAITER'] },
-      { href: '/docs', label: 'Handbuch & Anleitungen', icon: BookOpen, roles: ['WAITER'] },
     ],
     POS_CASHIER: [
       { href: '/pos', label: 'Bonkasse (Thekenverkauf)', icon: CreditCard, roles: ['POS_CASHIER'] },
       { href: '/customer-display', label: 'Kundendisplay', icon: Monitor, roles: ['POS_CASHIER'] },
       { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['POS_CASHIER'] },
-      { href: '/docs', label: 'Handbuch & Anleitungen', icon: BookOpen, roles: ['POS_CASHIER'] },
     ],
     KIOSK: [
       { href: '/kiosk', label: 'SB-Bestellterminal', icon: Terminal, roles: ['KIOSK'] },
@@ -269,7 +269,6 @@ export default function Navbar() {
     KITCHEN: [
       { href: '/kitchen', label: 'Küchenmonitor', icon: ChefHat, roles: ['KITCHEN'] },
       { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['KITCHEN'] },
-      { href: '/docs', label: 'Handbuch & Anleitungen', icon: BookOpen, roles: ['KITCHEN'] },
     ],
   };
 
@@ -361,7 +360,8 @@ export default function Navbar() {
                       t.id === 'light' ? Sun :
                       t.id === 'contrast' ? Zap :
                       t.id === 'modern' ? Sparkles :
-                      t.id === 'plain' ? Beer : Square;
+                      t.id === 'plain' ? Beer :
+                      t.id === 'klassisch' ? LayoutGrid : Square;
 
                     return (
                       <button

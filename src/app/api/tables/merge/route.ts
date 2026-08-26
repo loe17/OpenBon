@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 
@@ -77,6 +78,13 @@ export async function POST(req: Request) {
       });
       global.io.emit('order:new');
     }
+
+    await logSystemActionSafe(() => ({
+      action: 'TABLES_MERGED',
+      category: 'ORDERS',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Tische zusammengelegt.',
+    }));
 
     return NextResponse.json({
       success: true,

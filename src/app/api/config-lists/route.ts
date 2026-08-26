@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 
@@ -114,6 +115,13 @@ export async function POST(req: Request) {
       create: { key, name: name || key, itemsJson },
       update: { name: name || undefined, itemsJson },
     });
+
+    await logSystemActionSafe(() => ({
+      action: 'CONFIG_LIST_CHANGED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Auswahlliste geaendert.',
+    }));
 
     return NextResponse.json({
       ...upserted,

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import TicketSplitter from '@/lib/printer/ticket-splitter';
 import { requireApiAuth } from '@/lib/api-guard';
@@ -83,6 +84,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         courseNumber: body.courseNumber ?? null,
       });
     }
+
+    await logSystemActionSafe(() => ({
+      action: 'ORDER_RELEASED',
+      category: 'ORDERS',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Zurueckgehaltene Positionen freigegeben.',
+    }));
 
     return NextResponse.json({
       success: true,

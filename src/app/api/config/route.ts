@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { logSystemAction } from '@/lib/action-logger';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import haService from '@/lib/ha/ha-service';
 import { requireAdmin } from '@/lib/admin-guard';
 import { requireApiAuth } from '@/lib/api-guard';
+import { hashPin } from '@/lib/auth-pin';
 
 /**
  * Nur ausdrücklich freigegebene Felder werden übernommen – so führt ein
@@ -29,7 +30,9 @@ const ALLOWED_FIELDS = [
   'enableGuestSelfOrder',
   'enableGuestFacingDisplay',
   'enableKioskMode',
+  'lockStartScreen',
   'activeTheme',
+  'activeCardProvider',
   'receiptHeader',
   'receiptSubHeader',
   'receiptFooterText',
@@ -54,12 +57,17 @@ const ALLOWED_FIELDS = [
   'lowStockAlertPrinterId',
   'sumupMerchantCode',
   'sumupAppId',
+  'vrPayApiKey',
   'vrPayTerminalId',
   'sparkasseMerchantId',
+  'stripeSecretKey',
+  'stripePublishableKey',
+  'stripeLocationId',
   'zvtHost',
   'zvtPort',
   'zvtPassword',
   'baseUrl',
+  'initialPinSet',
   'tseProvider',
   'tseSerialNumber',
   'datevConsultantNumber',
@@ -96,6 +104,7 @@ const BOOLEAN_FIELDS = new Set<string>([
   'enableGuestSelfOrder',
   'enableGuestFacingDisplay',
   'enableKioskMode',
+  'lockStartScreen',
   'receiptShowTimestamp',
   'receiptShowWaiter',
   'receiptShowTable',
@@ -171,6 +180,28 @@ export async function POST(req: Request) {
     const body = (await req.json()) as Record<string, unknown>;
     const data = sanitize(body);
 
+    if (typeof data.adminPin === 'string' && data.adminPin.trim()) {
+      const pinStr = data.adminPin.trim();
+      if (!pinStr.startsWith('$pbkdf2$')) {
+        data.adminPin = hashPin(pinStr);
+      }
+      await prisma.staff.upsert({
+        where: { name: 'Administrator' },
+        create: { name: 'Administrator', role: 'ADMIN', pinHash: data.adminPin as string, isActive: true },
+        update: { pinHash: data.adminPin as string, isActive: true },
+      });
+    }
+
+    if (typeof data.posPin === 'string' && data.posPin.trim() && !data.posPin.trim().startsWith('$pbkdf2$')) {
+      data.posPin = hashPin(data.posPin.trim());
+    }
+    if (typeof data.kitchenPin === 'string' && data.kitchenPin.trim() && !data.kitchenPin.trim().startsWith('$pbkdf2$')) {
+      data.kitchenPin = hashPin(data.kitchenPin.trim());
+    }
+    if (typeof data.waiterPin === 'string' && data.waiterPin.trim() && !data.waiterPin.trim().startsWith('$pbkdf2$')) {
+      data.waiterPin = hashPin(data.waiterPin.trim());
+    }
+
     const updated = await prisma.eventConfig.upsert({
       where: { id: 'default' },
       update: data,
@@ -194,13 +225,13 @@ export async function POST(req: Request) {
       global.io.emit('config:updated', updated);
     }
 
-    await logSystemAction({
+    await logSystemActionSafe(() => ({
       action: 'CONFIG_UPDATED',
       category: 'ADMIN',
       actor: auth.session.waiterName || auth.session.role,
       details: `Konfiguration geändert: ${Object.keys(data).join(', ') || '(keine Felder)'}`,
       metadata: { changedFields: Object.keys(data) },
-    });
+    }));
 
     return NextResponse.json(updated);
   } catch (error) {

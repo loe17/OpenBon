@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
 import { getPaymentLabel } from '@/lib/payment/methods';
@@ -75,6 +76,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     };
 
     const result = await networkSpooler.printTicket(printer, ticket);
+    await logSystemActionSafe(() => ({
+      action: 'RECEIPT_REPRINTED',
+      category: 'SALES',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Beleg erneut gedruckt.',
+    }));
+
     return NextResponse.json({ success: result.success, isVirtual: result.isVirtual });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unbekannter Fehler';

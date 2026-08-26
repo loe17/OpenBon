@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
 import { EscPosBuilder, type ZBonReport } from '@/lib/printer/escpos-builder';
@@ -227,6 +228,19 @@ export async function POST(req: Request) {
         totalGross: closedPeriod.totalGross,
       });
     }
+
+    await logSystemActionSafe(() => ({
+      action: 'Z_BON_CREATED',
+      category: 'CASHBOOK',
+      actor: auth.session.waiterName || auth.session.role,
+      details: `Kassenabschluss Z-${closedPeriod.periodNumber} über ${Number(closedPeriod.totalGross ?? 0).toFixed(2)} € erstellt${printed ? ' und gedruckt' : ' (nicht gedruckt)'}.`,
+      metadata: {
+        periodId: closedPeriod.id,
+        periodNumber: closedPeriod.periodNumber,
+        totalGross: closedPeriod.totalGross,
+        printed,
+      },
+    }));
 
     return NextResponse.json({
       success: true,

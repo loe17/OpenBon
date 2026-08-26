@@ -25,6 +25,7 @@ export async function GET() {
         enableGuestSelfOrder: false,
         enableGuestFacingDisplay: false,
         enableKioskMode: false,
+        lockStartScreen: true,
         activeTheme: 'dark',
         receiptHeader: 'Vereinsfest 2026',
         receiptSubHeader: 'Freiwillige Feuerwehr e.V.',
@@ -57,6 +58,7 @@ export async function GET() {
       enableGuestSelfOrder: config.enableGuestSelfOrder,
       enableGuestFacingDisplay: config.enableGuestFacingDisplay,
       enableKioskMode: config.enableKioskMode,
+      lockStartScreen: config.lockStartScreen,
       activeTheme: config.activeTheme,
       receiptHeader: config.receiptHeader,
       receiptSubHeader: config.receiptSubHeader,
@@ -82,8 +84,10 @@ export async function GET() {
       sumupMerchantCode: config.sumupMerchantCode,
       vrPayTerminalId: config.vrPayTerminalId,
       sparkasseMerchantId: config.sparkasseMerchantId,
+      activeCardProvider: config.activeCardProvider || 'SUMUP',
       baseUrl: config.baseUrl,
       tseProvider: config.tseProvider,
+      initialPinSet: config.initialPinSet,
     };
 
     return NextResponse.json(publicConfig);

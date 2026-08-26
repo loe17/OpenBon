@@ -69,7 +69,7 @@ interface CartItem {
   deposit: number;
   quantity: number;
   variantName?: string;
-  selectedOptions: string[];
+  selectedOptions: { name: string; quantity: number }[];
   customizationText?: string;
   courseNumber: number;
   isHold: boolean;
@@ -107,7 +107,9 @@ function WaiterOrderContent() {
   const [enableCourses, setEnableCourses] = useState(false);
   const [productWithOptions, setProductWithOptions] = useState<ProductDTO | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariantDTO | null>(null);
-  const [activeOptionNames, setActiveOptionNames] = useState<string[]>([]);
+  // Anzahl je Option. Optionen mit Hoechstzahl 1 verhalten sich wie bisher
+  // (0 = nicht gewaehlt, 1 = gewaehlt), groessere Werte erlauben Mehrfachwahl.
+  const [activeOptionQty, setActiveOptionQty] = useState<Record<string, number>>({});
   const [urgentBroadcast, setUrgentBroadcast] = useState<{ message: string; sender?: string } | null>(null);
   const { socket } = useSocket();
 
@@ -204,7 +206,7 @@ function WaiterOrderContent() {
             unitPrice: number;
             deposit: number;
             variantName: string | null;
-            selectedOptions: string[];
+            selectedOptions: unknown[];
             customizationText: string | null;
           }[];
           setCart(
@@ -216,7 +218,9 @@ function WaiterOrderContent() {
               deposit: l.deposit,
               quantity: l.quantity,
               variantName: l.variantName ?? undefined,
-              selectedOptions: l.selectedOptions ?? [],
+              selectedOptions: (l.selectedOptions ?? []).map((n: unknown) =>
+                typeof n === 'string' ? { name: n, quantity: 1 } : (n as { name: string; quantity: number })
+              ),
               customizationText: l.customizationText ?? undefined,
               courseNumber: 1,
               isHold: false,
@@ -237,13 +241,24 @@ function WaiterOrderContent() {
     if ((hasVariants || hasOptions) && !variant) {
       setProductWithOptions(product);
       setSelectedVariant(hasVariants ? product.variants![0] : null);
-      setActiveOptionNames([]);
+      // Voreingestellte Anzahl aus den Stammdaten uebernehmen, damit haeufige
+      // Zusammenstellungen nicht jedes Mal angetippt werden muessen.
+      const preset: Record<string, number> = {};
+      for (const o of product.options || []) {
+        const d = Number((o as { defaultQuantity?: number }).defaultQuantity ?? 0);
+        if (d > 0) preset[o.name] = d;
+      }
+      setActiveOptionQty(preset);
       return;
     }
     addToCart(product, variant, []);
   };
 
-  const addToCart = (product: ProductDTO, variant?: ProductVariantDTO | null, optionsList: string[] = []) => {
+  const addToCart = (
+    product: ProductDTO,
+    variant?: ProductVariantDTO | null,
+    optionsList: { name: string; quantity: number }[] = []
+  ) => {
     if (product.isSoldOut || (variant && variant.isSoldOut)) {
       setNotice(`Artikel "${product.name}" ist derzeit ausverkauft.`);
       return;
@@ -251,12 +266,17 @@ function WaiterOrderContent() {
 
     triggerHapticFeedback();
     const optionsDelta = (product.options || [])
-      .filter((o) => optionsList.includes(o.name))
-      .reduce((sum, o) => sum + (o.priceDelta || 0), 0);
+      .reduce((sum, o) => {
+        const chosen = optionsList.find((x) => x.name === o.name);
+        return chosen ? sum + (o.priceDelta || 0) * chosen.quantity : sum;
+      }, 0);
 
     const { price: effectivePrice } = getEffectiveProductPrice(product as any);
     const unitPrice = effectivePrice + (variant ? variant.priceDelta : 0) + optionsDelta;
-    const optionsKey = optionsList.slice().sort().join('|');
+    const optionsKey = optionsList
+      .map((o) => `${o.name}x${o.quantity}`)
+      .sort()
+      .join('|');
     const lineId = `${product.id}_${variant ? variant.name : 'default'}_${optionsKey}_g${activeCourse}${holdNext ? '_h' : ''}`;
 
     setCart((prev) => {
@@ -737,7 +757,10 @@ function WaiterOrderContent() {
                         </div>
                         {item.selectedOptions && item.selectedOptions.length > 0 && (
                           <div className="text-xs text-emerald-400 font-bold mt-0.5">
-                            + {item.selectedOptions.join(', ')}
+                            +{' '}
+                            {item.selectedOptions
+                              .map((o) => (o.quantity > 1 ? `${o.quantity}x ${o.name}` : o.name))
+                              .join(', ')}
                           </div>
                         )}
                         <div className="text-sm font-mono font-black text-amber-300 mt-1">
@@ -882,16 +905,75 @@ function WaiterOrderContent() {
                 </label>
                 <div className="space-y-2 max-h-[25vh] overflow-y-auto">
                   {productWithOptions.options.map((opt) => {
-                    const checked = activeOptionNames.includes(opt.name);
+                    const qty = activeOptionQty[opt.name] || 0;
+                    const max = Math.max(1, Number((opt as { maxQuantity?: number }).maxQuantity ?? 1));
+                    const multi = max > 1;
+                    const checked = qty > 0;
+
+                    const setQty = (next: number) => {
+                      const clamped = Math.max(0, Math.min(max, next));
+                      setActiveOptionQty((prev) => {
+                        const copy = { ...prev };
+                        if (clamped <= 0) delete copy[opt.name];
+                        else copy[opt.name] = clamped;
+                        return copy;
+                      });
+                    };
+
+                    const priceLabel =
+                      opt.priceDelta && opt.priceDelta > 0 ? (
+                        <span className="font-mono text-emerald-400">
+                          +{formatCurrency(opt.priceDelta)}
+                          {multi && qty > 1 ? ` × ${qty}` : ''}
+                        </span>
+                      ) : (
+                        <span className="text-slate-500 text-[10px]">Inklusive</span>
+                      );
+
+                    // Mehrfach waehlbare Optionen bekommen eine Mengensteuerung,
+                    // einfache Optionen bleiben ein Umschalter.
+                    if (multi) {
+                      return (
+                        <div
+                          key={opt.id}
+                          className={`w-full p-3 rounded-2xl text-xs font-bold border flex items-center justify-between gap-3 transition ${
+                            checked
+                              ? 'bg-emerald-950/70 border-emerald-500 text-emerald-200'
+                              : 'bg-slate-950 border-slate-800 text-slate-300'
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate">{opt.name}</div>
+                            <div className="mt-0.5">{priceLabel}</div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setQty(qty - 1)}
+                              disabled={qty <= 0}
+                              className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 text-lg font-black disabled:opacity-30 active:scale-95"
+                            >
+                              −
+                            </button>
+                            <span className="w-7 text-center font-mono font-black text-base">{qty}</span>
+                            <button
+                              type="button"
+                              onClick={() => setQty(qty + 1)}
+                              disabled={qty >= max}
+                              className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 text-lg font-black disabled:opacity-30 active:scale-95"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
                       <button
                         key={opt.id}
                         type="button"
-                        onClick={() => {
-                          setActiveOptionNames((prev) =>
-                            checked ? prev.filter((n) => n !== opt.name) : [...prev, opt.name]
-                          );
-                        }}
+                        onClick={() => setQty(checked ? 0 : 1)}
                         className={`w-full p-3 rounded-2xl text-xs font-bold border flex items-center justify-between transition ${
                           checked
                             ? 'bg-emerald-950/70 border-emerald-500 text-emerald-200 shadow'
@@ -910,11 +992,7 @@ function WaiterOrderContent() {
                           </span>
                           <span>{opt.name}</span>
                         </div>
-                        {opt.priceDelta && opt.priceDelta > 0 ? (
-                          <span className="font-mono text-emerald-400">+{formatCurrency(opt.priceDelta)}</span>
-                        ) : (
-                          <span className="text-slate-500 text-[10px]">Inklusive</span>
-                        )}
+                        {priceLabel}
                       </button>
                     );
                   })}
@@ -934,7 +1012,13 @@ function WaiterOrderContent() {
                 type="button"
                 onClick={() => {
                   if (productWithOptions) {
-                    addToCart(productWithOptions, selectedVariant, activeOptionNames);
+                    addToCart(
+                      productWithOptions,
+                      selectedVariant,
+                      Object.entries(activeOptionQty)
+                        .filter(([, q]) => q > 0)
+                        .map(([name, quantity]) => ({ name, quantity }))
+                    );
                     setProductWithOptions(null);
                   }
                 }}

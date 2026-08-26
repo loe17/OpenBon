@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-guard';
 import { requireApiAuth } from '@/lib/api-guard';
@@ -130,6 +131,13 @@ export async function POST(req: Request) {
           }
         }
       });
+
+      await logSystemActionSafe(() => ({
+        action: 'PROFILE_SAVED',
+        category: 'ADMIN',
+        actor: auth.session.waiterName || auth.session.role,
+        details: 'Veranstaltungsvorlage gespeichert.',
+      }));
 
       return NextResponse.json({ success: true, message: `Profil "${profile.name}" erfolgreich wiederhergestellt.` });
     }

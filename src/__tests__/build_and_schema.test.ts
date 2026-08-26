@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest';
 import prisma from '../lib/db';
 import { APP_VERSION, APP_IS_BETA } from '../lib/version';
 import { parseAndValidateLicense, generateOfflineSignature } from '../lib/license';
-import { verifyStationPin } from '../lib/auth-pin';
+import { verifyStationPin, setAllStationPins } from '../lib/auth-pin';
 import { EscPosBuilder } from '../lib/printer/escpos-builder';
 
-describe('OpenBon v0.3.8: Schema, License, PIN & Print Sanity Tests', () => {
-  it('should verify v0.3.8 version info', () => {
-    expect(APP_VERSION).toBe('0.3.8');
+describe('OpenBon v0.4.1: Schema, License, PIN & Print Sanity Tests', () => {
+  it('should verify v0.4.1 version info', () => {
+    expect(APP_VERSION).toBe('0.4.1');
   });
 
   it('should initialize Prisma DB Client with valid DATABASE_URL fallback', () => {
@@ -34,6 +34,12 @@ describe('OpenBon v0.3.8: Schema, License, PIN & Print Sanity Tests', () => {
   });
 
   it('should verify station PIN verification defaults', async () => {
+    await setAllStationPins({
+      adminPin: '1234',
+      posPin: '1111',
+      kitchenPin: '2222',
+      waiterPin: '3333',
+    });
     expect(await verifyStationPin('1234', 'ADMIN')).toBe(true);
     expect(await verifyStationPin('1111', 'POS')).toBe(true);
     expect(await verifyStationPin('2222', 'KITCHEN')).toBe(true);

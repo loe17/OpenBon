@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import { prisma } from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 
@@ -70,6 +71,13 @@ export async function POST(req: NextRequest) {
         isDefault: Boolean(isDefault),
       },
     });
+
+    await logSystemActionSafe(() => ({
+      action: 'TIP_PROFILE_CREATED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Trinkgeld-Profil angelegt.',
+    }));
 
     return NextResponse.json(profile, { status: 201 });
   } catch (error) {

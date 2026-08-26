@@ -4,7 +4,7 @@ import QRCode from 'qrcode';
 
 describe('OpenBon Security & QR Integration', () => {
   it('should verify standard admin PIN', async () => {
-    // When DB default is 1234
+    await setAdminPin('1234');
     const valid = await verifyAdminPin('1234');
     expect(valid).toBe(true);
 

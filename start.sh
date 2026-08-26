@@ -8,7 +8,9 @@ export PORT=3000
 export HA_ROLE=PRIMARY
 
 echo "========================================================"
-echo "  OPENBON KASSENSYSTEM - VERSION v0.2.1"
+# Version aus package.json lesen statt fest verdrahten
+APPVER=$(node -p "require('./package.json').version" 2>/dev/null || echo "unbekannt")
+echo "  OPENBON KASSENSYSTEM - VERSION v${APPVER}"
 echo "========================================================"
 echo ""
 echo "[1/2] Pruefe und synchronisiere Datenbank-Schema..."
@@ -21,5 +23,8 @@ echo "  Lokal im Browser:    http://localhost:3000"
 echo "  Tablets / Mobil:     http://[DEINE-IP]:3000"
 echo "========================================================"
 echo ""
+
+# Sitzungsschluessel anlegen, bevor der Server startet
+node scripts/ensure-secret.js || true
 
 node server.js

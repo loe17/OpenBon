@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
 import { computeTaxBreakdown } from '@/lib/pricing';
@@ -93,6 +94,13 @@ export async function POST(req: Request) {
     };
 
     const result = await networkSpooler.printTicket(printer, ticket);
+
+    await logSystemActionSafe(() => ({
+      action: 'PREBILL_PRINTED',
+      category: 'SALES',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Rechnungsvorschau gedruckt.',
+    }));
 
     return NextResponse.json({
       success: result.success,

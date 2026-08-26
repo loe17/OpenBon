@@ -9,7 +9,10 @@ export type PaymentMethod =
   | 'CARD_SUMUP'
   | 'CARD_VRPAY'
   | 'CARD_SPARKASSE'
+  | 'CARD_ZETTLE'
+  | 'CARD_STRIPE'
   | 'CARD_TERMINAL'
+  | 'TOKEN'
   | 'NON_PAID_STAFF'
   | 'NON_PAID_COMPLAINT'
   | 'VOID_UNPAID'
@@ -88,19 +91,26 @@ export interface EventConfigDTO {
   enableDigitalReceiptQr?: boolean;
   enableGuestSelfOrder?: boolean;
   enableGuestFacingDisplay?: boolean;
+  lockStartScreen?: boolean;
   enableKioskMode?: boolean;
   lowStockAlertPrinterId?: string | null;
   datevConsultantNumber?: string | null;
   datevClientNumber?: string | null;
   datevCashAccount?: string | null;
+  activeCardProvider?: string;
   sumupMerchantCode: string | null;
   sumupAppId: string | null;
+  vrPayApiKey?: string | null;
   vrPayTerminalId: string | null;
   sparkasseMerchantId: string | null;
+  stripeSecretKey?: string | null;
+  stripePublishableKey?: string | null;
+  stripeLocationId?: string | null;
   zvtHost: string | null;
   zvtPort: number;
   zvtPassword: string;
   baseUrl: string;
+  initialPinSet?: boolean;
   tseProvider: string;
   tseSerialNumber: string | null;
   licenseKey: string;
@@ -119,6 +129,12 @@ export interface ProductVariantDTO {
   priceDelta: number;
   isSoldOut: boolean;
   sortIndex: number;
+  /** Eigene Werte des Untereintrags; null = vom Hauptartikel erben. */
+  alternativeTicketName?: string | null;
+  color?: string | null;
+  printGroupId?: string | null;
+  deposit?: number | null;
+  taxRate?: number | null;
 }
 
 export interface ProductOptionDTO {
@@ -127,6 +143,10 @@ export interface ProductOptionDTO {
   name: string;
   priceDelta: number;
   sortIndex: number;
+  /** Voreingestellte Anzahl beim Öffnen der Auswahl. */
+  defaultQuantity?: number;
+  /** Höchstens wählbare Anzahl. 1 = einfacher Umschalter. */
+  maxQuantity?: number;
 }
 
 export interface ProductDTO {

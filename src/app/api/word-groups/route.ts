@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 
@@ -47,6 +48,13 @@ export async function POST(req: Request) {
         sortIndex: body.sortIndex ?? 0,
       },
     });
+    await logSystemActionSafe(() => ({
+      action: 'WORD_GROUP_CHANGED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Textbaustein-Gruppe geaendert.',
+    }));
+
     return NextResponse.json({
       ...created,
       words: JSON.parse(created.words),
@@ -79,6 +87,13 @@ export async function PUT(req: Request) {
       },
     });
 
+    await logSystemActionSafe(() => ({
+      action: 'WORD_GROUP_CHANGED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Textbaustein-Gruppe geaendert.',
+    }));
+
     return NextResponse.json({
       ...updated,
       words: JSON.parse(updated.words),
@@ -98,6 +113,13 @@ export async function DELETE(req: Request) {
     if (!id) return NextResponse.json({ error: 'ID fehlt' }, { status: 400 });
 
     await prisma.customizationWordGroup.delete({ where: { id } });
+    await logSystemActionSafe(() => ({
+      action: 'WORD_GROUP_DELETED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Textbaustein-Gruppe geloescht.',
+    }));
+
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });

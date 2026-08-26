@@ -73,8 +73,15 @@ export default function AdminProductsPage() {
     isTokenProduct: false,
     tokenType: 'DRINK',
     subCategory: '',
-    variants: [] as { name: string; priceDelta: number; isSoldOut?: boolean }[],
-    options: [] as { name: string; priceDelta: number }[],
+    variants: [] as {
+      name: string;
+      priceDelta: number;
+      isSoldOut?: boolean;
+      // Eigene Werte des Untereintrags; leer = vom Hauptartikel erben
+      alternativeTicketName?: string;
+      printGroupId?: string;
+    }[],
+    options: [] as { name: string; priceDelta: number; defaultQuantity?: number; maxQuantity?: number }[],
   });
 
   const fetchData = async () => {
@@ -215,8 +222,23 @@ export default function AdminProductsPage() {
       isTokenProduct: Boolean(prod.isTokenProduct),
       tokenType: prod.tokenType || 'DRINK',
       subCategory: prod.subCategory || '',
-      variants: prod.variants ? prod.variants.map((v: any) => ({ name: v.name, priceDelta: v.priceDelta, isSoldOut: v.isSoldOut })) : [],
-      options: prod.options ? prod.options.map((o: any) => ({ name: o.name, priceDelta: o.priceDelta })) : [],
+      variants: prod.variants
+        ? prod.variants.map((v: any) => ({
+            name: v.name,
+            priceDelta: v.priceDelta,
+            isSoldOut: v.isSoldOut,
+            alternativeTicketName: v.alternativeTicketName || '',
+            printGroupId: v.printGroupId || '',
+          }))
+        : [],
+      options: prod.options
+        ? prod.options.map((o: any) => ({
+            name: o.name,
+            priceDelta: o.priceDelta,
+            defaultQuantity: o.defaultQuantity ?? 0,
+            maxQuantity: o.maxQuantity ?? 1,
+          }))
+        : [],
     });
     setShowModal(true);
   };
@@ -827,7 +849,10 @@ export default function AdminProductsPage() {
                     onClick={() =>
                       setFormData({
                         ...formData,
-                        variants: [...formData.variants, { name: '', priceDelta: 0.0, isSoldOut: false }],
+                        variants: [
+                          ...formData.variants,
+                          { name: '', priceDelta: 0.0, isSoldOut: false, alternativeTicketName: '', printGroupId: '' },
+                        ],
                       })
                     }
                     className="px-2.5 py-1 bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white rounded-lg text-xs font-bold transition border border-blue-500/30 flex items-center gap-1"
@@ -840,7 +865,8 @@ export default function AdminProductsPage() {
                 {formData.variants.length > 0 && (
                   <div className="space-y-2 pt-2 border-t border-slate-800">
                     {formData.variants.map((v, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
+                      <div key={idx} className="space-y-1.5 bg-slate-900/40 border border-slate-800 rounded-xl p-2">
+                        <div className="flex items-center gap-2">
                         <input
                           type="text"
                           placeholder="Variantenname (z. B. Colaweizen)"
@@ -876,6 +902,39 @@ export default function AdminProductsPage() {
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
+                        </div>
+
+                        {/* Eigene Werte des Untereintrags. Leer lassen heisst:
+                            der Wert des Hauptartikels gilt (Vererbung). */}
+                        <div className="flex flex-wrap items-center gap-2 pl-1">
+                          <input
+                            type="text"
+                            placeholder="eigener Bontext (leer = wie Hauptartikel)"
+                            value={v.alternativeTicketName || ''}
+                            onChange={(e) => {
+                              const updated = [...formData.variants];
+                              updated[idx].alternativeTicketName = e.target.value;
+                              setFormData({ ...formData, variants: updated });
+                            }}
+                            className="flex-1 min-w-[180px] bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-[11px] text-white"
+                          />
+                          <select
+                            value={v.printGroupId || ''}
+                            onChange={(e) => {
+                              const updated = [...formData.variants];
+                              updated[idx].printGroupId = e.target.value;
+                              setFormData({ ...formData, variants: updated });
+                            }}
+                            className="bg-slate-900 border border-slate-800 rounded-xl px-2 py-1.5 text-[11px] text-white"
+                          >
+                            <option value="">Druckgruppe wie Hauptartikel</option>
+                            {printGroups.map((g) => (
+                              <option key={g.id} value={g.id}>
+                                {g.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -894,7 +953,10 @@ export default function AdminProductsPage() {
                     onClick={() =>
                       setFormData({
                         ...formData,
-                        options: [...formData.options, { name: '', priceDelta: 0.5 }],
+                        options: [
+                          ...formData.options,
+                          { name: '', priceDelta: 0.5, defaultQuantity: 0, maxQuantity: 1 },
+                        ],
                       })
                     }
                     className="px-2.5 py-1 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded-lg text-xs font-bold transition border border-emerald-500/30 flex items-center gap-1"
@@ -907,7 +969,8 @@ export default function AdminProductsPage() {
                 {formData.options.length > 0 && (
                   <div className="space-y-2 pt-2 border-t border-slate-800">
                     {formData.options.map((o, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
+                      <div key={idx} className="space-y-1.5 bg-slate-900/40 border border-slate-800 rounded-xl p-2">
+                        <div className="flex items-center gap-2">
                         <input
                           type="text"
                           placeholder="Zusatzname (z. B. Mayonnaise)"
@@ -943,6 +1006,44 @@ export default function AdminProductsPage() {
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
+                        </div>
+
+                        {/* Mehrfach waehlbare Optionen: z. B. Schlachtplatte mit
+                            2x Bratwurst und 1x Leberwurst. Hoechstzahl 1 verhaelt
+                            sich wie bisher (an/aus). */}
+                        <div className="flex flex-wrap items-center gap-3 pl-1 text-[11px] text-slate-400">
+                          <label className="flex items-center gap-1.5">
+                            <span>voreingestellt</span>
+                            <input
+                              type="number"
+                              min={0}
+                              value={o.defaultQuantity ?? 0}
+                              onChange={(e) => {
+                                const updated = [...formData.options];
+                                updated[idx].defaultQuantity = Math.max(0, parseInt(e.target.value, 10) || 0);
+                                setFormData({ ...formData, options: updated });
+                              }}
+                              className="w-16 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-white font-mono"
+                            />
+                          </label>
+                          <label className="flex items-center gap-1.5">
+                            <span>höchstens</span>
+                            <input
+                              type="number"
+                              min={1}
+                              value={o.maxQuantity ?? 1}
+                              onChange={(e) => {
+                                const updated = [...formData.options];
+                                updated[idx].maxQuantity = Math.max(1, parseInt(e.target.value, 10) || 1);
+                                setFormData({ ...formData, options: updated });
+                              }}
+                              className="w-16 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-white font-mono"
+                            />
+                          </label>
+                          <span className="text-slate-600">
+                            {(o.maxQuantity ?? 1) > 1 ? 'mehrfach wählbar' : 'an / aus'}
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import { prisma } from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 
@@ -79,6 +80,13 @@ export async function POST(req: NextRequest) {
         deviceId: deviceId || null,
       },
     });
+
+    await logSystemActionSafe(() => ({
+      action: 'TOKEN_ACTION',
+      category: 'SALES',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Wertmarken-Vorgang.',
+    }));
 
     return NextResponse.json(transaction, { status: 201 });
   } catch (error) {

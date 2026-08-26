@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { logSystemAction } from '@/lib/action-logger';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import TicketSplitter from '@/lib/printer/ticket-splitter';
 import haService from '@/lib/ha/ha-service';
@@ -8,6 +8,8 @@ import { checkAndTriggerLowStockAlert } from '@/lib/low-stock-notifier';
 import { validateBody, CreateOrderSchema } from '@/lib/validations/schemas';
 import { requireApiAuth } from '@/lib/api-guard';
 
+import { assertStockUnitsAvailable, applyStockConsumption } from '@/lib/stock';
+import { resolveOrderItem } from '@/lib/product-resolve';
 export async function GET(req: Request) {
   const auth = await requireApiAuth(req);
   if (!auth.ok) return auth.response;
@@ -125,6 +127,11 @@ export async function POST(req: Request) {
         tokenNumber = bumped.tokenSequence - 1;
       }
 
+      // Lagerposten pruefen, BEVOR irgendetwas gebucht wird. Innerhalb
+      // derselben Transaktion, damit zwei gleichzeitige Bestellungen denselben
+      // Vorrat nicht doppelt verplanen koennen.
+      await assertStockUnitsAvailable(tx, body.items || []);
+
       // Bestände prüfen & OrderItems vorbereiten
       const orderItemsData = [];
       for (const item of body.items || []) {
@@ -137,33 +144,26 @@ export async function POST(req: Request) {
         }
 
         const { price: effectiveBasePrice } = getEffectiveProductPrice(prod, now);
-        let unitPrice = effectiveBasePrice;
 
-        if (item.variantName) {
-          const variant = prod.variants.find((v) => v.name === item.variantName);
-          if (variant) unitPrice += variant.priceDelta;
-        }
-
-        if (item.selectedOptions && Array.isArray(item.selectedOptions)) {
-          for (const optName of item.selectedOptions) {
-            const opt = prod.options.find((o) => o.name === optName);
-            if (opt) unitPrice += opt.priceDelta;
-          }
-        }
+        // Untereintrag und Optionen an EINER Stelle aufloesen (src/lib/product-resolve.ts):
+        // Vererbung der Untereintrags-Felder, Optionen mit Anzahl, Preis serverseitig.
+        const resolved = resolveOrderItem(prod, effectiveBasePrice, {
+          variantName: item.variantName,
+          selectedOptions: item.selectedOptions,
+        });
+        const unitPrice = resolved.unitPrice;
 
         orderItemsData.push({
           productId: prod.id,
           productName: prod.name,
           quantity: item.quantity,
           unitPrice,
-          deposit: prod.deposit || 0,
-          taxRate: prod.taxRate || 19,
-          variantName: item.variantName || null,
-          selectedOptions: item.selectedOptions
-            ? typeof item.selectedOptions === 'string'
-              ? item.selectedOptions
-              : JSON.stringify(item.selectedOptions)
-            : null,
+          deposit: resolved.deposit,
+          taxRate: resolved.taxRate,
+          variantName: resolved.variantName,
+          // Normalisiert als [{name, quantity}] speichern, damit Auswertung,
+          // Bondruck und Lagerabbau dieselbe Anzahl sehen.
+          selectedOptions: resolved.options.length > 0 ? JSON.stringify(resolved.options) : null,
           customizationText: item.customizationText || null,
           courseNumber: Number(item.courseNumber) > 0 ? Number(item.courseNumber) : 1,
           isHold: Boolean(item.isHold),
@@ -187,6 +187,9 @@ export async function POST(req: Request) {
           }
         }
       }
+
+      // Verbrauch der Lagerposten abbuchen und leergelaufene Artikel sperren
+      await applyStockConsumption(tx, body.items || [], { isTraining });
 
       // Order anlegen
       const createdOrder = await tx.order.create({
@@ -308,7 +311,7 @@ export async function POST(req: Request) {
     }
 
     // 7. Revisionssichere Protokollierung (GoBD): Wer hat wann was erfasst.
-    await logSystemAction({
+    await logSystemActionSafe(() => ({
       action: 'ORDER_CREATED',
       category: 'ORDERS',
       actor: order.waiterName || auth.session.waiterName || auth.session.role,
@@ -318,9 +321,9 @@ export async function POST(req: Request) {
         orderNumber: order.orderNumber,
         tableId: order.tableId,
         orderType: order.orderType,
-        totalAmount: order.totalAmount,
+        source: order.source,
       },
-    });
+    }));
 
     return NextResponse.json(order);
   } catch (error) {

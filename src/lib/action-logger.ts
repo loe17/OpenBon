@@ -41,3 +41,27 @@ export async function logSystemAction({
     return null;
   }
 }
+
+/**
+ * Sichere Variante von {@link logSystemAction}.
+ *
+ * WICHTIG: Ein Protokolleintrag darf einen Kassiervorgang niemals scheitern
+ * lassen. `logSystemAction` faengt zwar eigene Datenbankfehler ab - der
+ * Aufrufer baut seine Parameter aber VOR dem Aufruf zusammen. Ein Tippfehler
+ * in einem Feldnamen (z. B. `payment.amount` statt `payment.totalGross`)
+ * warf dort eine Ausnahme, die die bereits gebuchte Zahlung mit HTTP 500
+ * quittierte: das Geld war in der Kasse, die Bedienung sah einen Fehler.
+ *
+ * Deshalb wird hier eine FUNKTION uebergeben. Damit liegt auch das
+ * Zusammenbauen der Parameter innerhalb des try-Blocks.
+ */
+export async function logSystemActionSafe(build: () => LogActionParams): Promise<void> {
+  try {
+    await logSystemAction(build());
+  } catch (error) {
+    console.warn(
+      '[LOG] Protokolleintrag konnte nicht erstellt werden (Vorgang selbst ist davon unberuehrt):',
+      error instanceof Error ? error.message : error
+    );
+  }
+}

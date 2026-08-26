@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-guard';
 import { requireApiAuth } from '@/lib/api-guard';
@@ -179,6 +180,13 @@ export async function POST(req: Request) {
     if (global.io) {
       global.io.emit('product:updated', {});
     }
+
+    await logSystemActionSafe(() => ({
+      action: 'PRODUCTS_IMPORTED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Artikel per CSV eingelesen.',
+    }));
 
     return NextResponse.json({
       success: true,

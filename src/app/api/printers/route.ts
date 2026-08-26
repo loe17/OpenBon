@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
 import { EscPosBuilder } from '@/lib/printer/escpos-builder';
@@ -131,6 +132,13 @@ export async function POST(req: Request) {
         isActive: body.isActive ?? true,
       },
     });
+    await logSystemActionSafe(() => ({
+      action: 'PRINTER_CREATED',
+      category: 'SYSTEM',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Drucker angelegt.',
+    }));
+
     return NextResponse.json(created);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
@@ -157,6 +165,13 @@ export async function PUT(req: Request) {
         isActive: body.isActive !== undefined ? body.isActive : undefined,
       },
     });
+    await logSystemActionSafe(() => ({
+      action: 'PRINTER_UPDATED',
+      category: 'SYSTEM',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Drucker geaendert.',
+    }));
+
     return NextResponse.json(updated);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
@@ -179,6 +194,13 @@ export async function DELETE(req: Request) {
     });
 
     await prisma.printer.delete({ where: { id } });
+    await logSystemActionSafe(() => ({
+      action: 'PRINTER_DELETED',
+      category: 'SYSTEM',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Drucker geloescht.',
+    }));
+
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });

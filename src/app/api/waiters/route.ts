@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import { prisma } from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 
@@ -49,6 +50,13 @@ export async function POST(req: NextRequest) {
         tipProfile: true,
       },
     });
+
+    await logSystemActionSafe(() => ({
+      action: 'WAITER_CREATED',
+      category: 'AUTH',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Bedienung angelegt.',
+    }));
 
     return NextResponse.json(waiter, { status: 201 });
   } catch (error) {

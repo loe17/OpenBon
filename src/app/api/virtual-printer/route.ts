@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import { requireApiAuth } from '@/lib/api-guard';
 
 export async function GET(req: Request) {
@@ -22,6 +23,13 @@ export async function DELETE(req: Request) {
     if (global.io) {
       global.io.emit('virtual_printer:cleared');
     }
+    await logSystemActionSafe(() => ({
+      action: 'VIRTUAL_PRINTER_CLEARED',
+      category: 'SYSTEM',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Virtuellen Druckverlauf geleert.',
+    }));
+
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });

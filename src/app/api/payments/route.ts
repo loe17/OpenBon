@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { logSystemAction } from '@/lib/action-logger';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
 import haService from '@/lib/ha/ha-service';
@@ -328,20 +328,23 @@ export async function POST(req: Request) {
       ? buildReceiptUrl(config.baseUrl || 'http://openbon.local', payment.digitalReceiptCode)
       : null;
 
-    await logSystemAction({
+    await logSystemActionSafe(() => ({
       action: 'PAYMENT_COMPLETED',
       category: 'SALES',
       actor: payment.waiterName || auth.session.waiterName || auth.session.role,
-      details: `Zahlung ${payment.invoiceNumber || payment.id} über ${payment.amount.toFixed(2)} € (${getPaymentLabel(payment.method)}) gebucht.`,
+      // Feldnamen laut Datenmodell: totalGross / paymentMethod.
+      // `amount` und `method` gibt es NICHT - der Zugriff darauf lieferte
+      // undefined und liess den Kassiervorgang mit HTTP 500 abbrechen.
+      details: `Zahlung ${payment.invoiceNumber || payment.id} über ${Number(payment.totalGross ?? 0).toFixed(2)} € (${getPaymentLabel(payment.paymentMethod)}) gebucht.`,
       metadata: {
         paymentId: payment.id,
         invoiceNumber: payment.invoiceNumber,
         orderId: payment.orderId,
-        method: payment.method,
-        amount: payment.amount,
+        paymentMethod: payment.paymentMethod,
+        totalGross: payment.totalGross,
         tipAmount: payment.tipAmount,
       },
-    });
+    }));
 
     return NextResponse.json({
       ...payment,

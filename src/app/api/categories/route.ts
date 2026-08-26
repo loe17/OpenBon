@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 
@@ -64,6 +65,13 @@ export async function POST(req: Request) {
         icon: body.icon || 'Utensils',
       },
     });
+    await logSystemActionSafe(() => ({
+      action: 'CATEGORY_CREATED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Warengruppe angelegt.',
+    }));
+
     return NextResponse.json(created);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
@@ -87,6 +95,13 @@ export async function PUT(req: Request) {
         icon: body.icon !== undefined ? body.icon : undefined,
       },
     });
+    await logSystemActionSafe(() => ({
+      action: 'CATEGORY_UPDATED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Warengruppe geaendert.',
+    }));
+
     return NextResponse.json(updated);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
@@ -111,6 +126,13 @@ export async function DELETE(req: Request) {
     }
 
     await prisma.productCategory.delete({ where: { id } });
+    await logSystemActionSafe(() => ({
+      action: 'CATEGORY_DELETED',
+      category: 'ADMIN',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Warengruppe geloescht.',
+    }));
+
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });

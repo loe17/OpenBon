@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { logSystemAction } from '@/lib/action-logger';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
 import { EscPosBuilder } from '@/lib/printer/escpos-builder';
@@ -134,7 +134,7 @@ export async function POST(req: Request) {
       global.io.emit('cashbook:updated', movement);
     }
 
-    await logSystemAction({
+    await logSystemActionSafe(() => ({
       action: 'CASH_MOVEMENT',
       category: 'CASHBOOK',
       actor: movement.waiterName || auth.session.waiterName || auth.session.role,
@@ -145,7 +145,7 @@ export async function POST(req: Request) {
         amount: movement.amount,
         reason: movement.reason,
       },
-    });
+    }));
 
     return NextResponse.json(movement);
   } catch (error) {

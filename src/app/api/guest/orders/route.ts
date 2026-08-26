@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { checkAndTriggerLowStockAlert } from '@/lib/low-stock-notifier';
 import TicketSplitter from '@/lib/printer/ticket-splitter';
 import networkSpooler from '@/lib/printer/network-spooler';
 import { getEffectiveProductPrice } from '@/lib/pricing';
 
+import { assertStockUnitsAvailable, applyStockConsumption } from '@/lib/stock';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -56,6 +58,9 @@ export async function POST(req: NextRequest) {
         where: { id: 'default' },
         data: { orderSequence: { increment: 1 } },
       });
+
+      // Lagerposten pruefen (siehe src/lib/stock.ts)
+      await assertStockUnitsAvailable(tx, body.items || []);
 
       const itemsToCreate: any[] = [];
       const stockAlerts: { productId: string; newStock: number }[] = [];
@@ -123,6 +128,8 @@ export async function POST(req: NextRequest) {
         throw new Error('Keine bestellbaren Artikel im Warenkorb.');
       }
 
+      await applyStockConsumption(tx, body.items || []);
+
       const createdOrder = await tx.order.create({
         data: {
           // Wert VOR dem Inkrement - identisch zu /api/orders und /api/orders/checkout.
@@ -189,12 +196,29 @@ export async function POST(req: NextRequest) {
           isHold: i.isHold,
         })),
       });
+
+      // Positionen als gedruckt kennzeichnen (siehe /api/orders und
+      // /api/orders/checkout) - sonst gelten sie dauerhaft als haengend.
+      const printableIds = order.items.filter((i) => !i.isHold).map((i) => i.id);
+      if (printableIds.length > 0) {
+        await prisma.orderItem.updateMany({
+          where: { id: { in: printableIds } },
+          data: { printStatus: 'PRINTED' },
+        });
+      }
     } catch {}
 
     if (global.io) {
       global.io.emit('order:created', order);
       global.io.emit('table:updated', { tableId: table.id, status: 'OCCUPIED' });
     }
+
+    await logSystemActionSafe(() => ({
+      action: 'GUEST_ORDER_CREATED',
+      category: 'ORDERS',
+      actor: order.waiterName || 'Gast (QR am Tisch)',
+      details: 'Gast-Bestellung ueber QR erfasst.',
+    }));
 
     return NextResponse.json({
       success: true,

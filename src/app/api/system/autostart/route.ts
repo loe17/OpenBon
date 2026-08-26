@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import { exec } from 'child_process';
 import util from 'util';
 import os from 'os';
@@ -51,6 +52,13 @@ export async function POST(req: Request) {
         await execPromise('sudo systemctl disable openbon.service');
       }
     }
+
+    await logSystemActionSafe(() => ({
+      action: 'AUTOSTART_CHANGED',
+      category: 'SYSTEM',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Autostart geaendert.',
+    }));
 
     return NextResponse.json({
       success: true,

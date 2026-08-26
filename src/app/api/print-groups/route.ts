@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 
@@ -45,6 +46,13 @@ export async function POST(req: Request) {
         autoCut: body.autoCut ?? true,
       },
     });
+    await logSystemActionSafe(() => ({
+      action: 'PRINT_GROUP_CREATED',
+      category: 'SYSTEM',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Druckgruppe angelegt.',
+    }));
+
     return NextResponse.json(created);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
@@ -67,6 +75,13 @@ export async function PUT(req: Request) {
         autoCut: body.autoCut,
       },
     });
+    await logSystemActionSafe(() => ({
+      action: 'PRINT_GROUP_UPDATED',
+      category: 'SYSTEM',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Druckgruppe geaendert.',
+    }));
+
     return NextResponse.json(updated);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
@@ -89,6 +104,13 @@ export async function DELETE(req: Request) {
     });
 
     await prisma.printGroup.delete({ where: { id } });
+    await logSystemActionSafe(() => ({
+      action: 'PRINT_GROUP_DELETED',
+      category: 'SYSTEM',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Druckgruppe geloescht.',
+    }));
+
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });

@@ -35,6 +35,7 @@ import { getEffectiveProductPrice } from '@/lib/pricing';
 import { hasAnyCardPaymentConfigured } from '@/lib/payment/methods';
 import { sendWithOutboxFallback } from '@/lib/offline/outbox';
 import { useToast } from '@/components/ui/toast';
+import { ChangeCalculator } from '@/components/ui/change-calculator';
 import type { ProductDTO, ProductVariantDTO, OrderItemDTO, ProductCategoryDTO, EventConfigDTO } from '@/types/domain';
 
 import StationGate from '@/components/auth/station-gate';
@@ -87,15 +88,6 @@ function PosCounterContent() {
   useEffect(() => {
     if (!socket || !stationName) return;
     socket.emit('pos:station_online', { stationId, stationName });
-    fetch('/api/devices', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        deviceId: stationId,
-        name: stationName,
-        role: 'POS_CASHIER',
-      }),
-    }).catch(() => {});
   }, [socket, stationId, stationName]);
 
   const totalGross = cart.reduce((sum, item) => sum + (item.price + item.deposit) * item.quantity, 0);
@@ -710,29 +702,15 @@ function PosCounterContent() {
               </button>
             </div>
 
-            {/* Quick Cash Buttons */}
+            {/* Stückelungs-Rückgeldrechner */}
             {paymentMethod === 'CASH' && (
-              <div className="grid grid-cols-4 gap-2 mb-2">
-                {[5, 10, 20, 50].map((amt) => (
-                  <button
-                    key={amt}
-                    type="button"
-                    onClick={() => setGivenAmount(amt)}
-                    className="py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-bold text-slate-200 active:scale-95"
-                  >
-                    {amt} €
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Change Return Box */}
-            {paymentMethod === 'CASH' && givenAmount > 0 && (
-              <div className="p-3 mb-3 rounded-2xl bg-slate-950 border border-slate-800 flex justify-between items-center text-xs font-bold">
-                <span className="text-slate-400">Rückgeld:</span>
-                <span className="text-amber-400 text-lg font-black font-mono">
-                  {formatCurrency(changeAmount)}
-                </span>
+              <div className="mb-3">
+                <ChangeCalculator
+                  amountDue={totalAmount}
+                  givenAmount={givenAmount}
+                  onGivenChange={(val) => setGivenAmount(val)}
+                  defaultExpanded={true}
+                />
               </div>
             )}
           </div>
@@ -1018,15 +996,6 @@ function PosCounterContent() {
                   if (socket) {
                     socket.emit('pos:station_online', { stationId: cleanId, stationName: clean });
                   }
-                  fetch('/api/devices', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      deviceId: cleanId,
-                      name: clean,
-                      role: 'POS_CASHIER',
-                    }),
-                  }).catch(() => {});
                   setShowStationModal(false);
                 }}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow"

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Coins,
   Plus,
@@ -59,6 +60,7 @@ interface WaiterStat {
 }
 
 export default function AdminTipsPage() {
+  const router = useRouter();
   const { success, error, warning } = useToast();
   const [activeTab, setActiveTab] = useState<'ABRECHNUNG' | 'MATRIX'>('ABRECHNUNG');
   const [profiles, setProfiles] = useState<TipProfile[]>([]);
@@ -95,7 +97,6 @@ export default function AdminTipsPage() {
     0.1: 0,
   });
 
-  const [isSettling, setIsSettling] = useState(false);
 
   const loadData = async () => {
     try {
@@ -141,38 +142,20 @@ export default function AdminTipsPage() {
     }
   };
 
-  const handleSettleWaiter = async (stat: WaiterStat) => {
-    const prof = getWaiterProfile(stat.waiterName);
-    const waiterTipShare = (stat.tips * prof.waiterPercent) / 100;
-    const sollBar = Math.max(0, stat.cashGross - waiterTipShare);
-
-    setIsSettling(true);
-    try {
-      const res = await fetch('/api/waiters/settle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          waiterName: stat.waiterName,
-          totalGross: stat.totalGross,
-          cashGross: stat.cashGross,
-          tips: stat.tips,
-          handoverAmount: sollBar,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        success(data.message || `Bedienung ${stat.waiterName} abgerechnet!`);
-        setSelectedWaiterForKassensturz(null);
-        void loadData();
-      } else {
-        error(data.error || 'Fehler bei der Schichtabrechnung');
-      }
-    } catch {
-      error('Netzwerkfehler bei der Schichtabrechnung');
-    } finally {
-      setIsSettling(false);
-    }
+  /**
+   * Die Abrechnung erfolgt ausschliesslich ueber den gefuehrten Ablauf unter
+   * /admin/settle.
+   *
+   * Vorher wurde hier direkt abgerechnet und als gezaehlter Betrag exakt der
+   * SOLL-Wert gebucht. Die Differenz war damit immer null - ein Kassensturz,
+   * bei dem nie jemand gezaehlt hat. Der gefuehrte Ablauf verlangt die
+   * tatsaechliche Zaehlung und rechnet serverseitig.
+   */
+  const openSettlement = (stat: WaiterStat) => {
+    router.push(`/admin/settle?waiterName=${encodeURIComponent(stat.waiterName)}`);
   };
+
+
 
   useEffect(() => {
     loadData();
@@ -543,8 +526,7 @@ export default function AdminTipsPage() {
                                   <span>Kassensturz</span>
                                 </button>
                                 <button
-                                  onClick={() => handleSettleWaiter(w)}
-                                  disabled={isSettling}
+                                  onClick={() => openSettlement(w)}
                                   className="px-2.5 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800 text-emerald-300 rounded-xl text-xs font-bold transition flex items-center gap-1"
                                   title="Schicht abrechnen und Kellner abmelden"
                                 >
@@ -965,12 +947,11 @@ export default function AdminTipsPage() {
                 Schließen
               </button>
               <button
-                onClick={() => handleSettleWaiter(selectedWaiterForKassensturz)}
-                disabled={isSettling}
+                onClick={() => openSettlement(selectedWaiterForKassensturz)}
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-950 flex items-center gap-2 transition"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Schicht abrechnen &amp; Bedienung abmelden</span>
+                <span>Zur geführten Schichtabrechnung</span>
               </button>
             </div>
           </div>

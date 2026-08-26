@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 
@@ -39,6 +40,13 @@ export async function POST(req: Request) {
           data: { name },
           select: { id: true, name: true, isActive: true, tipProfileId: true },
         });
+
+    await logSystemActionSafe(() => ({
+      action: 'WAITER_CHECKIN',
+      category: 'AUTH',
+      actor: auth.session.waiterName || auth.session.role,
+      details: 'Bedienung hat sich angemeldet.',
+    }));
 
     return NextResponse.json({ success: true, waiter });
   } catch (error) {

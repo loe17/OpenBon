@@ -12,6 +12,8 @@ import {
   Search,
   RefreshCw,
   CheckCircle,
+  Receipt,
+  CreditCard,
 } from 'lucide-react';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import { useToast } from '@/components/ui/toast';
@@ -21,8 +23,10 @@ import { PrintersTab } from './tabs/PrintersTab';
 import { SecurityTab } from './tabs/SecurityTab';
 import { FiscalTab } from './tabs/FiscalTab';
 import { SnapshotsTab } from './tabs/SnapshotsTab';
+import { ReceiptTab } from './tabs/ReceiptTab';
+import { CardPaymentTab } from './tabs/CardPaymentTab';
 
-type SettingsTab = 'GENERAL' | 'PRINTERS' | 'SECURITY' | 'FISCAL' | 'SNAPSHOTS';
+type SettingsTab = 'GENERAL' | 'RECEIPT' | 'PRINTERS' | 'CARDS' | 'SECURITY' | 'FISCAL' | 'SNAPSHOTS';
 
 export default function AdminSettingsPage() {
   const { success, error } = useToast();
@@ -117,7 +121,9 @@ export default function AdminSettingsPage() {
 
   const tabs: { id: SettingsTab; label: string; icon: any }[] = [
     { id: 'GENERAL', label: 'Allgemein', icon: Building2 },
-    { id: 'PRINTERS', label: 'Drucker & Layout', icon: Printer },
+    { id: 'RECEIPT', label: 'Bonlayout & Vorschau', icon: Receipt },
+    { id: 'PRINTERS', label: 'Drucker', icon: Printer },
+    { id: 'CARDS', label: 'Kartenzahlung', icon: CreditCard },
     { id: 'SECURITY', label: 'Sicherheit & PINs', icon: Lock },
     { id: 'FISCAL', label: 'Fiskal & Steuern', icon: Percent },
     { id: 'SNAPSHOTS', label: 'Vorlagen & Snapshots', icon: Sparkles },
@@ -187,6 +193,8 @@ export default function AdminSettingsPage() {
             togglingAutostart={togglingAutostart}
           />
         )}
+        {activeTab === 'RECEIPT' && <ReceiptTab config={config} onChange={handleConfigUpdate} />}
+        {activeTab === 'CARDS' && <CardPaymentTab config={config} onChange={handleConfigUpdate} />}
         {activeTab === 'PRINTERS' && (
           <PrintersTab config={config} onChange={handleConfigUpdate} printers={printers} />
         )}
