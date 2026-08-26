@@ -185,23 +185,34 @@ export class EscPosBuilder {
     fontSize: number | string = 3
   ): void {
     const fs = typeof fontSize === 'number' ? fontSize : parseInt(String(fontSize), 10) || 3;
-    if (fs >= 8) {
-      builder.align('center').invert(true).charSize(4, 5).bold(true).textLine(` TISCH ${tableLabel} `).resetCharSize().invert(false).bold(false).align('left');
-    } else if (fs >= 7) {
-      builder.align('center').invert(true).charSize(4, 4).bold(true).textLine(` TISCH ${tableLabel} `).resetCharSize().invert(false).bold(false).align('left');
-    } else if (fs >= 6) {
-      builder.align('center').invert(true).charSize(3, 4).bold(true).textLine(` TISCH ${tableLabel} `).resetCharSize().invert(false).bold(false).align('left');
-    } else if (fs >= 5) {
-      builder.align('center').invert(true).charSize(3, 3).bold(true).textLine(` TISCH ${tableLabel} `).resetCharSize().invert(false).bold(false).align('left');
-    } else if (fs >= 4) {
-      builder.charSize(2, 3).bold(true).textLine(`TISCH: ${tableLabel}`).resetCharSize().bold(false);
-    } else if (fs >= 3 || fontSize === 'EXTRA_LARGE') {
-      builder.charSize(2, 2).bold(true).textLine(`TISCH: ${tableLabel}`).resetCharSize().bold(false);
-    } else if (fs >= 2 || fontSize === 'LARGE') {
-      builder.charSize(1, 2).bold(true).textLine(`TISCH: ${tableLabel}`).resetCharSize().bold(false);
-    } else {
-      builder.bold(true).textLine(`Tisch: ${tableLabel}`).bold(false);
+    let clean = (tableLabel || '').trim();
+    if (!clean.toLowerCase().startsWith('tisch')) {
+      clean = `Tisch ${clean}`;
     }
+
+    builder.align('center');
+    if (fs >= 10) {
+      builder.invert(true).charSize(4, 4).bold(true).textLine(` ${clean} `).resetCharSize().invert(false).bold(false);
+    } else if (fs >= 9) {
+      builder.charSize(4, 4).bold(true).textLine(clean).resetCharSize().bold(false);
+    } else if (fs >= 8) {
+      builder.charSize(3, 4).bold(true).textLine(clean).resetCharSize().bold(false);
+    } else if (fs >= 7) {
+      builder.charSize(3, 3).bold(true).textLine(clean).resetCharSize().bold(false);
+    } else if (fs >= 6) {
+      builder.charSize(2, 3).bold(true).textLine(clean).resetCharSize().bold(false);
+    } else if (fs >= 5) {
+      builder.charSize(2, 2).bold(true).textLine(clean).resetCharSize().bold(false);
+    } else if (fs >= 4) {
+      builder.charSize(1, 2).bold(true).textLine(clean).resetCharSize().bold(false);
+    } else if (fs >= 3 || fontSize === 'EXTRA_LARGE') {
+      builder.charSize(1, 1).bold(true).textLine(clean).resetCharSize().bold(false);
+    } else if (fs >= 2 || fontSize === 'LARGE') {
+      builder.charSize(1, 1).bold(true).textLine(clean).resetCharSize().bold(false);
+    } else {
+      builder.charSize(1, 1).textLine(clean).resetCharSize();
+    }
+    builder.align('left');
   }
 
   // 1. Standard POS Ticket Builder

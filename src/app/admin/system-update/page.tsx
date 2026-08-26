@@ -318,15 +318,15 @@ export default function AdminSystemUpdatePage() {
               onChange={(e) => setSelectedTarget(e.target.value)}
               className="bg-slate-950 border border-slate-700 text-white text-xs font-bold font-mono rounded-xl px-3 py-2.5 focus:border-blue-500"
             >
-              <optgroup label="🏷️ Stabile Releases (Tags)">
+              <optgroup label="🏷️ Versionen &amp; Git-Tags">
                 {tagsList.map((t) => (
                   <option key={t} value={t}>
-                    Release {t} {t === `v${APP_VERSION}` ? '(Aktuell installiert)' : ''}
+                    Tag {t} {t === `v${APP_VERSION}` ? '(Aktuell installiert)' : ''}
                   </option>
                 ))}
               </optgroup>
               <optgroup label="🌿 Entwicklungs-Branch">
-                <option value="master">master (Neuester Stand auf GitHub)</option>
+                <option value="master">Branch: master (Entwicklungsstand)</option>
               </optgroup>
             </select>
 

@@ -163,7 +163,6 @@ export function GeneralTab({
               0 schaltet die Teilung ab. Druckgruppen können davon abweichen.
             </p>
           </div>
-
           <div>
             <label className="block text-xs font-bold text-slate-300 mb-1">
               <span className="inline-flex items-center gap-1.5">
@@ -182,6 +181,73 @@ export function GeneralTab({
                 </option>
               ))}
             </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Anschrift & Rechtliche Angaben für Gastro-Bons */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+        <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
+          <Building2 className="w-5 h-5 text-emerald-400" />
+          <div>
+            <h3 className="font-bold text-base text-white">Anschrift &amp; Rechtliche Angaben</h3>
+            <p className="text-xs text-slate-400">
+              Pflichtangaben für das Gastro-Detail-Bonlayout (Rechnungsnachweis für Gäste).
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1">
+              Straße &amp; Hausnummer
+            </label>
+            <input
+              type="text"
+              value={config.addressStreet || ''}
+              onChange={(e) => onChange({ addressStreet: e.target.value })}
+              className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-medium focus:border-emerald-500"
+              placeholder="z. B. Festplatzstraße 12"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1">
+              PLZ &amp; Ort
+            </label>
+            <input
+              type="text"
+              value={config.addressCity || ''}
+              onChange={(e) => onChange({ addressCity: e.target.value })}
+              className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-medium focus:border-emerald-500"
+              placeholder="z. B. 12345 Musterstadt"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1">
+              Steuernummer
+            </label>
+            <input
+              type="text"
+              value={config.taxNumber || ''}
+              onChange={(e) => onChange({ taxNumber: e.target.value })}
+              className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-mono focus:border-emerald-500"
+              placeholder="z. B. 123/456/78901"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1">
+              Umsatzsteuer-ID (USt-IdNr.)
+            </label>
+            <input
+              type="text"
+              value={config.vatId || ''}
+              onChange={(e) => onChange({ vatId: e.target.value })}
+              className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-mono focus:border-emerald-500"
+              placeholder="z. B. DE123456789"
+            />
           </div>
         </div>
       </div>

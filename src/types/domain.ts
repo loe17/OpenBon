@@ -71,6 +71,17 @@ export interface EventConfigDTO {
   receiptFoodTableFontSize?: number | string | null;
   receiptDrinkTableFontSize?: number | string | null;
   tableMarkerFontSize?: number | string | null;
+  receiptItemFontSize?: number | string | null;
+  receiptOptionsFontSize?: number | string | null;
+  receiptMetaFontSize?: number | string | null;
+  receiptFoodItemFontSize?: number | string | null;
+  receiptFoodOptionsFontSize?: number | string | null;
+  receiptDrinkItemFontSize?: number | string | null;
+  receiptDrinkOptionsFontSize?: number | string | null;
+  addressStreet?: string | null;
+  addressCity?: string | null;
+  taxNumber?: string | null;
+  vatId?: string | null;
   receiptTemplate?: string;
   receiptFoodTemplate?: string;
   receiptDrinkTemplate?: string;

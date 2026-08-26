@@ -54,17 +54,18 @@ export default function VirtualPrinterMonitor({
   const { socket } = useSocket();
   const [tickets, setTickets] = useState<VirtualTicket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(false);
   const [selectedPrinter, setSelectedPrinter] = useState(initialPrinter || 'ALL');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const fetchTickets = async () => {
-    setLoading(true);
     try {
       const res = await fetch('/api/virtual-printer');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setTickets(data);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setTickets(data);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -75,6 +76,8 @@ export default function VirtualPrinterMonitor({
 
   useEffect(() => {
     fetchTickets();
+    const interval = setInterval(fetchTickets, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -84,20 +87,24 @@ export default function VirtualPrinterMonitor({
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('virtual_printer:new_ticket', (ticket: VirtualTicket) => {
-      setTickets((prev) => [ticket, ...prev]);
+    const handleNew = (ticket: VirtualTicket) => {
+      setTickets((prev) => {
+        if (prev.some((t) => t.id === ticket.id)) return prev;
+        return [ticket, ...prev];
+      });
       if (soundEnabled) {
         playKitchenChime();
         triggerHapticFeedback();
       }
-    });
+    };
 
+    socket.on('virtual_printer:new_ticket', handleNew);
     socket.on('virtual_printer:cleared', () => {
       setTickets([]);
     });
 
     return () => {
-      socket.off('virtual_printer:new_ticket');
+      socket.off('virtual_printer:new_ticket', handleNew);
       socket.off('virtual_printer:cleared');
     };
   }, [socket, soundEnabled]);

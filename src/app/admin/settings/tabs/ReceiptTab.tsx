@@ -1,18 +1,20 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Receipt, ToggleLeft, ToggleRight, Type, Utensils, Beer, Scissors } from 'lucide-react';
+import {
+  Receipt,
+  ToggleLeft,
+  ToggleRight,
+  Type,
+  Utensils,
+  Beer,
+  Scissors,
+  Sliders,
+  AlertCircle,
+  CheckCircle2,
+  Lock,
+} from 'lucide-react';
 import type { EventConfigDTO } from '@/types/domain';
-
-/**
- * Bonlayout mit Live-Vorschau.
- *
- * Diese Oberfläche ging bei der Modularisierung der Einstellungen verloren
- * (die alte Seite hatte 1465 Zeilen, die fünf neuen Tabs nur 620). Die Felder
- * existierten in Datenmodell und Schnittstelle weiter, waren aber nicht mehr
- * einstellbar. Hier sind alle 17 Bon-Felder wieder erreichbar – zusammen mit
- * der Vorschau, die jede Änderung sofort als 80-mm-Thermobon zeigt.
- */
 
 interface ReceiptTabProps {
   config: EventConfigDTO;
@@ -56,27 +58,81 @@ function Toggle({
   );
 }
 
-/** 42 Zeichen entsprechen einer 80-mm-Rolle bei Standardschrift. */
-const WIDTH = 42;
+/** 10-Stufen Schriftgrößen-Slider */
+function FontSizeSlider({
+  label,
+  value,
+  onChange,
+  color = 'emerald',
+}: {
+  label: string;
+  value?: number | string | null;
+  onChange: (v: number) => void;
+  color?: 'emerald' | 'amber' | 'sky' | 'blue';
+}) {
+  const numVal = Math.min(
+    10,
+    Math.max(1, typeof value === 'number' ? value : parseInt(String(value || 3), 10) || 3)
+  );
 
-function center(text: string): string {
-  const t = text.slice(0, WIDTH);
-  const pad = Math.max(0, Math.floor((WIDTH - t.length) / 2));
-  return ' '.repeat(pad) + t;
+  const accentClass =
+    color === 'amber'
+      ? 'accent-amber-500'
+      : color === 'sky'
+      ? 'accent-sky-500'
+      : color === 'blue'
+      ? 'accent-blue-500'
+      : 'accent-emerald-500';
+
+  const badgeColor =
+    color === 'amber'
+      ? 'text-amber-400'
+      : color === 'sky'
+      ? 'text-sky-400'
+      : color === 'blue'
+      ? 'text-blue-400'
+      : 'text-emerald-400';
+
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between items-center text-xs font-bold text-slate-300">
+        <span>{label}</span>
+        <span className={`font-mono text-[11px] ${badgeColor}`}>
+          Stufe {numVal} / 10 {numVal >= 8 ? '(Sehr groß)' : numVal >= 5 ? '(Groß)' : '(Standard)'}
+        </span>
+      </div>
+      <input
+        type="range"
+        min={1}
+        max={10}
+        step={1}
+        value={numVal}
+        onChange={(e) => onChange(parseInt(e.target.value, 10))}
+        className={`w-full ${accentClass}`}
+      />
+      <div className="flex justify-between text-[9px] text-slate-500 font-mono">
+        <span>1: Fein</span>
+        <span>3: Normal</span>
+        <span>5: Groß</span>
+        <span>8: Extra-Groß</span>
+        <span>10: Maximal</span>
+      </div>
+    </div>
+  );
 }
-
-function row(left: string, right: string): string {
-  const l = left.slice(0, WIDTH - right.length - 1);
-  return l + ' '.repeat(Math.max(1, WIDTH - l.length - right.length)) + right;
-}
-
-const LINE = '-'.repeat(WIDTH);
 
 export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
   const [preview, setPreview] = useState<PreviewKind>('RECEIPT');
+  const [paperWidth, setPaperWidth] = useState<80 | 58>(80);
 
-  // Beispieldaten der Vorschau – bewusst fest, damit man Änderungen
-  // am Layout und nicht an wechselnden Zahlen erkennt.
+  // Gastro-Pflichtdaten prüfen
+  const hasGastroData = Boolean(
+    config.addressStreet?.trim() &&
+    config.addressCity?.trim() &&
+    (config.taxNumber?.trim() || config.vatId?.trim())
+  );
+
+  // Beispieldaten der Vorschau
   const sample = {
     table: 'Tisch 7',
     waiter: 'Lisa',
@@ -88,8 +144,23 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
     ],
   };
 
-  const text = useMemo(() => {
-    const lines: string[] = [];
+  const widthCols = paperWidth === 58 ? 32 : 42;
+
+  const center = (text: string) => {
+    const t = text.slice(0, widthCols);
+    const pad = Math.max(0, Math.floor((widthCols - t.length) / 2));
+    return ' '.repeat(pad) + t;
+  };
+
+  const row = (left: string, right: string) => {
+    const l = left.slice(0, widthCols - right.length - 1);
+    return l + ' '.repeat(Math.max(1, widthCols - l.length - right.length)) + right;
+  };
+
+  const LINE = '-'.repeat(widthCols);
+  const DBL_LINE = '='.repeat(widthCols);
+
+  const previewContent = useMemo(() => {
     const isFood = preview === 'FOOD';
     const isDrink = preview === 'DRINK';
     const isReceipt = preview === 'RECEIPT';
@@ -99,79 +170,103 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
       : isFood
       ? config.receiptFoodShowHeader !== false
       : config.receiptDrinkShowHeader !== false;
+
     const showTable = isReceipt
       ? config.receiptShowTable !== false
       : isFood
       ? config.receiptFoodShowTable !== false
       : config.receiptDrinkShowTable !== false;
+
     const showWaiter = isReceipt
       ? config.receiptShowWaiter !== false
       : isFood
       ? config.receiptFoodShowWaiter !== false
       : config.receiptDrinkShowWaiter !== false;
+
     const showStamp = isReceipt
       ? config.receiptShowTimestamp !== false
       : isFood
       ? config.receiptFoodShowTimestamp !== false
       : config.receiptDrinkShowTimestamp !== false;
-    const showOptions = isReceipt ? true : isFood
+
+    const showOptions = isReceipt
+      ? true
+      : isFood
       ? config.receiptFoodShowOptions !== false
       : config.receiptDrinkShowOptions !== false;
 
     const tpl = isReceipt
-      ? (config.receiptTemplate || 'CLASSIC')
+      ? config.receiptTemplate || 'CLASSIC'
       : isFood
-      ? (config.receiptFoodTemplate || 'CLASSIC')
-      : (config.receiptDrinkTemplate || 'CLASSIC');
+      ? config.receiptFoodTemplate || 'CLASSIC'
+      : config.receiptDrinkTemplate || 'CLASSIC';
 
-    const fs = Number(
+    const tableFs = Number(
       isReceipt
-        ? (config.receiptTableFontSize ?? 3)
+        ? config.receiptTableFontSize ?? 3
         : isFood
-        ? (config.receiptFoodTableFontSize ?? 4)
-        : (config.receiptDrinkTableFontSize ?? 4)
+        ? config.receiptFoodTableFontSize ?? 4
+        : config.receiptDrinkTableFontSize ?? 4
     );
 
+    const itemFs = Number(
+      isReceipt
+        ? config.receiptItemFontSize ?? 2
+        : isFood
+        ? config.receiptFoodItemFontSize ?? 3
+        : config.receiptDrinkItemFontSize ?? 3
+    );
+
+    const lines: string[] = [];
+
+    // 1. Kopfzeilen-Hierarchie:
+    // Zeile 1: Name der Veranstaltung
+    // Zeile 2: Veranstalter / Organisation
+    // Zeile 3: Zusatztext Kopfzeile
     if (showHeader) {
-      if (tpl === 'ECO') {
-        lines.push(center(config.receiptHeader || config.name || 'OpenBon'));
-      } else if (tpl === 'GASTRO') {
-        lines.push(center(config.receiptHeader || config.name || 'OpenBon'));
-        if (config.receiptSubHeader) lines.push(center(config.receiptSubHeader));
-        lines.push(center('Musterstraße 1 · 12345 Musterstadt'));
-        lines.push(center('St.-Nr: 123/456/78901 · USt-ID: DE123456789'));
-        lines.push('');
-      } else {
-        lines.push(center(config.receiptHeader || config.name || 'OpenBon'));
-        if (config.receiptSubHeader) lines.push(center(config.receiptSubHeader));
-        lines.push('');
+      const eventName = config.name || 'Veranstaltung 2026';
+      const organizer = config.receiptSubHeader || '';
+      const customHeader = config.receiptHeader || '';
+
+      lines.push(center(eventName.toUpperCase()));
+      if (organizer) lines.push(center(organizer));
+      if (customHeader) lines.push(center(customHeader));
+
+      if (tpl === 'GASTRO') {
+        const street = config.addressStreet || 'Musterstraße 1';
+        const city = config.addressCity || '12345 Musterstadt';
+        const tax = config.taxNumber ? `St.-Nr: ${config.taxNumber}` : '';
+        const vat = config.vatId ? `USt-ID: ${config.vatId}` : '';
+        lines.push(center(`${street} · ${city}`));
+        const taxLine = [tax, vat].filter(Boolean).join(' · ');
+        if (taxLine) lines.push(center(taxLine));
       }
+      lines.push('');
     }
 
     if (!isReceipt) {
       if (tpl === 'HIGH_VISIBILITY') {
-        lines.push(center(isFood ? '==========================================' : '=========================================='));
+        lines.push(center(DBL_LINE));
         lines.push(center(isFood ? '*** KÜCHENAUFTRAG (SOFORT) ***' : '*** AUSSCHANK / THEKE ***'));
-        lines.push(center(isFood ? '==========================================' : '=========================================='));
+        lines.push(center(DBL_LINE));
       } else {
         lines.push(center(isFood ? '*** KÜCHE ***' : '*** AUSSCHANK ***'));
       }
       lines.push('');
     }
 
+    // 2. Tischnummer (mittig zentriert, sauber ohne Zusatzsymbole)
     if (showTable) {
-      if (fs >= 5 || tpl === 'HIGH_VISIBILITY') {
-        lines.push(center(`[ === ${sample.table.toUpperCase()} === ]`));
-      } else if (fs >= 4) {
-        lines.push(`>> ${sample.table.toUpperCase()} <<`);
-      } else {
-        lines.push(row(sample.table, ''));
-      }
+      lines.push(center(`Tisch 7`));
+      lines.push('');
     }
-    if (showWaiter) lines.push(row('Bedienung', sample.waiter));
-    if (showStamp) lines.push(row('Zeit', sample.stamp));
+
+    // 3. Metadaten
+    if (showWaiter) lines.push(row('Bedienung:', sample.waiter));
+    if (showStamp) lines.push(row('Uhrzeit:', sample.stamp));
     if (showTable || showWaiter || showStamp) lines.push(LINE);
 
+    // 4. Positionen
     const visible = isFood
       ? sample.items.filter((i) => !i.name.includes('Helles'))
       : isDrink
@@ -194,29 +289,32 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
         }
       }
       if (showOptions && item.option) {
-        lines.push(tpl === 'HIGH_VISIBILITY' ? `   *** WUNSCH: ${item.option.toUpperCase()} ***` : `     > ${item.option}`);
+        lines.push(tpl === 'HIGH_VISIBILITY' ? `   ! WUNSCH: ${item.option.toUpperCase()}` : `     > ${item.option}`);
       }
     }
 
+    // 5. Gesamtsumme & Fußzeile
     if (isReceipt) {
       const total = visible.reduce((s, i) => s + i.price, 0);
       lines.push(LINE);
       if (tpl === 'HIGH_VISIBILITY') {
-        lines.push(center(`##########################################`));
-        lines.push(center(`   GESAMTSUMME: ${total.toFixed(2)} ${config.currency || 'EUR'}   `));
-        lines.push(center(`##########################################`));
+        lines.push(center(`GESAMTBETRAG: ${total.toFixed(2)} ${config.currency || 'EUR'}`));
+        lines.push(center(DBL_LINE));
       } else {
-        lines.push(row('SUMME', `${total.toFixed(2)} ${config.currency || 'EUR'}`));
+        lines.push(row('GESAMTSUMME', `${total.toFixed(2)} ${config.currency || 'EUR'}`));
       }
+
       if (config.enableTax) {
         const net = total / (1 + (config.taxRateNormal || 19) / 100);
         lines.push(row(`darin MwSt ${config.taxRateNormal || 19}%`, (total - net).toFixed(2)));
       }
+
       if (config.receiptShowTse !== false) {
         lines.push('');
         lines.push('TSE-Signatur:');
         lines.push('A1B2-C3D4-E5F6-7890');
       }
+
       if (tpl === 'GASTRO') {
         lines.push('');
         lines.push('--- BEWIRTUNGSBELEG (§ 4 Abs. 5 EStG) ---');
@@ -225,14 +323,19 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
         lines.push('Trinkgeld: ____________ € Datum: ________');
         lines.push('Unterschrift: ___________________________');
       }
+
       if (config.receiptFooterText) {
         lines.push('');
         lines.push(center(config.receiptFooterText));
       }
     }
 
-    return lines.join('\n');
-  }, [config, preview]);
+    return {
+      text: lines.join('\n'),
+      tableFs,
+      itemFs,
+    };
+  }, [config, preview, paperWidth, widthCols]);
 
   const singleSlipHint =
     preview === 'FOOD'
@@ -244,65 +347,56 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-        {/* ------------------------------------------------ Einstellungen */}
+        {/* ------------------------------------------------ Einstellungen (Links) */}
         <div className="xl:col-span-3 space-y-6">
           {/* Kopf- und Fußzeilen */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
             <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
               <Type className="w-5 h-5 text-blue-400" />
-              <h3 className="font-bold text-base text-white">Kopf- und Fußzeile</h3>
+              <div>
+                <h3 className="font-bold text-base text-white">Kopf- und Fußzeile</h3>
+                <p className="text-xs text-slate-400">
+                  Name und Veranstalter werden automatisch aus „Allgemein“ übernommen.
+                </p>
+              </div>
+            </div>
+
+            {/* Automatische Vorschau der übernommenen Felder */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-950/70 border border-slate-800 rounded-2xl text-xs">
+              <div>
+                <span className="text-slate-400 block mb-0.5">1. Kopfzeile (Name der Veranstaltung):</span>
+                <span className="font-bold text-white">{config.name || 'Vereinsfest 2026'}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block mb-0.5">2. Kopfzeile (Veranstalter / Verein):</span>
+                <span className="font-bold text-white">{config.receiptSubHeader || '– (In Allgemein festlegen)'}</span>
+              </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">Kopfzeile</label>
+              <label className="block text-xs font-bold text-slate-300 mb-1">
+                Zusatztext Kopfzeile (3. Zeile, optional)
+              </label>
               <input
                 type="text"
                 value={config.receiptHeader || ''}
                 onChange={(e) => onChange({ receiptHeader: e.target.value })}
                 className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-medium focus:border-blue-500"
-                placeholder="z. B. Feuerwehrfest 2026"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">Unterzeile</label>
-              <input
-                type="text"
-                value={config.receiptSubHeader || ''}
-                onChange={(e) => onChange({ receiptSubHeader: e.target.value })}
-                className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-medium focus:border-blue-500"
-                placeholder="z. B. Freiwillige Feuerwehr Musterstadt e.V."
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">Fußzeile</label>
-              <input
-                type="text"
-                value={config.receiptFooterText || ''}
-                onChange={(e) => onChange({ receiptFooterText: e.target.value })}
-                className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-medium focus:border-blue-500"
-                placeholder="z. B. Vielen Dank für Ihren Besuch!"
+                placeholder="z. B. Herzlich Willkommen! (Standard: leer)"
               />
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1">
-                Schriftgröße Tischnummer auf Bons: Stufe {config.receiptTableFontSize ?? 3}
+                Fußzeile (Abschluss des Belegs)
               </label>
               <input
-                type="range"
-                min={1}
-                max={5}
-                step={1}
-                value={config.receiptTableFontSize ?? 3}
-                onChange={(e) => onChange({ receiptTableFontSize: parseInt(e.target.value, 10) })}
-                className="w-full accent-blue-500"
+                type="text"
+                value={config.receiptFooterText || ''}
+                onChange={(e) => onChange({ receiptFooterText: e.target.value })}
+                className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-medium focus:border-blue-500"
+                placeholder="z. B. Vielen Dank für Ihren Besuch! (Standard: leer)"
               />
-              <p className="text-xs text-slate-500">
-                Stufe 5 druckt die Tischnummer so groß, dass sie im Küchendurchgang aus einem Meter
-                Entfernung lesbar ist.
-              </p>
             </div>
           </div>
 
@@ -317,54 +411,62 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
 
             {/* Template Selector */}
             <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1.5">Design-Vorlage (Kassenbeleg)</label>
+              <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                Design-Vorlage (Kassenbeleg)
+              </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
-                  { id: 'CLASSIC', label: 'Klassisch' },
-                  { id: 'ECO', label: 'Kompakt (Eco)' },
-                  { id: 'HIGH_VISIBILITY', label: 'Großschrift' },
-                  { id: 'GASTRO', label: 'Gastro Detail' },
-                ].map((tpl) => (
-                  <button
-                    key={tpl.id}
-                    type="button"
-                    onClick={() => onChange({ receiptTemplate: tpl.id })}
-                    className={`px-3 py-2 rounded-xl text-xs font-bold transition border ${
-                      (config.receiptTemplate || 'CLASSIC') === tpl.id
-                        ? 'bg-emerald-600 text-white border-emerald-500 shadow'
-                        : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                    }`}
-                  >
-                    {tpl.label}
-                  </button>
-                ))}
+                  { id: 'CLASSIC', label: 'Klassisch', reqGastro: false },
+                  { id: 'ECO', label: 'Kompakt (Eco)', reqGastro: false },
+                  { id: 'HIGH_VISIBILITY', label: 'Großschrift', reqGastro: false },
+                  { id: 'GASTRO', label: 'Gastro Detail', reqGastro: true },
+                ].map((tpl) => {
+                  const isDisabled = tpl.reqGastro && !hasGastroData;
+                  return (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      disabled={isDisabled}
+                      onClick={() => onChange({ receiptTemplate: tpl.id })}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold transition border relative ${
+                        (config.receiptTemplate || 'CLASSIC') === tpl.id
+                          ? 'bg-emerald-600 text-white border-emerald-500 shadow'
+                          : isDisabled
+                          ? 'bg-slate-950/40 text-slate-600 border-slate-800/60 cursor-not-allowed'
+                          : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                      }`}
+                      title={isDisabled ? 'Zuerst Adress- & Steuerdaten im Reiter Allgemein hinterlegen' : ''}
+                    >
+                      <span>{tpl.label}</span>
+                      {isDisabled && (
+                        <Lock className="w-3 h-3 absolute top-1.5 right-1.5 text-slate-500" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
+              {!hasGastroData && (
+                <p className="text-[11px] text-amber-400 mt-1.5 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  Gastro Detail ist erst wählbar, sobald Adresse &amp; Steuernummer in „Allgemein“ hinterlegt sind.
+                </p>
+              )}
             </div>
 
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="text-xs font-bold text-slate-300">
-                  Schriftgröße Tischnummer (Kassenbeleg): {config.receiptTableFontSize ?? 3}×
-                </label>
-                <span className="text-[11px] font-mono text-emerald-400">
-                  {Number(config.receiptTableFontSize ?? 3) >= 5 ? 'Invertiert (Weiß auf Schwarz)' : 'Standard'}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={1}
-                max={8}
-                step={1}
+            {/* Schriftgrößen-Slider (10 Stufen) */}
+            <div className="space-y-3 pt-2 bg-slate-950 p-4 rounded-2xl border border-slate-800">
+              <FontSizeSlider
+                label="Schriftgröße Tischnummer (Zentriert)"
                 value={config.receiptTableFontSize ?? 3}
-                onChange={(e) => onChange({ receiptTableFontSize: parseInt(e.target.value, 10) })}
-                className="w-full accent-emerald-500"
+                onChange={(v) => onChange({ receiptTableFontSize: v })}
+                color="emerald"
               />
-              <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-0.5">
-                <span>1× Fein</span>
-                <span>3× Mittel</span>
-                <span>5× Invertiert</span>
-                <span>8× Riesig</span>
-              </div>
+              <FontSizeSlider
+                label="Schriftgröße Artikel &amp; Menge"
+                value={config.receiptItemFontSize ?? 2}
+                onChange={(v) => onChange({ receiptItemFontSize: v })}
+                color="emerald"
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
@@ -405,7 +507,9 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
 
             {/* Template Selector */}
             <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1.5">Design-Vorlage (Speisen-Bon)</label>
+              <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                Design-Vorlage (Speisen-Bon)
+              </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
                   { id: 'CLASSIC', label: 'Klassisch' },
@@ -429,30 +533,20 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
               </div>
             </div>
 
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="text-xs font-bold text-slate-300">
-                  Schriftgröße Tischnummer (Speisen): {config.receiptFoodTableFontSize ?? 4}×
-                </label>
-                <span className="text-[11px] font-mono text-amber-400">
-                  {Number(config.receiptFoodTableFontSize ?? 4) >= 5 ? 'Invertiert (Weiß auf Schwarz)' : 'Groß'}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={1}
-                max={8}
-                step={1}
+            {/* Schriftgrößen-Slider (10 Stufen) */}
+            <div className="space-y-3 pt-2 bg-slate-950 p-4 rounded-2xl border border-slate-800">
+              <FontSizeSlider
+                label="Schriftgröße Tischnummer (Küche)"
                 value={config.receiptFoodTableFontSize ?? 4}
-                onChange={(e) => onChange({ receiptFoodTableFontSize: parseInt(e.target.value, 10) })}
-                className="w-full accent-amber-500"
+                onChange={(v) => onChange({ receiptFoodTableFontSize: v })}
+                color="amber"
               />
-              <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-0.5">
-                <span>1× Klein</span>
-                <span>4× Groß</span>
-                <span>6× Riesig</span>
-                <span>8× Maximal</span>
-              </div>
+              <FontSizeSlider
+                label="Schriftgröße Speisen &amp; Menge"
+                value={config.receiptFoodItemFontSize ?? 3}
+                onChange={(v) => onChange({ receiptFoodItemFontSize: v })}
+                color="amber"
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
@@ -516,7 +610,9 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
 
             {/* Template Selector */}
             <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1.5">Design-Vorlage (Getränke-Bon)</label>
+              <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                Design-Vorlage (Getränke-Bon)
+              </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
                   { id: 'CLASSIC', label: 'Klassisch' },
@@ -540,30 +636,20 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
               </div>
             </div>
 
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="text-xs font-bold text-slate-300">
-                  Schriftgröße Tischnummer (Getränke): {config.receiptDrinkTableFontSize ?? 4}×
-                </label>
-                <span className="text-[11px] font-mono text-sky-400">
-                  {Number(config.receiptDrinkTableFontSize ?? 4) >= 5 ? 'Invertiert (Weiß auf Schwarz)' : 'Groß'}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={1}
-                max={8}
-                step={1}
+            {/* Schriftgrößen-Slider (10 Stufen) */}
+            <div className="space-y-3 pt-2 bg-slate-950 p-4 rounded-2xl border border-slate-800">
+              <FontSizeSlider
+                label="Schriftgröße Tischnummer (Ausschank)"
                 value={config.receiptDrinkTableFontSize ?? 4}
-                onChange={(e) => onChange({ receiptDrinkTableFontSize: parseInt(e.target.value, 10) })}
-                className="w-full accent-sky-500"
+                onChange={(v) => onChange({ receiptDrinkTableFontSize: v })}
+                color="sky"
               />
-              <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-0.5">
-                <span>1× Klein</span>
-                <span>4× Groß</span>
-                <span>6× Riesig</span>
-                <span>8× Maximal</span>
-              </div>
+              <FontSizeSlider
+                label="Schriftgröße Getränke &amp; Menge"
+                value={config.receiptDrinkItemFontSize ?? 3}
+                onChange={(v) => onChange({ receiptDrinkItemFontSize: v })}
+                color="sky"
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
@@ -618,9 +704,10 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
           </div>
         </div>
 
-        {/* ------------------------------------------------------ Vorschau */}
+        {/* ------------------------------------------------------ Vorschau (Rechts) */}
         <div className="xl:col-span-2">
           <div className="xl:sticky xl:top-4 space-y-3">
+            {/* Bon-Typ Umschalter */}
             <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-2xl p-1.5">
               {([
                 { id: 'RECEIPT', label: 'Kassenbeleg' },
@@ -642,29 +729,69 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
               ))}
             </div>
 
-            {/* Papierstreifen */}
-            <div className="bg-slate-950 border border-slate-800 rounded-3xl p-4 shadow-xl">
-              <div className="flex items-center justify-between mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                <span>Vorschau · 80 mm</span>
-                <span className="flex items-center gap-1">
-                  <Scissors className="w-3 h-3" />
-                  42 Zeichen
-                </span>
+            {/* Breiten-Umschalter 80mm vs 58mm */}
+            <div className="flex items-center justify-between px-3 py-2 bg-slate-900 border border-slate-800 rounded-2xl text-xs">
+              <span className="font-bold text-slate-300">Papierbreite:</span>
+              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setPaperWidth(80)}
+                  className={`px-3 py-1 rounded-lg font-bold transition ${
+                    paperWidth === 80
+                      ? 'bg-blue-600 text-white shadow'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  80 mm (Standard)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaperWidth(58)}
+                  className={`px-3 py-1 rounded-lg font-bold transition ${
+                    paperWidth === 58
+                      ? 'bg-blue-600 text-white shadow'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  58 mm (Schmal)
+                </button>
               </div>
-              <div className="bg-white text-slate-950 rounded-xl border-y-4 border-dashed border-slate-400 p-3 overflow-x-auto">
-                <pre className="font-mono text-[11px] leading-[1.45] whitespace-pre">{text}</pre>
-              </div>
-              {singleSlipHint ? (
-                <p className="mt-2 text-[11px] text-amber-300 font-bold">
-                  Einzelbon aktiv: Jede Position wird als eigener Zettel gedruckt – die Vorschau
-                  zeigt sie der Übersicht halber zusammen.
-                </p>
-              ) : null}
             </div>
 
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              Die Vorschau bildet das Layout ab, nicht die exakte Druckbreite Ihres Geräts. Bei
-              58-mm-Rollen bricht der Text entsprechend früher um.
+            {/* Papierstreifen Live-Vorschau */}
+            <div className="bg-slate-950 border border-slate-800 rounded-3xl p-4 shadow-xl">
+              <div className="flex items-center justify-between mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                <span>Vorschau · {paperWidth} mm</span>
+                <span className="flex items-center gap-1">
+                  <Scissors className="w-3 h-3" />
+                  {widthCols} Spalten
+                </span>
+              </div>
+
+              <div
+                className={`bg-white text-slate-950 rounded-xl border-y-4 border-dashed border-slate-400 p-4 mx-auto transition-all shadow-inner overflow-x-auto ${
+                  paperWidth === 58 ? 'max-w-[280px]' : 'max-w-[380px]'
+                }`}
+              >
+                <pre
+                  className="font-mono leading-[1.4] whitespace-pre select-all text-slate-950 font-medium"
+                  style={{
+                    fontSize: paperWidth === 58 ? '10px' : '11px',
+                  }}
+                >
+                  {previewContent.text}
+                </pre>
+              </div>
+
+              {singleSlipHint && (
+                <p className="mt-3 text-[11px] text-amber-300 font-bold text-center">
+                  Einzelbon aktiv: Jede Position wird als separater Bon gedruckt.
+                </p>
+              )}
+            </div>
+
+            <p className="text-[11px] text-slate-500 leading-relaxed text-center">
+              Die Vorschau aktualisiert Schriftgrößen, Breiten und Kopfzeilen in Echtzeit.
             </p>
           </div>
         </div>

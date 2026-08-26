@@ -36,17 +36,24 @@ model EventConfig {
   lowStockAlertPrinterId      String?
 
   // Beleg- & Bon-Druck Layout & Schriftgrößen
-  receiptHeader                 String? @default("Vereinsfest 2026")
-  receiptSubHeader              String? @default("Freiwillige Feuerwehr e.V.")
-  receiptFooterText             String? @default("Vielen Dank für Ihren Besuch!")
+  receiptHeader                 String? @default("")
+  receiptSubHeader              String? @default("")
+  receiptFooterText             String? @default("")
   receiptShowTimestamp          Boolean @default(true)
   receiptShowWaiter             Boolean @default(true)
   receiptShowTable              Boolean @default(true)
   receiptShowTse                Boolean @default(true)
-  receiptTableFontSize          Int     @default(3) // Kassenbeleg Tischnummer (1..8)
-  receiptFoodTableFontSize      Int     @default(4) // Speisen-Bon Tischnummer (1..8)
-  receiptDrinkTableFontSize     Int     @default(4) // Getränke-Bon Tischnummer (1..8)
-  tableMarkerFontSize           Int     @default(4) // Tisch-Markierungsbon (1..8)
+  receiptTableFontSize          Int     @default(3) // Kassenbeleg Tischnummer (1..10)
+  receiptFoodTableFontSize      Int     @default(4) // Speisen-Bon Tischnummer (1..10)
+  receiptDrinkTableFontSize     Int     @default(4) // Getränke-Bon Tischnummer (1..10)
+  tableMarkerFontSize           Int     @default(4) // Tisch-Markierungsbon (1..10)
+  receiptItemFontSize           Int     @default(2) // Kassenbeleg Artikel & Menge (1..10)
+  receiptOptionsFontSize        Int     @default(1) // Kassenbeleg Zusatz (1..10)
+  receiptMetaFontSize           Int     @default(1) // Kassenbeleg Metadaten (1..10)
+  receiptFoodItemFontSize       Int     @default(3) // Speisen Artikel & Menge (1..10)
+  receiptFoodOptionsFontSize    Int     @default(2) // Speisen Zusatz (1..10)
+  receiptDrinkItemFontSize      Int     @default(3) // Getränke Artikel & Menge (1..10)
+  receiptDrinkOptionsFontSize   Int     @default(2) // Getränke Zusatz (1..10)
   receiptTemplate               String  @default("CLASSIC") // CLASSIC, ECO, HIGH_VISIBILITY, GASTRO
   receiptFoodTemplate           String  @default("CLASSIC") // CLASSIC, ECO, HIGH_VISIBILITY, GASTRO
   receiptDrinkTemplate          String  @default("CLASSIC") // CLASSIC, ECO, HIGH_VISIBILITY, GASTRO
@@ -65,6 +72,12 @@ model EventConfig {
   receiptDrinkShowWaiter        Boolean @default(true)
   receiptDrinkShowTimestamp     Boolean @default(true)
   receiptDrinkShowOptions       Boolean @default(true)
+
+  // Gastro & Steuerdaten (Rechtliche Angaben für Gastro-Template)
+  addressStreet                 String?
+  addressCity                   String?
+  taxNumber                     String?
+  vatId                         String?
 
   // Kartenzahlungs-IDs & Provider-Konfiguration
   activeCardProvider  String  @default("SUMUP") // SUMUP, VRPAY, SPARKASSE, ZETTLE, STRIPE, ZVT

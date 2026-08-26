@@ -236,6 +236,22 @@ export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
+    const deleteAll = searchParams.get('all') === 'true';
+
+    if (deleteAll) {
+      await prisma.diningTable.deleteMany({});
+      if (global.io) {
+        global.io.emit('tables:updated_all');
+      }
+      await logSystemActionSafe(() => ({
+        action: 'TABLES_CLEARED_ALL',
+        category: 'ADMIN',
+        actor: auth.session.waiterName || auth.session.role,
+        details: 'Alle Tische gelöscht.',
+      }));
+      return NextResponse.json({ success: true, message: 'Alle Tische gelöscht.' });
+    }
+
     if (!id) return NextResponse.json({ error: 'Tisch-ID fehlt' }, { status: 400 });
 
     await prisma.diningTable.delete({ where: { id } });

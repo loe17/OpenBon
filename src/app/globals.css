@@ -198,18 +198,18 @@ html[data-theme="klassisch"] .border-slate-800, html[data-theme="klassisch"] .bo
 
 /* Schrift */
 html.klassisch .text-white, html.klassisch .text-slate-100, html.klassisch .text-slate-200,
-html[data-theme="klassisch"] .text-white, html[data-theme="klassisch"] .text-slate-100, html[data-theme="klassisch"] .text-slate-200 { color: #202124 !important; }
+html[data-theme="klassisch"] .text-white, html[data-theme="klassisch"] .text-slate-100, html[data-theme="klassisch"] .text-slate-200 { color: #111827 !important; }
 html.klassisch .text-slate-300, html.klassisch .text-slate-400,
-html[data-theme="klassisch"] .text-slate-300, html[data-theme="klassisch"] .text-slate-400 { color: #5f6368 !important; }
+html[data-theme="klassisch"] .text-slate-300, html[data-theme="klassisch"] .text-slate-400 { color: #374151 !important; }
 html.klassisch .text-slate-500, html.klassisch .text-slate-600,
-html[data-theme="klassisch"] .text-slate-500, html[data-theme="klassisch"] .text-slate-600 { color: #80868b !important; }
+html[data-theme="klassisch"] .text-slate-500, html[data-theme="klassisch"] .text-slate-600 { color: #4b5563 !important; }
 
 /* Eingabefelder */
 html.klassisch input, html.klassisch select, html.klassisch textarea,
 html[data-theme="klassisch"] input, html[data-theme="klassisch"] select, html[data-theme="klassisch"] textarea {
   background-color: #ffffff !important;
-  color: #202124 !important;
-  border-color: #bdc1c6 !important;
+  color: #111827 !important;
+  border-color: #9ca3af !important;
 }
 
 /* Flach: kleine Radien, keine Schatten, normale Schriftstaerke */
@@ -217,44 +217,42 @@ html.klassisch .rounded-3xl, html.klassisch .rounded-2xl, html.klassisch .rounde
 html[data-theme="klassisch"] .rounded-3xl, html[data-theme="klassisch"] .rounded-2xl, html[data-theme="klassisch"] .rounded-xl { border-radius: 0.375rem !important; }
 html.klassisch [class*="shadow"], html[data-theme="klassisch"] [class*="shadow"] { box-shadow: none !important; }
 html.klassisch .font-black, html.klassisch .font-extrabold,
-html[data-theme="klassisch"] .font-black, html[data-theme="klassisch"] .font-extrabold { font-weight: 600 !important; }
+html[data-theme="klassisch"] .font-black, html[data-theme="klassisch"] .font-extrabold { font-weight: 700 !important; }
 html.klassisch .tracking-tight, html[data-theme="klassisch"] .tracking-tight { letter-spacing: normal !important; }
 html.klassisch [class*="bg-gradient"], html[data-theme="klassisch"] [class*="bg-gradient"] { background-image: none !important; }
 
-/* Akzentflaechen pastellig statt kraeftig.
-   Zustimmen/Bezahlen gruen, Abbrechen/Storno rot, Hinweis orange,
-   fuehrende Aktion blau - jeweils mit dunkler Schrift statt weiss. */
+/* Akzentflaechen mit starkem Kontrast */
 html.klassisch .bg-emerald-600, html.klassisch .bg-emerald-500, html.klassisch .bg-green-600,
-html[data-theme="klassisch"] .bg-emerald-600, html[data-theme="klassisch"] .bg-emerald-500, html[data-theme="klassisch"] .bg-green-600 { background-color: #a8d8b0 !important; color: #17321d !important; border-color: #86c294 !important; }
+html[data-theme="klassisch"] .bg-emerald-600, html[data-theme="klassisch"] .bg-emerald-500, html[data-theme="klassisch"] .bg-green-600 { background-color: #059669 !important; color: #ffffff !important; border-color: #047857 !important; }
 html.klassisch .bg-rose-600, html.klassisch .bg-rose-500, html.klassisch .bg-red-600,
-html[data-theme="klassisch"] .bg-rose-600, html[data-theme="klassisch"] .bg-rose-500, html[data-theme="klassisch"] .bg-red-600 { background-color: #f5b8b8 !important; color: #4a1414 !important; border-color: #e59a9a !important; }
+html[data-theme="klassisch"] .bg-rose-600, html[data-theme="klassisch"] .bg-rose-500, html[data-theme="klassisch"] .bg-red-600 { background-color: #e11d48 !important; color: #ffffff !important; border-color: #be123c !important; }
 html.klassisch .bg-amber-600, html.klassisch .bg-amber-500, html.klassisch .bg-orange-600,
-html[data-theme="klassisch"] .bg-amber-600, html[data-theme="klassisch"] .bg-amber-500, html[data-theme="klassisch"] .bg-orange-600 { background-color: #fbd08a !important; color: #3d2a06 !important; border-color: #e8b768 !important; }
+html[data-theme="klassisch"] .bg-amber-600, html[data-theme="klassisch"] .bg-amber-500, html[data-theme="klassisch"] .bg-orange-600 { background-color: #d97706 !important; color: #ffffff !important; border-color: #b45309 !important; }
 html.klassisch .bg-blue-600, html.klassisch .bg-blue-500, html.klassisch .bg-indigo-600,
-html[data-theme="klassisch"] .bg-blue-600, html[data-theme="klassisch"] .bg-blue-500, html[data-theme="klassisch"] .bg-indigo-600 { background-color: #1a73e8 !important; color: #ffffff !important; border-color: #1a73e8 !important; }
+html[data-theme="klassisch"] .bg-blue-600, html[data-theme="klassisch"] .bg-blue-500, html[data-theme="klassisch"] .bg-indigo-600 { background-color: #2563eb !important; color: #ffffff !important; border-color: #1d4ed8 !important; }
 
 /* Dunkle Farbkacheln (z. B. Statusflaechen) aufhellen */
-html.klassisch [class*="-950"], html[data-theme="klassisch"] [class*="-950"] { background-color: #f8f9fa !important; }
+html.klassisch [class*="-950"], html[data-theme="klassisch"] [class*="-950"] { background-color: #f8fafc !important; border-color: #e2e8f0 !important; }
 
 /* Akzentschrift und Symbole */
 html.klassisch .text-blue-400, html.klassisch .text-blue-300, html.klassisch .text-blue-500,
-html[data-theme="klassisch"] .text-blue-400, html[data-theme="klassisch"] .text-blue-300, html[data-theme="klassisch"] .text-blue-500 { color: #1a73e8 !important; }
+html[data-theme="klassisch"] .text-blue-400, html[data-theme="klassisch"] .text-blue-300, html[data-theme="klassisch"] .text-blue-500 { color: #1d4ed8 !important; }
 html.klassisch .text-emerald-400, html.klassisch .text-emerald-300,
-html[data-theme="klassisch"] .text-emerald-400, html[data-theme="klassisch"] .text-emerald-300 { color: #1e8e3e !important; }
+html[data-theme="klassisch"] .text-emerald-400, html[data-theme="klassisch"] .text-emerald-300 { color: #047857 !important; }
 html.klassisch .text-rose-400, html.klassisch .text-rose-300, html.klassisch .text-red-400,
-html[data-theme="klassisch"] .text-rose-400, html[data-theme="klassisch"] .text-rose-300, html[data-theme="klassisch"] .text-red-400 { color: #d93025 !important; }
+html[data-theme="klassisch"] .text-rose-400, html[data-theme="klassisch"] .text-rose-300, html[data-theme="klassisch"] .text-red-400 { color: #be123c !important; }
 html.klassisch .text-amber-400, html.klassisch .text-amber-300,
-html[data-theme="klassisch"] .text-amber-400, html[data-theme="klassisch"] .text-amber-300 { color: #e37400 !important; }
+html[data-theme="klassisch"] .text-amber-400, html[data-theme="klassisch"] .text-amber-300 { color: #b45309 !important; }
 
 /* Ziffernblock passend zum flachen Bild */
 html.klassisch .keypad-key, html[data-theme="klassisch"] .keypad-key {
-  background-color: #f1f3f4 !important;
-  color: #202124 !important;
-  border-color: #dadce0 !important;
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
   border-radius: 0.375rem !important;
-  font-weight: 600 !important;
+  font-weight: 700 !important;
 }
-html.klassisch .keypad-key:active, html[data-theme="klassisch"] .keypad-key:active { background-color: #e8eaed !important; }
+html.klassisch .keypad-key:active, html[data-theme="klassisch"] .keypad-key:active { background-color: #e2e8f0 !important; }
 
 /* Global Scrollable Setup */
 html, body {
