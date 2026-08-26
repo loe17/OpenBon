@@ -78,22 +78,21 @@ html.dark body, html[data-theme="dark"] body {
 /* Theme: Hell (Klares Tageslicht, sonnenlichttaugliche Kontraste) */
 html.light body, html[data-theme="light"] body {
   background-color: #f8fafc !important;
-  color: #0f172a !important;
+  color: #000000 !important;
 }
 html.light header, html.light nav, html[data-theme="light"] header, html[data-theme="light"] nav {
   background-color: #ffffff !important;
-  color: #0f172a !important;
-  border-color: #e2e8f0 !important;
+  color: #000000 !important;
+  border-color: #cbd5e1 !important;
   box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1) !important;
 }
-html.light .bg-slate-950, html[data-theme="light"] .bg-slate-950 { background-color: #f1f5f9 !important; border-color: #cbd5e1 !important; }
-html.light .bg-slate-900, html[data-theme="light"] .bg-slate-900 { background-color: #ffffff !important; border-color: #e2e8f0 !important; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.07) !important; }
+html.light .bg-slate-950, html[data-theme="light"] .bg-slate-950 { background-color: #f1f5f9 !important; border-color: #94a3b8 !important; }
+html.light .bg-slate-900, html[data-theme="light"] .bg-slate-900 { background-color: #ffffff !important; border-color: #cbd5e1 !important; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.07) !important; }
 html.light .bg-slate-800, html[data-theme="light"] .bg-slate-800 { background-color: #f8fafc !important; border-color: #cbd5e1 !important; }
-html.light .border-slate-800, html.light .border-slate-700, html[data-theme="light"] .border-slate-800, html[data-theme="light"] .border-slate-700 { border-color: #cbd5e1 !important; }
-html.light .text-white, html.light .text-slate-100, html.light .text-slate-200, html[data-theme="light"] .text-white, html[data-theme="light"] .text-slate-100, html[data-theme="light"] .text-slate-200 { color: #0f172a !important; }
-html.light .text-slate-300, html.light .text-slate-400, html[data-theme="light"] .text-slate-300, html[data-theme="light"] .text-slate-400 { color: #334155 !important; }
-html.light .text-slate-500, html[data-theme="light"] .text-slate-500 { color: #64748b !important; }
-html.light input, html.light select, html.light textarea, html[data-theme="light"] input, html[data-theme="light"] select, html[data-theme="light"] textarea { background-color: #ffffff !important; color: #0f172a !important; border-color: #94a3b8 !important; }
+html.light .border-slate-800, html.light .border-slate-700, html[data-theme="light"] .border-slate-800, html[data-theme="light"] .border-slate-700 { border-color: #94a3b8 !important; }
+html.light .text-white, html.light .text-slate-100, html.light .text-slate-200, html.light .text-slate-300, html.light .text-slate-400, html[data-theme="light"] .text-white, html[data-theme="light"] .text-slate-100, html[data-theme="light"] .text-slate-200, html[data-theme="light"] .text-slate-300, html[data-theme="light"] .text-slate-400 { color: #000000 !important; }
+html.light .text-slate-500, html.light .text-slate-600, html[data-theme="light"] .text-slate-500, html[data-theme="light"] .text-slate-600 { color: #334155 !important; }
+html.light input, html.light select, html.light textarea, html[data-theme="light"] input, html[data-theme="light"] select, html[data-theme="light"] textarea { background-color: #ffffff !important; color: #000000 !important; border-color: #64748b !important; }
 
 /* Theme: Kontrastreich (Pures OLED-Schwarz mit sonnengelben Akzenten) */
 html.contrast body, html[data-theme="contrast"] body {
@@ -114,38 +113,6 @@ html.contrast .text-slate-300, html.contrast .text-slate-400, html.contrast .tex
 html.contrast .text-amber-400, html.contrast .text-amber-300, html[data-theme="contrast"] .text-amber-400, html[data-theme="contrast"] .text-amber-300 { color: #facc15 !important; font-weight: 900 !important; }
 html.contrast button, html[data-theme="contrast"] button { font-weight: 800 !important; }
 
-/* Theme: Modern (Kosmisches Deep Violet & Neon Cyber Glow) */
-html.modern body, html[data-theme="modern"] body {
-  background-color: #080318 !important;
-  color: #f8fafc !important;
-}
-html.modern header, html.modern nav, html[data-theme="modern"] header, html[data-theme="modern"] nav {
-  background-color: rgba(19, 9, 44, 0.9) !important;
-  backdrop-filter: blur(20px) !important;
-  border-color: rgba(168, 85, 247, 0.45) !important;
-}
-html.modern .bg-slate-950, html[data-theme="modern"] .bg-slate-950 { background-color: #0a0420 !important; border-color: rgba(168, 85, 247, 0.3) !important; }
-html.modern .bg-slate-900, html[data-theme="modern"] .bg-slate-900 { background-color: rgba(26, 12, 58, 0.85) !important; backdrop-filter: blur(14px) !important; border-color: rgba(192, 132, 252, 0.4) !important; box-shadow: 0 0 25px -5px rgba(168, 85, 247, 0.15) !important; }
-html.modern .bg-slate-800, html[data-theme="modern"] .bg-slate-800 { background-color: #24114d !important; border-color: rgba(192, 132, 252, 0.35) !important; }
-html.modern .border-slate-800, html.modern .border-slate-700, html[data-theme="modern"] .border-slate-800, html[data-theme="modern"] .border-slate-700 { border-color: rgba(168, 85, 247, 0.35) !important; }
-html.modern .text-slate-400, html[data-theme="modern"] .text-slate-400 { color: #d8b4fe !important; }
-
-/* Theme: Biergarten (Traditionell Tannengrün & Warmes Festzelt-Holz) */
-html.plain body, html[data-theme="plain"] body {
-  background-color: #05140e !important;
-  color: #fefce8 !important;
-}
-html.plain header, html.plain nav, html[data-theme="plain"] header, html[data-theme="plain"] nav {
-  background-color: #092318 !important;
-  border-color: #15803d !important;
-}
-html.plain .bg-slate-950, html[data-theme="plain"] .bg-slate-950 { background-color: #04100b !important; border-color: #166534 !important; }
-html.plain .bg-slate-900, html[data-theme="plain"] .bg-slate-900 { background-color: #0a271b !important; border-color: #15803d !important; box-shadow: 0 4px 12px rgba(22, 101, 52, 0.2) !important; }
-html.plain .bg-slate-800, html[data-theme="plain"] .bg-slate-800 { background-color: #113627 !important; border-color: #22c55e !important; }
-html.plain .border-slate-800, html.plain .border-slate-700, html[data-theme="plain"] .border-slate-800, html[data-theme="plain"] .border-slate-700 { border-color: #15803d !important; }
-html.plain .text-white, html[data-theme="plain"] .text-white { color: #fefce8 !important; }
-html.plain .text-slate-300, html.plain .text-slate-400, html[data-theme="plain"] .text-slate-300, html[data-theme="plain"] .text-slate-400 { color: #bbf7d0 !important; }
-
 /* ◽ Theme: Minimalistisch (Monochrome Flat Carbon, ultra-präzise Linien) */
 html.minimal body, html[data-theme="minimal"] body {
   background-color: #09090b !important;
@@ -163,53 +130,44 @@ html.minimal .border-slate-800, html.minimal .border-slate-700, html[data-theme=
 html.minimal .rounded-2xl, html.minimal .rounded-3xl, html[data-theme="minimal"] .rounded-2xl, html[data-theme="minimal"] .rounded-3xl { border-radius: 0.5rem !important; }
 
 /* ------------------------------------------------------------------ */
-/* Theme "Klassisch"                                                   */
-/*                                                                      */
-/* Ruhiges, flaeches Erscheinungsbild nach Vorbild klassischer          */
-/* Vereins-Kassen-Apps: weisser Grund, ein einziger blauer Akzent,      */
-/* pastellige Bedienflaechen, kleine Radien, normale Schriftstaerke.    */
-/*                                                                      */
-/* Anders als die uebrigen Themes werden hier ausdruecklich AUCH die    */
-/* kraeftigen Akzentfarben (emerald/blue/rose/amber) abgeschwaecht.     */
-/* Ohne das bliebe ein helles Theme mit knalligen Knoepfen uebrig -     */
-/* nicht das ruhige Bild, um das es hier geht.                          */
+/* Theme "Klassisch" (Tiefschwarze Schrift & Saubere Akzentfarben)    */
 /* ------------------------------------------------------------------ */
 html.klassisch body, html[data-theme="klassisch"] body {
   background-color: #ffffff !important;
-  color: #202124 !important;
+  color: #000000 !important;
 }
-html.klassisch, html[data-theme="klassisch"] { --ob-accent: #1a73e8; }
+html.klassisch, html[data-theme="klassisch"] { --ob-accent: #2563eb; }
 
 html.klassisch header, html.klassisch nav,
 html[data-theme="klassisch"] header, html[data-theme="klassisch"] nav {
   background-color: #ffffff !important;
-  border-color: #e0e0e0 !important;
+  border-color: #cbd5e1 !important;
   box-shadow: none !important;
-  color: #202124 !important;
+  color: #000000 !important;
 }
 
 /* Flaechen */
-html.klassisch .bg-slate-950, html[data-theme="klassisch"] .bg-slate-950 { background-color: #ffffff !important; border-color: #e0e0e0 !important; box-shadow: none !important; }
-html.klassisch .bg-slate-900, html[data-theme="klassisch"] .bg-slate-900 { background-color: #ffffff !important; border-color: #e0e0e0 !important; box-shadow: none !important; }
-html.klassisch .bg-slate-800, html[data-theme="klassisch"] .bg-slate-800 { background-color: #f5f5f5 !important; border-color: #e0e0e0 !important; }
-html.klassisch .bg-slate-700, html[data-theme="klassisch"] .bg-slate-700 { background-color: #eeeeee !important; }
+html.klassisch .bg-slate-950, html[data-theme="klassisch"] .bg-slate-950 { background-color: #f8fafc !important; border-color: #cbd5e1 !important; box-shadow: none !important; }
+html.klassisch .bg-slate-900, html[data-theme="klassisch"] .bg-slate-900 { background-color: #ffffff !important; border-color: #cbd5e1 !important; box-shadow: none !important; }
+html.klassisch .bg-slate-800, html[data-theme="klassisch"] .bg-slate-800 { background-color: #f1f5f9 !important; border-color: #cbd5e1 !important; }
+html.klassisch .bg-slate-700, html[data-theme="klassisch"] .bg-slate-700 { background-color: #e2e8f0 !important; }
 html.klassisch .border-slate-800, html.klassisch .border-slate-700, html.klassisch .border-slate-600,
-html[data-theme="klassisch"] .border-slate-800, html[data-theme="klassisch"] .border-slate-700, html[data-theme="klassisch"] .border-slate-600 { border-color: #e0e0e0 !important; }
+html[data-theme="klassisch"] .border-slate-800, html[data-theme="klassisch"] .border-slate-700, html[data-theme="klassisch"] .border-slate-600 { border-color: #cbd5e1 !important; }
 
 /* Schrift */
 html.klassisch .text-white, html.klassisch .text-slate-100, html.klassisch .text-slate-200,
-html[data-theme="klassisch"] .text-white, html[data-theme="klassisch"] .text-slate-100, html[data-theme="klassisch"] .text-slate-200 { color: #111827 !important; }
 html.klassisch .text-slate-300, html.klassisch .text-slate-400,
-html[data-theme="klassisch"] .text-slate-300, html[data-theme="klassisch"] .text-slate-400 { color: #374151 !important; }
+html[data-theme="klassisch"] .text-white, html[data-theme="klassisch"] .text-slate-100, html[data-theme="klassisch"] .text-slate-200,
+html[data-theme="klassisch"] .text-slate-300, html[data-theme="klassisch"] .text-slate-400 { color: #000000 !important; }
 html.klassisch .text-slate-500, html.klassisch .text-slate-600,
-html[data-theme="klassisch"] .text-slate-500, html[data-theme="klassisch"] .text-slate-600 { color: #4b5563 !important; }
+html[data-theme="klassisch"] .text-slate-500, html[data-theme="klassisch"] .text-slate-600 { color: #1e293b !important; }
 
 /* Eingabefelder */
 html.klassisch input, html.klassisch select, html.klassisch textarea,
 html[data-theme="klassisch"] input, html[data-theme="klassisch"] select, html[data-theme="klassisch"] textarea {
   background-color: #ffffff !important;
-  color: #111827 !important;
-  border-color: #9ca3af !important;
+  color: #000000 !important;
+  border-color: #64748b !important;
 }
 
 /* Flach: kleine Radien, keine Schatten, normale Schriftstaerke */
@@ -223,31 +181,31 @@ html.klassisch [class*="bg-gradient"], html[data-theme="klassisch"] [class*="bg-
 
 /* Akzentflaechen mit starkem Kontrast */
 html.klassisch .bg-emerald-600, html.klassisch .bg-emerald-500, html.klassisch .bg-green-600,
-html[data-theme="klassisch"] .bg-emerald-600, html[data-theme="klassisch"] .bg-emerald-500, html[data-theme="klassisch"] .bg-green-600 { background-color: #059669 !important; color: #ffffff !important; border-color: #047857 !important; }
+html[data-theme="klassisch"] .bg-emerald-600, html[data-theme="klassisch"] .bg-emerald-500, html[data-theme="klassisch"] .bg-green-600 { background-color: #16a34a !important; color: #ffffff !important; border-color: #15803d !important; }
 html.klassisch .bg-rose-600, html.klassisch .bg-rose-500, html.klassisch .bg-red-600,
-html[data-theme="klassisch"] .bg-rose-600, html[data-theme="klassisch"] .bg-rose-500, html[data-theme="klassisch"] .bg-red-600 { background-color: #e11d48 !important; color: #ffffff !important; border-color: #be123c !important; }
+html[data-theme="klassisch"] .bg-rose-600, html[data-theme="klassisch"] .bg-rose-500, html[data-theme="klassisch"] .bg-red-600 { background-color: #dc2626 !important; color: #ffffff !important; border-color: #b91c1c !important; }
 html.klassisch .bg-amber-600, html.klassisch .bg-amber-500, html.klassisch .bg-orange-600,
 html[data-theme="klassisch"] .bg-amber-600, html[data-theme="klassisch"] .bg-amber-500, html[data-theme="klassisch"] .bg-orange-600 { background-color: #d97706 !important; color: #ffffff !important; border-color: #b45309 !important; }
 html.klassisch .bg-blue-600, html.klassisch .bg-blue-500, html.klassisch .bg-indigo-600,
 html[data-theme="klassisch"] .bg-blue-600, html[data-theme="klassisch"] .bg-blue-500, html[data-theme="klassisch"] .bg-indigo-600 { background-color: #2563eb !important; color: #ffffff !important; border-color: #1d4ed8 !important; }
 
 /* Dunkle Farbkacheln (z. B. Statusflaechen) aufhellen */
-html.klassisch [class*="-950"], html[data-theme="klassisch"] [class*="-950"] { background-color: #f8fafc !important; border-color: #e2e8f0 !important; }
+html.klassisch [class*="-950"], html[data-theme="klassisch"] [class*="-950"] { background-color: #f8fafc !important; border-color: #cbd5e1 !important; }
 
 /* Akzentschrift und Symbole */
 html.klassisch .text-blue-400, html.klassisch .text-blue-300, html.klassisch .text-blue-500,
-html[data-theme="klassisch"] .text-blue-400, html[data-theme="klassisch"] .text-blue-300, html[data-theme="klassisch"] .text-blue-500 { color: #1d4ed8 !important; }
+html[data-theme="klassisch"] .text-blue-400, html[data-theme="klassisch"] .text-blue-300, html[data-theme="klassisch"] .text-blue-500 { color: #2563eb !important; }
 html.klassisch .text-emerald-400, html.klassisch .text-emerald-300,
-html[data-theme="klassisch"] .text-emerald-400, html[data-theme="klassisch"] .text-emerald-300 { color: #047857 !important; }
+html[data-theme="klassisch"] .text-emerald-400, html[data-theme="klassisch"] .text-emerald-300 { color: #16a34a !important; }
 html.klassisch .text-rose-400, html.klassisch .text-rose-300, html.klassisch .text-red-400,
-html[data-theme="klassisch"] .text-rose-400, html[data-theme="klassisch"] .text-rose-300, html[data-theme="klassisch"] .text-red-400 { color: #be123c !important; }
+html[data-theme="klassisch"] .text-rose-400, html[data-theme="klassisch"] .text-rose-300, html[data-theme="klassisch"] .text-red-400 { color: #dc2626 !important; }
 html.klassisch .text-amber-400, html.klassisch .text-amber-300,
-html[data-theme="klassisch"] .text-amber-400, html[data-theme="klassisch"] .text-amber-300 { color: #b45309 !important; }
+html[data-theme="klassisch"] .text-amber-400, html[data-theme="klassisch"] .text-amber-300 { color: #d97706 !important; }
 
 /* Ziffernblock passend zum flachen Bild */
 html.klassisch .keypad-key, html[data-theme="klassisch"] .keypad-key {
   background-color: #f1f5f9 !important;
-  color: #0f172a !important;
+  color: #000000 !important;
   border-color: #cbd5e1 !important;
   border-radius: 0.375rem !important;
   font-weight: 700 !important;

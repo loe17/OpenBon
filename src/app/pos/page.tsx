@@ -265,31 +265,28 @@ function PosCounterContent() {
 
   const openDrawer = async () => {
     triggerHapticFeedback();
-    // Kassenlade-Erkennung: Nur versuchen, wenn an dieser Station eine Lade
-    // konfiguriert ist (Standard: an, Verhalten wie bisher).
     const drawerConnected = localStorage.getItem('pos_drawer_connected') !== '0';
-    if (!drawerConnected) return;
+    if (!drawerConnected || !hasDrawerAvailable) return;
     try {
       const prnRes = await fetch('/api/printers');
       const prns = await prnRes.json();
-      if (Array.isArray(prns) && prns.length > 0) {
-        const res = await fetch('/api/printers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'OPEN_DRAWER', printerId: prns[0].id }),
-        });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          warning(
-            `Kassenlade konnte nicht geöffnet werden${data.error ? `: ${data.error}` : ''}. Der Verkauf wurde erfolgreich abgeschlossen.`
-          );
+      if (Array.isArray(prns)) {
+        const drawerPrinter = prns.find((p: any) => p.isActive && p.hasCashDrawer);
+        if (drawerPrinter) {
+          const res = await fetch('/api/printers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'OPEN_DRAWER', printerId: drawerPrinter.id }),
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            warning(
+              `Kassenlade konnte nicht geöffnet werden${data.error ? `: ${data.error}` : ''}. Der Verkauf wurde erfolgreich abgeschlossen.`
+            );
+          }
         }
-      } else {
-        warning('Kein Drucker für die Kassenlade konfiguriert – Verkauf wurde erfolgreich abgeschlossen.');
       }
-    } catch {
-      warning('Kassenlade nicht erreichbar (Netzwerk). Der Verkauf wurde erfolgreich abgeschlossen.');
-    }
+    } catch {}
   };
 
   const handleCheckout = async () => {
@@ -744,7 +741,13 @@ function PosCounterContent() {
             <span>
               {isProcessing
                 ? 'Wird gedruckt & gebucht...'
-                : `Kassieren & ${mode === 'DIRECT' ? 'Lade auf' : 'Bons drucken'}`}
+                : mode === 'DIRECT'
+                ? hasDrawerAvailable
+                  ? 'Kassieren & Lade auf'
+                  : 'Kassieren'
+                : hasDrawerAvailable
+                ? 'Kassieren, Lade auf & Bons drucken'
+                : 'Kassieren & Bons drucken'}
             </span>
           </button>
         </div>

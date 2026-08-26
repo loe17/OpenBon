@@ -155,6 +155,7 @@ const BOOLEAN_FIELDS = new Set<string>([
   'receiptDrinkShowTimestamp',
   'receiptDrinkShowOptions',
   'haAutoFailover',
+  'initialPinSet',
 ]);
 
 function sanitize(body: Record<string, unknown>): Record<string, unknown> {

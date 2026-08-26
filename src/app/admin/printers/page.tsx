@@ -748,6 +748,29 @@ export default function AdminPrintersPage() {
                 </label>
               </div>
 
+              {printerForm.hasCashDrawer && (
+                <div className="p-2.5 bg-amber-950/30 border border-amber-800/60 rounded-xl flex items-center justify-between gap-2 animate-in fade-in">
+                  <span className="text-xs text-amber-300 font-bold flex items-center gap-1.5">
+                    <DoorOpen className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Laden-Test:</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (printerForm.id) {
+                        await handleOpenDrawer(printerForm.id);
+                      } else {
+                        warning('Bitte speichere den Drucker zuerst, um den Impuls zu senden.');
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold shadow flex items-center gap-1.5 transition active:scale-95"
+                  >
+                    <DoorOpen className="w-3.5 h-3.5" />
+                    <span>Kassenlade jetzt testen / Impuls senden</span>
+                  </button>
+                </div>
+              )}
+
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"

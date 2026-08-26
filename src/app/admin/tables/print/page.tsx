@@ -1,11 +1,18 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Printer, ArrowLeft, Grid, Check } from 'lucide-react';
+import { Printer, ArrowLeft, Grid, Check, Footprints } from 'lucide-react';
 import Link from 'next/link';
+
+interface AisleItem {
+  id: string;
+  type: 'COL' | 'ROW';
+  index: number;
+}
 
 export default function PrintTableOverviewPage() {
   const [tables, setTables] = useState<any[]>([]);
+  const [aisles, setAisles] = useState<AisleItem[]>([]);
   const [eventName, setEventName] = useState('Festveranstaltung 2026');
 
   useEffect(() => {
@@ -20,6 +27,12 @@ export default function PrintTableOverviewPage() {
       .then((r) => r.json())
       .then((cfg) => {
         if (cfg?.name) setEventName(cfg.name);
+        if (cfg?.aisles) {
+          try {
+            const parsed = JSON.parse(cfg.aisles);
+            if (Array.isArray(parsed)) setAisles(parsed);
+          } catch {}
+        }
       })
       .catch(() => {});
   }, []);
@@ -58,7 +71,7 @@ export default function PrintTableOverviewPage() {
         <div className="border-b-2 border-black pb-4 mb-6 flex justify-between items-end">
           <div>
             <h1 className="text-2xl font-black uppercase tracking-tight">{eventName}</h1>
-            <p className="text-sm font-bold text-slate-700">Offizielle Tischübersicht & Serviceplan</p>
+            <p className="text-sm font-bold text-slate-700">Offizielle Tischübersicht &amp; Serviceplan</p>
           </div>
           <div className="text-right text-xs">
             <div>Stand: {new Date().toLocaleDateString('de-DE')}</div>
@@ -68,8 +81,13 @@ export default function PrintTableOverviewPage() {
 
         {/* Tables Spatial Room Grid */}
         {(() => {
-          const maxCols = Math.max(6, Math.min(12, ...tables.map((t) => t.gridX || 1)));
-          const maxRows = Math.max(4, Math.min(12, ...tables.map((t) => t.gridY || 1)));
+          const maxTableX = tables.reduce((max, t) => Math.max(max, t.gridX || 1), 0);
+          const maxTableY = tables.reduce((max, t) => Math.max(max, t.gridY || 1), 0);
+          const maxAisleX = aisles.filter((a) => a.type === 'COL').reduce((max, a) => Math.max(max, a.index), 0);
+          const maxAisleY = aisles.filter((a) => a.type === 'ROW').reduce((max, a) => Math.max(max, a.index), 0);
+
+          const maxCols = Math.max(6, maxTableX, maxAisleX);
+          const maxRows = Math.max(4, maxTableY, maxAisleY);
 
           return (
             <div
@@ -80,8 +98,25 @@ export default function PrintTableOverviewPage() {
             >
               {Array.from({ length: maxRows }).map((_, rIdx) => {
                 const y = rIdx + 1;
+                const isRowAisle = aisles.some((a) => a.type === 'ROW' && a.index === y);
+
                 return Array.from({ length: maxCols }).map((__, cIdx) => {
                   const x = cIdx + 1;
+                  const isColAisle = aisles.some((a) => a.type === 'COL' && a.index === x);
+                  const isAisle = isRowAisle || isColAisle;
+
+                  if (isAisle) {
+                    return (
+                      <div
+                        key={`aisle-${x}-${y}`}
+                        className="p-2 rounded-lg border-2 border-amber-400 bg-amber-50 text-center flex flex-col justify-center items-center min-h-[72px] text-amber-800"
+                      >
+                        <Footprints className="w-4 h-4 text-amber-600 mb-0.5" />
+                        <span className="text-[9px] font-black uppercase tracking-wider">GANG</span>
+                      </div>
+                    );
+                  }
+
                   const t = tables.find((tbl) => (tbl.gridX || 1) === x && (tbl.gridY || 1) === y);
 
                   if (t) {
@@ -90,14 +125,14 @@ export default function PrintTableOverviewPage() {
                         key={`t-${t.id}`}
                         className={`p-2.5 rounded-lg border-2 text-center flex flex-col justify-between min-h-[72px] ${
                           t.isActive !== false
-                            ? 'border-black bg-slate-50'
+                            ? 'border-black bg-white shadow-sm'
                             : 'border-slate-300 bg-slate-100 opacity-40 line-through'
                         }`}
                       >
-                        <div className="text-[10px] font-bold text-slate-600 font-mono">Nr. {t.tableNumber}</div>
-                        <div className="text-sm font-black truncate">{t.label}</div>
+                        <div className="text-[10px] font-bold text-slate-700 font-mono">Nr. {t.tableNumber}</div>
+                        <div className="text-sm font-black truncate text-black">{t.label}</div>
                         <div className="text-[9px] text-slate-500 font-mono">
-                          ({x},{y}) {t.isActive !== false ? '✓' : '✗'}
+                          ({x},{y})
                         </div>
                       </div>
                     );
@@ -106,9 +141,9 @@ export default function PrintTableOverviewPage() {
                   return (
                     <div
                       key={`empty-${x}-${y}`}
-                      className="p-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 text-center flex flex-col justify-center items-center min-h-[72px] text-slate-400"
+                      className="p-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 text-center flex flex-col justify-center items-center min-h-[72px] text-slate-400"
                     >
-                      <span className="text-[10px] font-mono">Gang / Frei</span>
+                      <span className="text-[10px] font-mono">Frei</span>
                       <span className="text-[8px] font-mono text-slate-400">({x},{y})</span>
                     </div>
                   );

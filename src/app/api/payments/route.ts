@@ -307,7 +307,7 @@ export async function POST(req: Request) {
           addressCity: config.addressCity || undefined,
           taxNumber: config.taxNumber || undefined,
           vatId: config.vatId || undefined,
-          footerText: config.receiptFooterText || 'Vielen Dank für Ihren Besuch!',
+          footerText: config.receiptFooterText || undefined,
         };
 
         await networkSpooler.printTicket(receiptPrinter, ticketData);

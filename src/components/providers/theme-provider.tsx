@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-export type Theme = 'klassisch' | 'dark' | 'light' | 'contrast' | 'modern' | 'minimal';
+export type Theme = 'klassisch' | 'dark' | 'light' | 'contrast' | 'minimal';
 
 export interface ThemeOption {
   id: Theme;
@@ -11,11 +11,10 @@ export interface ThemeOption {
 }
 
 export const AVAILABLE_THEMES: ThemeOption[] = [
-  { id: 'klassisch', label: 'Klassisch (Standard)', description: 'Weißer Grund, klare Pastelltöne, optimaler Tageslicht-Kontrast' },
+  { id: 'klassisch', label: 'Klassisch (Standard)', description: 'Weißer Grund, klare Farben, optimaler Tageslicht-Kontrast' },
   { id: 'dark', label: 'Dunkel', description: 'Deep Slate / Nachtmodus' },
   { id: 'light', label: 'Hell', description: 'Klares Tageslicht' },
   { id: 'contrast', label: 'Kontrastreich', description: 'OLED-Kontrast (Schwarz/Gold)' },
-  { id: 'modern', label: 'Modern', description: 'Neon Violet & Cyber Glow' },
   { id: 'minimal', label: 'Minimalistisch', description: 'Monochromes reines Zink-Design' },
 ];
 
@@ -35,7 +34,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
-    const validThemes: Theme[] = ['klassisch', 'dark', 'light', 'contrast', 'modern', 'minimal'];
+    const validThemes: Theme[] = ['klassisch', 'dark', 'light', 'contrast', 'minimal'];
     const saved = localStorage.getItem('openbon_theme') as Theme | null;
     
     if (saved && validThemes.includes(saved)) {

@@ -257,9 +257,20 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
 
     // 3. Metadaten
     const metaLines: string[] = [];
-    if (showWaiter) metaLines.push(row('Bedienung:', sample.waiter));
-    if (showStamp) metaLines.push(row('Uhrzeit:', sample.stamp));
-    if (showTable || showWaiter || showStamp) metaLines.push(LINE);
+    if (tpl === 'ECO') {
+      if (showWaiter && showStamp) {
+        metaLines.push(row(sample.waiter, sample.stamp));
+      } else if (showWaiter) {
+        metaLines.push(row('Bedienung:', sample.waiter));
+      } else if (showStamp) {
+        metaLines.push(row('Zeit:', sample.stamp));
+      }
+      if (showTable || showWaiter || showStamp) metaLines.push(LINE);
+    } else {
+      if (showWaiter) metaLines.push(row('Bedienung:', sample.waiter));
+      if (showStamp) metaLines.push(row('Uhrzeit:', sample.stamp));
+      if (showTable || showWaiter || showStamp) metaLines.push(LINE);
+    }
 
     // 4. Positionen
     const visible = isFood
@@ -551,22 +562,35 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
                   { id: 'CLASSIC', label: 'Klassisch' },
                   { id: 'ECO', label: 'Kompakt (Eco)' },
                   { id: 'HIGH_VISIBILITY', label: 'Großschrift' },
-                  { id: 'GASTRO', label: 'Gastro Detail' },
-                ].map((tpl) => (
-                  <button
-                    key={tpl.id}
-                    type="button"
-                    onClick={() => onChange({ receiptFoodTemplate: tpl.id })}
-                    className={`px-3 py-2 rounded-xl text-xs font-bold transition border ${
-                      (config.receiptFoodTemplate || 'CLASSIC') === tpl.id
-                        ? 'bg-amber-600 text-white border-amber-500 shadow'
-                        : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                    }`}
-                  >
-                    {tpl.label}
-                  </button>
-                ))}
+                  { id: 'GASTRO', label: 'Gastro Detail', requiresGastro: true },
+                ].map((tpl) => {
+                  const isDisabled = tpl.requiresGastro && !hasGastroData;
+                  const isSelected = (config.receiptFoodTemplate || 'CLASSIC') === tpl.id;
+                  return (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      disabled={isDisabled}
+                      onClick={() => !isDisabled && onChange({ receiptFoodTemplate: tpl.id })}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold transition border ${
+                        isSelected
+                          ? 'bg-amber-600 text-white border-amber-500 shadow'
+                          : isDisabled
+                          ? 'bg-slate-950/40 text-slate-600 border-slate-900 cursor-not-allowed opacity-50'
+                          : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                      }`}
+                      title={isDisabled ? 'Erfordert Steuer-/Adressdaten unter Organisation' : undefined}
+                    >
+                      {tpl.label}
+                    </button>
+                  );
+                })}
               </div>
+              {!hasGastroData && (
+                <p className="text-[10px] text-amber-500/80 mt-1">
+                  * Gastro Detail erfordert Anschrift &amp; Steuernummer unter &bdquo;Veranstaltung &amp; Organisation&ldquo;.
+                </p>
+              )}
             </div>
 
             {/* Schriftgrößen-Slider (10 Stufen) */}
@@ -654,22 +678,35 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
                   { id: 'CLASSIC', label: 'Klassisch' },
                   { id: 'ECO', label: 'Kompakt (Eco)' },
                   { id: 'HIGH_VISIBILITY', label: 'Großschrift' },
-                  { id: 'GASTRO', label: 'Gastro Detail' },
-                ].map((tpl) => (
-                  <button
-                    key={tpl.id}
-                    type="button"
-                    onClick={() => onChange({ receiptDrinkTemplate: tpl.id })}
-                    className={`px-3 py-2 rounded-xl text-xs font-bold transition border ${
-                      (config.receiptDrinkTemplate || 'CLASSIC') === tpl.id
-                        ? 'bg-sky-600 text-white border-sky-500 shadow'
-                        : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                    }`}
-                  >
-                    {tpl.label}
-                  </button>
-                ))}
+                  { id: 'GASTRO', label: 'Gastro Detail', requiresGastro: true },
+                ].map((tpl) => {
+                  const isDisabled = tpl.requiresGastro && !hasGastroData;
+                  const isSelected = (config.receiptDrinkTemplate || 'CLASSIC') === tpl.id;
+                  return (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      disabled={isDisabled}
+                      onClick={() => !isDisabled && onChange({ receiptDrinkTemplate: tpl.id })}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold transition border ${
+                        isSelected
+                          ? 'bg-sky-600 text-white border-sky-500 shadow'
+                          : isDisabled
+                          ? 'bg-slate-950/40 text-slate-600 border-slate-900 cursor-not-allowed opacity-50'
+                          : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                      }`}
+                      title={isDisabled ? 'Erfordert Steuer-/Adressdaten unter Organisation' : undefined}
+                    >
+                      {tpl.label}
+                    </button>
+                  );
+                })}
               </div>
+              {!hasGastroData && (
+                <p className="text-[10px] text-sky-400/80 mt-1">
+                  * Gastro Detail erfordert Anschrift &amp; Steuernummer unter &bdquo;Veranstaltung &amp; Organisation&ldquo;.
+                </p>
+              )}
             </div>
 
             {/* Schriftgrößen-Slider (10 Stufen) */}

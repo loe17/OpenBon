@@ -69,6 +69,20 @@ export default function CustomerDisplayPage() {
 
   const [activeStations, setActiveStations] = useState<{ id: string; name: string }[]>([]);
 
+  // Sofortige Initialisierung aus LocalStorage beim Mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedStation = localStorage.getItem('openbon_customer_display_station');
+      const savedName = localStorage.getItem('openbon_customer_display_station_name');
+      if (savedStation) {
+        setSelectedStation(savedStation);
+        if (savedName) {
+          setState((prev) => ({ ...prev, stationId: savedStation, stationName: savedName }));
+        }
+      }
+    }
+  }, []);
+
   const fetchDevices = async () => {
     try {
       const res = await fetch('/api/devices');
@@ -84,6 +98,13 @@ export default function CustomerDisplayPage() {
           prev.forEach((p) => map.set(p.id, p.name));
           return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
         });
+        // Falls bereits eine Station gewählt ist, Name sofort aktualisieren
+        const savedStation = localStorage.getItem('openbon_customer_display_station') || selectedStation;
+        const matchingDev = devs.find((d) => d.id === savedStation);
+        if (matchingDev) {
+          setState((prev) => ({ ...prev, stationId: matchingDev.id, stationName: matchingDev.name }));
+          localStorage.setItem('openbon_customer_display_station_name', matchingDev.name);
+        }
       }
     } catch {}
   };
@@ -243,8 +264,13 @@ export default function CustomerDisplayPage() {
             <select
               value={selectedStation}
               onChange={(e) => {
-                setSelectedStation(e.target.value);
+                const val = e.target.value;
+                setSelectedStation(val);
                 setShowConfig(false);
+                const matchingName = getStationLabel(val);
+                setState((prev) => ({ ...prev, stationId: val, stationName: matchingName }));
+                localStorage.setItem('openbon_customer_display_station', val);
+                localStorage.setItem('openbon_customer_display_station_name', matchingName);
               }}
               className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
             >

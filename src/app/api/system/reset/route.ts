@@ -16,6 +16,7 @@ export async function POST(req: Request) {
       resetProducts,
       resetWaiters,
       resetPrinters,
+      resetEventMetadata,
       resetConfig,
     } = body;
 
@@ -44,9 +45,14 @@ export async function POST(req: Request) {
       summary.push('Umsätze, Zahlungen & Kassenperioden gelöscht');
     }
 
-    // 3. Tische
+    // 3. Tische & Raumplan
     if (resetTables || resetConfig) {
       await prisma.diningTable.deleteMany({});
+      await prisma.eventConfig.upsert({
+        where: { id: 'default' },
+        update: { aisles: '[]' },
+        create: { id: 'default', name: 'Veranstaltung 2026', aisles: '[]' },
+      }).catch(() => {});
       summary.push('Tische & Raumplan gelöscht');
     }
 
@@ -78,7 +84,40 @@ export async function POST(req: Request) {
       summary.push('Drucker & Druckgruppen gelöscht');
     }
 
-    // 7. Vollständiger Konfigurations-Reset
+    // 7. Veranstaltungs-Stammdaten & Belegtexte
+    if (resetEventMetadata && !resetConfig) {
+      await prisma.eventConfig.upsert({
+        where: { id: 'default' },
+        update: {
+          name: 'Veranstaltung 2026',
+          receiptHeader: '',
+          receiptSubHeader: '',
+          receiptFooterText: '',
+          addressStreet: '',
+          addressCity: '',
+          taxNumber: '',
+          vatId: '',
+          receiptTableFontSize: 3,
+          receiptItemFontSize: 2,
+          receiptOptionsFontSize: 1,
+          receiptMetaFontSize: 1,
+          receiptFoodTableFontSize: 4,
+          receiptFoodItemFontSize: 3,
+          receiptDrinkTableFontSize: 4,
+          receiptDrinkItemFontSize: 3,
+        },
+        create: {
+          id: 'default',
+          name: 'Veranstaltung 2026',
+          receiptHeader: '',
+          receiptSubHeader: '',
+          receiptFooterText: '',
+        },
+      });
+      summary.push('Veranstaltungsname, Kopf-/Fußzeilen & Belegtexte zurückgesetzt');
+    }
+
+    // 8. Vollständiger Konfigurations- & Werksreset
     if (resetConfig) {
       await prisma.eventConfig.upsert({
         where: { id: 'default' },
@@ -94,7 +133,7 @@ export async function POST(req: Request) {
           waiterPin: '3333',
           receiptHeader: '',
           receiptSubHeader: '',
-          receiptFooterText: 'Vielen Dank für Ihren Besuch!',
+          receiptFooterText: '',
           addressStreet: '',
           addressCity: '',
           taxNumber: '',
@@ -103,9 +142,14 @@ export async function POST(req: Request) {
           receiptItemFontSize: 2,
           receiptOptionsFontSize: 1,
           receiptMetaFontSize: 1,
+          receiptFoodTableFontSize: 4,
+          receiptFoodItemFontSize: 3,
+          receiptDrinkTableFontSize: 4,
+          receiptDrinkItemFontSize: 3,
           tokenSequence: 1,
           invoiceSequence: 1,
           orderSequence: 1,
+          aisles: '[]',
         },
         create: {
           id: 'default',
@@ -118,7 +162,10 @@ export async function POST(req: Request) {
           posPin: '1111',
           kitchenPin: '2222',
           waiterPin: '3333',
-          receiptFooterText: 'Vielen Dank für Ihren Besuch!',
+          receiptHeader: '',
+          receiptSubHeader: '',
+          receiptFooterText: '',
+          aisles: '[]',
         },
       });
       summary.push('System-Konfiguration & PINs auf Werkszustand zurückgesetzt');

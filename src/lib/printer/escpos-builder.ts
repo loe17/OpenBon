@@ -276,8 +276,11 @@ export class EscPosBuilder {
       }
     }
 
-    builder.doubleDivider();
-    addText('='.repeat(paperWidth === 58 ? 32 : 42));
+    const isEco = data.template === 'ECO';
+    if (!isEco) {
+      builder.doubleDivider();
+      addText('='.repeat(paperWidth === 58 ? 32 : 42));
+    }
 
     builder.align('left');
     if (data.tokenNumber) {
@@ -286,20 +289,30 @@ export class EscPosBuilder {
     }
 
     if (data.tableLabel) {
-      EscPosBuilder.formatTableNumber(builder, data.tableLabel, data.tableFontSize ?? 3);
+      const parsedSize = Number(data.tableFontSize) || 2;
+      EscPosBuilder.formatTableNumber(builder, data.tableLabel, isEco ? Math.min(3, parsedSize) : parsedSize);
       addText(`Tisch: ${data.tableLabel}`);
     }
 
-    builder.bold(true).twoColumn(`Bedienung: ${data.waiterName || 'Kasse'}`, data.orderNumber ? `Bon #${data.orderNumber}` : '').bold(false);
-    addText(`Bedienung: ${data.waiterName || 'Kasse'} ${data.orderNumber ? `| Bon #${data.orderNumber}` : ''}`);
-
     const dateStr = data.createdAt ? new Date(data.createdAt).toLocaleString('de-DE') : new Date().toLocaleString('de-DE');
-    builder.textLine(`Datum: ${dateStr}`);
-    addText(`Datum: ${dateStr}`);
+    if (isEco) {
+      // Kompakte Einzeilen-Metadaten für minimale Papierlänge
+      builder.twoColumn(`${data.waiterName || 'Kasse'}`, dateStr);
+      addText(`${data.waiterName || 'Kasse'} · ${dateStr}`);
+      if (data.invoiceNumber || data.orderNumber) {
+        builder.twoColumn(data.orderNumber ? `Bon #${data.orderNumber}` : '', data.invoiceNumber ? `Nr: ${data.invoiceNumber}` : '');
+      }
+    } else {
+      builder.bold(true).twoColumn(`Bedienung: ${data.waiterName || 'Kasse'}`, data.orderNumber ? `Bon #${data.orderNumber}` : '').bold(false);
+      addText(`Bedienung: ${data.waiterName || 'Kasse'} ${data.orderNumber ? `| Bon #${data.orderNumber}` : ''}`);
 
-    if (data.invoiceNumber) {
-      builder.textLine(`Beleg-Nr: ${data.invoiceNumber}`);
-      addText(`Beleg-Nr: ${data.invoiceNumber}`);
+      builder.textLine(`Datum: ${dateStr}`);
+      addText(`Datum: ${dateStr}`);
+
+      if (data.invoiceNumber) {
+        builder.textLine(`Beleg-Nr: ${data.invoiceNumber}`);
+        addText(`Beleg-Nr: ${data.invoiceNumber}`);
+      }
     }
 
     builder.divider();
@@ -498,26 +511,60 @@ export class EscPosBuilder {
       label?: string;
       qrUrl?: string | null;
       eventName?: string;
+      fontSize?: number;
+      qrSize?: number;
+      noteText?: string;
     },
     paperWidth = 80
   ): { rawBuffer: Buffer; textRepresentation: string } {
     const builder = new EscPosBuilder(paperWidth);
-    const label = data.label || `TISCH ${data.tableNumber}`;
+    const label = data.label || `Tisch ${data.tableNumber}`;
+    const textLines: string[] = [];
 
     builder.align('center');
-    builder.lineFeed(1);
-    builder.bold(true).size(true, true).textLine('========================');
-    builder.lineFeed(1);
-    builder.invert(true).bold(true).size(true, true).textLine(`   ${label.toUpperCase()}   `).size(false, false).invert(false).bold(false);
-    builder.lineFeed(1);
-    builder.bold(true).size(true, true).textLine('========================').size(false, false).bold(false);
+    if (data.eventName) {
+      builder.bold(true).textLine(data.eventName).bold(false);
+      textLines.push(data.eventName);
+    }
+
+    builder.doubleDivider();
+    textLines.push('='.repeat(paperWidth === 58 ? 32 : 42));
+
+    const fs = data.fontSize ?? 4;
+    // Tischbeschriftung ohne Schwarz-Hinterlegung, skalierbar bis zur vollen Breite
+    if (fs >= 10) {
+      builder.charSize(6, 6).bold(true).textLine(label.toUpperCase()).resetCharSize().bold(false);
+    } else if (fs >= 8) {
+      builder.charSize(5, 5).bold(true).textLine(label.toUpperCase()).resetCharSize().bold(false);
+    } else if (fs >= 6) {
+      builder.charSize(4, 4).bold(true).textLine(label.toUpperCase()).resetCharSize().bold(false);
+    } else if (fs >= 4) {
+      builder.charSize(3, 3).bold(true).textLine(label.toUpperCase()).resetCharSize().bold(false);
+    } else if (fs >= 2) {
+      builder.charSize(2, 2).bold(true).textLine(label.toUpperCase()).resetCharSize().bold(false);
+    } else {
+      builder.charSize(1, 1).bold(true).textLine(label.toUpperCase()).resetCharSize().bold(false);
+    }
+    textLines.push(`[ ${label.toUpperCase()} ]`);
+
+    builder.doubleDivider();
+    textLines.push('='.repeat(paperWidth === 58 ? 32 : 42));
 
     if (data.qrUrl) {
+      const qrModule = Math.max(2, Math.min(paperWidth === 58 ? 8 : 12, Math.round((data.qrSize ?? 5) * (paperWidth === 58 ? 0.8 : 1.1))));
       builder.lineFeed(1);
-      builder.align('center').qrCode(data.qrUrl, paperWidth === 58 ? 5 : 7);
+      builder.align('center').qrCode(data.qrUrl, qrModule);
       builder.lineFeed(1);
-      builder.bold(true).textLine('HIER MIT DEM HANDY SCANNEN');
+      textLines.push(`QR-Code: ${data.qrUrl}`);
+    }
+
+    if (data.noteText) {
+      builder.align('center').textLine(data.noteText);
+      textLines.push(data.noteText);
+    } else if (data.qrUrl) {
+      builder.align('center').bold(true).textLine('HIER MIT DEM HANDY SCANNEN').bold(false);
       builder.textLine('und direkt am Tisch bestellen');
+      textLines.push('HIER MIT DEM HANDY SCANNEN und direkt am Tisch bestellen');
     }
 
     builder.lineFeed(2);
@@ -525,12 +572,7 @@ export class EscPosBuilder {
 
     return {
       rawBuffer: builder.build(),
-      textRepresentation: [
-        '========================',
-        `   ${label.toUpperCase()}   `,
-        '========================',
-        data.qrUrl ? `QR-Code: ${data.qrUrl}` : '',
-      ].filter(Boolean).join('\n'),
+      textRepresentation: textLines.join('\n'),
     };
   }
 

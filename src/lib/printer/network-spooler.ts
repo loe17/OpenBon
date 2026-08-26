@@ -72,8 +72,7 @@ class NetworkSpooler {
       const res = await this.processVirtualPrint(job);
       return { success: res.success, isVirtual: true, jobId: job.id };
     } else {
-      // Spiegelung auch für Netzwerkdrucker im virtuellen Monitor
-      await this.processVirtualPrint(job);
+      // In Spool-Queue einreihen (processQueue spiegelt nach Abarbeitung den Auftrag in den Monitor)
       this.queue.push(job);
       this.processQueue();
       return { success: true, isVirtual: false, jobId: job.id };
@@ -85,9 +84,9 @@ class NetworkSpooler {
     rawBuffer: Buffer,
     textRepresentation?: string
   ): Promise<{ success: boolean; isVirtual: boolean; error?: string }> {
-    // Immer Spiegelung für den Virtuellen Monitor bereithalten
+    // Spiegelung für den Virtuellen Monitor bereithalten
     const record: VirtualTicketRecord = {
-      id: Math.random().toString(36).substring(2, 9),
+      id: Math.random().toString(36).substring(2, 11),
       printerName: printer.name,
       printerIp: printer.ipAddress,
       ticketData: { title: 'Druckauftrag', items: [] },
@@ -96,11 +95,13 @@ class NetworkSpooler {
     };
 
     if (!global.virtualPrinterHistory) global.virtualPrinterHistory = [];
-    global.virtualPrinterHistory.unshift(record);
-    if (global.virtualPrinterHistory.length > 100) global.virtualPrinterHistory.pop();
+    if (!global.virtualPrinterHistory.some((r) => r.id === record.id)) {
+      global.virtualPrinterHistory.unshift(record);
+      if (global.virtualPrinterHistory.length > 100) global.virtualPrinterHistory.pop();
 
-    if (global.io) {
-      global.io.emit('virtual_printer:new_ticket', record);
+      if (global.io) {
+        global.io.emit('virtual_printer:new_ticket', record);
+      }
     }
 
     if (printer.isVirtual) {
@@ -124,18 +125,21 @@ class NetworkSpooler {
       };
 
       client.connect(printer.port || 9100, printer.ipAddress, () => {
-        client.write(rawBuffer, () => {
-          client.end();
-          cleanup({ success: true, isVirtual: false });
+        client.write(rawBuffer, (err) => {
+          if (err) {
+            cleanup({ success: false, isVirtual: false, error: err.message });
+          } else {
+            cleanup({ success: true, isVirtual: false });
+          }
         });
       });
 
       client.on('error', (err) => {
-        cleanup({ success: false, isVirtual: false, error: err instanceof Error ? err.message : String(err) });
+        cleanup({ success: false, isVirtual: false, error: err.message });
       });
 
       client.on('timeout', () => {
-        cleanup({ success: false, isVirtual: false, error: `Timeout bei ${printer.ipAddress}:${printer.port}` });
+        cleanup({ success: false, isVirtual: false, error: 'Drucker-Timeout nach 2.5s' });
       });
     });
   }
@@ -153,13 +157,17 @@ class NetworkSpooler {
     };
 
     if (!global.virtualPrinterHistory) global.virtualPrinterHistory = [];
-    global.virtualPrinterHistory.unshift(record);
-    if (global.virtualPrinterHistory.length > 100) {
-      global.virtualPrinterHistory.pop();
-    }
+    
+    // Verhindere Mehrfacheinträge mit gleicher ID
+    if (!global.virtualPrinterHistory.some((r) => r.id === record.id)) {
+      global.virtualPrinterHistory.unshift(record);
+      if (global.virtualPrinterHistory.length > 100) {
+        global.virtualPrinterHistory.pop();
+      }
 
-    if (global.io) {
-      global.io.emit('virtual_printer:new_ticket', record);
+      if (global.io) {
+        global.io.emit('virtual_printer:new_ticket', record);
+      }
     }
 
     return { success: true, isVirtual: true };

@@ -18,6 +18,8 @@ import {
   Server,
   ShieldCheck,
   Activity,
+  HelpCircle,
+  Info,
 } from 'lucide-react';
 import type { EventConfigDTO } from '@/types/domain';
 
@@ -44,9 +46,14 @@ function Toggle({
   color?: 'emerald' | 'amber' | 'blue';
 }) {
   const on =
-    color === 'amber' ? 'text-amber-400' : color === 'blue' ? 'text-blue-400' : 'text-emerald-400';
+    color === 'amber'
+      ? 'text-amber-400'
+      : color === 'blue'
+      ? 'text-blue-400'
+      : 'text-emerald-400';
+
   return (
-    <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-slate-950 border border-slate-800">
+    <div className="flex items-center justify-between gap-4 p-3.5 bg-slate-950/70 border border-slate-800 rounded-2xl">
       <div className="min-w-0">
         <div className="font-bold text-sm text-white">{label}</div>
         {hint ? <p className="text-xs text-slate-400 leading-snug">{hint}</p> : null}
@@ -73,9 +80,51 @@ const THEMES: { id: string; label: string }[] = [
   { id: 'dark', label: 'Dunkel' },
   { id: 'light', label: 'Hell' },
   { id: 'contrast', label: 'Hoher Kontrast' },
-  { id: 'modern', label: 'Modern' },
   { id: 'minimal', label: 'Minimal' },
 ];
+
+const RESET_HELP: Record<string, { title: string; tables: string[]; description: string }> = {
+  orders: {
+    title: 'Bestellungen, Bons & KDS-Aufträge',
+    tables: ['Order', 'OrderItem', 'PrintJob', 'TokenTransaction', 'StockConsumption', 'ChatMessage', 'VirtualPrinterHistory'],
+    description: 'Löscht alle offenen und abgerechneten Bestellbons, Küchen-/KDS-Aufträge, Abholnummern-Tokens und den virtuellen Druckverlauf.',
+  },
+  payments: {
+    title: 'Umsätze, Zahlungen & Kassenbuch',
+    tables: ['Payment', 'PaymentItem', 'CashMovement', 'RegisterPeriod', 'PaymentSession', 'FiscalExport'],
+    description: 'Löscht alle Bar-, Karten- und Wertmarkenzahlungen, Kassenabschlüsse (Z-Bons), Ein-/Auszahlungen und DATEV/TSE-Exporte.',
+  },
+  tables: {
+    title: 'Tische & 2D-Raumplan',
+    tables: ['DiningTable', 'EventConfig.aisles'],
+    description: 'Löscht alle konfigurierten Tische, Koordinaten, Raumplan-Gänge und Laufwege.',
+  },
+  products: {
+    title: 'Speisekarte, Artikel, Warengruppen & Bestand',
+    tables: ['Product', 'ProductVariant', 'ProductOption', 'ProductCategory', 'CustomizationWordGroup', 'StockItem', 'StockUnit', 'TapLine'],
+    description: 'Löscht alle Speisen, Getränke, Warengruppen, Zusatzoptionen, Rezepturen, Schanklinien und Lagerbestände.',
+  },
+  waiters: {
+    title: 'Bedienungsprofile & Trinkgeldmodelle',
+    tables: ['WaiterProfile', 'TipProfile', 'Staff'],
+    description: 'Löscht alle Bedienungen, Abrechnungskonten und Trinkgeldprofile.',
+  },
+  printers: {
+    title: 'Drucker & Druckgruppen',
+    tables: ['Printer', 'PrintGroup'],
+    description: 'Löscht alle konfigurierten Netzwerk- und virtuellen Drucker sowie deren Gruppenzuordnungen.',
+  },
+  eventMetadata: {
+    title: 'Veranstaltungs-Stammdaten & Belegtexte',
+    tables: ['EventConfig (name, receiptHeader, receiptSubHeader, receiptFooterText, addressStreet, addressCity, taxNumber, vatId, receiptFontSizes)'],
+    description: 'Setzt den Veranstaltungsnamen, Beleg-Kopf-/Fußzeilen, Anschrift, Steuernummern und Schriftgrößen der Bons auf Standardwerte zurück.',
+  },
+  config: {
+    title: 'Vollständiger Werksreset',
+    tables: ['Gesamte Datenbank', 'Alle PINs', 'System-Konfiguration'],
+    description: 'Löscht sämtliche Daten unwiderruflich und setzt alle PINs (Admin, Kasse, Küche, Kellner) und Systemeinstellungen auf den Werkszustand.',
+  },
+};
 
 export function GeneralTab({
   config,
@@ -91,7 +140,9 @@ export function GeneralTab({
   const [resetProducts, setResetProducts] = useState(false);
   const [resetWaiters, setResetWaiters] = useState(false);
   const [resetPrinters, setResetPrinters] = useState(false);
+  const [resetEventMetadata, setResetEventMetadata] = useState(false);
   const [resetConfig, setResetConfig] = useState(false);
+  const [activeHelpKey, setActiveHelpKey] = useState<string | null>(null);
 
   const [confirmText, setConfirmText] = useState('');
   const [countdown, setCountdown] = useState(5);
@@ -104,6 +155,7 @@ export function GeneralTab({
       setCountdown(5);
       setConfirmText('');
       setResetResult(null);
+      setActiveHelpKey(null);
       timer = setInterval(() => {
         setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
       }, 1000);
@@ -124,6 +176,7 @@ export function GeneralTab({
           resetProducts,
           resetWaiters,
           resetPrinters,
+          resetEventMetadata,
           resetConfig,
         }),
       });
@@ -581,78 +634,138 @@ export function GeneralTab({
                 </p>
 
                 <div className="space-y-2">
-                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700">
-                    <span className="text-xs font-bold text-white">Bestellungen, Bons &amp; KDS-Aufträge</span>
-                    <input
-                      type="checkbox"
-                      checked={resetOrders}
-                      onChange={(e) => setResetOrders(e.target.checked)}
-                      className="w-4 h-4 rounded text-rose-600 bg-slate-900 border-slate-700"
-                    />
-                  </label>
+                  {[
+                    {
+                      key: 'orders',
+                      label: 'Bestellungen, Bons & KDS-Aufträge',
+                      checked: resetOrders,
+                      onChange: setResetOrders,
+                    },
+                    {
+                      key: 'payments',
+                      label: 'Umsätze, Zahlungen & Kassenbuch',
+                      checked: resetPayments,
+                      onChange: setResetPayments,
+                    },
+                    {
+                      key: 'tables',
+                      label: 'Tische & 2D-Raumplan',
+                      checked: resetTables,
+                      onChange: setResetTables,
+                    },
+                    {
+                      key: 'products',
+                      label: 'Speisekarte, Artikel, Warengruppen & Bestand',
+                      checked: resetProducts,
+                      onChange: setResetProducts,
+                    },
+                    {
+                      key: 'waiters',
+                      label: 'Bedienungsprofile & Trinkgeldmodelle',
+                      checked: resetWaiters,
+                      onChange: setResetWaiters,
+                    },
+                    {
+                      key: 'printers',
+                      label: 'Drucker & Druckgruppen',
+                      checked: resetPrinters,
+                      onChange: setResetPrinters,
+                    },
+                    {
+                      key: 'eventMetadata',
+                      label: 'Veranstaltungs-Stammdaten & Belegtexte',
+                      checked: resetEventMetadata,
+                      onChange: setResetEventMetadata,
+                    },
+                  ].map((item) => {
+                    const isHelpOpen = activeHelpKey === item.key;
+                    const helpData = RESET_HELP[item.key];
+                    return (
+                      <div key={item.key} className="rounded-xl bg-slate-950 border border-slate-800 overflow-hidden">
+                        <div className="flex items-center justify-between p-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-white">{item.label}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveHelpKey(isHelpOpen ? null : item.key);
+                              }}
+                              className={`p-1 rounded-lg transition text-[11px] font-bold flex items-center gap-1 ${
+                                isHelpOpen
+                                  ? 'bg-blue-600 text-white shadow'
+                                  : 'bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-blue-300'
+                              }`}
+                              title="Details anzeigen, was gelöscht wird"
+                            >
+                              <HelpCircle className="w-3.5 h-3.5" />
+                              <span className="text-[10px]">Info</span>
+                            </button>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={item.checked}
+                            onChange={(e) => item.onChange(e.target.checked)}
+                            className="w-4 h-4 rounded text-rose-600 bg-slate-900 border-slate-700"
+                          />
+                        </div>
 
-                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700">
-                    <span className="text-xs font-bold text-white">Umsätze, Zahlungen &amp; Kassenbuch</span>
-                    <input
-                      type="checkbox"
-                      checked={resetPayments}
-                      onChange={(e) => setResetPayments(e.target.checked)}
-                      className="w-4 h-4 rounded text-rose-600 bg-slate-900 border-slate-700"
-                    />
-                  </label>
+                        {/* Expandable Help / Detail Explainer */}
+                        {isHelpOpen && helpData && (
+                          <div className="bg-slate-900 border-t border-slate-800 p-3 text-[11px] space-y-1.5 animate-in fade-in">
+                            <p className="text-slate-300 font-semibold">{helpData.description}</p>
+                            <div className="text-slate-400">
+                              <strong className="text-rose-400">Betroffene Tabellen / Daten:</strong>
+                              <div className="flex flex-wrap gap-1 mt-1 font-mono text-[10px]">
+                                {helpData.tables.map((t, idx) => (
+                                  <span key={idx} className="bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 text-slate-300">
+                                    {t}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
 
-                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700">
-                    <span className="text-xs font-bold text-white">Tische &amp; 2D-Raumplan</span>
-                    <input
-                      type="checkbox"
-                      checked={resetTables}
-                      onChange={(e) => setResetTables(e.target.checked)}
-                      className="w-4 h-4 rounded text-rose-600 bg-slate-900 border-slate-700"
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700">
-                    <span className="text-xs font-bold text-white">Speisekarte, Artikel, Warengruppen &amp; Bestand</span>
-                    <input
-                      type="checkbox"
-                      checked={resetProducts}
-                      onChange={(e) => setResetProducts(e.target.checked)}
-                      className="w-4 h-4 rounded text-rose-600 bg-slate-900 border-slate-700"
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700">
-                    <span className="text-xs font-bold text-white">Bedienungsprofile &amp; Trinkgeldmodelle</span>
-                    <input
-                      type="checkbox"
-                      checked={resetWaiters}
-                      onChange={(e) => setResetWaiters(e.target.checked)}
-                      className="w-4 h-4 rounded text-rose-600 bg-slate-900 border-slate-700"
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700">
-                    <span className="text-xs font-bold text-white">Drucker &amp; Druckgruppen</span>
-                    <input
-                      type="checkbox"
-                      checked={resetPrinters}
-                      onChange={(e) => setResetPrinters(e.target.checked)}
-                      className="w-4 h-4 rounded text-rose-600 bg-slate-900 border-slate-700"
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-between p-3 rounded-xl bg-rose-950/40 border border-rose-800/80 cursor-pointer">
-                    <div>
-                      <span className="text-xs font-bold text-rose-300 block">Vollständiger Werksreset</span>
-                      <span className="text-[10px] text-rose-400">Setzt auch alle PINs und Systemeinstellungen zurück</span>
+                  <div className="rounded-xl bg-rose-950/40 border border-rose-800/80 overflow-hidden">
+                    <div className="flex items-center justify-between p-3">
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <span className="text-xs font-bold text-rose-300 block">Vollständiger Werksreset</span>
+                          <span className="text-[10px] text-rose-400">Setzt auch alle PINs und Systemeinstellungen zurück</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveHelpKey(activeHelpKey === 'config' ? null : 'config');
+                          }}
+                          className="p-1 rounded-lg bg-rose-900/60 hover:bg-rose-800 text-rose-200 transition"
+                          title="Details zum Werksreset anzeigen"
+                        >
+                          <HelpCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={resetConfig}
+                        onChange={(e) => setResetConfig(e.target.checked)}
+                        className="w-4 h-4 rounded text-rose-600 bg-slate-900 border-rose-700"
+                      />
                     </div>
-                    <input
-                      type="checkbox"
-                      checked={resetConfig}
-                      onChange={(e) => setResetConfig(e.target.checked)}
-                      className="w-4 h-4 rounded text-rose-600 bg-slate-900 border-rose-700"
-                    />
-                  </label>
+
+                    {activeHelpKey === 'config' && (
+                      <div className="bg-rose-950/80 border-t border-rose-800/80 p-3 text-[11px] space-y-1.5 animate-in fade-in">
+                        <p className="text-rose-200 font-semibold">{RESET_HELP.config.description}</p>
+                        <div className="text-rose-300">
+                          <strong>Umfang:</strong> Alle Datenbanktabellen, alle PINs (Admin: 0000, Kasse: 1111, Küche: 2222, Kellner: 3333).
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2 pt-2 border-t border-slate-800">

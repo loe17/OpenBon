@@ -384,15 +384,15 @@ export async function POST(req: Request) {
           addressCity: config.addressCity || undefined,
           taxNumber: config.taxNumber || undefined,
           vatId: config.vatId || undefined,
-          footerText: config.receiptFooterText || 'Vielen Dank für Ihren Besuch!',
+          footerText: config.receiptFooterText || undefined,
         };
         await networkSpooler.printTicket(receiptPrinter, ticketData).catch(() => undefined);
       }
     }
 
-    // Kassenlade bei Bargeld
+    // Kassenlade bei Bargeld (nur an Druckern mit angeschlossener Lade)
     if (body.paymentMethod === 'CASH' && body.openDrawer) {
-      const posPrinter = await prisma.printer.findFirst({ where: { isActive: true } });
+      const posPrinter = await prisma.printer.findFirst({ where: { isActive: true, hasCashDrawer: true } });
       if (posPrinter) {
         await networkSpooler.openDrawer(posPrinter).catch(() => undefined);
       }
