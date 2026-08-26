@@ -32,7 +32,7 @@ import {
 import { SubCategoryIcon } from '@/components/ui/subcategory-icon';
 import { calculateMinBirthdate, EU_ALLERGENS, filterProductsByExcludedAllergens } from '@/lib/compliance';
 import { getEffectiveProductPrice } from '@/lib/pricing';
-import { hasAnyCardPaymentConfigured } from '@/lib/payment/methods';
+import { hasAnyCardPaymentConfigured, getActiveCardPaymentMethod } from '@/lib/payment/methods';
 import { sendWithOutboxFallback } from '@/lib/offline/outbox';
 import { useToast } from '@/components/ui/toast';
 import { ChangeCalculator } from '@/components/ui/change-calculator';
@@ -677,15 +677,15 @@ function PosCounterContent() {
               {hasAnyCardPaymentConfigured(config) && (
                 <button
                   type="button"
-                  onClick={() => setPaymentMethod('CARD_TERMINAL')}
+                  onClick={() => setPaymentMethod(getActiveCardPaymentMethod(config) || 'CARD_SUMUP')}
                   className={`py-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 border transition ${
-                    paymentMethod === 'CARD_TERMINAL'
-                      ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                    paymentMethod.startsWith('CARD_') || paymentMethod === 'CARD'
+                      ? 'bg-blue-600 text-white border-blue-500 shadow-md'
                       : 'bg-slate-800 text-slate-300 border-slate-700'
                   }`}
                 >
                   <CreditCard className="w-4 h-4" />
-                  <span>EC / Karte</span>
+                  <span>Kartenzahlung</span>
                 </button>
               )}
               <button

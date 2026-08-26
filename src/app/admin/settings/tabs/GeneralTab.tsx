@@ -61,13 +61,12 @@ function Toggle({
 }
 
 const THEMES: { id: string; label: string }[] = [
-  { id: 'dark', label: 'Dunkel (Standard)' },
+  { id: 'klassisch', label: 'Klassisch (Standard)' },
+  { id: 'dark', label: 'Dunkel' },
   { id: 'light', label: 'Hell' },
   { id: 'contrast', label: 'Hoher Kontrast' },
   { id: 'modern', label: 'Modern' },
   { id: 'minimal', label: 'Minimal' },
-  { id: 'plain', label: 'Biergarten' },
-  { id: 'klassisch', label: 'Klassisch' },
 ];
 
 export function GeneralTab({

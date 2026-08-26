@@ -36,27 +36,13 @@ yarn-error.log*
 .pnpm-debug.log*
 *.tmp
 
-# AI / Assistant / Internal Planning & Spec Files
-IMPLEMENTIERUNGSPLAN.md
-IMPLEMENTIERUNGSPLAN*.md
-implementation_plan.md
-walkthrough.md
-SPEC_ABGLEICH.md
-UMSETZUNG*.md
-*umsetzung*.md
-EMPFEHLUNGEN*.md
-*empfehlungen*.md
-PRUEFUNG*.md
-*pruefung*.md
-2608*.md
-*Optimierungen*.md
-*optimierungen*.md
-docs/SPECIFICATION.md
-docs/SPECIFICATION_V2.md
-docs/IMPLEMENTATION_PLAN_V2.md
-docs/GITHUB_EXPLORER_GUIDE.md
-*SPECIFICATION*.md
-*specification*.md
+# Markdown & Internal Documentation (Ignore all markdown except README.md)
+*.md
+!README.md
+docs/*.md
+!docs/README.md
+
+# Backup & Planning Files
 github-1-click*.bat
 sync-to-P*.bat
 _to_delete/

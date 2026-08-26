@@ -46,6 +46,7 @@ export default function AdminProductsPage() {
 
   // Printable Menu state
   const [showMenuPrintModal, setShowMenuPrintModal] = useState(false);
+  const [menuTemplate, setMenuTemplate] = useState<'CLASSIC' | 'MODERN' | 'POSTER' | 'COMPACT'>('CLASSIC');
 
   // Form State
   const [formData, setFormData] = useState({
@@ -1220,18 +1221,42 @@ export default function AdminProductsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-black/85 backdrop-blur-md animate-in fade-in overflow-y-auto">
           <div className="bg-white text-slate-900 rounded-3xl max-w-4xl w-full shadow-2xl flex flex-col max-h-[95vh] border border-slate-200 print:max-w-none print:shadow-none print:border-none print:rounded-none print:max-h-none print:p-0">
             {/* Modal Top Actions (Hidden in Print) */}
-            <div className="p-4 bg-slate-100 border-b border-slate-200 rounded-t-3xl flex items-center justify-between print:hidden">
+            <div className="p-4 bg-slate-100 border-b border-slate-200 rounded-t-3xl flex flex-wrap items-center justify-between gap-3 print:hidden">
               <div className="flex items-center gap-2 text-slate-800">
                 <FileText className="w-5 h-5 text-emerald-600" />
-                <span className="font-bold text-base">Speise- & Getränkekarte Vorschau</span>
+                <span className="font-bold text-base">Speisekarte Druckvorschau</span>
               </div>
+
+              {/* Template Switcher Buttons */}
+              <div className="flex items-center gap-1.5 bg-slate-200 p-1 rounded-2xl">
+                {[
+                  { id: 'CLASSIC', label: 'Klassisch' },
+                  { id: 'MODERN', label: 'Modern / Gastro' },
+                  { id: 'POSTER', label: 'Großschrift (Aushang)' },
+                  { id: 'COMPACT', label: 'Kompakt (A5)' },
+                ].map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    onClick={() => setMenuTemplate(tpl.id as any)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                      menuTemplate === tpl.id
+                        ? 'bg-white text-slate-900 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {tpl.label}
+                  </button>
+                ))}
+              </div>
+
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => window.print()}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow flex items-center gap-1.5 transition"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>Jetzt Drucken / PDF speichern</span>
+                  <span>Drucken / PDF</span>
                 </button>
                 <button
                   onClick={() => setShowMenuPrintModal(false)}
@@ -1243,19 +1268,27 @@ export default function AdminProductsPage() {
             </div>
 
             {/* Printable Menu Paper Content */}
-            <div className="p-6 sm:p-10 overflow-y-auto font-serif print:p-6 print:overflow-visible text-slate-900 bg-white">
+            <div className="p-6 sm:p-10 overflow-y-auto font-sans print:p-6 print:overflow-visible text-slate-900 bg-white">
               {/* Event Header */}
               <div className="text-center pb-6 mb-6 border-b-2 border-slate-900">
-                <h1 className="text-3xl sm:text-4xl font-black tracking-tight uppercase font-sans text-slate-950">
+                <h1 className={`font-black tracking-tight uppercase text-slate-950 ${
+                  menuTemplate === 'POSTER' ? 'text-4xl sm:text-5xl mb-2' : menuTemplate === 'COMPACT' ? 'text-2xl mb-1' : 'text-3xl sm:text-4xl'
+                }`}>
                   {config?.name || config?.receiptHeader || 'Speisen- & Getränkekarte'}
                 </h1>
-                <p className="text-sm font-sans text-slate-600 uppercase tracking-widest mt-1">
-                  Offizielle Speisen- &amp; Getränkekarte
+                <p className="text-xs sm:text-sm text-slate-600 uppercase tracking-widest">
+                  {config?.receiptSubHeader || 'Offizielle Festkarte'}
                 </p>
               </div>
 
               {/* Categorized Products */}
-              <div className="space-y-8">
+              <div className={
+                menuTemplate === 'POSTER'
+                  ? 'space-y-10'
+                  : menuTemplate === 'COMPACT'
+                  ? 'grid grid-cols-1 md:grid-cols-3 gap-6'
+                  : 'space-y-8'
+              }>
                 {categories.map((cat) => {
                   const catProducts = products.filter(
                     (p) => p.categoryId === cat.id && !p.isSoldOut
@@ -1264,11 +1297,21 @@ export default function AdminProductsPage() {
 
                   return (
                     <div key={cat.id} className="break-inside-avoid">
-                      <h2 className="text-xl font-bold uppercase tracking-wider font-sans text-slate-900 pb-1 mb-4 border-b border-slate-300 flex items-center justify-between">
+                      <h2 className={`font-black uppercase tracking-wider text-slate-900 pb-1.5 mb-3 border-b-2 border-slate-900 flex items-center justify-between ${
+                        menuTemplate === 'POSTER' ? 'text-2xl sm:text-3xl' : menuTemplate === 'COMPACT' ? 'text-base' : 'text-xl'
+                      }`}>
                         <span>{cat.name}</span>
                       </h2>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 font-sans">
+                      <div className={
+                        menuTemplate === 'POSTER'
+                          ? 'grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4'
+                          : menuTemplate === 'COMPACT'
+                          ? 'space-y-2 text-xs'
+                          : menuTemplate === 'MODERN'
+                          ? 'grid grid-cols-1 md:grid-cols-2 gap-4'
+                          : 'grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3'
+                      }>
                         {catProducts.map((p) => {
                           const allergensList = Array.isArray(p.allergens)
                             ? p.allergens.join(', ')
@@ -1276,10 +1319,72 @@ export default function AdminProductsPage() {
                             ? JSON.parse(p.allergens || '[]').join(', ')
                             : '';
 
+                          if (menuTemplate === 'MODERN') {
+                            return (
+                              <div
+                                key={p.id}
+                                className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-start justify-between gap-3 text-sm"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-extrabold text-slate-900 text-base">{p.name}</div>
+                                  {p.variants && p.variants.length > 0 && (
+                                    <div className="text-xs text-slate-500 mt-0.5">
+                                      {p.variants.map((v: any) => v.name).join(' · ')}
+                                    </div>
+                                  )}
+                                  {allergensList && (
+                                    <div className="text-[10px] font-mono text-slate-400 mt-0.5">
+                                      Allergene: {allergensList}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <span className="font-mono font-black text-slate-950 bg-slate-200 px-2.5 py-1 rounded-xl text-sm inline-block">
+                                    {formatCurrency(p.price)}
+                                  </span>
+                                  {p.deposit > 0 && (
+                                    <span className="text-[10px] block text-slate-500 font-medium mt-0.5">
+                                      +{formatCurrency(p.deposit)} Pfand
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          if (menuTemplate === 'POSTER') {
+                            return (
+                              <div
+                                key={p.id}
+                                className="flex items-center justify-between gap-4 pb-2 border-b-2 border-slate-300"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-black text-slate-950 text-xl sm:text-2xl">{p.name}</div>
+                                  {allergensList && (
+                                    <div className="text-xs font-mono text-slate-500">
+                                      ({allergensList})
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <span className="font-mono font-black text-slate-950 text-2xl sm:text-3xl">
+                                    {formatCurrency(p.price)}
+                                  </span>
+                                  {p.deposit > 0 && (
+                                    <span className="text-xs block text-slate-600 font-bold">
+                                      +{formatCurrency(p.deposit)} Pfand
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          // Standard / Classic & Compact
                           return (
                             <div
                               key={p.id}
-                              className="flex items-start justify-between gap-3 pb-1 border-b border-dotted border-slate-200 text-sm"
+                              className="flex items-start justify-between gap-3 pb-1 border-b border-dotted border-slate-300 text-sm"
                             >
                               <div className="flex-1 min-w-0">
                                 <div className="font-bold text-slate-900">
@@ -1315,8 +1420,8 @@ export default function AdminProductsPage() {
               </div>
 
               {/* LMIV Footnotes / Allergens Key */}
-              <div className="mt-10 pt-6 border-t border-slate-300 font-sans text-[10px] text-slate-600 leading-relaxed break-inside-avoid">
-                <div className="font-bold text-slate-800 uppercase mb-1">
+              <div className="mt-10 pt-6 border-t-2 border-slate-900 text-[10px] text-slate-600 leading-relaxed break-inside-avoid">
+                <div className="font-black text-slate-800 uppercase mb-1">
                   Hinweise zu Allergenen & Zusatzstoffen (LMIV):
                 </div>
                 <p>

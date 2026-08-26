@@ -78,6 +78,7 @@ function AdminSettleContent() {
   const [done, setDone] = useState(false);
   const [printers, setPrinters] = useState<{ id: string; name: string; isActive: boolean }[]>([]);
   const [printerId, setPrinterId] = useState('');
+  const [settleTemplate, setSettleTemplate] = useState<'OFFICIAL_A4' | 'RECEIPT_SLIP' | 'DASHBOARD_SUMMARY'>('OFFICIAL_A4');
 
   /* ------------------------------------------------------------ Laden */
 
@@ -581,117 +582,263 @@ function AdminSettleContent() {
             </span>
           </div>
 
-          {/* Druckansicht: dient zugleich als PDF-Vorlage */}
-          <div
-            id="settlement-report"
-            className="bg-white text-slate-950 rounded-2xl p-6 print:rounded-none print:p-0 print:shadow-none"
-          >
-            <div className="text-center border-b border-slate-300 pb-3 mb-4">
-              {report.isTraining ? (
-                <div className="font-black text-sm mb-1">*** ÜBUNGSBETRIEB ***</div>
-              ) : null}
-              <h2 className="text-xl font-black">Schichtabrechnung</h2>
-              <p className="text-sm">{report.eventName}</p>
+          {/* Template Switcher Toolbar (Hidden in Print) */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2 flex flex-wrap items-center justify-between gap-2 print:hidden">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-slate-400 px-2">Druck-Design:</span>
+              {[
+                { id: 'OFFICIAL_A4', label: 'Offizieller Prüfbericht (A4)' },
+                { id: 'RECEIPT_SLIP', label: 'Kassenbon (80 mm)' },
+                { id: 'DASHBOARD_SUMMARY', label: 'Management Übersicht' },
+              ].map((tpl) => (
+                <button
+                  key={tpl.id}
+                  type="button"
+                  onClick={() => setSettleTemplate(tpl.id as any)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                    settleTemplate === tpl.id
+                      ? 'bg-blue-600 text-white shadow'
+                      : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
+                >
+                  {tpl.label}
+                </button>
+              ))}
             </div>
-
-            <table className="w-full text-sm mb-4">
-              <tbody>
-                <tr>
-                  <td className="py-1 font-bold">Bedienung</td>
-                  <td className="py-1 text-right">{report.waiterName}</td>
-                </tr>
-                <tr>
-                  <td className="py-1 font-bold">Kassenperiode</td>
-                  <td className="py-1 text-right">Z-{report.periodNumber}</td>
-                </tr>
-                <tr>
-                  <td className="py-1 font-bold">Abgerechnet</td>
-                  <td className="py-1 text-right">{new Date().toLocaleString('de-DE')}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <h3 className="font-black text-sm border-b border-slate-300 pb-1 mb-2">
-              Umsatz nach Zahlart
-            </h3>
-            <table className="w-full text-sm mb-4">
-              <tbody>
-                {report.byMethod.map((m) => (
-                  <tr key={m.method}>
-                    <td className="py-1">
-                      {m.label} <span className="text-slate-500">· {m.count}×</span>
-                    </td>
-                    <td className="py-1 text-right font-mono">{money(m.amount)}</td>
-                  </tr>
-                ))}
-                <tr className="border-t border-slate-300 font-black">
-                  <td className="py-1.5">Gesamtumsatz</td>
-                  <td className="py-1.5 text-right font-mono">{money(report.totalGross)}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <h3 className="font-black text-sm border-b border-slate-300 pb-1 mb-2">Trinkgeld</h3>
-            <table className="w-full text-sm mb-4">
-              <tbody>
-                <tr>
-                  <td className="py-1">Gesamt</td>
-                  <td className="py-1 text-right font-mono">{money(report.tipsTotal)}</td>
-                </tr>
-                <tr>
-                  <td className="py-1 pl-4 text-slate-600">davon Bedienung</td>
-                  <td className="py-1 text-right font-mono">{money(report.tipWaiterShare)}</td>
-                </tr>
-                <tr>
-                  <td className="py-1 pl-4 text-slate-600">davon Team-Pool</td>
-                  <td className="py-1 text-right font-mono">{money(report.tipPoolShare)}</td>
-                </tr>
-                {report.tipProfileName ? (
-                  <tr>
-                    <td className="py-1 text-slate-600 text-xs" colSpan={2}>
-                      Verteilung nach Profil „{report.tipProfileName}“
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-
-            <h3 className="font-black text-sm border-b border-slate-300 pb-1 mb-2">Kassensturz</h3>
-            <table className="w-full text-sm mb-4">
-              <tbody>
-                <tr>
-                  <td className="py-1">Soll-Barbestand</td>
-                  <td className="py-1 text-right font-mono">{money(report.cashExpected)}</td>
-                </tr>
-                <tr>
-                  <td className="py-1">Gezählt</td>
-                  <td className="py-1 text-right font-mono">{money(countedNum)}</td>
-                </tr>
-                <tr className="border-t border-slate-300 font-black text-base">
-                  <td className="py-1.5">
-                    {differenceOk ? 'Kasse stimmt' : difference > 0 ? 'Überschuss' : 'Fehlbetrag'}
-                  </td>
-                  <td className="py-1.5 text-right font-mono">
-                    {difference > 0 ? '+' : ''}
-                    {money(difference)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            {notes ? (
-              <p className="text-sm mb-4">
-                <span className="font-bold">Bemerkung:</span> {notes}
-              </p>
-            ) : null}
-
-            <div className="grid grid-cols-2 gap-8 mt-10 text-xs">
-              <div className="border-t border-slate-400 pt-1">Bedienung</div>
-              <div className="border-t border-slate-400 pt-1">Kassenleitung</div>
-            </div>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Jetzt Drucken / PDF</span>
+            </button>
           </div>
 
-          <div className="flex flex-wrap gap-2 print:hidden">
+          {/* Druckansicht 1: Offizieller DIN A4 Buchhaltungsbogen */}
+          {settleTemplate === 'OFFICIAL_A4' && (
+            <div
+              id="settlement-report"
+              className="bg-white text-slate-950 rounded-2xl p-8 print:rounded-none print:p-0 print:shadow-none font-sans"
+            >
+              <div className="text-center border-b-2 border-slate-900 pb-3 mb-6">
+                {report.isTraining ? (
+                  <div className="font-black text-sm mb-1 text-rose-600">*** ÜBUNGSBETRIEB - KEINE GUELTIGE BUCHUNG ***</div>
+                ) : null}
+                <h1 className="text-2xl font-black uppercase tracking-tight">Kassen- &amp; Schichtabschlussbericht</h1>
+                <p className="text-sm text-slate-600 font-semibold">{report.eventName}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+                <div>
+                  <div className="text-xs text-slate-500 uppercase font-bold">Bedienung / Kellner</div>
+                  <div className="font-black text-base">{report.waiterName}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-slate-500 uppercase font-bold">Kassenperiode / Datum</div>
+                  <div className="font-mono font-bold">Z-{report.periodNumber} · {new Date().toLocaleString('de-DE')}</div>
+                </div>
+              </div>
+
+              <h3 className="font-black text-sm border-b-2 border-slate-900 pb-1 mb-2 uppercase">
+                1. Umsatz nach Zahlungsart
+              </h3>
+              <table className="w-full text-sm mb-6 border border-slate-300">
+                <thead className="bg-slate-100 border-b border-slate-300 text-xs uppercase font-bold text-slate-700">
+                  <tr>
+                    <th className="py-1.5 px-3 text-left">Zahlungsart</th>
+                    <th className="py-1.5 px-3 text-center">Buchungen</th>
+                    <th className="py-1.5 px-3 text-right">Umsatz Brutto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.byMethod.map((m) => (
+                    <tr key={m.method} className="border-b border-slate-200">
+                      <td className="py-1.5 px-3 font-semibold">{m.label}</td>
+                      <td className="py-1.5 px-3 text-center font-mono">{m.count}×</td>
+                      <td className="py-1.5 px-3 text-right font-mono font-bold">{money(m.amount)}</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-slate-50 font-black text-base">
+                    <td className="py-2 px-3">Gesamtumsatz</td>
+                    <td className="py-2 px-3 text-center font-mono">{report.transactionCount}×</td>
+                    <td className="py-2 px-3 text-right font-mono text-emerald-800">{money(report.totalGross)}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <h3 className="font-black text-sm border-b-2 border-slate-900 pb-1 mb-2 uppercase">
+                2. Trinkgeld-Abrechnung
+              </h3>
+              <table className="w-full text-sm mb-6 border border-slate-300">
+                <tbody>
+                  <tr className="border-b border-slate-200">
+                    <td className="py-1.5 px-3 font-bold">Trinkgeld Gesamt</td>
+                    <td className="py-1.5 px-3 text-right font-mono font-bold">{money(report.tipsTotal)}</td>
+                  </tr>
+                  <tr className="border-b border-slate-200">
+                    <td className="py-1.5 px-3 pl-6 text-slate-600">davon Anteil Bedienung (Einbehalt)</td>
+                    <td className="py-1.5 px-3 text-right font-mono">{money(report.tipWaiterShare)}</td>
+                  </tr>
+                  <tr>
+                    <td className="py-1.5 px-3 pl-6 text-slate-600">davon Anteil Team-Pool (Kassenabgabe)</td>
+                    <td className="py-1.5 px-3 text-right font-mono">{money(report.tipPoolShare)}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <h3 className="font-black text-sm border-b-2 border-slate-900 pb-1 mb-2 uppercase">
+                3. Kassensturz &amp; Bargeldabgabe
+              </h3>
+              <table className="w-full text-sm mb-6 border border-slate-300">
+                <tbody>
+                  <tr className="border-b border-slate-200">
+                    <td className="py-1.5 px-3">Soll-Barbestand (Barumsatz abzgl. Bedienungs-Trinkgeld)</td>
+                    <td className="py-1.5 px-3 text-right font-mono font-bold text-slate-900">{money(report.cashExpected)}</td>
+                  </tr>
+                  <tr className="border-b border-slate-200">
+                    <td className="py-1.5 px-3 font-bold">Ist-Barbestand (Tatsächlich gezählt)</td>
+                    <td className="py-1.5 px-3 text-right font-mono font-black text-base">{money(countedNum)}</td>
+                  </tr>
+                  <tr className="bg-slate-100 font-black text-base">
+                    <td className="py-2 px-3">
+                      Differenz: {differenceOk ? 'Kasse stimmt exakt' : difference > 0 ? 'Überschuss' : 'Fehlbetrag'}
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono">
+                      {difference > 0 ? '+' : ''}
+                      {money(difference)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {notes ? (
+                <div className="p-3 bg-slate-50 border border-slate-300 rounded-xl text-xs mb-6">
+                  <span className="font-black uppercase">Bemerkung zur Schicht:</span> {notes}
+                </div>
+              ) : null}
+
+              <div className="grid grid-cols-2 gap-12 mt-12 text-xs pt-4">
+                <div className="border-t-2 border-slate-900 pt-2 text-center font-bold">
+                  Unterschrift Bedienung ({report.waiterName})
+                </div>
+                <div className="border-t-2 border-slate-900 pt-2 text-center font-bold">
+                  Unterschrift Kassenprüfer / Festleitung
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Druckansicht 2: Kompakter 80-mm-Bonstreifen */}
+          {settleTemplate === 'RECEIPT_SLIP' && (
+            <div className="bg-slate-950 p-4 rounded-2xl flex justify-center print:bg-white print:p-0">
+              <div className="bg-white text-slate-950 p-6 rounded-xl border-dashed border-2 border-slate-300 max-w-sm w-full font-mono text-xs shadow-xl print:shadow-none print:border-none print:max-w-none print:p-0">
+                <div className="text-center pb-2 mb-2 border-b border-slate-400">
+                  <div className="font-bold text-sm">*** SCHICHTABSCHLUSS ***</div>
+                  <div className="font-bold">{report.eventName}</div>
+                  <div>Z-Periode: Z-{report.periodNumber}</div>
+                  <div>Bedienung: {report.waiterName}</div>
+                  <div>{new Date().toLocaleString('de-DE')}</div>
+                </div>
+
+                <div className="py-2 border-b border-slate-400 space-y-1">
+                  <div className="font-bold">UMSATZ NACH ZAHLART:</div>
+                  {report.byMethod.map((m) => (
+                    <div key={m.method} className="flex justify-between">
+                      <span>{m.label} ({m.count}x)</span>
+                      <span>{money(m.amount)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between font-bold pt-1 border-t border-slate-300 text-sm">
+                    <span>GESAMT:</span>
+                    <span>{money(report.totalGross)}</span>
+                  </div>
+                </div>
+
+                <div className="py-2 border-b border-slate-400 space-y-1">
+                  <div className="font-bold">KASSENSTURZ:</div>
+                  <div className="flex justify-between">
+                    <span>Soll-Bar:</span>
+                    <span>{money(report.cashExpected)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Gezählt:</span>
+                    <span>{money(countedNum)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-sm pt-1">
+                    <span>Differenz:</span>
+                    <span>{difference > 0 ? '+' : ''}{money(difference)}</span>
+                  </div>
+                </div>
+
+                <div className="pt-6 grid grid-cols-2 gap-4 text-[10px] text-center">
+                  <div className="border-t border-slate-400 pt-1">Bedienung</div>
+                  <div className="border-t border-slate-400 pt-1">Kasse</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Druckansicht 3: Management Dashboard-Zusammenfassung */}
+          {settleTemplate === 'DASHBOARD_SUMMARY' && (
+            <div className="bg-white text-slate-950 rounded-2xl p-8 print:rounded-none print:p-0 font-sans shadow">
+              <div className="flex items-center justify-between border-b-2 border-slate-900 pb-4 mb-6">
+                <div>
+                  <h2 className="text-2xl font-black">Schicht-Auswertung &amp; KPIs</h2>
+                  <p className="text-xs text-slate-500 font-semibold">{report.eventName} · Bedienung: {report.waiterName}</p>
+                </div>
+                <div className="text-right">
+                  <span className="font-mono font-bold text-xs bg-slate-200 px-3 py-1.5 rounded-xl">
+                    Periode Z-{report.periodNumber}
+                  </span>
+                </div>
+              </div>
+
+              {/* KPI Cards */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200">
+                  <span className="text-xs font-bold text-emerald-800 uppercase block mb-1">Gesamtumsatz</span>
+                  <span className="text-2xl font-black text-emerald-900 font-mono">{money(report.totalGross)}</span>
+                  <span className="text-[11px] text-emerald-700 block mt-1">{report.transactionCount} Transaktionen</span>
+                </div>
+                <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200">
+                  <span className="text-xs font-bold text-blue-800 uppercase block mb-1">Trinkgeld Gesamt</span>
+                  <span className="text-2xl font-black text-blue-900 font-mono">{money(report.tipsTotal)}</span>
+                  <span className="text-[11px] text-blue-700 block mt-1">Bedienung: {money(report.tipWaiterShare)} | Pool: {money(report.tipPoolShare)}</span>
+                </div>
+                <div className={`p-4 rounded-2xl border ${differenceOk ? 'bg-emerald-50 border-emerald-300' : 'bg-rose-50 border-rose-300'}`}>
+                  <span className="text-xs font-bold uppercase block mb-1">Kassensturz-Status</span>
+                  <span className={`text-2xl font-black font-mono ${differenceOk ? 'text-emerald-900' : 'text-rose-900'}`}>
+                    {difference > 0 ? '+' : ''}{money(difference)}
+                  </span>
+                  <span className="text-[11px] font-bold block mt-1">
+                    {differenceOk ? 'Kasse ausgeglichen' : difference > 0 ? 'Überschuss' : 'Fehlbetrag'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Zahlarten Aufteilung */}
+              <h3 className="font-black text-sm uppercase mb-3">Zahlarten-Mix</h3>
+              <div className="space-y-3 mb-6">
+                {report.byMethod.map((m) => {
+                  const pct = report.totalGross > 0 ? Math.round((m.amount / report.totalGross) * 100) : 0;
+                  return (
+                    <div key={m.method} className="space-y-1">
+                      <div className="flex justify-between text-xs font-bold">
+                        <span>{m.label} ({m.count}×)</span>
+                        <span className="font-mono">{money(m.amount)} ({pct}%)</span>
+                      </div>
+                      <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                        <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2 print:hidden pt-2">
             <button
               type="button"
               onClick={() => window.print()}
@@ -710,15 +857,14 @@ function AdminSettleContent() {
                 setNotes('');
                 setDone(false);
               }}
-              className="min-h-[52px] px-5 rounded-2xl bg-slate-900 border border-slate-800 font-bold text-sm"
+              className="min-h-[52px] px-5 rounded-2xl bg-slate-900 border border-slate-800 font-bold text-sm text-slate-300 hover:text-white"
             >
               Nächste Bedienung
             </button>
           </div>
 
           <p className="text-[11px] text-slate-500 print:hidden">
-            „Als PDF speichern“ öffnet den Druckdialog des Browsers. Dort als Ziel „Als PDF
-            speichern“ wählen – so entsteht die Datei ohne zusätzliche Software.
+            „Als PDF speichern“ öffnet den Druckdialog des Browsers. Wählen Sie dort Ihr gewünschtes Format (A4 oder Bon).
           </p>
         </div>
       )}

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { formatCurrency, generateIdempotencyKey } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import { computeCheckout, CASH_QUICK_NOTES } from '@/lib/pricing';
-import { PAYMENT_METHODS, isPaymentMethodAvailable } from '@/lib/payment/methods';
+import { PAYMENT_METHODS, isPaymentMethodAvailable, getActiveCardPaymentMethod } from '@/lib/payment/methods';
 import { playPaymentSuccess, playPaymentFailure } from '@/lib/audio-feedback';
 import { ChangeCalculator } from '@/components/ui/change-calculator';
 import PaymentService from '@/lib/payment/payment-service';
@@ -299,18 +299,21 @@ function WaiterPaymentContent() {
   /* ----------------------------------------- Stufe 4: Kartenzahlung (Spec 4) */
 
   const startCardPayment = useCallback(
-    async (method: PaymentMethod) => {
+    async (method: PaymentMethod | 'CARD') => {
       setStage('CARD');
       setCardStatus('WAITING');
       setCardAuthCode(null);
       setCardMessage('Kartenzahlung wird initialisiert...');
+
+      const effectiveMethod = (method === 'CARD' ? getActiveCardPaymentMethod(config) : method) || 'CARD_SUMUP';
+      setPaymentMethod(effectiveMethod);
 
       const amount = checkout.amountDueWithTip;
       const title = table ? `OrderBon Tisch ${table.label}` : 'OrderBon Direktverkauf';
 
       try {
         const init = await PaymentService.initiate({
-          provider: method,
+          provider: effectiveMethod,
           amount,
           tableId: table?.id,
           title,
@@ -777,20 +780,24 @@ function WaiterPaymentContent() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-3xl w-full mx-auto">
-            {PAYMENT_METHODS.filter((m) => isPaymentMethodAvailable(m.id, config)).map((m) => {
+            {PAYMENT_METHODS.filter((m) => {
+              if (m.id.startsWith('CARD_')) return false; // Nur der einheitliche "Kartenzahlung"-Button
+              return isPaymentMethodAvailable(m.id, config);
+            }).map((m) => {
               const Icon = m.icon;
               return (
                 <button
                   key={m.id}
                   onClick={() => {
                     haptic();
-                    setPaymentMethod(m.id);
                     if (m.id === 'CASH') {
+                      setPaymentMethod('CASH');
                       setKeypadValue('');
                       setStage('CASH');
                     } else if (m.isCard) {
-                      void startCardPayment(m.id);
+                      void startCardPayment('CARD');
                     } else {
+                      setPaymentMethod(m.id);
                       setStage('CASH');
                     }
                   }}
@@ -809,7 +816,7 @@ function WaiterPaymentContent() {
                   <span className="min-w-0">
                     <span className="block font-black text-lg text-white truncate">{m.label}</span>
                     <span className="block text-xs font-semibold text-slate-300">
-                      {m.isCard ? 'Kartenzahlung' : m.isNonPaid ? 'Ohne Geldfluss' : 'Barzahlung'}
+                      {m.isCard ? 'Kartenzahlung (Terminal / App)' : m.isNonPaid ? 'Ohne Geldfluss' : 'Barzahlung'}
                     </span>
                   </span>
                 </button>

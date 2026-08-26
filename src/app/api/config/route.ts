@@ -41,6 +41,14 @@ const ALLOWED_FIELDS = [
   'receiptShowTable',
   'receiptShowTse',
   'receiptTableFontSize',
+  'receiptFoodTableFontSize',
+  'receiptDrinkTableFontSize',
+  'tableMarkerFontSize',
+  'receiptTemplate',
+  'receiptFoodTemplate',
+  'receiptDrinkTemplate',
+  'autoBackupEnabled',
+  'autoBackupIntervalMinutes',
   'receiptSingleItemKitchenSlips',
   'receiptSingleItemFoodSlips',
   'receiptSingleItemDrinkSlips',
@@ -87,6 +95,10 @@ const NUMERIC_FIELDS = new Set<string>([
   'taxRateReduced',
   'trayMaxItems',
   'receiptTableFontSize',
+  'receiptFoodTableFontSize',
+  'receiptDrinkTableFontSize',
+  'tableMarkerFontSize',
+  'autoBackupIntervalMinutes',
   'zvtPort',
   'tokenSequence',
   'invoiceSequence',
@@ -94,6 +106,7 @@ const NUMERIC_FIELDS = new Set<string>([
 ]);
 
 const BOOLEAN_FIELDS = new Set<string>([
+  'autoBackupEnabled',
   'trainingMode',
   'enableVirtualPrinters',
   'enableTax',

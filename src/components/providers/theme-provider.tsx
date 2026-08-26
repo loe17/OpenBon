@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-export type Theme = 'dark' | 'light' | 'contrast' | 'modern' | 'minimal' | 'plain' | 'klassisch';
+export type Theme = 'klassisch' | 'dark' | 'light' | 'contrast' | 'modern' | 'minimal';
 
 export interface ThemeOption {
   id: Theme;
@@ -11,13 +11,12 @@ export interface ThemeOption {
 }
 
 export const AVAILABLE_THEMES: ThemeOption[] = [
-  { id: 'dark', label: 'Dunkel', description: 'Deep Slate / Nachtmodus (Standard)' },
-  { id: 'light', label: 'Hell', description: 'Klares Tageslicht & sonnenlichttauglich' },
+  { id: 'klassisch', label: 'Klassisch (Standard)', description: 'Weißer Grund, klare Pastelltöne, optimaler Tageslicht-Kontrast' },
+  { id: 'dark', label: 'Dunkel', description: 'Deep Slate / Nachtmodus' },
+  { id: 'light', label: 'Hell', description: 'Klares Tageslicht' },
   { id: 'contrast', label: 'Kontrastreich', description: 'OLED-Kontrast (Schwarz/Gold)' },
   { id: 'modern', label: 'Modern', description: 'Neon Violet & Cyber Glow' },
-  { id: 'plain', label: 'Biergarten', description: 'Traditionell Tannengrün & Festzeltholz' },
   { id: 'minimal', label: 'Minimalistisch', description: 'Monochromes reines Zink-Design' },
-  { id: 'klassisch', label: 'Klassisch', description: 'Weisser Grund, blauer Akzent, flache Pastellflaechen' },
 ];
 
 interface ThemeContextType {
@@ -26,17 +25,17 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: 'dark',
+  theme: 'klassisch',
   setTheme: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('dark');
+  const [theme, setThemeState] = useState<Theme>('klassisch');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const validThemes: Theme[] = ['dark', 'light', 'contrast', 'modern', 'minimal', 'plain', 'klassisch'];
+    const validThemes: Theme[] = ['klassisch', 'dark', 'light', 'contrast', 'modern', 'minimal'];
     const saved = localStorage.getItem('openbon_theme') as Theme | null;
     
     if (saved && validThemes.includes(saved)) {
@@ -51,13 +50,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             setThemeState(data.activeTheme);
             applyTheme(data.activeTheme);
           } else {
-            setThemeState('dark');
-            applyTheme('dark');
+            setThemeState('klassisch');
+            applyTheme('klassisch');
           }
         })
         .catch(() => {
-          setThemeState('dark');
-          applyTheme('dark');
+          setThemeState('klassisch');
+          applyTheme('klassisch');
         });
     }
   }, []);

@@ -52,6 +52,7 @@ export interface TicketData {
   surchargeReason?: string | null;
   cardAuthCode?: string | null;
   tableFontSize?: 'NORMAL' | 'LARGE' | 'EXTRA_LARGE' | number | string;
+  template?: 'CLASSIC' | 'ECO' | 'HIGH_VISIBILITY' | 'GASTRO' | string;
   enableTax?: boolean;
   showQr?: boolean;
   qrUrl?: string;

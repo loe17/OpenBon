@@ -32,10 +32,10 @@ model EventConfig {
   enableKioskMode             Boolean @default(false)
   // Startseite verlangt eine PIN-Anmeldung, bevor eine Station gewaehlt werden kann
   lockStartScreen             Boolean @default(true)
-  activeTheme                 String  @default("dark") // dark, light, contrast, modern, minimal, plain, klassisch
+  activeTheme                 String  @default("klassisch") // klassisch, dark, light, contrast, modern, minimal
   lowStockAlertPrinterId      String?
 
-  // Beleg- & Bon-Druck Layout
+  // Beleg- & Bon-Druck Layout & Schriftgrößen
   receiptHeader                 String? @default("Vereinsfest 2026")
   receiptSubHeader              String? @default("Freiwillige Feuerwehr e.V.")
   receiptFooterText             String? @default("Vielen Dank für Ihren Besuch!")
@@ -43,7 +43,15 @@ model EventConfig {
   receiptShowWaiter             Boolean @default(true)
   receiptShowTable              Boolean @default(true)
   receiptShowTse                Boolean @default(true)
-  receiptTableFontSize          Int     @default(3) // Stufenlose Skalierung
+  receiptTableFontSize          Int     @default(3) // Kassenbeleg Tischnummer (1..8)
+  receiptFoodTableFontSize      Int     @default(4) // Speisen-Bon Tischnummer (1..8)
+  receiptDrinkTableFontSize     Int     @default(4) // Getränke-Bon Tischnummer (1..8)
+  tableMarkerFontSize           Int     @default(4) // Tisch-Markierungsbon (1..8)
+  receiptTemplate               String  @default("CLASSIC") // CLASSIC, ECO, HIGH_VISIBILITY, GASTRO
+  receiptFoodTemplate           String  @default("CLASSIC") // CLASSIC, ECO, HIGH_VISIBILITY, GASTRO
+  receiptDrinkTemplate          String  @default("CLASSIC") // CLASSIC, ECO, HIGH_VISIBILITY, GASTRO
+  autoBackupEnabled             Boolean @default(true)
+  autoBackupIntervalMinutes     Int     @default(15)
   receiptSingleItemKitchenSlips Boolean @default(true) // Legacy Fallback
   receiptSingleItemFoodSlips    Boolean @default(true) // Einzelbon fuer Speisen (Kueche)
   receiptSingleItemDrinkSlips   Boolean @default(true) // Einzelbon fuer Getraenke (Ausschank)

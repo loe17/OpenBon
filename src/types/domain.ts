@@ -68,6 +68,14 @@ export interface EventConfigDTO {
   receiptShowTable?: boolean;
   receiptShowTse?: boolean;
   receiptTableFontSize?: number | string | null;
+  receiptFoodTableFontSize?: number | string | null;
+  receiptDrinkTableFontSize?: number | string | null;
+  tableMarkerFontSize?: number | string | null;
+  receiptTemplate?: string;
+  receiptFoodTemplate?: string;
+  receiptDrinkTemplate?: string;
+  autoBackupEnabled?: boolean;
+  autoBackupIntervalMinutes?: number;
   receiptSingleItemKitchenSlips?: boolean;
   receiptSingleItemFoodSlips?: boolean;
   receiptSingleItemDrinkSlips?: boolean;

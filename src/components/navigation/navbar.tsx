@@ -246,6 +246,7 @@ export default function Navbar() {
         { href: '/admin/diagnostics', label: 'Testbetrieb & Hardware-Diagnose', icon: Activity, roles: ['ADMIN'] },
         { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['ADMIN'] },
         { href: '/admin/settings', label: 'Grundeinstellungen & Bon-Design', icon: Settings, roles: ['ADMIN'] },
+        { href: '/admin/backup', label: 'Datensicherung & Auto-Backup', icon: ShieldCheck, roles: ['ADMIN'] },
         { href: '/admin/system-update', label: 'System-Update & Konsole', icon: HardDrive, roles: ['ADMIN'] },
         { href: '/admin/docs', label: 'Handbuch & Anleitungen', icon: BookOpen, roles: ['ADMIN'] },
       ],
@@ -360,7 +361,6 @@ export default function Navbar() {
                       t.id === 'light' ? Sun :
                       t.id === 'contrast' ? Zap :
                       t.id === 'modern' ? Sparkles :
-                      t.id === 'plain' ? Beer :
                       t.id === 'klassisch' ? LayoutGrid : Square;
 
                     return (
@@ -391,25 +391,25 @@ export default function Navbar() {
             {/* Fullscreen Button */}
             <FullscreenButton />
 
-            {/* HA Status Indicator */}
+            {/* HA / Server Status Indicator */}
             <div
               className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold border ${
                 haStatus === 'CONNECTED'
                   ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700'
                   : haStatus === 'DISCONNECTED'
                   ? 'bg-rose-950/80 text-rose-300 border-rose-700'
-                  : 'bg-slate-800 text-slate-400 border-slate-700'
+                  : 'bg-emerald-950/40 text-emerald-300 border-emerald-800/60'
               }`}
               title={
                 haStatus === 'CONNECTED'
-                  ? 'HA Partner verbunden'
+                  ? 'HA Partner verbunden & synchronisiert'
                   : haStatus === 'DISCONNECTED'
                   ? 'HA Partner getrennt!'
-                  : 'Einzelserver-Betrieb'
+                  : 'Kassen-Server aktiv & bereit (Lokal)'
               }
             >
               <Server className="w-3.5 h-3.5" />
-              <span>{haStatus === 'CONNECTED' ? 'HA OK' : haStatus === 'DISCONNECTED' ? 'HA Offline' : 'Solo'}</span>
+              <span>{haStatus === 'CONNECTED' ? 'HA OK' : haStatus === 'DISCONNECTED' ? 'HA Offline' : 'Lokal (Aktiv)'}</span>
             </div>
 
             {/* Connection Pill */}

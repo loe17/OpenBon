@@ -311,19 +311,30 @@ export async function POST(req: Request) {
     }
 
     // 7. Revisionssichere Protokollierung (GoBD): Wer hat wann was erfasst.
-    await logSystemActionSafe(() => ({
-      action: 'ORDER_CREATED',
-      category: 'ORDERS',
-      actor: order.waiterName || auth.session.waiterName || auth.session.role,
-      details: `Bestellung #${order.orderNumber} mit ${order.items?.length ?? 0} Position(en) erfasst.`,
-      metadata: {
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        tableId: order.tableId,
-        orderType: order.orderType,
-        source: order.source,
-      },
-    }));
+    await logSystemActionSafe(() => {
+      const itemSummary = ((order.items || []) as any[])
+        .map((i: any) => `${i.quantity}x ${i.productName}${i.variantName ? ` (${i.variantName})` : ''}`)
+        .join(', ');
+      const totalSum = ((order.items || []) as any[]).reduce((s: number, i: any) => s + (Number(i.unitPrice) || 0) * (Number(i.quantity) || 1), 0);
+      const tableInfo = order.tableLabel ? ` (Tisch ${order.tableLabel})` : '';
+
+      return {
+        action: 'ORDER_CREATED',
+        category: 'ORDERS',
+        actor: order.waiterName || auth.session.waiterName || auth.session.role,
+        details: `Bestellung #${order.orderNumber}${tableInfo}: ${itemSummary || `${order.items?.length ?? 0} Position(en)`} – Gesamt: ${totalSum.toFixed(2)} €`,
+        metadata: {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          tableId: order.tableId,
+          tableLabel: order.tableLabel,
+          totalGross: totalSum,
+          itemCount: order.items?.length ?? 0,
+          orderType: order.orderType,
+          source: order.source,
+        },
+      };
+    });
 
     return NextResponse.json(order);
   } catch (error) {

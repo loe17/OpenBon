@@ -328,23 +328,33 @@ export async function POST(req: Request) {
       ? buildReceiptUrl(config.baseUrl || 'http://openbon.local', payment.digitalReceiptCode)
       : null;
 
-    await logSystemActionSafe(() => ({
-      action: 'PAYMENT_COMPLETED',
-      category: 'SALES',
-      actor: payment.waiterName || auth.session.waiterName || auth.session.role,
-      // Feldnamen laut Datenmodell: totalGross / paymentMethod.
-      // `amount` und `method` gibt es NICHT - der Zugriff darauf lieferte
-      // undefined und liess den Kassiervorgang mit HTTP 500 abbrechen.
-      details: `Zahlung ${payment.invoiceNumber || payment.id} über ${Number(payment.totalGross ?? 0).toFixed(2)} € (${getPaymentLabel(payment.paymentMethod)}) gebucht.`,
-      metadata: {
-        paymentId: payment.id,
-        invoiceNumber: payment.invoiceNumber,
-        orderId: payment.orderId,
-        paymentMethod: payment.paymentMethod,
-        totalGross: payment.totalGross,
-        tipAmount: payment.tipAmount,
-      },
-    }));
+    await logSystemActionSafe(() => {
+      const methodLabel = getPaymentLabel(payment.paymentMethod);
+      const tipText = Number(payment.tipAmount ?? 0) > 0 ? `, Trinkgeld: ${Number(payment.tipAmount).toFixed(2)} €` : '';
+      const cashText = payment.paymentMethod === 'CASH' && Number(payment.givenAmount ?? 0) > 0
+        ? ` | Gegeben: ${Number(payment.givenAmount).toFixed(2)} €, Rückgeld: ${Number(payment.changeAmount ?? 0).toFixed(2)} €`
+        : '';
+      const tableText = payment.table?.label ? ` (Tisch ${payment.table.label})` : '';
+
+      return {
+        action: 'PAYMENT_COMPLETED',
+        category: 'SALES',
+        actor: payment.waiterName || auth.session.waiterName || auth.session.role,
+        details: `Zahlung ${payment.invoiceNumber || payment.id}${tableText}: ${Number(payment.totalGross ?? 0).toFixed(2)} € [${methodLabel}${cashText}${tipText}] gebucht.`,
+        metadata: {
+          paymentId: payment.id,
+          invoiceNumber: payment.invoiceNumber,
+          orderId: payment.orderId,
+          tableId: payment.tableId,
+          tableLabel: payment.table?.label,
+          paymentMethod: payment.paymentMethod,
+          totalGross: payment.totalGross,
+          givenAmount: payment.givenAmount,
+          changeAmount: payment.changeAmount,
+          tipAmount: payment.tipAmount,
+        },
+      };
+    });
 
     return NextResponse.json({
       ...payment,

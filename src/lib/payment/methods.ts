@@ -27,6 +27,14 @@ export const PAYMENT_METHODS: PaymentMethodDef[] = [
     isNonPaid: false,
   },
   {
+    id: 'CARD' as any,
+    label: 'Kartenzahlung',
+    color: '#3B82F6',
+    icon: CreditCard,
+    isCard: true,
+    isNonPaid: false,
+  },
+  {
     id: 'CARD_SUMUP',
     label: 'SumUp',
     color: '#3B82F6',
@@ -113,44 +121,72 @@ export function getPaymentColor(id: string): string {
 }
 
 /**
- * Prüft ob eine Zahlart gemäß hinterlegter Terminal- und Händler-Konfiguration im Adminbereich aktiv ist.
+ * Ermittelt die exakte konkrete Kartenmethode basierend auf dem in den Einstellungen
+ * gewählten einzigen aktiven Anbieter.
  */
-export function isPaymentMethodAvailable(
-  methodId: PaymentMethod,
-  config?: EventConfigDTO | null
-): boolean {
-  if (!config) {
-    return methodId === 'CASH' || methodId === 'NON_PAID_STAFF' || methodId === 'DISCOUNT';
+export function getActiveCardPaymentMethod(config?: EventConfigDTO | null): PaymentMethod | null {
+  if (!config) return null;
+  const provider = config.activeCardProvider?.toUpperCase();
+
+  if (provider === 'SUMUP') {
+    if ((config.sumupMerchantCode && config.sumupMerchantCode.trim() !== '') || (config.sumupAppId && config.sumupAppId.trim() !== '')) {
+      return 'CARD_SUMUP';
+    }
+  } else if (provider === 'VR_PAYME' || provider === 'VRPAY') {
+    if (config.vrPayTerminalId && config.vrPayTerminalId.trim() !== '') {
+      return 'CARD_VRPAY';
+    }
+  } else if (provider === 'SPARKASSE_SPOS' || provider === 'SPOS' || provider === 'SPARKASSE') {
+    if (config.sparkasseMerchantId && config.sparkasseMerchantId.trim() !== '') {
+      return 'CARD_SPARKASSE';
+    }
+  } else if (provider === 'ZETTLE') {
+    return 'CARD_ZETTLE';
+  } else if (provider === 'STRIPE') {
+    if (config.stripeSecretKey || config.stripePublishableKey) {
+      return 'CARD_STRIPE';
+    }
+  } else if (provider === 'ZVT' || provider === 'TERMINAL') {
+    if (config.zvtHost && config.zvtHost.trim() !== '') {
+      return 'CARD_TERMINAL';
+    }
   }
 
-  if (methodId === 'CARD_SUMUP') {
-    return Boolean(
-      (config.sumupMerchantCode && config.sumupMerchantCode.trim() !== '') ||
-      (config.sumupAppId && config.sumupAppId.trim() !== '')
-    );
+  // Automatischer Fallback, falls kein expliziter Provider-Name gewählt wurde
+  if ((config.sumupMerchantCode && config.sumupMerchantCode.trim() !== '') || (config.sumupAppId && config.sumupAppId.trim() !== '')) {
+    return 'CARD_SUMUP';
   }
-  if (methodId === 'CARD_VRPAY') {
-    return Boolean(config.vrPayTerminalId && config.vrPayTerminalId.trim() !== '');
-  }
-  if (methodId === 'CARD_SPARKASSE') {
-    return Boolean(config.sparkasseMerchantId && config.sparkasseMerchantId.trim() !== '');
-  }
-  if (methodId === 'CARD_TERMINAL') {
-    return Boolean(config.zvtHost && config.zvtHost.trim() !== '');
-  }
-  return true;
+  if (config.vrPayTerminalId && config.vrPayTerminalId.trim() !== '') return 'CARD_VRPAY';
+  if (config.sparkasseMerchantId && config.sparkasseMerchantId.trim() !== '') return 'CARD_SPARKASSE';
+  if (config.zvtHost && config.zvtHost.trim() !== '') return 'CARD_TERMINAL';
+
+  return null;
 }
 
 /**
  * Prüft ob mindestens eine Kartenzahlungsmethode im Adminbereich konfiguriert ist.
  */
 export function hasAnyCardPaymentConfigured(config?: EventConfigDTO | null): boolean {
-  if (!config) return false;
-  return Boolean(
-    (config.sumupMerchantCode && config.sumupMerchantCode.trim() !== '') ||
-    (config.sumupAppId && config.sumupAppId.trim() !== '') ||
-    (config.vrPayTerminalId && config.vrPayTerminalId.trim() !== '') ||
-    (config.sparkasseMerchantId && config.sparkasseMerchantId.trim() !== '') ||
-    (config.zvtHost && config.zvtHost.trim() !== '')
-  );
+  return getActiveCardPaymentMethod(config) !== null;
+}
+
+/**
+ * Prüft ob eine Zahlart gemäß hinterlegter Terminal- und Händler-Konfiguration im Adminbereich aktiv ist.
+ */
+export function isPaymentMethodAvailable(
+  methodId: PaymentMethod | 'CARD',
+  config?: EventConfigDTO | null
+): boolean {
+  if (methodId === 'CARD') {
+    return hasAnyCardPaymentConfigured(config);
+  }
+  if (!config) {
+    return methodId === 'CASH' || methodId === 'NON_PAID_STAFF' || methodId === 'DISCOUNT';
+  }
+
+  const activeCardMethod = getActiveCardPaymentMethod(config);
+  if (methodId === activeCardMethod) return true;
+  if (methodId.startsWith('CARD_')) return false;
+
+  return true;
 }

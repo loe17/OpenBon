@@ -158,7 +158,21 @@ export class TicketSplitter {
 
     let ticketsCount = 0;
 
+    const foodTableFontSize = config?.receiptFoodTableFontSize ?? config?.receiptTableFontSize ?? 4;
+    const drinkTableFontSize = config?.receiptDrinkTableFontSize ?? config?.receiptTableFontSize ?? 4;
+    const foodTemplate = config?.receiptFoodTemplate ?? config?.receiptTemplate ?? 'CLASSIC';
+    const drinkTemplate = config?.receiptDrinkTemplate ?? config?.receiptTemplate ?? 'CLASSIC';
+
     for (const bucket of Array.from(buckets.values())) {
+      const isFoodBucket =
+        bucket.printGroupName.toLowerCase().includes('küche') ||
+        bucket.printGroupName.toLowerCase().includes('kueche') ||
+        bucket.printGroupName.toLowerCase().includes('grill') ||
+        bucket.printGroupName.toLowerCase().includes('speis');
+
+      const chosenFontSize = isFoodBucket ? foodTableFontSize : drinkTableFontSize;
+      const chosenTemplate = isFoodBucket ? foodTemplate : drinkTemplate;
+
       const chunks = splitItemsIntoChunks(bucket.items, bucket.maxItemsPerTicket);
 
       for (let idx = 0; idx < chunks.length; idx++) {
@@ -178,7 +192,8 @@ export class TicketSplitter {
           orderNumber: order.orderNumber,
           tokenNumber: order.tokenNumber || undefined,
           tableLabel: order.tableLabel,
-          tableFontSize,
+          tableFontSize: chosenFontSize,
+          template: chosenTemplate,
           waiterName: order.waiterName,
           createdAt: order.createdAt,
           items: chunk,

@@ -85,6 +85,18 @@ export class EscPosBuilder {
     return this;
   }
 
+  public charSize(widthMult = 1, heightMult = 1): this {
+    const w = Math.min(8, Math.max(1, Math.round(widthMult))) - 1;
+    const h = Math.min(8, Math.max(1, Math.round(heightMult))) - 1;
+    const n = (w << 4) | h;
+    this.buffer.push(Buffer.from([GS, 0x21, n]));
+    return this;
+  }
+
+  public resetCharSize(): this {
+    return this.charSize(1, 1);
+  }
+
   public invert(enable: boolean): this {
     this.buffer.push(Buffer.from([GS, 0x42, enable ? 1 : 0]));
     return this;
@@ -167,6 +179,31 @@ export class EscPosBuilder {
     return Buffer.concat(this.buffer);
   }
 
+  public static formatTableNumber(
+    builder: EscPosBuilder,
+    tableLabel: string,
+    fontSize: number | string = 3
+  ): void {
+    const fs = typeof fontSize === 'number' ? fontSize : parseInt(String(fontSize), 10) || 3;
+    if (fs >= 8) {
+      builder.align('center').invert(true).charSize(4, 5).bold(true).textLine(` TISCH ${tableLabel} `).resetCharSize().invert(false).bold(false).align('left');
+    } else if (fs >= 7) {
+      builder.align('center').invert(true).charSize(4, 4).bold(true).textLine(` TISCH ${tableLabel} `).resetCharSize().invert(false).bold(false).align('left');
+    } else if (fs >= 6) {
+      builder.align('center').invert(true).charSize(3, 4).bold(true).textLine(` TISCH ${tableLabel} `).resetCharSize().invert(false).bold(false).align('left');
+    } else if (fs >= 5) {
+      builder.align('center').invert(true).charSize(3, 3).bold(true).textLine(` TISCH ${tableLabel} `).resetCharSize().invert(false).bold(false).align('left');
+    } else if (fs >= 4) {
+      builder.charSize(2, 3).bold(true).textLine(`TISCH: ${tableLabel}`).resetCharSize().bold(false);
+    } else if (fs >= 3 || fontSize === 'EXTRA_LARGE') {
+      builder.charSize(2, 2).bold(true).textLine(`TISCH: ${tableLabel}`).resetCharSize().bold(false);
+    } else if (fs >= 2 || fontSize === 'LARGE') {
+      builder.charSize(1, 2).bold(true).textLine(`TISCH: ${tableLabel}`).resetCharSize().bold(false);
+    } else {
+      builder.bold(true).textLine(`Tisch: ${tableLabel}`).bold(false);
+    }
+  }
+
   // 1. Standard POS Ticket Builder
   public static buildTicket(data: TicketData, paperWidth = 80): { rawBuffer: Buffer; textRepresentation: string } {
     const builder = new EscPosBuilder(paperWidth);
@@ -178,13 +215,13 @@ export class EscPosBuilder {
 
     // Spec 6.11: Aufdruck im Schulungs- / Trainingsmodus
     if (data.isTraining) {
-      builder.align('center').bold(true).invert(true).textLine(' *** UEBUNGSBON - KEINE BEZAHLUNG *** ').invert(false).bold(false);
+      builder.align('center').bold(true).invert(true).textLine(' UEBUNGSBON - KEINE BEZAHLUNG ').invert(false).bold(false);
       addText('*** UEBUNGSBON - KEINE BEZAHLUNG ***');
     }
 
     // Spec 6.10: Zwischenrechnung ist ausdruecklich kein Kassenbeleg
     if (data.isPreliminary) {
-      builder.align('center').bold(true).invert(true).textLine(' *** ZWISCHENRECHNUNG - KEIN KASSENBELEG *** ').invert(false).bold(false);
+      builder.align('center').bold(true).invert(true).textLine(' ZWISCHENRECHNUNG - KEIN KASSENBELEG ').invert(false).bold(false);
       addText('*** ZWISCHENRECHNUNG - KEIN KASSENBELEG ***');
     }
 
@@ -194,7 +231,7 @@ export class EscPosBuilder {
     // Spec 6.1: Kopfzeile des Tablett-Splits
     if (data.traySplit) {
       const header = `*** BON ${data.traySplit.index} von ${data.traySplit.total} (${data.traySplit.summary}) ***`;
-      builder.align('center').bold(true).invert(true).textLine(` ${header} `).invert(false).bold(false);
+      builder.align('center').bold(true).textLine(header).bold(false);
       addText(header);
     }
 
@@ -213,18 +250,7 @@ export class EscPosBuilder {
     }
 
     if (data.tableLabel) {
-      const fs = typeof data.tableFontSize === 'number' ? data.tableFontSize : (parseInt(data.tableFontSize as string, 10) || 3);
-      if (fs >= 5) {
-        builder.align('center').invert(true).size(true, true).bold(true).textLine(` TISCH ${data.tableLabel} `).size(false, false).invert(false).bold(false).align('left');
-      } else if (fs >= 4) {
-        builder.invert(true).size(true, true).bold(true).textLine(` TISCH ${data.tableLabel} `).size(false, false).invert(false).bold(false);
-      } else if (fs >= 3 || data.tableFontSize === 'EXTRA_LARGE') {
-        builder.size(true, true).bold(true).textLine(`TISCH: ${data.tableLabel}`).size(false, false).bold(false);
-      } else if (fs >= 2 || data.tableFontSize === 'LARGE') {
-        builder.size(false, true).bold(true).textLine(`TISCH: ${data.tableLabel}`).size(false, false).bold(false);
-      } else {
-        builder.bold(true).textLine(`Tisch: ${data.tableLabel}`).bold(false);
-      }
+      EscPosBuilder.formatTableNumber(builder, data.tableLabel, data.tableFontSize ?? 3);
       addText(`Tisch: ${data.tableLabel}`);
     }
 
@@ -481,18 +507,7 @@ export class EscPosBuilder {
     }
 
     if (meta.showTable !== false && meta.tableLabel) {
-      const fs = typeof meta.tableFontSize === 'number' ? meta.tableFontSize : (parseInt(meta.tableFontSize as string, 10) || 3);
-      if (fs >= 5) {
-        builder.align('center').invert(true).size(true, true).bold(true).textLine(` TISCH ${meta.tableLabel} `).size(false, false).invert(false).bold(false);
-      } else if (fs >= 4) {
-        builder.invert(true).size(true, true).bold(true).textLine(` TISCH ${meta.tableLabel} `).size(false, false).invert(false).bold(false);
-      } else if (fs >= 3) {
-        builder.size(true, true).bold(true).textLine(`TISCH: ${meta.tableLabel}`).size(false, false).bold(false);
-      } else if (fs >= 2) {
-        builder.size(false, true).bold(true).textLine(`TISCH: ${meta.tableLabel}`).size(false, false).bold(false);
-      } else {
-        builder.bold(true).textLine(`Tisch: ${meta.tableLabel}`).bold(false);
-      }
+      EscPosBuilder.formatTableNumber(builder, meta.tableLabel, meta.tableFontSize ?? 4);
       add(`Tisch: ${meta.tableLabel}`);
     }
 
