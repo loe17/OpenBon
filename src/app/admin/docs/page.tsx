@@ -27,7 +27,7 @@ import { APP_VERSION } from '@/lib/version';
  * Spec 8: Vollständige, interaktive Offline-Dokumentation.
  * Alle Inhalte sind Teil des Bundles - kein Internet erforderlich.
  * Beim Klick auf Drucken wird das gesamte Handbuch mit Titelblatt,
- * Versionsnummer (v0.4.2) und Inhaltsverzeichnis ausgegeben.
+ * Versionsnummer (v0.4.3) und Inhaltsverzeichnis ausgegeben.
  */
 
 const ICONS: Record<DocChapter['icon'], React.ComponentType<{ className?: string }>> = {

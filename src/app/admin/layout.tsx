@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { verifySessionToken, SESSION_COOKIE_NAME } from '@/lib/auth-session';
 
@@ -6,9 +6,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Kryptografischer Admin-Gate: Umschliesst ALLE /admin/*-Seiten im
- * Node-Kontext und prueft die JWT-Signatur mit dem persistenten Secret aus
- * der Datenbank. Die Edge-Middleware kann nur decodieren (kein DB-Zugriff);
- * dieser Layout-Gate stellt die tatsaechliche Zugriffskontrolle sicher.
+ * Node-Kontext und prueft die JWT-Signatur mit dem persistenten Secret.
  */
 export default async function AdminLayout({
   children,
@@ -24,7 +22,10 @@ export default async function AdminLayout({
   }
 
   if (!session || session.role !== 'ADMIN') {
-    redirect('/?auth_required=admin');
+    const headerList = headers();
+    const currentPath = headerList.get('x-invoke-path') || headerList.get('next-url') || '';
+    const returnParam = currentPath && currentPath.startsWith('/admin') ? `&returnTo=${encodeURIComponent(currentPath)}` : '';
+    redirect(`/?auth_required=admin${returnParam}`);
   }
 
   return <>{children}</>;

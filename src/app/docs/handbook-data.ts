@@ -1,5 +1,5 @@
 /**
- * Umfassendes Handbuch und Referenz-Dokumentation für OpenBon v0.4.2.
+ * Umfassendes Handbuch und Referenz-Dokumentation für OpenBon v0.4.3.
  * Offline-fähig direkt im Bundle integriert – keine externe Verbindung nötig.
  */
 

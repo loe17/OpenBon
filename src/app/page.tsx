@@ -59,6 +59,19 @@ export default function HomePage() {
           setGate('open');
         } else {
           setGate('locked');
+          // Prüfen ob ein spezifischer Redirect (z. B. auth_required=admin&returnTo=...) vorliegt
+          const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+          const authReq = searchParams?.get('auth_required');
+          const returnTo = searchParams?.get('returnTo');
+
+          if (authReq === 'admin') {
+            setPinStationType('ADMIN');
+            setPendingRole('ADMIN');
+            setPendingPath(returnTo && returnTo.startsWith('/admin') ? returnTo : '/admin/dashboard');
+            setShowPinModal(true);
+            return;
+          }
+
           // Zuletzt benutzte Station vorschlagen, damit an einem festen
           // Geraet nur noch der PIN eingegeben werden muss.
           const remembered = localStorage.getItem('openbon_last_station');

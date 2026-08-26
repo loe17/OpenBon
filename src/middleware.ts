@@ -48,9 +48,7 @@ export async function middleware(req: NextRequest) {
   //    Start in die .env geschrieben), prueft die Middleware die Signatur voll.
   //    Andernfalls dekodiert sie nur als Vorfilter - die verbindliche
   //    Signaturpruefung erfolgt dann in jeder API-Route ueber requireApiAuth().
-  const canVerify = Boolean(process.env.SESSION_SECRET && process.env.SESSION_SECRET.trim().length >= 16);
-  const readToken = async (token: string) =>
-    canVerify ? await verifySessionToken(token) : decodeSessionToken(token);
+  const readToken = async (token: string) => await verifySessionToken(token);
 
   let session = null;
   const cookieVal = req.cookies.get(SESSION_COOKIE_NAME)?.value;
@@ -71,6 +69,7 @@ export async function middleware(req: NextRequest) {
       const url = req.nextUrl.clone();
       url.pathname = '/';
       url.searchParams.set('auth_required', 'admin');
+      url.searchParams.set('returnTo', pathname);
       return NextResponse.redirect(url);
     }
     return NextResponse.next();

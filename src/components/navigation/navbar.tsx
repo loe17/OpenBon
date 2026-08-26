@@ -171,6 +171,8 @@ export default function Navbar() {
     applyRole(targetRole);
   };
 
+  const [pendingAdminPath, setPendingAdminPath] = useState<string | null>(null);
+
   const applyRole = (newRole: string) => {
     localStorage.setItem('pos_user_role', newRole);
     setRole(newRole);
@@ -178,7 +180,15 @@ export default function Navbar() {
     if (newRole === 'WAITER') router.push('/waiter');
     else if (newRole === 'POS_CASHIER') router.push('/pos');
     else if (newRole === 'KITCHEN') router.push('/kitchen');
-    else if (newRole === 'ADMIN') router.push('/admin/dashboard');
+    else if (newRole === 'ADMIN') {
+      if (pendingAdminPath) {
+        const dest = pendingAdminPath;
+        setPendingAdminPath(null);
+        router.push(dest);
+      } else if (!pathname.startsWith('/admin')) {
+        router.push('/admin/dashboard');
+      }
+    }
   };
 
   const handlePinSuccess = () => {
