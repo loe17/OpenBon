@@ -109,6 +109,7 @@ model EventConfig {
   haRole          String   @default("PRIMARY") // PRIMARY, STANDBY
   haPartnerUrl    String?  @default("http://192.168.1.101:3000")
   haAutoFailover  Boolean  @default(true)
+  aisles          String?  @default("[]")
   tokenSequence   Int      @default(1)
   invoiceSequence Int      @default(1)
   orderSequence   Int      @default(1)
@@ -131,6 +132,7 @@ model TipProfile {
 
 model WaiterProfile {
   id           String      @id @default(cuid())
+  waiterNumber Int?        @unique
   name         String      @unique
   pin          String      @default("3333")
   isActive     Boolean     @default(true)
@@ -182,6 +184,7 @@ model Product {
   happyHourStart String? // z. B. "18:00"
   happyHourEnd   String? // z. B. "19:00"
   happyHourDays  String  @default("[]") // JSON Array [1,2,3,4,5]
+  happyHourRules String? // JSON Array [{ id, name, price, start, end, days }]
 
   // Wertmarken-Klassifizierung
   isTokenProduct Boolean @default(false)
@@ -271,15 +274,16 @@ model DiningTable {
 }
 
 model Printer {
-  id           String       @id @default(cuid())
-  name         String
-  ipAddress    String       @default("127.0.0.1")
-  port         Int          @default(9100)
-  paperWidth   Int          @default(80)
-  characterSet String       @default("CP858")
-  isVirtual    Boolean      @default(false)
-  isActive     Boolean      @default(true)
-  printGroups  PrintGroup[]
+  id            String       @id @default(cuid())
+  name          String
+  ipAddress     String       @default("127.0.0.1")
+  port          Int          @default(9100)
+  paperWidth    Int          @default(80)
+  characterSet  String       @default("CP858")
+  isVirtual     Boolean      @default(false)
+  isActive      Boolean      @default(true)
+  hasCashDrawer Boolean      @default(false)
+  printGroups   PrintGroup[]
 }
 
 model PrintGroup {

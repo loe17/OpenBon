@@ -68,6 +68,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Kein aktiver Drucker konfiguriert.' }, { status: 400 });
     }
 
+    const { formatWaiterLabel } = await import('@/lib/waiter-number');
     const ticket: TicketData = {
       title: 'ZWISCHENRECHNUNG',
       isPreliminary: true,
@@ -77,7 +78,7 @@ export async function POST(req: Request) {
       optionsFontSize: config?.receiptOptionsFontSize ?? 1,
       metaFontSize: config?.receiptMetaFontSize ?? 1,
       template: config?.receiptTemplate || 'CLASSIC',
-      waiterName: body.waiterName || table.activeWaiterName || 'Bedienung',
+      waiterName: formatWaiterLabel(body.waiterName || table.activeWaiterName || 'Bedienung'),
       eventName: config?.name,
       subHeader: config?.receiptSubHeader || undefined,
       customHeader: config?.receiptHeader || undefined,

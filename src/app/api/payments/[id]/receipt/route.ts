@@ -43,6 +43,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       { rate: 0, base: payment.taxBase0, tax: 0, gross: payment.taxBase0 },
     ].filter((s) => s.gross > 0);
 
+    const { formatWaiterLabel } = await import('@/lib/waiter-number');
     const ticket: TicketData = {
       title: 'KASSENBELEG / QUITTUNG',
       invoiceNumber: payment.invoiceNumber,
@@ -52,7 +53,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       optionsFontSize: config?.receiptOptionsFontSize ?? 1,
       metaFontSize: config?.receiptMetaFontSize ?? 1,
       template: config?.receiptTemplate || 'CLASSIC',
-      waiterName: payment.waiterName,
+      waiterName: formatWaiterLabel(payment.waiterName),
       createdAt: payment.createdAt,
       items: payment.items.map((i) => ({
         name: i.productName,

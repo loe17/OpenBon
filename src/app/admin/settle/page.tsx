@@ -79,47 +79,58 @@ function AdminSettleContent() {
   const [printers, setPrinters] = useState<{ id: string; name: string; isActive: boolean }[]>([]);
   const [printerId, setPrinterId] = useState('');
   const [settleTemplate, setSettleTemplate] = useState<'OFFICIAL_A4' | 'RECEIPT_SLIP' | 'DASHBOARD_SUMMARY'>('OFFICIAL_A4');
-  const [rawWaiters, setRawWaiters] = useState<{ name: string; isSettled?: boolean; lastSettledAt?: string | null }[]>([]);
+  const [rawWaiters, setRawWaiters] = useState<{ name: string; waiterNumber?: number | null; isSettled?: boolean; lastSettledAt?: string | null }[]>([]);
   const [filterMode, setFilterMode] = useState<'ALL' | 'OPEN' | 'SETTLED'>('ALL');
 
   /* ------------------------------------------------------------ Laden */
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [wRes, pRes] = await Promise.all([fetch('/api/waiters'), fetch('/api/printers')]);
-        const names = new Set<string>();
-        const rawList: { name: string; isSettled?: boolean; lastSettledAt?: string | null }[] = [];
-        if (wRes.ok) {
-          const data = await wRes.json();
-          if (Array.isArray(data)) {
-            data.forEach((w: { name?: string; isSettled?: boolean; lastSettledAt?: string | null }) => {
-              if (w.name) {
-                names.add(w.name);
-                rawList.push({ name: w.name, isSettled: w.isSettled, lastSettledAt: w.lastSettledAt });
-              }
-            });
-          }
+  const loadWaitersList = useCallback(async () => {
+    try {
+      const [wRes, pRes] = await Promise.all([fetch('/api/waiters'), fetch('/api/printers')]);
+      const names = new Set<string>();
+      const rawList: { name: string; waiterNumber?: number | null; isSettled?: boolean; lastSettledAt?: string | null }[] = [];
+      if (wRes.ok) {
+        const data = await wRes.json();
+        if (Array.isArray(data)) {
+          data.forEach((w: { name?: string; waiterNumber?: number | null; isSettled?: boolean; lastSettledAt?: string | null }) => {
+            if (w.name) {
+              names.add(w.name);
+              rawList.push({ name: w.name, waiterNumber: w.waiterNumber, isSettled: w.isSettled, lastSettledAt: w.lastSettledAt });
+            }
+          });
         }
-        setWaiters(Array.from(names).sort((a, b) => a.localeCompare(b, 'de')));
-        setRawWaiters(rawList);
-
-        if (pRes.ok) {
-          const pData = await pRes.json();
-          if (Array.isArray(pData)) {
-            setPrinters(pData);
-            const active = pData.find((p: { isActive: boolean }) => p.isActive);
-            if (active) setPrinterId(active.id);
-          }
-        }
-      } catch {
-        toastError('Bedienungen konnten nicht geladen werden.');
-      } finally {
-        setLoading(false);
       }
-    };
-    load();
+      setWaiters(Array.from(names).sort((a, b) => a.localeCompare(b, 'de')));
+      setRawWaiters(rawList);
+
+      if (pRes.ok) {
+        const pData = await pRes.json();
+        if (Array.isArray(pData)) {
+          setPrinters(pData);
+          const active = pData.find((p: { isActive: boolean }) => p.isActive);
+          if (active) setPrinterId(active.id);
+        }
+      }
+    } catch {
+      toastError('Bedienungen konnten nicht geladen werden.');
+    } finally {
+      setLoading(false);
+    }
   }, [toastError]);
+
+  useEffect(() => {
+    loadWaitersList();
+
+    if (typeof window !== 'undefined' && (window as any).io) {
+      const socket = (window as any).io();
+      socket.on('waiters:settled', () => loadWaitersList());
+      socket.on('waiter:settled', () => loadWaitersList());
+      return () => {
+        socket.off('waiters:settled');
+        socket.off('waiter:settled');
+      };
+    }
+  }, [loadWaitersList]);
 
   // Aus /admin/tips wird die Bedienung per Verweis uebergeben - dann direkt
   // zum zweiten Schritt springen statt erneut auswaehlen zu lassen.
@@ -201,6 +212,7 @@ function AdminSettleContent() {
       }
       setDone(true);
       setStep(5);
+      loadWaitersList();
       if (withPrint && data.printed) success('Abrechnung abgeschlossen, Beleg wurde gedruckt.');
       else if (withPrint) warning(`Abrechnung abgeschlossen. Beleg NICHT gedruckt: ${data.printError || 'unbekannter Grund'}`);
       else success('Abrechnung abgeschlossen.');
@@ -347,7 +359,14 @@ function AdminSettleContent() {
                     >
                       <div className="flex items-center gap-2 w-full">
                         <User className="w-4 h-4 shrink-0 opacity-70" />
-                        <span className="truncate flex-1">{name}</span>
+                        <span className="truncate flex-1">
+                          {name}
+                          {info?.waiterNumber ? (
+                            <span className="ml-1 text-xs font-mono font-normal opacity-75">
+                              #{info.waiterNumber}
+                            </span>
+                          ) : null}
+                        </span>
                       </div>
                       <div className="text-[10px] font-semibold mt-1">
                         {info?.isSettled ? (

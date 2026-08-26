@@ -15,6 +15,9 @@ import {
   Trash2,
   Check,
   X,
+  Server,
+  ShieldCheck,
+  Activity,
 } from 'lucide-react';
 import type { EventConfigDTO } from '@/types/domain';
 
@@ -428,6 +431,78 @@ export function GeneralTab({
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Hochverfügbarkeit & Ausfallsicherheit (Secondary Server / HA) */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-blue-950/80 text-blue-400 border border-blue-800">
+              <Server className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-white">Hochverfügbarkeit &amp; Sekundärserver (HA-Cluster)</h3>
+              <p className="text-xs text-slate-400">
+                Automatischer Standby-Server mit Live-Replikation bei Hardware- oder Netzwerkausfall
+              </p>
+            </div>
+          </div>
+          <span className="px-2.5 py-0.5 rounded-full bg-blue-950/80 border border-blue-800 text-[10px] font-bold text-blue-300">
+            Ausfallsicherheit
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1">
+              Rolle dieses Servers
+            </label>
+            <select
+              value={(config as any).haRole || 'STANDALONE'}
+              onChange={(e) => onChange({ haRole: e.target.value } as any)}
+              className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-bold focus:border-blue-500"
+            >
+              <option value="STANDALONE">STANDALONE (Einzelserver-Betrieb)</option>
+              <option value="PRIMARY">PRIMARY (Hauptserver / Master mit Live-Replikation)</option>
+              <option value="STANDBY">STANDBY (Sekundärserver / Hot-Standby Empfänger)</option>
+            </select>
+            <p className="text-[11px] text-slate-500 mt-1">
+              {(config as any).haRole === 'PRIMARY'
+                ? 'Dieser Server verarbeitet alle Kassenbuchungen und spiegelt Änderungen live auf den Sekundärserver.'
+                : (config as any).haRole === 'STANDBY'
+                ? 'Dieser Server läuft im Hintergrund mit und übernimmt bei Ausfall des Primärservers sofort nahtlos.'
+                : 'Standard für Einzelgeräte ohne Backup-Server im Netzwerk.'}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1">
+              Partner-Server URL im lokalen Netzwerk
+            </label>
+            <input
+              type="text"
+              value={(config as any).haPartnerUrl || ''}
+              onChange={(e) => onChange({ haPartnerUrl: e.target.value } as any)}
+              className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-mono focus:border-blue-500"
+              placeholder="z. B. http://192.168.1.100:3000"
+            />
+            <p className="text-[11px] text-slate-500 mt-1">
+              IP-Adresse und Port des anderen OpenBon-Servers im LAN (z. B. http://192.168.1.100:3000).
+            </p>
+          </div>
+        </div>
+
+        <Toggle
+          label="Automatisches Failover (Auto-Umschaltung bei Ausfall)"
+          hint="Übernimmt automatisch den Kassenbetrieb als Primärserver, falls der Hauptserver länger als 10 Sekunden nicht mehr erreichbar ist."
+          color="blue"
+          value={Boolean((config as any).haAutoFailover)}
+          onToggle={() =>
+            onChange({
+              haAutoFailover: !(config as any).haAutoFailover,
+            } as any)
+          }
+        />
       </div>
 
       {/* Betriebsdaten & Veranstaltung zurücksetzen */}

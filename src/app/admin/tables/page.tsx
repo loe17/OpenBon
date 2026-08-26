@@ -6,23 +6,17 @@ import {
   Grid,
   Plus,
   Printer,
-  RefreshCw,
   Sliders,
   Trash2,
-  Check,
   X,
-  Layers,
-  Sparkles,
   FileDown,
-  ToggleLeft,
-  ToggleRight,
   Circle,
   Edit2,
-  LayoutGrid,
-  MapPin,
   Move,
-  Save,
-  AlertTriangle,
+  Footprints,
+  AlertCircle,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 
@@ -38,12 +32,18 @@ interface AdminTableRow {
   openGrossAmount?: number;
 }
 
+interface AisleItem {
+  id: string;
+  type: 'COL' | 'ROW';
+  index: number; // grid position after which the aisle is located
+}
+
 export default function AdminTablesPage() {
   const { success, error, warning } = useToast();
   const [tables, setTables] = useState<AdminTableRow[]>([]);
   const [printers, setPrinters] = useState<any[]>([]);
+  const [aisles, setAisles] = useState<AisleItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'GRID' | 'FLOORPLAN'>('GRID');
 
   // Modals
   const [showGenModal, setShowGenModal] = useState(false);
@@ -54,10 +54,9 @@ export default function AdminTablesPage() {
   // Generator form
   const [genRows, setGenRows] = useState(4);
   const [genCols, setGenCols] = useState(6);
-  const [genStart, setGenStart] = useState(1);
-  const [genStep, setGenStep] = useState(1);
+  const [genStart, setGenStart] = useState(10);
   const [genStepX, setGenStepX] = useState(1);
-  const [genStepY, setGenStepY] = useState(1);
+  const [genStepY, setGenStepY] = useState(10);
 
   // Edit table form
   const [editingTable, setEditingTable] = useState<AdminTableRow | null>(null);
@@ -78,17 +77,28 @@ export default function AdminTablesPage() {
   const [includeQr, setIncludeQr] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
 
-  // Dragging in 2D Floorplan
+  // Dragging in Floorplan
   const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  // Insert Menu Popup
+  const [insertPopup, setInsertPopup] = useState<{
+    type: 'COL' | 'ROW';
+    index: number;
+    posX: number;
+    posY: number;
+  } | null>(null);
 
   const fetchTablesAndPrinters = async () => {
     try {
-      const [tRes, pRes] = await Promise.all([
+      const [tRes, pRes, cfgRes] = await Promise.all([
         fetch('/api/tables?all=true'),
         fetch('/api/printers'),
+        fetch('/api/config'),
       ]);
       const tData = await tRes.json();
       const pData = await pRes.json();
+      const cfgData = await cfgRes.json();
+
       if (Array.isArray(tData)) {
         setTables(tData);
         if (tData.length > 0) {
@@ -100,6 +110,12 @@ export default function AdminTablesPage() {
       if (Array.isArray(pData)) {
         setPrinters(pData);
         if (pData.length > 0) setSelectedPrinterId(pData[0].id);
+      }
+      if (cfgData && cfgData.aisles) {
+        try {
+          const parsed = typeof cfgData.aisles === 'string' ? JSON.parse(cfgData.aisles) : cfgData.aisles;
+          if (Array.isArray(parsed)) setAisles(parsed);
+        } catch {}
       }
     } catch (e) {
       console.error(e);
@@ -149,6 +165,7 @@ export default function AdminTablesPage() {
       const res = await fetch('/api/tables?all=true', { method: 'DELETE' });
       if (res.ok) {
         setShowDeleteAllModal(false);
+        setAisles([]);
         fetchTablesAndPrinters();
         success('Alle Tische wurden erfolgreich gelöscht.');
       } else {
@@ -162,14 +179,15 @@ export default function AdminTablesPage() {
   const handleAddTable = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const maxX = tables.reduce((max, t) => Math.max(max, t.gridX || 1), 1);
       await fetch('/api/tables', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tableNumber: newTableNum,
           label: newTableLabel || `Tisch ${newTableNum}`,
-          gridX: (tables.length % 6) + 1,
-          gridY: Math.floor(tables.length / 6) + 1,
+          gridX: (tables.length % maxX) + 1,
+          gridY: Math.floor(tables.length / maxX) + 1,
         }),
       });
       setShowAddModal(false);
@@ -225,13 +243,13 @@ export default function AdminTablesPage() {
           rows: genRows,
           cols: genCols,
           startNumber: genStart,
-          step: genStep,
           stepX: genStepX,
           stepY: genStepY,
         }),
       });
       if (res.ok) {
         setShowGenModal(false);
+        setAisles([]);
         fetchTablesAndPrinters();
         success(`Raster mit ${genRows * genCols} Tischen erfolgreich generiert!`);
       } else {
@@ -269,6 +287,97 @@ export default function AdminTablesPage() {
     }
   };
 
+  // Gang (Aisle) oder Spalte/Reihe einfügen
+  const handleInsertStructure = async (type: 'COL' | 'ROW', index: number, isAisle: boolean) => {
+    setInsertPopup(null);
+    let updatedTables = [...tables];
+    let updatedAisles = [...aisles];
+
+    if (type === 'COL') {
+      // Alle Tische mit gridX > index um +1 nach rechts schieben
+      updatedTables = updatedTables.map((t) => (t.gridX > index ? { ...t, gridX: t.gridX + 1 } : t));
+      // Alle Aisles mit index >= targetIndex anpassen
+      updatedAisles = updatedAisles.map((a) => (a.type === 'COL' && a.index > index ? { ...a, index: a.index + 1 } : a));
+
+      if (isAisle) {
+        updatedAisles.push({
+          id: `aisle-col-${Date.now()}`,
+          type: 'COL',
+          index: index + 1,
+        });
+      }
+    } else {
+      // Alle Tische mit gridY > index um +1 nach unten schieben
+      updatedTables = updatedTables.map((t) => (t.gridY > index ? { ...t, gridY: t.gridY + 1 } : t));
+      updatedAisles = updatedAisles.map((a) => (a.type === 'ROW' && a.index > index ? { ...a, index: a.index + 1 } : a));
+
+      if (isAisle) {
+        updatedAisles.push({
+          id: `aisle-row-${Date.now()}`,
+          type: 'ROW',
+          index: index + 1,
+        });
+      }
+    }
+
+    setTables(updatedTables);
+    setAisles(updatedAisles);
+
+    try {
+      await fetch('/api/tables', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'BULK_UPDATE_POSITIONS',
+          tables: updatedTables,
+          aisles: updatedAisles,
+        }),
+      });
+      success(isAisle ? 'Gang erfolgreich eingefügt!' : `${type === 'COL' ? 'Spalte' : 'Reihe'} eingefügt!`);
+    } catch {
+      error('Fehler beim Speichern der Raumstruktur');
+      fetchTablesAndPrinters();
+    }
+  };
+
+  // Gang (Aisle) löschen
+  const handleDeleteAisle = async (aisleId: string) => {
+    const target = aisles.find((a) => a.id === aisleId);
+    if (!target) return;
+
+    let updatedTables = [...tables];
+    let updatedAisles = aisles.filter((a) => a.id !== aisleId);
+
+    if (target.type === 'COL') {
+      // Tische rechts vom Gang um -1 nach links rücken
+      updatedTables = updatedTables.map((t) => (t.gridX > target.index ? { ...t, gridX: Math.max(1, t.gridX - 1) } : t));
+      updatedAisles = updatedAisles.map((a) => (a.type === 'COL' && a.index > target.index ? { ...a, index: a.index - 1 } : a));
+    } else {
+      // Tische unterhalb vom Gang um -1 nach oben rücken
+      updatedTables = updatedTables.map((t) => (t.gridY > target.index ? { ...t, gridY: Math.max(1, t.gridY - 1) } : t));
+      updatedAisles = updatedAisles.map((a) => (a.type === 'ROW' && a.index > target.index ? { ...a, index: a.index - 1 } : a));
+    }
+
+    setTables(updatedTables);
+    setAisles(updatedAisles);
+
+    try {
+      await fetch('/api/tables', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'BULK_UPDATE_POSITIONS',
+          tables: updatedTables,
+          aisles: updatedAisles,
+        }),
+      });
+      success('Gang entfernt');
+    } catch {
+      error('Fehler beim Entfernen des Gangs');
+      fetchTablesAndPrinters();
+    }
+  };
+
   const handlePrintMarkers = async () => {
     if (!selectedPrinterId) {
       warning('Bitte wähle einen Drucker aus.');
@@ -295,9 +404,14 @@ export default function AdminTablesPage() {
     }
   };
 
-  // 2D Saalplan Raster Dimensionen
-  const floorCols = 8;
-  const floorRows = 6;
+  // 2D Saalplan Dimensionen berechnen
+  const maxTableX = tables.reduce((max, t) => Math.max(max, t.gridX || 1), 0);
+  const maxTableY = tables.reduce((max, t) => Math.max(max, t.gridY || 1), 0);
+  const maxAisleX = aisles.filter((a) => a.type === 'COL').reduce((max, a) => Math.max(max, a.index), 0);
+  const maxAisleY = aisles.filter((a) => a.type === 'ROW').reduce((max, a) => Math.max(max, a.index), 0);
+
+  const floorCols = Math.max(8, maxTableX, maxAisleX);
+  const floorRows = Math.max(6, maxTableY, maxAisleY);
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-y-auto bg-slate-950 text-white p-3 sm:p-6 max-w-7xl mx-auto w-full">
@@ -310,34 +424,12 @@ export default function AdminTablesPage() {
           <div>
             <h1 className="text-2xl font-black">Tischplan Designer</h1>
             <p className="text-xs text-slate-400">
-              Interaktiver Saalplan, Raster-Generator &amp; Bondruck-Tischmarken
+              Interaktiver Saalplan mit Gängen, automatischer Schrittweiten-Generierung &amp; Tischmarken
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Umschalter Ansicht */}
-          <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 p-1 rounded-xl">
-            <button
-              onClick={() => setViewMode('GRID')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                viewMode === 'GRID' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Kacheln</span>
-            </button>
-            <button
-              onClick={() => setViewMode('FLOORPLAN')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                viewMode === 'FLOORPLAN' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <MapPin className="w-3.5 h-3.5" />
-              <span>Interaktiver Saalplan</span>
-            </button>
-          </div>
-
           <Link
             href="/admin/tables/print"
             className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition shadow"
@@ -351,7 +443,7 @@ export default function AdminTablesPage() {
             className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition"
           >
             <Printer className="w-4 h-4" />
-            <span>Tischmarken</span>
+            <span>Tischmarken drucken</span>
           </button>
 
           <button
@@ -377,184 +469,280 @@ export default function AdminTablesPage() {
             title="Löscht alle konfigurierten Tische"
           >
             <Trash2 className="w-4 h-4" />
-            <span>Alle Tische löschen</span>
+            <span>Alle löschen</span>
           </button>
         </div>
       </div>
 
-      {/* Main View Area */}
-      {viewMode === 'GRID' ? (
-        /* Kachel-Ansicht */
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-4">
-          <div className="flex items-center justify-between text-xs text-slate-400 font-bold uppercase tracking-wider">
-            <span>Konfigurierte Tische ({tables.length})</span>
-            <span>Aktiv: {tables.filter((t) => t.isActive !== false).length}</span>
-          </div>
-
-          {tables.length === 0 ? (
-            <div className="py-12 text-center text-slate-500 space-y-3">
-              <Grid className="w-12 h-12 mx-auto text-slate-700" />
-              <p className="font-bold text-sm">Noch keine Tische vorhanden.</p>
-              <p className="text-xs">Klicke oben auf „Raster generieren“ oder „Einzeltisch“.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {[...tables]
-                .sort((a, b) =>
-                  (a.gridY || 1) !== (b.gridY || 1)
-                    ? (a.gridY || 1) - (b.gridY || 1)
-                    : (a.gridX || 1) - (b.gridX || 1)
-                )
-                .map((t) => (
-                <div
-                  key={t.id}
-                  className={`relative rounded-2xl p-3 border transition flex flex-col justify-between min-h-[95px] ${
-                    t.isActive !== false
-                      ? 'bg-slate-950 border-slate-700 text-white hover:border-blue-500'
-                      : 'bg-slate-950/40 border-slate-800 text-slate-500 opacity-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-mono font-bold text-slate-400">
-                      Nr. {t.tableNumber} <span className="opacity-60">({t.gridX || 1},{t.gridY || 1})</span>
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => handleOpenEdit(t)}
-                        className="p-1 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-950/50 transition"
-                        title="Bearbeiten"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleToggleTable(t)}
-                        className={`p-1 rounded-lg transition ${
-                          t.isActive !== false
-                            ? 'text-emerald-400 hover:bg-emerald-950'
-                            : 'text-slate-500 hover:bg-slate-800'
-                        }`}
-                        title={t.isActive !== false ? 'Deaktivieren' : 'Aktivieren'}
-                      >
-                        {t.isActive !== false ? (
-                          <ToggleRight className="w-4 h-4" />
-                        ) : (
-                          <ToggleLeft className="w-4 h-4" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteTable(t)}
-                        className="p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/50 transition"
-                        title="Löschen"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="font-extrabold text-sm truncate">{t.label}</div>
-
-                  <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400">
-                    <span className="inline-flex items-center gap-1">
-                      <Circle
-                        className={`w-2 h-2 ${
-                          t.isActive !== false
-                            ? 'fill-emerald-400 text-emerald-400'
-                            : 'fill-slate-600 text-slate-600'
-                        }`}
-                      />
-                      <span>{t.isActive !== false ? 'Aktiv' : 'Inaktiv'}</span>
-                    </span>
-                    {(t.openItemCount ?? 0) > 0 && (
-                      <span className="text-amber-400 font-bold">{t.openItemCount} Bons</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : (
-        /* Interaktiver 2D Saalplan Designer */
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-4">
-          <div className="flex items-center justify-between text-xs text-slate-400 font-bold">
-            <span className="flex items-center gap-2">
-              <Move className="w-4 h-4 text-blue-400" />
-              Ziehe Tische auf freie Felder des Saalplans, um das Layout anzupassen.
+      {/* Interaktiver Saalplan (Alleinige Hauptansicht) */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400 font-bold">
+          <span className="flex items-center gap-2">
+            <Move className="w-4 h-4 text-blue-400" />
+            Ziehe Tische auf freie Felder. Klicke auf die <span className="text-blue-400 font-black px-1.5 py-0.5 bg-blue-950/80 rounded border border-blue-800">+</span> Symbole zwischen den Spalten/Reihen, um Gänge oder neue Reihen einzufügen.
+          </span>
+          <div className="flex items-center gap-3">
+            <span className="bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800">
+              Tische: <strong className="text-white">{tables.length}</strong>
             </span>
-            <span>Raster: {floorCols} x {floorRows}</span>
+            <span className="bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800">
+              Gänge: <strong className="text-amber-400">{aisles.length}</strong>
+            </span>
+            <span className="bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800">
+              Raster: <strong className="text-blue-400">{floorCols} × {floorRows}</strong>
+            </span>
           </div>
+        </div>
 
-          <div
-            className="grid gap-2 p-4 bg-slate-950 rounded-2xl border border-slate-800 overflow-x-auto min-w-[700px]"
-            style={{
-              gridTemplateColumns: `repeat(${floorCols}, minmax(80px, 1fr))`,
-              gridTemplateRows: `repeat(${floorRows}, minmax(80px, 1fr))`,
-            }}
-          >
-            {Array.from({ length: floorRows }).map((_, rIdx) => {
-              const y = rIdx + 1;
-              return Array.from({ length: floorCols }).map((__, cIdx) => {
-                const x = cIdx + 1;
-                const tableOnCell = tables.find(
-                  (t) => (t.gridX || 1) === x && (t.gridY || 1) === y
+        {/* Column Insert Header Toolbar (+ Buttons between columns) */}
+        <div className="overflow-x-auto pb-4">
+          <div className="inline-block min-w-full">
+            {/* Top Column + Insert Handles */}
+            <div className="flex items-center pl-8 mb-2 gap-2">
+              {Array.from({ length: floorCols }).map((_, cIdx) => {
+                const colNum = cIdx + 1;
+                const isColAisle = aisles.some((a) => a.type === 'COL' && a.index === colNum);
+                return (
+                  <React.Fragment key={`col-header-${colNum}`}>
+                    <div
+                      className={`text-center font-mono text-[10px] font-bold py-1 rounded-lg border ${
+                        isColAisle
+                          ? 'w-[44px] bg-amber-950/40 border-amber-800 text-amber-300'
+                          : 'w-[90px] bg-slate-950 border-slate-800 text-slate-400'
+                      }`}
+                    >
+                      {isColAisle ? '🚶 G' : `Sp ${colNum}`}
+                    </div>
+                    {colNum < floorCols && (
+                      <button
+                        onClick={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setInsertPopup({
+                            type: 'COL',
+                            index: colNum,
+                            posX: rect.left,
+                            posY: rect.bottom + 4,
+                          });
+                        }}
+                        className="w-5 h-5 rounded-full bg-blue-950 hover:bg-blue-600 border border-blue-700 text-blue-300 hover:text-white flex items-center justify-center text-xs font-black shadow transition active:scale-95 shrink-0"
+                        title={`Gang oder Spalte nach Spalte ${colNum} einfügen`}
+                      >
+                        +
+                      </button>
+                    )}
+                  </React.Fragment>
                 );
+              })}
+            </div>
+
+            {/* Saalplan Raster Matrix */}
+            <div className="flex flex-col gap-2">
+              {Array.from({ length: floorRows }).map((_, rIdx) => {
+                const rowNum = rIdx + 1;
+                const isRowAisle = aisles.some((a) => a.type === 'ROW' && a.index === rowNum);
+                const aisleRowObj = aisles.find((a) => a.type === 'ROW' && a.index === rowNum);
 
                 return (
-                  <div
-                    key={`cell-${x}-${y}`}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={() => handleDropOnFloor(x, y)}
-                    onClick={() => {
-                      if (draggingId && !tableOnCell) {
-                        handleDropOnFloor(x, y);
-                      }
-                    }}
-                    className={`relative rounded-2xl border transition flex flex-col items-center justify-center p-2 min-h-[85px] select-none ${
-                      tableOnCell
-                        ? tableOnCell.isActive !== false
-                          ? 'bg-blue-950/70 border-blue-600 text-white cursor-grab shadow'
-                          : 'bg-slate-900/60 border-slate-800 text-slate-500 opacity-60'
-                        : draggingId
-                        ? 'border-dashed border-blue-500/50 bg-blue-950/20 hover:bg-blue-900/40 cursor-pointer'
-                        : 'border-slate-800/80 bg-slate-950 hover:border-slate-700'
-                    }`}
-                  >
-                    {tableOnCell ? (
-                      <div
-                        draggable
-                        onDragStart={() => setDraggingId(tableOnCell.id)}
-                        onDragEnd={() => setDraggingId(null)}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenEdit(tableOnCell);
-                        }}
-                        className="w-full text-center space-y-1"
-                      >
-                        <div className="text-[10px] font-mono font-bold text-blue-300">
-                          #{tableOnCell.tableNumber}
+                  <div key={`row-wrap-${rowNum}`} className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      {/* Left Row Label & + Insert Handle */}
+                      <div className="w-8 flex flex-col items-center justify-center shrink-0">
+                        <div
+                          className={`text-center font-mono text-[10px] font-bold px-1 py-0.5 rounded border ${
+                            isRowAisle
+                              ? 'bg-amber-950/40 border-amber-800 text-amber-300'
+                              : 'bg-slate-950 border-slate-800 text-slate-400'
+                          }`}
+                        >
+                          {isRowAisle ? '🚶' : `R${rowNum}`}
                         </div>
-                        <div className="text-xs font-black truncate">{tableOnCell.label}</div>
-                        <div className="text-[9px] text-slate-400 font-mono">({x},{y})</div>
                       </div>
-                    ) : (
-                      <span className="text-[10px] font-mono text-slate-700">
-                        {x},{y}
-                      </span>
+
+                      {/* Row Cells */}
+                      {isRowAisle ? (
+                        /* Horizontal Walkway / Gang */
+                        <div className="flex-1 min-h-[44px] bg-amber-950/20 border-2 border-dashed border-amber-600/50 rounded-2xl flex items-center justify-between px-4 text-amber-300 font-bold text-xs select-none">
+                          <span className="flex items-center gap-2">
+                            <Footprints className="w-4 h-4 text-amber-400" />
+                            <span>GANG / LAUFWEG (Reihe {rowNum})</span>
+                          </span>
+                          <button
+                            onClick={() => aisleRowObj && handleDeleteAisle(aisleRowObj.id)}
+                            className="p-1.5 rounded-lg bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 flex items-center gap-1 text-[11px] font-bold transition shadow"
+                            title="Gang entfernen"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Gang löschen</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          {Array.from({ length: floorCols }).map((__, cIdx) => {
+                            const colNum = cIdx + 1;
+                            const isColAisle = aisles.some((a) => a.type === 'COL' && a.index === colNum);
+                            const aisleColObj = aisles.find((a) => a.type === 'COL' && a.index === colNum);
+
+                            if (isColAisle) {
+                              /* Vertical Walkway / Gang (Half width) */
+                              return (
+                                <div
+                                  key={`aisle-col-cell-${colNum}-${rowNum}`}
+                                  className="w-[44px] min-h-[85px] bg-amber-950/20 border-2 border-dashed border-amber-600/50 rounded-2xl flex flex-col items-center justify-center p-1 text-amber-400 text-[10px] font-bold select-none relative group"
+                                >
+                                  <Footprints className="w-4 h-4 opacity-80" />
+                                  <span className="text-[8px] uppercase tracking-wider text-amber-500/90 font-black mt-1">
+                                    Gang
+                                  </span>
+                                  {rowNum === 1 && aisleColObj && (
+                                    <button
+                                      onClick={() => handleDeleteAisle(aisleColObj.id)}
+                                      className="absolute -top-2 bg-rose-900 hover:bg-rose-700 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition"
+                                      title="Spalten-Gang löschen"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            }
+
+                            const tableOnCell = tables.find(
+                              (t) => (t.gridX || 1) === colNum && (t.gridY || 1) === rowNum
+                            );
+
+                            return (
+                              <div
+                                key={`cell-${colNum}-${rowNum}`}
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={() => handleDropOnFloor(colNum, rowNum)}
+                                onClick={() => {
+                                  if (draggingId && !tableOnCell) {
+                                    handleDropOnFloor(colNum, rowNum);
+                                  }
+                                }}
+                                className={`w-[90px] relative rounded-2xl border transition flex flex-col items-center justify-center p-2 min-h-[85px] select-none ${
+                                  tableOnCell
+                                    ? tableOnCell.isActive !== false
+                                      ? 'bg-blue-950/70 border-blue-600 text-white cursor-grab shadow-md hover:border-blue-400 hover:bg-blue-900/60'
+                                      : 'bg-slate-900/60 border-slate-800 text-slate-500 opacity-60'
+                                    : draggingId
+                                    ? 'border-dashed border-blue-500/50 bg-blue-950/20 hover:bg-blue-900/40 cursor-pointer'
+                                    : 'border-slate-800/80 bg-slate-950 hover:border-slate-700'
+                                }`}
+                              >
+                                {tableOnCell ? (
+                                  <div
+                                    draggable
+                                    onDragStart={() => setDraggingId(tableOnCell.id)}
+                                    onDragEnd={() => setDraggingId(null)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenEdit(tableOnCell);
+                                    }}
+                                    className="w-full text-center space-y-1"
+                                  >
+                                    <div className="text-[11px] font-mono font-black text-blue-300">
+                                      #{tableOnCell.tableNumber}
+                                    </div>
+                                    <div className="text-xs font-black truncate">{tableOnCell.label}</div>
+                                    <div className="text-[9px] text-slate-400 font-mono">
+                                      ({colNum},{rowNum})
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-[9px] font-mono text-slate-700">
+                                    {colNum},{rowNum}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Intermediate Row + Insert Handle */}
+                    {rowNum < floorRows && (
+                      <div className="flex items-center pl-1.5 my-1">
+                        <button
+                          onClick={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setInsertPopup({
+                              type: 'ROW',
+                              index: rowNum,
+                              posX: rect.right + 8,
+                              posY: rect.top - 10,
+                            });
+                          }}
+                          className="w-5 h-5 rounded-full bg-blue-950 hover:bg-blue-600 border border-blue-700 text-blue-300 hover:text-white flex items-center justify-center text-xs font-black shadow transition active:scale-95"
+                          title={`Gang oder Reihe nach Reihe ${rowNum} einfügen`}
+                        >
+                          +
+                        </button>
+                      </div>
                     )}
                   </div>
                 );
-              });
-            })}
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Insert Menu Popup Modal / Dropdown */}
+      {insertPopup && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]"
+          onClick={() => setInsertPopup(null)}
+        >
+          <div
+            className="fixed bg-slate-900 border-2 border-blue-500 rounded-2xl p-3 shadow-2xl space-y-2 w-64 text-white animate-in zoom-in-95"
+            style={{
+              left: Math.min(typeof window !== 'undefined' ? window.innerWidth - 270 : 300, Math.max(10, insertPopup.posX)),
+              top: Math.min(typeof window !== 'undefined' ? window.innerHeight - 180 : 300, Math.max(10, insertPopup.posY)),
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-xs font-black text-slate-300 border-b border-slate-800 pb-1.5 flex items-center justify-between">
+              <span>{insertPopup.type === 'COL' ? `Nach Spalte ${insertPopup.index}` : `Nach Reihe ${insertPopup.index}`}</span>
+              <button onClick={() => setInsertPopup(null)} className="text-slate-400 hover:text-white">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="space-y-1.5 pt-1">
+              <button
+                onClick={() => handleInsertStructure(insertPopup.type, insertPopup.index, true)}
+                className="w-full flex items-center gap-2 p-2 rounded-xl bg-amber-950/60 hover:bg-amber-900 border border-amber-700/60 text-amber-200 text-xs font-bold text-left transition"
+              >
+                <Footprints className="w-4 h-4 text-amber-400 shrink-0" />
+                <div>
+                  <div>🚶 Gang einfügen</div>
+                  <div className="text-[10px] text-amber-400 font-normal">Halbe Breite, farblich abgehoben</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleInsertStructure(insertPopup.type, insertPopup.index, false)}
+                className="w-full flex items-center gap-2 p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold text-left transition"
+              >
+                <Plus className="w-4 h-4 text-blue-400 shrink-0" />
+                <div>
+                  <div>{insertPopup.type === 'COL' ? 'Leere Spalte einfügen' : 'Leere Reihe einfügen'}</div>
+                  <div className="text-[10px] text-slate-400 font-normal">Verschiebt Tische um 1 Feld</div>
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Generator Modal */}
+      {/* Generator Modal (Startnummer, Schrittweite in X und Y) */}
       {showGenModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-lg text-white">Tischraster automatisch erstellen</h3>
+              <h3 className="font-bold text-lg text-white">Tischraster automatisch generieren</h3>
               <button
                 onClick={() => setShowGenModal(false)}
                 className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800"
@@ -563,10 +751,10 @@ export default function AdminTablesPage() {
               </button>
             </div>
 
-            <form onSubmit={handleGenerateGrid} className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
+            <form onSubmit={handleGenerateGrid} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">Reihen</label>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">Anzahl Reihen (Y)</label>
                   <input
                     type="number"
                     min="1"
@@ -577,7 +765,7 @@ export default function AdminTablesPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">Spalten</label>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">Anzahl Spalten (X)</label>
                   <input
                     type="number"
                     min="1"
@@ -589,75 +777,64 @@ export default function AdminTablesPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">Startnummer</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={genStart}
-                    onChange={(e) => setGenStart(parseInt(e.target.value, 10))}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-center font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">Nr.-Schrittweite</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={genStep}
-                    onChange={(e) => setGenStep(parseInt(e.target.value, 10))}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-center font-bold"
-                  />
-                </div>
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">Startnummer</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={genStart}
+                  onChange={(e) => setGenStart(parseInt(e.target.value, 10))}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-center font-bold"
+                />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">
-                    Schrittweite X (Spalten / Gänge)
-                  </label>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">Schrittweite X (Spalten)</label>
                   <input
                     type="number"
-                    min="1"
-                    max="5"
                     value={genStepX}
-                    onChange={(e) => setGenStepX(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    onChange={(e) => setGenStepX(parseInt(e.target.value, 10))}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-center font-bold"
                   />
+                  <span className="text-[10px] text-slate-500 mt-1 block">Zuwachs je Spalte (+1)</span>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">
-                    Schrittweite Y (Reihen / Gänge)
-                  </label>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">Schrittweite Y (Reihen)</label>
                   <input
                     type="number"
-                    min="1"
-                    max="5"
                     value={genStepY}
-                    onChange={(e) => setGenStepY(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    onChange={(e) => setGenStepY(parseInt(e.target.value, 10))}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-center font-bold"
                   />
+                  <span className="text-[10px] text-slate-500 mt-1 block">Zuwachs je Reihe (+10)</span>
                 </div>
               </div>
 
-              <div className="p-3 bg-blue-950/40 border border-blue-800 rounded-xl text-xs text-blue-200">
-                Erzeugt insgesamt <strong>{genRows * genCols}</strong> Tische im Raumplan. Bei Schrittweite &gt; 1 werden freie Gänge zwischen den Tischen angelegt.
+              {/* Berechnungs-Vorschau */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3 space-y-1 text-xs">
+                <div className="font-bold text-slate-300">Nummerierungs-Vorschau:</div>
+                <div className="font-mono text-blue-400 font-bold">
+                  Reihe 1: {genStart}, {genStart + genStepX}, {genStart + 2 * genStepX}, ...
+                </div>
+                <div className="font-mono text-emerald-400 font-bold">
+                  Reihe 2: {genStart + genStepY}, {genStart + genStepY + genStepX}, {genStart + genStepY + 2 * genStepX}, ...
+                </div>
               </div>
 
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowGenModal(false)}
-                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold"
+                  className="flex-1 p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-bold"
                 >
                   Abbrechen
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow"
+                  className="flex-1 p-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold shadow-lg"
                 >
-                  Raster generieren
+                  Raster erstellen ({genRows * genCols} Tische)
                 </button>
               </div>
             </form>
@@ -665,67 +842,10 @@ export default function AdminTablesPage() {
         </div>
       )}
 
-      {/* Add Single Table Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-lg text-white">Einzeltisch anlegen</h3>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddTable} className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">Tischnummer</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={newTableNum}
-                  onChange={(e) => setNewTableNum(parseInt(e.target.value, 10))}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">Bezeichnung / Label</label>
-                <input
-                  type="text"
-                  value={newTableLabel}
-                  onChange={(e) => setNewTableLabel(e.target.value)}
-                  placeholder={`z. B. Tisch ${newTableNum} oder Stehtisch 3`}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white"
-                />
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow"
-                >
-                  Hinzufügen
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Modal */}
+      {/* Edit Table Modal */}
       {editingTable && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-lg text-white">Tisch bearbeiten</h3>
               <button
@@ -736,15 +856,15 @@ export default function AdminTablesPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveEdit} className="space-y-3">
+            <form onSubmit={handleSaveEdit} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-400 block mb-1">Tischnummer</label>
                 <input
                   type="number"
-                  min="1"
                   value={editTableNum}
                   onChange={(e) => setEditTableNum(parseInt(e.target.value, 10))}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono font-bold"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-center font-bold"
+                  required
                 />
               </div>
 
@@ -754,59 +874,62 @@ export default function AdminTablesPage() {
                   type="text"
                   value={editTableLabel}
                   onChange={(e) => setEditTableLabel(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-bold"
+                  required
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">Position X</label>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">Position X (Spalte)</label>
                   <input
                     type="number"
                     min="1"
-                    max="20"
                     value={editGridX}
                     onChange={(e) => setEditGridX(parseInt(e.target.value, 10))}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-center"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-center font-bold"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">Position Y</label>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">Position Y (Reihe)</label>
                   <input
                     type="number"
                     min="1"
-                    max="20"
                     value={editGridY}
                     onChange={(e) => setEditGridY(parseInt(e.target.value, 10))}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-center"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-center font-bold"
                   />
                 </div>
               </div>
 
               <div className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">
-                <span className="text-xs font-bold text-slate-300">Tisch aktiv</span>
+                <span className="text-xs font-bold">Tisch für Buchungen aktiv</span>
                 <button
                   type="button"
                   onClick={() => setEditTableActive(!editTableActive)}
-                  className={`p-1.5 rounded-lg ${
-                    editTableActive ? 'text-emerald-400' : 'text-slate-600'
+                  className={`p-1.5 rounded-lg transition ${
+                    editTableActive ? 'text-emerald-400 bg-emerald-950/60' : 'text-slate-500 bg-slate-900'
                   }`}
                 >
-                  {editTableActive ? <ToggleRight className="w-8 h-8" /> : <ToggleLeft className="w-8 h-8" />}
+                  {editTableActive ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
                 </button>
               </div>
 
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setEditingTable(null)}
-                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold"
+                  onClick={() => {
+                    handleDeleteTable(editingTable);
+                    setEditingTable(null);
+                  }}
+                  className="p-3 rounded-xl bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 text-sm font-bold flex items-center justify-center gap-1.5"
                 >
-                  Abbrechen
+                  <Trash2 className="w-4 h-4" />
+                  <span>Löschen</span>
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow"
+                  className="flex-1 p-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold shadow-lg"
                 >
                   Speichern
                 </button>
@@ -816,49 +939,69 @@ export default function AdminTablesPage() {
         </div>
       )}
 
-      {/* Delete All Confirmation Modal */}
-      {showDeleteAllModal && (
+      {/* Add Single Table Modal */}
+      {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-rose-700 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex items-center gap-3 text-rose-400">
-              <AlertTriangle className="w-8 h-8 shrink-0" />
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg text-white">Einzelnen Tisch hinzufügen</h3>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddTable} className="space-y-4">
               <div>
-                <h3 className="font-black text-lg text-white">Alle Tische wirklich löschen?</h3>
-                <p className="text-xs text-rose-300">Diese Aktion kann nicht rückgängig gemacht werden.</p>
+                <label className="text-xs font-bold text-slate-400 block mb-1">Tischnummer</label>
+                <input
+                  type="number"
+                  value={newTableNum}
+                  onChange={(e) => setNewTableNum(parseInt(e.target.value, 10))}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-center font-bold"
+                  required
+                />
               </div>
-            </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed bg-slate-950 p-4 rounded-2xl border border-slate-800">
-              Es werden alle <strong>{tables.length}</strong> Tische aus der Datenbank entfernt. Offene Bestellungen
-              sollten vor dem Löschen abgeschlossen werden.
-            </p>
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">Bezeichnung (optional)</label>
+                <input
+                  type="text"
+                  placeholder={`Tisch ${newTableNum}`}
+                  value={newTableLabel}
+                  onChange={(e) => setNewTableLabel(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-bold"
+                />
+              </div>
 
-            <div className="flex gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowDeleteAllModal(false)}
-                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-white"
-              >
-                Abbrechen
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteAllTables}
-                className="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow"
-              >
-                Endgültig löschen
-              </button>
-            </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-bold"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 p-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold shadow-lg"
+                >
+                  Hinzufügen
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
-      {/* Print Marker Modal */}
+      {/* Marker Print Modal */}
       {showPrintModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-lg text-white">Tischmarken drucken</h3>
+              <h3 className="font-bold text-lg text-white">Tischmarken auf Bondrucker drucken</h3>
               <button
                 onClick={() => setShowPrintModal(false)}
                 className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800"
@@ -867,38 +1010,36 @@ export default function AdminTablesPage() {
               </button>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-slate-400 block mb-1">Bondrucker</label>
+                <label className="text-xs font-bold text-slate-400 block mb-1">Drucker auswählen</label>
                 <select
                   value={selectedPrinterId}
                   onChange={(e) => setSelectedPrinterId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white text-xs font-bold"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-bold"
                 >
                   {printers.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} ({p.ipAddress || 'Virtuell'})
+                      {p.name} ({p.ipAddress})
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">Von Tisch-Nr.</label>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">Von Tischnr.</label>
                   <input
                     type="number"
-                    min="1"
                     value={markerStart}
                     onChange={(e) => setMarkerStart(parseInt(e.target.value, 10))}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-center font-bold"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">Bis Tisch-Nr.</label>
+                  <label className="text-xs font-bold text-slate-400 block mb-1">Bis Tischnr.</label>
                   <input
                     type="number"
-                    min="1"
                     value={markerEnd}
                     onChange={(e) => setMarkerEnd(parseInt(e.target.value, 10))}
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-center font-bold"
@@ -906,38 +1047,65 @@ export default function AdminTablesPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">
-                <div>
-                  <span className="text-xs font-bold text-slate-300 block">QR-Code aufdrucken</span>
-                  <span className="text-[10px] text-slate-500">Für QR-Bestellung der Gäste</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIncludeQr(!includeQr)}
-                  className={`p-1.5 rounded-lg ${includeQr ? 'text-emerald-400' : 'text-slate-600'}`}
-                >
-                  {includeQr ? <ToggleRight className="w-8 h-8" /> : <ToggleLeft className="w-8 h-8" />}
-                </button>
-              </div>
+              <label className="flex items-center gap-2 p-3 bg-slate-950 rounded-xl border border-slate-800 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeQr}
+                  onChange={(e) => setIncludeQr(e.target.checked)}
+                  className="w-4 h-4 rounded text-blue-600"
+                />
+                <span className="text-xs font-bold text-slate-300">
+                  Gast-QR-Code für Smartphone-Bestellung mitdrucken
+                </span>
+              </label>
 
               <div className="flex gap-2 pt-2">
                 <button
-                  type="button"
                   onClick={() => setShowPrintModal(false)}
-                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold"
+                  className="flex-1 p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-bold"
                 >
                   Abbrechen
                 </button>
                 <button
-                  type="button"
-                  disabled={isPrinting}
                   onClick={handlePrintMarkers}
-                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow flex items-center justify-center gap-2"
+                  disabled={isPrinting}
+                  className="flex-1 p-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   <Printer className="w-4 h-4" />
                   <span>{isPrinting ? 'Druckt...' : 'Jetzt drucken'}</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete All Modal */}
+      {showDeleteAllModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-rose-800/60 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-rose-400">
+              <AlertCircle className="w-6 h-6 shrink-0" />
+              <h3 className="font-bold text-lg text-white">Alle Tische löschen?</h3>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Möchtest du wirklich alle {tables.length} Tische und Gänge aus dem System entfernen? Bereits erfasste historische Bestellungen bleiben im Journal erhalten.
+            </p>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => setShowDeleteAllModal(false)}
+                className="flex-1 p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-bold"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleDeleteAllTables}
+                className="flex-1 p-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-bold shadow-lg"
+              >
+                Ja, alle löschen
+              </button>
             </div>
           </div>
         </div>

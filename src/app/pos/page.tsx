@@ -74,6 +74,8 @@ function PosCounterContent() {
 
   const [editStationName, setEditStationName] = useState('Bonkasse 1');
   const [editDrawerConnected, setEditDrawerConnected] = useState(true);
+  const [hasDrawerAvailable, setHasDrawerAvailable] = useState(false);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedName = localStorage.getItem('openbon_pos_name') || 'Bonkasse 1';
@@ -152,6 +154,16 @@ function PosCounterContent() {
         if (cfg && !cfg.error) {
           setConfig(cfg);
           setEnableDigitalReceipt(Boolean(cfg.enableDigitalReceipt || cfg.enableDigitalReceiptQr));
+        }
+      })
+      .catch(() => {});
+
+    fetch('/api/printers')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((prns) => {
+        if (Array.isArray(prns)) {
+          const anyHasDrawer = prns.some((p: any) => p.isActive && p.hasCashDrawer);
+          setHasDrawerAvailable(anyHasDrawer);
         }
       })
       .catch(() => {});
@@ -436,14 +448,17 @@ function PosCounterContent() {
           </button>
         </div>
 
-        {/* Open Drawer Button */}
-        <button
-          onClick={openDrawer}
-          className="pos-touch-btn flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2.5 rounded-2xl text-xs font-bold border border-slate-700 shadow transition active:scale-95"
-        >
-          <DoorOpen className="w-4 h-4 text-emerald-400" />
-          <span>Lade öffnen</span>
-        </button>
+        {/* Open Drawer Button (Nur wenn Kassenlade an einem konfigurierten Drucker verfügbar ist) */}
+        {hasDrawerAvailable && (
+          <button
+            onClick={openDrawer}
+            className="pos-touch-btn flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2.5 rounded-2xl text-xs font-bold border border-slate-700 shadow transition active:scale-95"
+            title="Kassenlade öffnen"
+          >
+            <DoorOpen className="w-4 h-4 text-emerald-400" />
+            <span>Lade öffnen</span>
+          </button>
+        )}
       </div>
 
       {/* Meldebestand Low-Stock Alert Bar */}

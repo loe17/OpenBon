@@ -191,22 +191,23 @@ export class EscPosBuilder {
     }
 
     builder.align('center');
+    // Keine Schwarz-Hinterlegung mehr; echte Skalierung bis zur vollen Bonbreite
     if (fs >= 10) {
-      builder.invert(true).charSize(4, 4).bold(true).textLine(` ${clean} `).resetCharSize().invert(false).bold(false);
+      builder.charSize(6, 6).bold(true).textLine(clean).resetCharSize().bold(false);
     } else if (fs >= 9) {
-      builder.charSize(4, 4).bold(true).textLine(clean).resetCharSize().bold(false);
+      builder.charSize(5, 5).bold(true).textLine(clean).resetCharSize().bold(false);
     } else if (fs >= 8) {
-      builder.charSize(3, 4).bold(true).textLine(clean).resetCharSize().bold(false);
+      builder.charSize(4, 4).bold(true).textLine(clean).resetCharSize().bold(false);
     } else if (fs >= 7) {
-      builder.charSize(3, 3).bold(true).textLine(clean).resetCharSize().bold(false);
+      builder.charSize(3, 4).bold(true).textLine(clean).resetCharSize().bold(false);
     } else if (fs >= 6) {
-      builder.charSize(2, 3).bold(true).textLine(clean).resetCharSize().bold(false);
+      builder.charSize(3, 3).bold(true).textLine(clean).resetCharSize().bold(false);
     } else if (fs >= 5) {
-      builder.charSize(2, 2).bold(true).textLine(clean).resetCharSize().bold(false);
+      builder.charSize(2, 3).bold(true).textLine(clean).resetCharSize().bold(false);
     } else if (fs >= 4) {
-      builder.charSize(1, 2).bold(true).textLine(clean).resetCharSize().bold(false);
+      builder.charSize(2, 2).bold(true).textLine(clean).resetCharSize().bold(false);
     } else if (fs >= 3 || fontSize === 'EXTRA_LARGE') {
-      builder.charSize(1, 1).bold(true).textLine(clean).resetCharSize().bold(false);
+      builder.charSize(1, 2).bold(true).textLine(clean).resetCharSize().bold(false);
     } else if (fs >= 2 || fontSize === 'LARGE') {
       builder.charSize(1, 1).bold(true).textLine(clean).resetCharSize().bold(false);
     } else {
@@ -236,8 +237,12 @@ export class EscPosBuilder {
       addText('*** ZWISCHENRECHNUNG - KEIN KASSENBELEG ***');
     }
 
-    builder.align('center').size(true, true).bold(true).textLine(data.title).size(false, false).bold(false);
-    addText(`[ ${data.title} ]`);
+    // Küche / Ausschank Überschrift wird nicht auf Speisen/Getränkebons gedruckt
+    const isKitchenOrDrinkHeader = /kueche|küche|ausschank|theke|grill/i.test(data.title || '');
+    if (data.title && !isKitchenOrDrinkHeader) {
+      builder.align('center').size(true, true).bold(true).textLine(data.title).size(false, false).bold(false);
+      addText(`[ ${data.title} ]`);
+    }
 
     // Spec 6.1: Kopfzeile des Tablett-Splits
     if (data.traySplit) {
@@ -309,6 +314,8 @@ export class EscPosBuilder {
 
     const itemFs = typeof data.itemFontSize === 'number' ? data.itemFontSize : parseInt(String(data.itemFontSize || 2), 10) || 2;
     const optFs = typeof data.optionsFontSize === 'number' ? data.optionsFontSize : parseInt(String(data.optionsFontSize || 1), 10) || 1;
+    // Optionen wachsen relativ mit der Artikelgröße mit
+    const effectiveOptFs = Math.max(optFs, Math.min(8, Math.floor(itemFs * 0.8)));
 
     for (const item of sortedItems) {
       if (hasCourses && (item.courseNumber ?? 1) !== lastCourse) {
@@ -321,7 +328,9 @@ export class EscPosBuilder {
       const priceStr = item.unitPrice !== undefined ? `${(item.unitPrice * item.quantity).toFixed(2)} EUR` : '';
 
       // Item Size scaling (Stufen 1-10)
-      if (itemFs >= 7) {
+      if (itemFs >= 8) {
+        builder.charSize(3, 3).bold(true);
+      } else if (itemFs >= 6) {
         builder.charSize(2, 2).bold(true);
       } else if (itemFs >= 4) {
         builder.charSize(1, 2).bold(true);
@@ -333,10 +342,12 @@ export class EscPosBuilder {
       builder.resetCharSize().bold(false);
       addText(`${item.quantity}x ${displayName}   ${priceStr}`);
 
-      // Options & Details scaling (Stufen 1-10)
-      if (optFs >= 5) {
+      // Options & Details scaling (relativ zur Artikelgröße)
+      if (effectiveOptFs >= 6) {
+        builder.charSize(2, 2).bold(true);
+      } else if (effectiveOptFs >= 4) {
         builder.charSize(1, 2).bold(true);
-      } else if (optFs >= 2) {
+      } else if (effectiveOptFs >= 2) {
         builder.bold(true);
       }
 
@@ -355,7 +366,7 @@ export class EscPosBuilder {
         addText(`   ! WUNSCH: ${item.customizationText}`);
       }
 
-      if (optFs >= 2) {
+      if (effectiveOptFs >= 2) {
         builder.resetCharSize().bold(false);
       }
 

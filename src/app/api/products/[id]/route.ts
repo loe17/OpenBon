@@ -123,6 +123,14 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
                 ? body.happyHourDays
                 : JSON.stringify(body.happyHourDays)
               : undefined,
+          happyHourRules:
+            body.happyHourRules !== undefined
+              ? body.happyHourRules === null
+                ? null
+                : typeof body.happyHourRules === 'string'
+                ? body.happyHourRules
+                : JSON.stringify(body.happyHourRules)
+              : undefined,
           isTokenProduct: body.isTokenProduct !== undefined ? Boolean(body.isTokenProduct) : undefined,
           tokenType: body.tokenType !== undefined ? body.tokenType : undefined,
           subCategory: body.subCategory !== undefined ? body.subCategory : undefined,

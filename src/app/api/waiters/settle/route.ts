@@ -84,10 +84,14 @@ export async function POST(req: Request) {
     });
 
     if (updated.count === 0) {
-      // Bedienung war nur lokal am Geraet angemeldet: Profil nachtraeglich anlegen,
-      // damit die Abrechnung nachvollziehbar bleibt.
+      const { getOrAssignWaiterNumber } = await import('@/lib/waiter-number');
+      const waiterNumber = await getOrAssignWaiterNumber(name);
       await prisma.waiterProfile
-        .create({ data: { name, isActive: false } })
+        .upsert({
+          where: { name },
+          update: { isActive: false },
+          create: { name, waiterNumber, pin: '3333', isActive: false },
+        })
         .catch(() => undefined);
     }
 
@@ -100,6 +104,7 @@ export async function POST(req: Request) {
     // 4. Socket Broadcast
     if (typeof global !== 'undefined' && (global as any).io) {
       (global as any).io.emit('waiter:settled', { waiterName: name });
+      (global as any).io.emit('waiters:settled', { waiterName: name });
       (global as any).io.emit('table:updated');
     }
 

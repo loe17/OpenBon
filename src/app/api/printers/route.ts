@@ -124,28 +124,30 @@ export async function POST(req: Request) {
         ? await prisma.printer.findMany({ where: { id: body.printerId } })
         : await prisma.printer.findMany();
 
-      const results: Record<string, { online: boolean; latencyMs?: number; isVirtual: boolean }> = {};
+      const results: Record<string, { online: boolean; latencyMs?: number; isVirtual: boolean; hasCashDrawer?: boolean }> = {};
 
       await Promise.all(
         printers.map((p) => {
           if (p.isVirtual) {
-            results[p.id] = { online: true, isVirtual: true, latencyMs: 0 };
+            results[p.id] = { online: true, isVirtual: true, latencyMs: 0, hasCashDrawer: p.hasCashDrawer };
             return Promise.resolve();
           }
 
           return new Promise<void>((resolve) => {
             const start = Date.now();
             const socket = new net.Socket();
-            socket.setTimeout(800);
+            socket.setTimeout(600);
 
             let finished = false;
             const finish = (online: boolean) => {
               if (!finished) {
                 finished = true;
+                socket.removeAllListeners();
                 socket.destroy();
                 results[p.id] = {
                   online,
                   isVirtual: false,
+                  hasCashDrawer: p.hasCashDrawer,
                   latencyMs: online ? Date.now() - start : undefined,
                 };
                 resolve();
@@ -175,6 +177,7 @@ export async function POST(req: Request) {
         characterSet: body.characterSet || 'CP858',
         isVirtual: body.isVirtual ?? false,
         isActive: body.isActive ?? true,
+        hasCashDrawer: Boolean(body.hasCashDrawer),
       },
     });
     await logSystemActionSafe(() => ({
@@ -208,6 +211,7 @@ export async function PUT(req: Request) {
         characterSet: body.characterSet !== undefined ? body.characterSet : undefined,
         isVirtual: body.isVirtual !== undefined ? body.isVirtual : undefined,
         isActive: body.isActive !== undefined ? body.isActive : undefined,
+        hasCashDrawer: body.hasCashDrawer !== undefined ? Boolean(body.hasCashDrawer) : undefined,
       },
     });
     await logSystemActionSafe(() => ({

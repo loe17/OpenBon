@@ -67,11 +67,7 @@ export default function CustomerDisplayPage() {
     return () => document.removeEventListener('fullscreenchange', handleFullscreen);
   }, []);
 
-  const [activeStations, setActiveStations] = useState<{ id: string; name: string }[]>([
-    { id: 'POS_MAIN', name: 'Hauptkasse (Kasse 1)' },
-    { id: 'POS_2', name: 'Kasse 2 (Ausschank / Theke)' },
-    { id: 'POS_3', name: 'Kasse 3 (Grill & Speisen)' },
-  ]);
+  const [activeStations, setActiveStations] = useState<{ id: string; name: string }[]>([]);
 
   const fetchDevices = async () => {
     try {
@@ -79,15 +75,11 @@ export default function CustomerDisplayPage() {
       const data = await res.json();
       if (Array.isArray(data)) {
         const devs = data
-          .filter((d: any) => d.role === 'POS_CASHIER' || !d.role || d.name)
-          .map((d: any) => ({ id: d.id, name: d.name || d.id }));
+          .filter((d: any) => d.name)
+          .map((d: any) => ({ id: d.id, name: d.name }));
         setDevices(devs);
         setActiveStations((prev) => {
           const map = new Map<string, string>();
-          // Defaults erhalten
-          map.set('POS_MAIN', 'Hauptkasse (Kasse 1)');
-          map.set('POS_2', 'Kasse 2 (Ausschank / Theke)');
-          map.set('POS_3', 'Kasse 3 (Grill & Speisen)');
           devs.forEach((d) => map.set(d.id, d.name));
           prev.forEach((p) => map.set(p.id, p.name));
           return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
@@ -256,10 +248,10 @@ export default function CustomerDisplayPage() {
               }}
               className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
             >
-              <option value="ALL">Alle Stationen &amp; Mobilteile (Global)</option>
+              <option value="ALL">Alle Bonkassen (Erste aktive Anzeige)</option>
               {activeStations.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name} ({s.id})
+                  {s.name}
                 </option>
               ))}
             </select>

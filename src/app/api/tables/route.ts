@@ -83,21 +83,20 @@ export async function POST(req: Request) {
 
     // Action: Generate Grid
     if (body.action === 'GENERATE_GRID') {
-      const rows = parseInt(body.rows || 4, 10);
-      const cols = parseInt(body.cols || 6, 10);
-      const startNum = parseInt(body.startNumber || 1, 10);
-      const stepNum = parseInt(body.step || body.stepNumber || 1, 10);
-      const stepX = Math.max(1, parseInt(body.stepX || 1, 10));
-      const stepY = Math.max(1, parseInt(body.stepY || 1, 10));
+      const rows = Math.max(1, parseInt(body.rows || 4, 10));
+      const cols = Math.max(1, parseInt(body.cols || 6, 10));
+      const startNum = parseInt(body.startNumber || 10, 10);
+      const stepX = parseInt(body.stepX !== undefined ? body.stepX : 1, 10);
+      const stepY = parseInt(body.stepY !== undefined ? body.stepY : 10, 10);
 
       await prisma.diningTable.deleteMany({});
 
-      let num = startNum;
       const createdTables = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-          const posX = 1 + c * stepX;
-          const posY = 1 + r * stepY;
+          const num = startNum + r * stepY + c * stepX;
+          const posX = 1 + c;
+          const posY = 1 + r;
           const table = await prisma.diningTable.create({
             data: {
               tableNumber: num,
@@ -110,15 +109,54 @@ export async function POST(req: Request) {
             },
           });
           createdTables.push(table);
-          num += stepNum;
         }
       }
 
+      // Reset aisles
+      await prisma.eventConfig.upsert({
+        where: { id: 'default' },
+        update: { aisles: '[]' },
+        create: { id: 'default', aisles: '[]' },
+      });
+
       if (global.io) {
         global.io.emit('tables:regenerated', createdTables);
+        global.io.emit('table:updated');
       }
 
       return NextResponse.json({ success: true, count: createdTables.length });
+    }
+
+    // Action: Bulk Update Table Coordinates
+    if (body.action === 'BULK_UPDATE_POSITIONS') {
+      const { tables: updatedPositions, aisles: newAisles } = body;
+      if (Array.isArray(updatedPositions)) {
+        for (const t of updatedPositions) {
+          if (t.id) {
+            await prisma.diningTable.update({
+              where: { id: t.id },
+              data: {
+                gridX: t.gridX,
+                gridY: t.gridY,
+              },
+            }).catch(() => undefined);
+          }
+        }
+      }
+
+      if (newAisles !== undefined) {
+        await prisma.eventConfig.upsert({
+          where: { id: 'default' },
+          update: { aisles: typeof newAisles === 'string' ? newAisles : JSON.stringify(newAisles) },
+          create: { id: 'default', aisles: typeof newAisles === 'string' ? newAisles : JSON.stringify(newAisles) },
+        });
+      }
+
+      if (global.io) {
+        global.io.emit('table:updated');
+      }
+
+      return NextResponse.json({ success: true });
     }
 
     // Action: Print Table Markers on thermal printer

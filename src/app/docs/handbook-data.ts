@@ -1,6 +1,6 @@
 /**
- * Umfassendes Handbuch und Referenz-Dokumentation für OpenBon v0.4.5.
- * Offline-fähig direkt im Bundle integriert – keine externe Verbindung nötig.
+ * Umfassendes Handbuch und Referenz-Dokumentation für OpenBon v0.4.6.
+ * Offline verfügbar, druckoptimiert (A4) und thematisch gegliedert.
  */
 
 export interface DocSection {

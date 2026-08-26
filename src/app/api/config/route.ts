@@ -96,6 +96,7 @@ const ALLOWED_FIELDS = [
   'haRole',
   'haPartnerUrl',
   'haAutoFailover',
+  'aisles',
   'tokenSequence',
   'invoiceSequence',
   'orderSequence',

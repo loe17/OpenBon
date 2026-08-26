@@ -209,50 +209,113 @@ export function suggestCashNotes(amountDue: number, count = 4): number[] {
   return all.slice(-count);
 }
 
-/** V2 Spec 6.5: Happy-Hour & Zeit-Aktionspreise */
+/** V2 Spec 6.5: Happy-Hour & Zeit-Aktionspreise (Mehrfach-Regeln) */
+export interface HappyHourRule {
+  id?: string;
+  name?: string;
+  price: number;
+  start: string; // Format "HH:mm" z. B. "17:00"
+  end: string;   // Format "HH:mm" z. B. "19:00"
+  days?: number[]; // [0,1,2,3,4,5,6] (0 = Sonntag)
+}
+
 export interface HappyHourConfig {
   happyHourPrice?: number | null;
   happyHourStart?: string | null; // Format "HH:mm" z. B. "18:00"
   happyHourEnd?: string | null;   // Format "HH:mm" z. B. "19:00"
   happyHourDays?: string | null;  // JSON-Array String z. B. "[1,2,3,4,5]" (0=So, 1=Mo, ...)
+  happyHourRules?: string | null; // JSON-Array String von HappyHourRule[]
 }
 
-export function isHappyHourActive(config: HappyHourConfig, targetDate: Date = new Date()): boolean {
-  if (config.happyHourPrice === undefined || config.happyHourPrice === null) return false;
-  if (!config.happyHourStart || !config.happyHourEnd) return false;
+export function isSingleRuleActive(
+  rule: { price?: number | null; start?: string | null; end?: string | null; days?: number[] | string | null },
+  targetDate: Date = new Date()
+): boolean {
+  if (rule.price === undefined || rule.price === null) return false;
+  if (!rule.start || !rule.end) return false;
 
-  // Wochentagspruefung (0 = Sonntag, 1 = Montag, ..., 6 = Samstag)
-  if (config.happyHourDays) {
+  if (rule.days) {
     try {
-      const activeDays: number[] = JSON.parse(config.happyHourDays);
+      const activeDays: number[] = Array.isArray(rule.days) ? rule.days : JSON.parse(String(rule.days));
       if (Array.isArray(activeDays) && activeDays.length > 0) {
         const currentDay = targetDate.getDay();
         if (!activeDays.includes(currentDay)) {
           return false;
         }
       }
-    } catch {
-      // Ungueltiges JSON ignorieren -> Zeitfenster pruefen
-    }
+    } catch {}
   }
 
   const hours = targetDate.getHours().toString().padStart(2, '0');
   const minutes = targetDate.getMinutes().toString().padStart(2, '0');
   const currentTimeStr = `${hours}:${minutes}`;
 
-  return currentTimeStr >= config.happyHourStart && currentTimeStr <= config.happyHourEnd;
+  return currentTimeStr >= rule.start && currentTimeStr <= rule.end;
+}
+
+export function isHappyHourActive(config: HappyHourConfig, targetDate: Date = new Date()): boolean {
+  // 1. Prüfe Mehrfach-Regeln
+  if (config.happyHourRules) {
+    try {
+      const rules: HappyHourRule[] = JSON.parse(config.happyHourRules);
+      if (Array.isArray(rules) && rules.length > 0) {
+        return rules.some((r) => isSingleRuleActive(r, targetDate));
+      }
+    } catch {}
+  }
+
+  // 2. Fallback auf Einzel-Regel
+  return isSingleRuleActive(
+    {
+      price: config.happyHourPrice,
+      start: config.happyHourStart,
+      end: config.happyHourEnd,
+      days: config.happyHourDays,
+    },
+    targetDate
+  );
 }
 
 export function getEffectiveProductPrice(
   product: { price: number } & HappyHourConfig,
   targetDate: Date = new Date()
-): { price: number; isHappyHour: boolean } {
-  if (isHappyHourActive(product, targetDate) && typeof product.happyHourPrice === 'number') {
+): { price: number; isHappyHour: boolean; ruleName?: string } {
+  // 1. Prüfe Mehrfach-Regeln
+  if (product.happyHourRules) {
+    try {
+      const rules: HappyHourRule[] = JSON.parse(product.happyHourRules);
+      if (Array.isArray(rules) && rules.length > 0) {
+        const matchingRule = rules.find((r) => isSingleRuleActive(r, targetDate));
+        if (matchingRule && typeof matchingRule.price === 'number') {
+          return {
+            price: matchingRule.price,
+            isHappyHour: true,
+            ruleName: matchingRule.name,
+          };
+        }
+      }
+    } catch {}
+  }
+
+  // 2. Fallback auf Einzel-Regel
+  if (
+    isSingleRuleActive(
+      {
+        price: product.happyHourPrice,
+        start: product.happyHourStart,
+        end: product.happyHourEnd,
+        days: product.happyHourDays,
+      },
+      targetDate
+    ) &&
+    typeof product.happyHourPrice === 'number'
+  ) {
     return {
       price: product.happyHourPrice,
       isHappyHour: true,
     };
   }
+
   return {
     price: product.price,
     isHappyHour: false,

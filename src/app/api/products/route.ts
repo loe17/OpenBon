@@ -76,6 +76,7 @@ export async function POST(req: Request) {
         happyHourStart: body.happyHourStart || null,
         happyHourEnd: body.happyHourEnd || null,
         happyHourDays: typeof body.happyHourDays === 'string' ? body.happyHourDays : JSON.stringify(body.happyHourDays || []),
+        happyHourRules: body.happyHourRules !== undefined && body.happyHourRules !== null ? (typeof body.happyHourRules === 'string' ? body.happyHourRules : JSON.stringify(body.happyHourRules)) : null,
         isTokenProduct: Boolean(body.isTokenProduct),
         tokenType: body.tokenType || null,
         subCategory: body.subCategory || null,

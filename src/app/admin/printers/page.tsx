@@ -32,6 +32,7 @@ interface PrinterRow {
   paperWidth: number;
   characterSet: string;
   isVirtual: boolean;
+  hasCashDrawer?: boolean;
   isActive?: boolean;
 }
 
@@ -67,6 +68,7 @@ export default function AdminPrintersPage() {
     paperWidth: 80,
     characterSet: 'CP858',
     isVirtual: false,
+    hasCashDrawer: false,
   });
 
   const [groupForm, setGroupForm] = useState({
@@ -124,7 +126,7 @@ export default function AdminPrintersPage() {
 
   useEffect(() => {
     fetchPrintersAndGroups();
-    const interval = setInterval(() => checkPrinterPings(), 15000);
+    const interval = setInterval(() => checkPrinterPings(), 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -229,6 +231,7 @@ export default function AdminPrintersPage() {
         paperWidth: printer.paperWidth ?? 80,
         characterSet: printer.characterSet ?? 'CP858',
         isVirtual: Boolean(printer.isVirtual),
+        hasCashDrawer: Boolean(printer.hasCashDrawer),
       });
     } else {
       setPrinterForm({
@@ -239,6 +242,7 @@ export default function AdminPrintersPage() {
         paperWidth: 80,
         characterSet: 'CP858',
         isVirtual: false,
+        hasCashDrawer: false,
       });
     }
     setShowPrinterModal(true);
@@ -269,6 +273,7 @@ export default function AdminPrintersPage() {
         paperWidth: 80,
         characterSet: 'CP858',
         isVirtual: false,
+        hasCashDrawer: false,
       });
       fetchPrintersAndGroups();
       success('Drucker erfolgreich gespeichert!');
@@ -375,6 +380,17 @@ export default function AdminPrintersPage() {
             <span>Netzwerk-Scan</span>
           </button>
 
+          {/* Status Ping Check Button */}
+          <button
+            onClick={checkPrinterPings}
+            disabled={pinging}
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition shadow disabled:opacity-50"
+            title="Prüft die Erreichbarkeit aller IP-Drucker per TCP-Ping auf Port 9100"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-blue-400 ${pinging ? 'animate-spin' : ''}`} />
+            <span>{pinging ? 'Prüft...' : 'Status prüfen'}</span>
+          </button>
+
           <button
             onClick={() => openGroupEditor()}
             className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition"
@@ -439,7 +455,15 @@ export default function AdminPrintersPage() {
               >
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-bold text-base text-white">{p.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-base text-white">{p.name}</h3>
+                      {p.hasCashDrawer && (
+                        <span className="px-2 py-0.5 bg-amber-950 text-amber-300 border border-amber-800 rounded-full text-[10px] font-bold flex items-center gap-1">
+                          <DoorOpen className="w-3 h-3 text-amber-400" />
+                          Lade
+                        </span>
+                      )}
+                    </div>
                     {p.isVirtual ? (
                       <span className="px-2 py-0.5 bg-blue-950 text-blue-400 border border-blue-800 rounded-full text-[10px] font-bold">
                         Virtuell (Browser)
@@ -504,13 +528,16 @@ export default function AdminPrintersPage() {
                     >
                       <Edit2 className="w-3.5 h-3.5 text-blue-400" />
                     </button>
-                    <button
-                      onClick={() => handleOpenDrawer(p.id)}
-                      className="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-slate-700"
-                      title="Kassenlade öffnen"
-                    >
-                      <DoorOpen className="w-3.5 h-3.5 text-amber-400" />
-                    </button>
+                    {p.hasCashDrawer && (
+                      <button
+                        onClick={() => handleOpenDrawer(p.id)}
+                        className="py-2 px-3 bg-amber-950/60 hover:bg-amber-900 text-amber-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-amber-800"
+                        title="Kassenlade öffnen / testen"
+                      >
+                        <DoorOpen className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="hidden sm:inline">Lade öffnen</span>
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDeletePrinter(p.id, p.name)}
                       className="py-2 px-3 bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border border-rose-900/50"
@@ -690,7 +717,7 @@ export default function AdminPrintersPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 p-2 bg-slate-950 rounded-xl border border-slate-800">
+              <div className="flex items-center gap-2 p-2.5 bg-slate-950 rounded-xl border border-slate-800">
                 <input
                   type="checkbox"
                   id="isVirtual"
@@ -702,6 +729,22 @@ export default function AdminPrintersPage() {
                 />
                 <label htmlFor="isVirtual" className="text-xs text-slate-300">
                   Als virtuellen Browser-Drucker anlegen
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2 p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+                <input
+                  type="checkbox"
+                  id="hasCashDrawer"
+                  checked={printerForm.hasCashDrawer}
+                  onChange={(e) =>
+                    setPrinterForm({ ...printerForm, hasCashDrawer: e.target.checked })
+                  }
+                  className="w-4 h-4 rounded text-blue-600"
+                />
+                <label htmlFor="hasCashDrawer" className="text-xs text-slate-300 font-bold flex items-center gap-1.5 cursor-pointer">
+                  <DoorOpen className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Kassenlade angeschlossen (Drawer Kick Impuls)</span>
                 </label>
               </div>
 

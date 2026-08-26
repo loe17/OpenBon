@@ -345,6 +345,7 @@ export async function POST(req: Request) {
     if (body.printReceipt) {
       const receiptPrinter = await prisma.printer.findFirst({ where: { isActive: true } });
       if (receiptPrinter && config) {
+        const { formatWaiterLabel } = await import('@/lib/waiter-number');
         const ticketData: TicketData = {
           title: 'KASSENBELEG / QUITTUNG',
           invoiceNumber: payment.invoiceNumber,
@@ -354,7 +355,7 @@ export async function POST(req: Request) {
           optionsFontSize: config.receiptOptionsFontSize ?? 1,
           metaFontSize: config.receiptMetaFontSize ?? 1,
           template: config.receiptTemplate || 'CLASSIC',
-          waiterName: payment.waiterName,
+          waiterName: formatWaiterLabel(payment.waiterName),
           createdAt: payment.createdAt,
           items: payment.items.map((i: any) => ({
             name: i.productName,

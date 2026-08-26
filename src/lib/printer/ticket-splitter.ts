@@ -193,8 +193,11 @@ export class TicketSplitter {
               }
             : undefined;
 
+        const isKitchenDrinkBucket = /kueche|küche|ausschank|theke|grill/i.test(bucket.printGroupName);
+        const { formatWaiterLabel } = await import('@/lib/waiter-number');
+
         const ticketData: TicketData = {
-          title: bucket.printGroupName.toUpperCase(),
+          title: isKitchenDrinkBucket ? '' : bucket.printGroupName.toUpperCase(),
           orderNumber: order.orderNumber,
           tokenNumber: order.tokenNumber || undefined,
           tableLabel: order.tableLabel,
@@ -205,7 +208,7 @@ export class TicketSplitter {
           eventName: config?.name,
           subHeader: config?.receiptSubHeader || undefined,
           customHeader: config?.receiptHeader || undefined,
-          waiterName: order.waiterName,
+          waiterName: formatWaiterLabel(order.waiterName),
           createdAt: order.createdAt,
           items: chunk,
           isTraining: order.isTraining,

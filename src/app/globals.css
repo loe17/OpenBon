@@ -254,6 +254,21 @@ html.klassisch .keypad-key, html[data-theme="klassisch"] .keypad-key {
 }
 html.klassisch .keypad-key:active, html[data-theme="klassisch"] .keypad-key:active { background-color: #e2e8f0 !important; }
 
+/* Erhalte weisse Schrift auf farbigen Buttons und Badges in allen Themes */
+html.light button[class*="bg-blue-"], html.light button[class*="bg-emerald-"], html.light button[class*="bg-rose-"], html.light button[class*="bg-amber-"], html.light button[class*="bg-indigo-"], html.light [class*="bg-blue-600"], html.light [class*="bg-emerald-600"], html.light [class*="bg-rose-600"],
+html[data-theme="light"] button[class*="bg-blue-"], html[data-theme="light"] button[class*="bg-emerald-"], html[data-theme="light"] button[class*="bg-rose-"], html[data-theme="light"] button[class*="bg-amber-"], html[data-theme="light"] button[class*="bg-indigo-"], html[data-theme="light"] [class*="bg-blue-600"], html[data-theme="light"] [class*="bg-emerald-600"], html[data-theme="light"] [class*="bg-rose-600"],
+html.klassisch button[class*="bg-blue-"], html.klassisch button[class*="bg-emerald-"], html.klassisch button[class*="bg-rose-"], html.klassisch button[class*="bg-amber-"], html.klassisch button[class*="bg-indigo-"], html.klassisch [class*="bg-blue-600"], html.klassisch [class*="bg-emerald-600"], html.klassisch [class*="bg-rose-600"],
+html[data-theme="klassisch"] button[class*="bg-blue-"], html[data-theme="klassisch"] button[class*="bg-emerald-"], html[data-theme="klassisch"] button[class*="bg-rose-"], html[data-theme="klassisch"] button[class*="bg-amber-"], html[data-theme="klassisch"] button[class*="bg-indigo-"], html[data-theme="klassisch"] [class*="bg-blue-600"], html[data-theme="klassisch"] [class*="bg-emerald-600"], html[data-theme="klassisch"] [class*="bg-rose-600"] {
+  color: #ffffff !important;
+}
+
+html.light button[class*="bg-blue-"] *, html.light button[class*="bg-emerald-"] *, html.light button[class*="bg-rose-"] *, html.light [class*="bg-blue-600"] *, html.light [class*="bg-emerald-600"] *, html.light [class*="bg-rose-600"] *,
+html[data-theme="light"] button[class*="bg-blue-"] *, html[data-theme="light"] button[class*="bg-emerald-"] *, html[data-theme="light"] button[class*="bg-rose-"] *, html[data-theme="light"] [class*="bg-blue-600"] *, html[data-theme="light"] [class*="bg-emerald-600"] *, html[data-theme="light"] [class*="bg-rose-600"] *,
+html.klassisch button[class*="bg-blue-"] *, html.klassisch button[class*="bg-emerald-"] *, html.klassisch button[class*="bg-rose-"] *, html.klassisch [class*="bg-blue-600"] *, html.klassisch [class*="bg-emerald-600"] *, html.klassisch [class*="bg-rose-600"] *,
+html[data-theme="klassisch"] button[class*="bg-blue-"] *, html[data-theme="klassisch"] button[class*="bg-emerald-"] *, html[data-theme="klassisch"] button[class*="bg-rose-"] *, html[data-theme="klassisch"] [class*="bg-blue-600"] *, html[data-theme="klassisch"] [class*="bg-emerald-600"] *, html[data-theme="klassisch"] [class*="bg-rose-600"] * {
+  color: #ffffff !important;
+}
+
 /* Global Scrollable Setup */
 html, body {
   max-width: 100vw;

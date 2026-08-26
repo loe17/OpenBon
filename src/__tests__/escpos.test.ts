@@ -44,7 +44,6 @@ describe('ESC/POS Builder & Encoding', () => {
     const { rawBuffer, textRepresentation } = EscPosBuilder.buildTicket(ticketData, 80);
 
     expect(rawBuffer).toBeInstanceOf(Buffer);
-    expect(textRepresentation).toContain('KÜCHE SPEISEN');
     expect(textRepresentation).toContain('Tisch 7');
     expect(textRepresentation).toContain('Schnitzel Wiener Art');
     expect(textRepresentation).toContain('ohne Zwiebeln');

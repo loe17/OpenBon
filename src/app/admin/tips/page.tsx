@@ -43,6 +43,7 @@ interface Waiter {
   name: string;
   pin: string;
   isActive: boolean;
+  waiterNumber?: number | null;
   tipProfileId?: string | null;
   tipProfile?: TipProfile | null;
 }
@@ -691,7 +692,14 @@ export default function AdminTipsPage() {
                       const activeProfile = profiles.find((p) => p.id === w.tipProfileId) || profiles.find((p) => p.isDefault);
                       return (
                         <tr key={w.id} className="hover:bg-slate-850/50 transition-colors">
-                          <td className="py-3 font-bold text-white">{w.name}</td>
+                          <td className="py-3 font-bold text-white">
+                            <span>{w.name}</span>
+                            {w.waiterNumber ? (
+                              <span className="ml-2 px-1.5 py-0.5 rounded bg-blue-950 border border-blue-800 text-[11px] font-mono text-blue-300 font-normal">
+                                #{w.waiterNumber}
+                              </span>
+                            ) : null}
+                          </td>
                           <td className="py-3 font-mono text-slate-400">{w.pin}</td>
                           <td className="py-3">
                             <select

@@ -252,17 +252,6 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
       headerLines.push('');
     }
 
-    if (!isReceipt) {
-      if (tpl === 'HIGH_VISIBILITY') {
-        headerLines.push(center(DBL_LINE));
-        headerLines.push(center(isFood ? '*** KÜCHENAUFTRAG (SOFORT) ***' : '*** AUSSCHANK / THEKE ***'));
-        headerLines.push(center(DBL_LINE));
-      } else {
-        headerLines.push(center(isFood ? '*** KÜCHE ***' : '*** AUSSCHANK ***'));
-      }
-      headerLines.push('');
-    }
-
     // 2. Tischnummer
     const tableText = showTable ? 'Tisch 7' : null;
 
@@ -828,17 +817,14 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
                   </div>
                 )}
 
-                {/* Table Number (Scaled dynamically with 10-step tableFs) */}
+                {/* Table Number (Scaled dynamically with 10-step tableFs - kein schwarzer Kasten) */}
                 {previewContent.tableText && (
                   <div
-                    className={`my-2 py-1 text-center transition-all rounded ${
-                      previewContent.tableFs >= 9
-                        ? 'bg-black text-white px-2 py-1 font-black'
-                        : 'font-bold'
-                    }`}
+                    className="my-2 py-1 text-center transition-all font-black text-slate-950"
                     style={{
-                      fontSize: `${0.85 + (previewContent.tableFs - 1) * 0.16}rem`,
+                      fontSize: `${0.9 + (previewContent.tableFs - 1) * 0.22}rem`,
                       letterSpacing: previewContent.tableFs >= 5 ? '0.05em' : 'normal',
+                      lineHeight: 1.15,
                     }}
                   >
                     {previewContent.tableText}
@@ -854,35 +840,43 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
 
                 {/* Items (Scaled dynamically with 10-step itemFs & optionsFs) */}
                 <div className="space-y-1.5 my-2">
-                  {previewContent.items.map((item, idx) => (
-                    <div key={idx} className="transition-all">
-                      <div
-                        className="flex justify-between items-baseline gap-2 font-mono"
-                        style={{
-                          fontSize: `${0.75 + (previewContent.itemFs - 1) * 0.08}rem`,
-                          fontWeight: previewContent.itemFs >= 2 ? 800 : 500,
-                        }}
-                      >
-                        <span className="truncate">{item.qty}x {item.name}</span>
-                        <span className="shrink-0">{item.priceStr}</span>
-                      </div>
-                      {item.subText && (
-                        <div className="text-[10px] text-slate-600 pl-4">
-                          {item.subText}
-                        </div>
-                      )}
-                      {item.optionText && (
+                  {previewContent.items.map((item, idx) => {
+                    const effectiveOptFs = Math.max(previewContent.optionsFs, Math.min(8, Math.floor(previewContent.itemFs * 0.8)));
+                    return (
+                      <div key={idx} className="transition-all">
                         <div
-                          className="pl-4 font-mono font-bold text-slate-700"
+                          className="flex justify-between items-baseline gap-2 font-mono"
                           style={{
-                            fontSize: `${0.7 + (previewContent.optionsFs - 1) * 0.06}rem`,
+                            fontSize: `${0.75 + (previewContent.itemFs - 1) * 0.09}rem`,
+                            fontWeight: previewContent.itemFs >= 2 ? 800 : 500,
                           }}
                         >
-                          {item.optionText}
+                          <span className="truncate">{item.qty}x {item.name}</span>
+                          <span className="shrink-0">{item.priceStr}</span>
                         </div>
-                      )}
-                    </div>
-                  ))}
+                        {item.subText && (
+                          <div
+                            className="pl-4 font-mono font-bold text-slate-700"
+                            style={{
+                              fontSize: `${0.7 + (effectiveOptFs - 1) * 0.07}rem`,
+                            }}
+                          >
+                            {item.subText}
+                          </div>
+                        )}
+                        {item.optionText && (
+                          <div
+                            className="pl-4 font-mono font-bold text-slate-700"
+                            style={{
+                              fontSize: `${0.7 + (effectiveOptFs - 1) * 0.07}rem`,
+                            }}
+                          >
+                            {item.optionText}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Footer Lines */}

@@ -71,6 +71,14 @@ export default function AdminProductsPage() {
     happyHourStart: '',
     happyHourEnd: '',
     happyHourDays: [1, 2, 3, 4, 5] as number[],
+    happyHourRules: [] as {
+      id: string;
+      price: number | string;
+      startTime: string;
+      endTime: string;
+      days: number[];
+      label?: string;
+    }[],
     isTokenProduct: false,
     tokenType: 'DRINK',
     subCategory: '',
@@ -194,6 +202,7 @@ export default function AdminProductsPage() {
       happyHourStart: '',
       happyHourEnd: '',
       happyHourDays: [1, 2, 3, 4, 5],
+      happyHourRules: [],
       isTokenProduct: false,
       tokenType: 'DRINK',
       subCategory: '',
@@ -209,12 +218,27 @@ export default function AdminProductsPage() {
     let parsedAllergens: string[] = [];
     let parsedAdditives: string[] = [];
     let parsedDays: number[] = [1, 2, 3, 4, 5];
+    let parsedRules: any[] = [];
 
     try {
       if (prod.allergens) parsedAllergens = JSON.parse(prod.allergens);
       if (prod.additives) parsedAdditives = JSON.parse(prod.additives);
       if (prod.happyHourDays) parsedDays = JSON.parse(prod.happyHourDays);
+      if (prod.happyHourRules) parsedRules = JSON.parse(prod.happyHourRules);
     } catch {}
+
+    if (parsedRules.length === 0 && prod.happyHourPrice) {
+      parsedRules = [
+        {
+          id: `hh-${Date.now()}`,
+          price: prod.happyHourPrice,
+          startTime: prod.happyHourStart || '',
+          endTime: prod.happyHourEnd || '',
+          days: Array.isArray(parsedDays) ? parsedDays : [1, 2, 3, 4, 5],
+          label: 'Aktionspreis',
+        },
+      ];
+    }
 
     setFormData({
       name: prod.name,
@@ -238,6 +262,7 @@ export default function AdminProductsPage() {
       happyHourStart: prod.happyHourStart || '',
       happyHourEnd: prod.happyHourEnd || '',
       happyHourDays: Array.isArray(parsedDays) ? parsedDays : [1, 2, 3, 4, 5],
+      happyHourRules: parsedRules,
       isTokenProduct: Boolean(prod.isTokenProduct),
       tokenType: prod.tokenType || 'DRINK',
       subCategory: prod.subCategory || '',
@@ -296,6 +321,7 @@ export default function AdminProductsPage() {
         additives: JSON.stringify(formData.additives),
         happyHourDays: JSON.stringify(formData.happyHourDays),
         happyHourPrice: formData.happyHourPrice === '' ? null : parseFloat(String(formData.happyHourPrice)),
+        happyHourRules: JSON.stringify(formData.happyHourRules),
         minStockAlert: formData.trackStock ? (formData.minStockAlert !== null ? Number(formData.minStockAlert) : null) : null,
         minAge: formData.hasAgeRestriction ? Number(formData.minAge) : null,
       };
@@ -739,43 +765,155 @@ export default function AdminProductsPage() {
                 )}
               </div>
 
-              {/* Happy Hour Preisgestaltung */}
+              {/* Happy Hour Preisgestaltung (Mehrere Zeitfenster / Aktionen möglich) */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-3">
-                <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4" /> Zeitgesteuerte Aktionspreise / Happy Hour (Spec V2 §6.5)
-                </span>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-400 block mb-1">Aktionspreis (€)</label>
-                    <input
-                      type="number"
-                      step="0.10"
-                      placeholder="z. B. 3.50"
-                      value={formData.happyHourPrice}
-                      onChange={(e) => setFormData({ ...formData, happyHourPrice: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-400 block mb-1">Startzeit</label>
-                    <input
-                      type="time"
-                      value={formData.happyHourStart}
-                      onChange={(e) => setFormData({ ...formData, happyHourStart: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-400 block mb-1">Endzeit</label>
-                    <input
-                      type="time"
-                      value={formData.happyHourEnd}
-                      onChange={(e) => setFormData({ ...formData, happyHourEnd: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-mono"
-                    />
-                  </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4" /> Zeitgesteuerte Aktionspreise / Happy Hour
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newRule = {
+                        id: `hh-${Date.now()}`,
+                        price: formData.price > 0 ? (formData.price * 0.8).toFixed(2) : '3.50',
+                        startTime: '17:00',
+                        endTime: '19:00',
+                        days: [1, 2, 3, 4, 5, 6, 0],
+                        label: 'Happy Hour',
+                      };
+                      setFormData((prev) => ({
+                        ...prev,
+                        happyHourRules: [...(prev.happyHourRules || []), newRule],
+                      }));
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1 bg-amber-950/80 hover:bg-amber-900 border border-amber-700/80 text-amber-300 rounded-xl text-xs font-bold transition shadow"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Aktionspreis hinzufügen</span>
+                  </button>
                 </div>
+
+                {formData.happyHourRules && formData.happyHourRules.length > 0 ? (
+                  <div className="space-y-2.5">
+                    {formData.happyHourRules.map((rule, rIdx) => (
+                      <div
+                        key={rule.id || rIdx}
+                        className="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-2.5"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <input
+                            type="text"
+                            placeholder="Aktionsbezeichnung (z. B. Early Bird)"
+                            value={rule.label || ''}
+                            onChange={(e) => {
+                              const updated = [...formData.happyHourRules];
+                              updated[rIdx] = { ...updated[rIdx], label: e.target.value };
+                              setFormData({ ...formData, happyHourRules: updated });
+                            }}
+                            className="bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-amber-200 font-bold flex-1"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = formData.happyHourRules.filter((_, idx) => idx !== rIdx);
+                              setFormData({ ...formData, happyHourRules: updated });
+                            }}
+                            className="p-1 text-slate-500 hover:text-rose-400 rounded-lg transition"
+                            title="Aktionspreis entfernen"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400 block mb-0.5">Aktionspreis (€)</label>
+                            <input
+                              type="number"
+                              step="0.10"
+                              value={rule.price}
+                              onChange={(e) => {
+                                const updated = [...formData.happyHourRules];
+                                updated[rIdx] = { ...updated[rIdx], price: e.target.value };
+                                setFormData({ ...formData, happyHourRules: updated });
+                              }}
+                              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white font-mono text-center font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400 block mb-0.5">Startzeit</label>
+                            <input
+                              type="time"
+                              value={rule.startTime}
+                              onChange={(e) => {
+                                const updated = [...formData.happyHourRules];
+                                updated[rIdx] = { ...updated[rIdx], startTime: e.target.value };
+                                setFormData({ ...formData, happyHourRules: updated });
+                              }}
+                              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white font-mono text-center"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400 block mb-0.5">Endzeit</label>
+                            <input
+                              type="time"
+                              value={rule.endTime}
+                              onChange={(e) => {
+                                const updated = [...formData.happyHourRules];
+                                updated[rIdx] = { ...updated[rIdx], endTime: e.target.value };
+                                setFormData({ ...formData, happyHourRules: updated });
+                              }}
+                              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white font-mono text-center"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Wochentage */}
+                        <div className="flex items-center gap-1 pt-1">
+                          <span className="text-[10px] text-slate-400 mr-1 font-bold">Tage:</span>
+                          {[
+                            { day: 1, label: 'Mo' },
+                            { day: 2, label: 'Di' },
+                            { day: 3, label: 'Mi' },
+                            { day: 4, label: 'Do' },
+                            { day: 5, label: 'Fr' },
+                            { day: 6, label: 'Sa' },
+                            { day: 0, label: 'So' },
+                          ].map(({ day, label }) => {
+                            const isSelected = (rule.days || []).includes(day);
+                            return (
+                              <button
+                                key={day}
+                                type="button"
+                                onClick={() => {
+                                  const updated = [...formData.happyHourRules];
+                                  const currentDays = updated[rIdx].days || [];
+                                  const nextDays = isSelected
+                                    ? currentDays.filter((d: number) => d !== day)
+                                    : [...currentDays, day];
+                                  updated[rIdx] = { ...updated[rIdx], days: nextDays };
+                                  setFormData({ ...formData, happyHourRules: updated });
+                                }}
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold transition ${
+                                  isSelected
+                                    ? 'bg-amber-600 text-white'
+                                    : 'bg-slate-950 border border-slate-800 text-slate-500 hover:text-slate-300'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-3 text-slate-500 text-xs border border-dashed border-slate-800 rounded-xl">
+                    Keine zeitgesteuerten Aktionspreise für diesen Artikel hinterlegt.
+                  </div>
+                )}
               </div>
 
               {/* Allergene (LMIV 14 EU Allergene) */}

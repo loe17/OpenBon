@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logSystemActionSafe } from '@/lib/action-logger';
 import { prisma } from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
+import { getOrAssignWaiterNumber } from '@/lib/waiter-number';
 
 export async function GET(req: Request) {
   // Lesend fuer jede angemeldete Station: die Schichtabrechnung an der
@@ -14,6 +15,7 @@ export async function GET(req: Request) {
       prisma.waiterProfile.findMany({
         select: {
           id: true,
+          waiterNumber: true,
           name: true,
           isActive: true,
           tipProfileId: true,
@@ -37,25 +39,60 @@ export async function GET(req: Request) {
       }),
     ]);
 
-    const namesMap = new Map<string, { id?: string; name: string; isActive: boolean; isSettled?: boolean; lastSettledAt?: Date | null }>();
+    const namesMap = new Map<string, { id?: string; waiterNumber?: number | null; name: string; isActive: boolean; isSettled?: boolean; lastSettledAt?: Date | null; tipProfileId?: string | null; tipProfile?: any }>();
 
-    profiles.forEach((p: any) => {
-      namesMap.set(p.name.trim(), { id: p.id, name: p.name.trim(), isActive: p.isActive });
-    });
+    for (const p of profiles) {
+      let wNum = p.waiterNumber;
+      if (!wNum) {
+        wNum = await getOrAssignWaiterNumber(p.name);
+      }
+      namesMap.set(p.name.trim(), {
+        id: p.id,
+        waiterNumber: wNum,
+        name: p.name.trim(),
+        isActive: p.isActive,
+        tipProfileId: p.tipProfileId,
+        tipProfile: p.tipProfile,
+      });
+    }
 
-    distinctOrders.forEach((o: any) => {
+    for (const o of distinctOrders) {
       const name = (o.waiterName || '').trim();
       if (name && !namesMap.has(name)) {
-        namesMap.set(name, { id: `adhoc-${name}`, name, isActive: true });
+        const wNum = await getOrAssignWaiterNumber(name);
+        const prof = await prisma.waiterProfile.findUnique({
+          where: { name },
+          include: { tipProfile: true },
+        });
+        namesMap.set(name, {
+          id: prof?.id || `adhoc-${name}`,
+          waiterNumber: wNum,
+          name,
+          isActive: prof?.isActive ?? true,
+          tipProfileId: prof?.tipProfileId,
+          tipProfile: prof?.tipProfile,
+        });
       }
-    });
+    }
 
-    distinctPayments.forEach((p: any) => {
+    for (const p of distinctPayments) {
       const name = (p.waiterName || '').trim();
       if (name && !namesMap.has(name)) {
-        namesMap.set(name, { id: `adhoc-${name}`, name, isActive: true });
+        const wNum = await getOrAssignWaiterNumber(name);
+        const prof = await prisma.waiterProfile.findUnique({
+          where: { name },
+          include: { tipProfile: true },
+        });
+        namesMap.set(name, {
+          id: prof?.id || `adhoc-${name}`,
+          waiterNumber: wNum,
+          name,
+          isActive: prof?.isActive ?? true,
+          tipProfileId: prof?.tipProfileId,
+          tipProfile: prof?.tipProfile,
+        });
       }
-    });
+    }
 
     const result = Array.from(namesMap.values()).map((w) => {
       const settle = recentSettles.find((s: any) => s.actor === w.name);
@@ -84,11 +121,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Name ist erforderlich' }, { status: 400 });
     }
 
-    const waiter = await prisma.waiterProfile.create({
-      data: {
-        name,
+    const waiterNumber = await getOrAssignWaiterNumber(name);
+
+    const waiter = await prisma.waiterProfile.upsert({
+      where: { name: name.trim() },
+      update: {
         pin: pin || '3333',
-        tipProfileId: tipProfileId || null,
+        tipProfileId,
+        isActive: isActive !== undefined ? Boolean(isActive) : true,
+      },
+      create: {
+        name: name.trim(),
+        waiterNumber,
+        pin: pin || '3333',
+        tipProfileId,
         isActive: isActive !== undefined ? Boolean(isActive) : true,
       },
       include: {
@@ -100,10 +146,10 @@ export async function POST(req: NextRequest) {
       action: 'WAITER_CREATED',
       category: 'AUTH',
       actor: auth.session.waiterName || auth.session.role,
-      details: 'Bedienung angelegt.',
+      details: `Bedienung ${waiter.name} (#${waiter.waiterNumber}) angelegt/aktualisiert.`,
     }));
 
-    return NextResponse.json(waiter, { status: 201 });
+    return NextResponse.json(waiter);
   } catch (error) {
     console.error('POST /api/waiters error:', error);
     return NextResponse.json({ error: 'Fehler beim Anlegen des Kellners' }, { status: 500 });
