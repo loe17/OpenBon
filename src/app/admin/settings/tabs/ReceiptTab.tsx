@@ -3,6 +3,12 @@
 import React, { useMemo, useState } from 'react';
 import {
   Receipt,
+  Smartphone,
+  Globe,
+  Wifi,
+  WifiOff,
+  QrCode,
+  Download,
   ToggleLeft,
   ToggleRight,
   Type,
@@ -21,7 +27,7 @@ interface ReceiptTabProps {
   onChange: (updates: Partial<EventConfigDTO>) => void;
 }
 
-type PreviewKind = 'RECEIPT' | 'FOOD' | 'DRINK';
+type PreviewKind = 'RECEIPT' | 'FOOD' | 'DRINK' | 'EBON';
 
 /** Ein Schalter im einheitlichen Stil der übrigen Tabs. */
 function Toggle({
@@ -659,6 +665,70 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
             </div>
           </div>
 
+
+          {/* Digitaler E-Bon (Smartphone) & Gast-QR */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-3">
+                <Smartphone className="w-5 h-5 text-indigo-400" />
+                <div>
+                  <h3 className="font-bold text-base text-white">Digitaler E-Bon (§ 33 KassenSichV)</h3>
+                  <p className="text-xs text-slate-400">Papierloser Belegabruf über QR-Code auf Smartphone</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-bold text-slate-300">
+                {typeof window !== 'undefined' && navigator.onLine ? (
+                  <>
+                    <Wifi className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-emerald-400">Internet Online</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-amber-400">Fest-WLAN / Offline</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Toggle
+                label="Digitalen E-Bon aktivieren"
+                hint="Erzeugt bei jedem Kassiervorgang einen kryptografisch sicheren Online-Belegabruf."
+                value={Boolean(config.enableDigitalReceipt)}
+                onToggle={() => onChange({ enableDigitalReceipt: !config.enableDigitalReceipt })}
+              />
+
+              <Toggle
+                label="QR-Code für digitalen Beleg auf Papierbon drucken"
+                hint="Druckt den E-Bon-Link als scanbaren QR-Code auf den Gast-Kassenbeleg."
+                value={Boolean(config.enableDigitalReceiptQr)}
+                onToggle={() => onChange({ enableDigitalReceiptQr: !config.enableDigitalReceiptQr })}
+              />
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  Öffentliche Basis-URL für E-Bons (z. B. Cloudflare Tunnel, DynDNS oder Fest-Domain)
+                </label>
+                <div className="flex items-center gap-2">
+                  <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-slate-500">
+                    <Globe className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="text"
+                    value={config.baseUrl || ''}
+                    onChange={(e) => onChange({ baseUrl: e.target.value })}
+                    placeholder="https://bon.mein-fest.de oder http://192.168.1.100:3000"
+                    className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-mono font-bold focus:border-indigo-500"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+                  Damit Gäste den Beleg mit Mobilfunk (LTE/5G) öffnen können, trage hier die öffentlich erreichbare Adresse ein (z. B. via kostenlosem Cloudflare Tunnel oder DynDNS). Im reinen Festzelt-WLAN reicht die lokale IP oder &bdquo;http://openbon.local&ldquo;.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Getränke-Bon */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -786,6 +856,7 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
                 { id: 'RECEIPT', label: 'Kassenbeleg' },
                 { id: 'FOOD', label: 'Speisen-Bon' },
                 { id: 'DRINK', label: 'Getränke-Bon' },
+                { id: 'EBON', label: 'Digitaler E-Bon' },
               ] as const).map((tab) => (
                 <button
                   key={tab.id}
@@ -831,7 +902,76 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
               </div>
             </div>
 
-            {/* Papierstreifen Live-Vorschau */}
+            {/* Papierstreifen Live-Vorschau oder E-Bon Smartphone Simulator */}
+            {preview === 'EBON' ? (
+              <div className="bg-slate-950 border border-slate-800 rounded-3xl p-4 shadow-xl flex flex-col items-center">
+                <div className="flex items-center justify-between w-full mb-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <span className="flex items-center gap-1.5">
+                    <Smartphone className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Smartphone-Ansicht für Gäste</span>
+                  </span>
+                  <span className="text-emerald-400 font-mono">/receipt/REC-8K92X</span>
+                </div>
+
+                {/* Smartphone Device Frame */}
+                <div className="w-[300px] bg-slate-900 border-4 border-slate-800 rounded-[2.5rem] p-3 shadow-2xl space-y-3 font-sans">
+                  {/* Notch / Speaker */}
+                  <div className="w-24 h-4 bg-slate-950 rounded-full mx-auto mb-2 flex items-center justify-center">
+                    <div className="w-8 h-1 bg-slate-800 rounded-full" />
+                  </div>
+
+                  {/* Mobile Screen Content */}
+                  <div className="bg-white text-slate-950 rounded-2xl p-4 shadow-inner space-y-3 text-left">
+                    <div className="text-center border-b border-slate-200 pb-2">
+                      <div className="font-black text-sm text-slate-950 uppercase">{config.name || 'Vereinsfest 2026'}</div>
+                      <div className="text-[10px] text-slate-500">Digitaler Kassenbeleg (§ 33 KassenSichV)</div>
+                    </div>
+
+                    <div className="flex justify-between items-center text-[10px] font-mono text-slate-600">
+                      <span>Beleg #0042</span>
+                      <span>{new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
+                    </div>
+
+                    <div className="space-y-1 py-1 border-y border-slate-100 font-mono text-xs">
+                      <div className="flex justify-between font-bold text-slate-900">
+                        <span>2x Bratwurst</span>
+                        <span>9,00 €</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-slate-900">
+                        <span>2x Festbier 0,5l</span>
+                        <span>11,00 €</span>
+                      </div>
+                      <div className="text-[9px] text-slate-500 pl-2">inkl. 2,00 € Pfand</div>
+                    </div>
+
+                    <div className="flex justify-between items-baseline pt-1">
+                      <span className="text-xs font-bold text-slate-700">Gesamtbetrag:</span>
+                      <span className="text-lg font-black font-mono text-slate-950">20,00 €</span>
+                    </div>
+
+                    {/* Tax Breakdown */}
+                    <div className="bg-slate-50 p-2 rounded-xl text-[9px] font-mono space-y-0.5 text-slate-600">
+                      <div className="flex justify-between">
+                        <span>19% MwSt aus 11,00 €</span>
+                        <span>1,76 €</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>7% MwSt aus 7,00 €</span>
+                        <span>0,46 €</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="w-full py-2 bg-blue-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>PDF Beleg herunterladen</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
             <div className="bg-slate-950 border border-slate-800 rounded-3xl p-4 shadow-xl">
               <div className="flex items-center justify-between mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 <span>Vorschau · {paperWidth} mm</span>
@@ -931,6 +1071,7 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
               )}
             </div>
 
+            )}
             <p className="text-[11px] text-slate-500 leading-relaxed text-center">
               Die Vorschau aktualisiert Schriftgrößen, Breiten und Kopfzeilen in Echtzeit.
             </p>

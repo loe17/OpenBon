@@ -22,11 +22,16 @@ import {
   Delete,
   PlusCircle,
   Receipt,
-  DoorOpen,
   CreditCard,
+  DoorOpen,
   Eye,
   RotateCcw,
+  History,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
+import { isAudioMuted, setAudioMuted } from '@/lib/socket-client';
+import { WaiterOrderHistoryModal } from '@/components/waiter/waiter-order-history-modal';
 
 import StationGate from '@/components/auth/station-gate';
 type Stage = 'SPLIT' | 'METHOD' | 'CASH' | 'CARD' | 'DONE';
@@ -84,6 +89,9 @@ function WaiterPaymentContent() {
   const [receiptPrinted, setReceiptPrinted] = useState(false);
   const [guestFacingMode, setGuestFacingMode] = useState(false);
   const [guestFacingRotated, setGuestFacingRotated] = useState(true);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [soundMuted, setSoundMuted] = useState(false);
+  const [waiterName, setWaiterName] = useState('Bedienung');
   // WICHTIG: Der Idempotenz-Schluessel gilt fuer GENAU EINEN Kassiervorgang.
   // Bleibt er ueber mehrere Zahlungen gleich, erkennt der Server die zweite
   // Zahlung als Wiederholung, bucht nichts und liefert den alten Beleg zurueck -
@@ -128,6 +136,8 @@ function WaiterPaymentContent() {
   }, [tableId]);
 
   useEffect(() => {
+    setSoundMuted(isAudioMuted());
+    setWaiterName(localStorage.getItem('pos_waiter_name') || 'Bedienung');
     fetch('/api/config/public')
       .then((r) => (r.ok ? r.json() : null))
       .then((cfg) => {
@@ -538,14 +548,43 @@ function WaiterPaymentContent() {
 
         {/* Kopfzeile mit Tischnummer & Stufenanzeige */}
         <div className="p-2.5 sm:p-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between shadow-md">
-          <button
-            onClick={goBack}
-            disabled={stage === 'DONE'}
-            className="touch-target flex items-center gap-2 text-slate-300 hover:text-white px-3.5 py-1.5 rounded-2xl bg-slate-800 border border-slate-700 text-sm font-bold transition active:scale-95 disabled:opacity-40"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Zurück</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={goBack}
+              disabled={stage === 'DONE'}
+              className="touch-target flex items-center gap-2 text-slate-300 hover:text-white px-3.5 py-1.5 rounded-2xl bg-slate-800 border border-slate-700 text-sm font-bold transition active:scale-95 disabled:opacity-40"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Zurück</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowHistoryModal(true)}
+              className="p-2 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-2xl text-slate-300 hover:text-white flex items-center gap-1 text-xs font-bold transition active:scale-95 shadow"
+              title="Bestellverlauf anzeigen"
+            >
+              <History className="w-4 h-4 text-blue-400" />
+              <span className="hidden md:inline">Verlauf</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const next = !soundMuted;
+                setSoundMuted(next);
+                setAudioMuted(next);
+              }}
+              className={`p-2 rounded-2xl border transition active:scale-95 ${
+                soundMuted
+                  ? 'bg-rose-950/50 border-rose-800 text-rose-400'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+              }`}
+              title={soundMuted ? 'Ton stumm' : 'Ton aktiv'}
+            >
+              {soundMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            </button>
+          </div>
 
           <div className="text-center">
             <div className="font-black text-base sm:text-lg leading-tight">
@@ -1118,6 +1157,13 @@ function WaiterPaymentContent() {
           )}
         </div>
       )}
+
+      {/* Bestellverlauf Modal (Schreibgeschützt) */}
+      <WaiterOrderHistoryModal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        waiterName={waiterName}
+      />
     </div>
   );
 }

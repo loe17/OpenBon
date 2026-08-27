@@ -27,10 +27,15 @@ import {
   CreditCard,
   Check,
   AlertTriangle,
+  History,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { COURSES } from '@/types/domain';
 import { calculateMinBirthdate, EU_ALLERGENS, filterProductsByExcludedAllergens } from '@/lib/compliance';
 import { getEffectiveProductPrice } from '@/lib/pricing';
+import { isAudioMuted, setAudioMuted } from '@/lib/socket-client';
+import { WaiterOrderHistoryModal } from '@/components/waiter/waiter-order-history-modal';
 import type {
   DiningTableDTO,
   ProductCategoryDTO,
@@ -110,7 +115,8 @@ function WaiterOrderContent() {
   // Anzahl je Option. Optionen mit Hoechstzahl 1 verhalten sich wie bisher
   // (0 = nicht gewaehlt, 1 = gewaehlt), groessere Werte erlauben Mehrfachwahl.
   const [activeOptionQty, setActiveOptionQty] = useState<Record<string, number>>({});
-  const [urgentBroadcast, setUrgentBroadcast] = useState<{ message: string; sender?: string } | null>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [soundMuted, setSoundMuted] = useState(false);
   const { socket } = useSocket();
 
   const fetchCategories = () => {
@@ -137,22 +143,14 @@ function WaiterOrderContent() {
       .catch(() => {});
 
     if (socket) {
-      const handleAlert = (data: { message: string; sender?: string }) => {
-        playVoidAlert();
-        triggerHapticFeedback();
-        setUrgentBroadcast(data);
-      };
-
       const handleInventory = () => {
         fetchCategories();
       };
 
-      socket.on('broadcast:alert', handleAlert);
       socket.on('inventory:updated', handleInventory);
       socket.on('product:updated', handleInventory);
 
       return () => {
-        socket.off('broadcast:alert', handleAlert);
         socket.off('inventory:updated', handleInventory);
         socket.off('product:updated', handleInventory);
       };
@@ -160,6 +158,7 @@ function WaiterOrderContent() {
   }, [socket]);
 
   useEffect(() => {
+    setSoundMuted(isAudioMuted());
     const savedWaiter = waiterFromUrl || localStorage.getItem('pos_waiter_name') || 'Bedienung';
     setWaiterName(savedWaiter);
 
@@ -454,14 +453,43 @@ function WaiterOrderContent() {
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white max-w-full">
       {/* Top Header */}
-      <div className="p-2.5 sm:p-3 bg-slate-900 border-b border-slate-700 flex items-center justify-between shadow-md shrink-0">
-        <button
-          onClick={() => router.push('/waiter')}
-          className="pos-touch-btn p-2 bg-slate-800 hover:bg-slate-700 rounded-2xl text-slate-300 flex items-center gap-1.5 text-xs font-bold transition active:scale-95"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Tische</span>
-        </button>
+      <div className="p-2.5 sm:p-3 bg-slate-900 border-b border-slate-700 flex items-center justify-between gap-2 shadow-md shrink-0">
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => router.push('/waiter')}
+            className="pos-touch-btn p-2 bg-slate-800 hover:bg-slate-700 rounded-2xl text-slate-300 flex items-center gap-1.5 text-xs font-bold transition active:scale-95"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Tische</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowHistoryModal(true)}
+            className="p-2 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-2xl text-slate-300 hover:text-white flex items-center gap-1 text-xs font-bold transition active:scale-95 shadow"
+            title="Bestellverlauf anzeigen"
+          >
+            <History className="w-4 h-4 text-blue-400" />
+            <span className="hidden md:inline">Verlauf</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              const next = !soundMuted;
+              setSoundMuted(next);
+              setAudioMuted(next);
+            }}
+            className={`p-2 rounded-2xl border transition active:scale-95 ${
+              soundMuted
+                ? 'bg-rose-950/50 border-rose-800 text-rose-400'
+                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+            }`}
+            title={soundMuted ? 'Ton stumm' : 'Ton aktiv'}
+          >
+            {soundMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          </button>
+        </div>
 
         <div className="text-center">
           <span className="text-[11px] text-slate-400 font-bold block">
@@ -1114,31 +1142,6 @@ function WaiterOrderContent() {
         </div>
       )}
 
-      {/* Eildurchsage Push-Alarm Modal */}
-      {urgentBroadcast && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in zoom-in-95">
-          <div className="bg-rose-950 border-2 border-rose-500 rounded-3xl p-6 max-w-md w-full shadow-2xl text-center space-y-4 animate-pulse">
-            <div className="w-16 h-16 rounded-full bg-rose-600 text-white flex items-center justify-center mx-auto shadow-lg">
-              <Radio className="w-8 h-8" />
-            </div>
-            <div>
-              <span className="text-xs font-black tracking-widest text-rose-300 uppercase flex items-center justify-center gap-1.5">
-                <AlertTriangle className="w-4 h-4" />
-                <span>Eildurchsage von {urgentBroadcast.sender || 'Kasse / Leitung'}</span>
-              </span>
-              <p className="text-lg font-black text-white mt-2 break-words">
-                {urgentBroadcast.message}
-              </p>
-            </div>
-            <button
-              onClick={() => setUrgentBroadcast(null)}
-              className="w-full py-3.5 bg-white hover:bg-slate-200 text-rose-950 font-black rounded-2xl text-sm shadow-xl transition"
-            >
-              Verstanden / Bestätigen
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Allergen & Product Detail Modal */}
       {selectedProductInfo && (
@@ -1187,6 +1190,13 @@ function WaiterOrderContent() {
           </div>
         </div>
       )}
+
+      {/* Bestellverlauf Modal (Schreibgeschützt) */}
+      <WaiterOrderHistoryModal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        waiterName={waiterName}
+      />
     </div>
   );
 }

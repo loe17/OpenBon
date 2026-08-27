@@ -24,10 +24,14 @@ import {
   Hash,
   Delete,
   ArrowRight,
+  History,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { VOID_REASONS, type OrderDTO } from '@/types/domain';
 import { playConfirm, playVoidAlert, playOrderReadyChime } from '@/lib/audio-feedback';
-import { triggerHapticFeedback } from '@/lib/socket-client';
+import { triggerHapticFeedback, isAudioMuted, setAudioMuted } from '@/lib/socket-client';
+import { WaiterOrderHistoryModal } from '@/components/waiter/waiter-order-history-modal';
 
 import StationGate from '@/components/auth/station-gate';
 interface TableData {
@@ -65,7 +69,6 @@ function WaiterTablesContent() {
   const [filter, setFilter] = useState<'ALL' | 'MY_TABLES' | 'OCCUPIED' | 'FREE'>('ALL');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   // Spec 6.4 / 6.6 / 6.7 / 6.10
   const [showVoidModal, setShowVoidModal] = useState(false);
@@ -92,6 +95,10 @@ function WaiterTablesContent() {
   const [showTableKeypadModal, setShowTableKeypadModal] = useState(false);
   const [keypadTableNumber, setKeypadTableNumber] = useState('');
   const [isCreatingTable, setIsCreatingTable] = useState(false);
+
+  // Bestellverlauf & Stummschaltung
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [soundMuted, setSoundMuted] = useState(false);
 
   const openTableFromNumber = async (rawInput: string) => {
     const raw = rawInput.trim();
@@ -165,6 +172,7 @@ function WaiterTablesContent() {
   };
 
   useEffect(() => {
+    setSoundMuted(isAudioMuted());
     const savedWaiter = localStorage.getItem('pos_waiter_name');
     if (savedWaiter && savedWaiter.trim() !== '') {
       setWaiterName(savedWaiter);
@@ -418,18 +426,47 @@ function WaiterTablesContent() {
 
       {/* Top Waiter Bar & Search Bar */}
       <div className="p-2.5 sm:p-3 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2.5 shadow-md shrink-0">
-        {/* Waiter Pill */}
-        <button
-          onClick={() => {
-            setInputWaiterName(waiterName);
-            setShowWaiterPrompt(true);
-          }}
-          className="flex items-center gap-2 px-3 py-1.5 bg-blue-950 text-blue-300 border border-blue-800 hover:border-blue-500 rounded-xl text-xs font-bold transition"
-        >
-          <UserCheck className="w-4 h-4 text-blue-400" />
-          <span>Bedienung: <strong className="text-white">{waiterName}</strong></span>
-          <Edit3 className="w-3 h-3 text-blue-400" />
-        </button>
+        {/* Waiter Pill, History & Sound Toggle */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setInputWaiterName(waiterName);
+              setShowWaiterPrompt(true);
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 bg-blue-950 text-blue-300 border border-blue-800 hover:border-blue-500 rounded-xl text-xs font-bold transition active:scale-95"
+          >
+            <UserCheck className="w-4 h-4 text-blue-400" />
+            <span>Bedienung: <strong className="text-white">{waiterName}</strong></span>
+            <Edit3 className="w-3 h-3 text-blue-400" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowHistoryModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition active:scale-95 shadow"
+            title="Alle vergangenen Bestellungen dieser Bedienung anzeigen"
+          >
+            <History className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden sm:inline">Bestellverlauf</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              const next = !soundMuted;
+              setSoundMuted(next);
+              setAudioMuted(next);
+            }}
+            className={`p-1.5 rounded-xl border transition active:scale-95 ${
+              soundMuted
+                ? 'bg-rose-950/50 border-rose-800 text-rose-400'
+                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+            }`}
+            title={soundMuted ? 'Ton ist stummgeschaltet (Klicken zum Einschalten)' : 'Ton ist aktiv (Klicken zum Stummschalten)'}
+          >
+            {soundMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          </button>
+        </div>
 
         {/* Search */}
         <div className="flex items-center gap-2 flex-1 min-w-[180px]">
@@ -1098,6 +1135,13 @@ function WaiterTablesContent() {
           </div>
         </div>
       )}
+
+      {/* Bestellverlauf je Bedienung Modal (Schreibgeschützt) */}
+      <WaiterOrderHistoryModal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        waiterName={waiterName}
+      />
     </div>
   );
 }

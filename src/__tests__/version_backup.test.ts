@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { APP_VERSION, APP_NAME, GITHUB_REPO_URL, APP_IS_BETA } from '../lib/version';
 
-describe('OpenBon v0.4.8 & Selective Backup Tests', () => {
-  it('should have consistent version 0.4.8 and metadata', () => {
-    expect(APP_VERSION).toBe('0.4.8');
+describe('OpenBon v0.4.9 & Selective Backup Tests', () => {
+  it('should have consistent version 0.4.9 and metadata', () => {
+    expect(APP_VERSION).toBe('0.4.9');
     expect(APP_NAME).toBe('OpenBon');
     expect(GITHUB_REPO_URL).toBe('https://github.com/loe17/OpenBon');
   });

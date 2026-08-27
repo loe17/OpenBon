@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/components/providers/theme-provider';
 import Navbar from '@/components/navigation/navbar';
 import TrainingWatermark from '@/components/ui/training-watermark';
 import OfflineBanner from '@/components/ui/offline-banner';
+import { BroadcastAlertOverlay } from '@/components/notifications/broadcast-alert-overlay';
 
 // Spec 3.3: Fliesstext & Labels = Inter (500/600)
 const inter = Inter({
@@ -35,8 +36,8 @@ export const metadata: Metadata = {
   description: 'Offenes Kassen- und Bestellsystem für Vereinsfeste und Gastronomie',
   manifest: '/manifest.json',
   icons: {
-    icon: '/icon.png',
-    apple: '/icon.png',
+    icon: '/icon.svg',
+    apple: '/icon.svg',
   },
 };
 
@@ -91,6 +92,7 @@ export default function RootLayout({
           <ToastProvider>
             <SocketProvider>
               <OfflineBanner />
+              <BroadcastAlertOverlay />
               <Navbar />
               <TrainingWatermark />
               <main className="flex-1 flex flex-col overflow-hidden">{children}</main>

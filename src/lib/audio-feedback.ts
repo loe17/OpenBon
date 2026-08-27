@@ -39,6 +39,9 @@ interface ToneOptions {
 }
 
 function playTone({ frequency, durationMs, delayMs = 0, type = 'sine', gain = 0.18 }: ToneOptions) {
+  if (typeof window !== 'undefined' && localStorage.getItem('openbon_sound_muted') === 'true') {
+    return;
+  }
   const ctx = getContext();
   if (!ctx) return;
 

@@ -19,10 +19,14 @@ export async function GET(req: Request) {
     const tableId = searchParams.get('tableId');
     const status = searchParams.get('status');
     const isKds = searchParams.get('kds') === 'true';
+    const waiterName = searchParams.get('waiterName');
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : undefined;
+    const sort = searchParams.get('sort') || (waiterName ? 'desc' : 'asc');
 
     const where: Record<string, unknown> = {};
     if (tableId) where.tableId = tableId;
     if (status) where.status = status;
+    if (waiterName) where.waiterName = waiterName;
 
     if (isKds) {
       where.status = { in: ['OPEN', 'IN_PREPARATION', 'READY'] };
@@ -30,7 +34,8 @@ export async function GET(req: Request) {
 
     const orders = await prisma.order.findMany({
       where,
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: sort === 'desc' ? 'desc' : 'asc' },
+      take: limit,
       include: {
         table: true,
         items: {

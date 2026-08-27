@@ -74,8 +74,23 @@ export function getSocket(): Socket {
   return socket!;
 }
 
+let memoryMuted = false;
+
+export function isAudioMuted(): boolean {
+  if (typeof window === 'undefined') return memoryMuted;
+  const stored = localStorage.getItem('openbon_sound_muted');
+  return stored !== null ? stored === 'true' : memoryMuted;
+}
+
+export function setAudioMuted(muted: boolean): void {
+  memoryMuted = muted;
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('openbon_sound_muted', muted ? 'true' : 'false');
+  }
+}
+
 export function playAcousticPing() {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || isAudioMuted()) return;
   try {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext!)();
     const osc = audioCtx.createOscillator();
@@ -104,7 +119,7 @@ export function playAcousticPing() {
 }
 
 export function playKitchenChime() {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || isAudioMuted()) return;
   try {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext!)();
     const osc = audioCtx.createOscillator();

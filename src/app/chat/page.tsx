@@ -15,6 +15,7 @@ import {
   Smartphone,
   CreditCard,
   ChefHat,
+  X,
 } from 'lucide-react';
 import StationGate from '@/components/auth/station-gate';
 interface ChatMessage {
@@ -35,6 +36,12 @@ function ChatPageContent() {
   const [isUrgent, setIsUrgent] = useState(false);
   const [senderName, setSenderName] = useState('Bedienung');
   const [userRole, setUserRole] = useState('WAITER');
+
+  // Eildurchsage In-App Modal State
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+  const [broadcastText, setBroadcastText] = useState('');
+  const [broadcastSender, setBroadcastSender] = useState('');
+  const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
 
   const fetchMessages = async () => {
     try {
@@ -130,22 +137,11 @@ function ChatPageContent() {
             <button
               type="button"
               onClick={() => {
-                const text = prompt('Eildurchsage an alle Bedienungsansichten eingeben:');
-                if (text && text.trim()) {
-                  fetch('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      senderName: senderName.trim() || 'Leitung / Theke',
-                      message: text.trim(),
-                      isUrgent: true,
-                      broadcastAlert: true,
-                    }),
-                  });
-                }
+                setBroadcastSender(senderName.trim() || 'Leitung / Theke');
+                setShowBroadcastModal(true);
               }}
               className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-lg shadow-rose-950/60 transition active:scale-95 animate-pulse"
-              title="Sendet sofort ein lautes Pop-up an alle Bedienungs-Mobilteile"
+              title="Sendet sofort ein Pop-up an alle Bedienungs-Mobilteile"
             >
               <Radio className="w-3.5 h-3.5" />
               <span>Eildurchsage</span>
@@ -240,6 +236,100 @@ function ChatPageContent() {
           <Send className="w-5 h-5" />
         </button>
       </form>
+
+      {/* In-App Eildurchsage Modal */}
+      {showBroadcastModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border border-rose-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-rose-400">
+                <Radio className="w-5 h-5" />
+                <h3 className="font-black text-lg text-white">Eildurchsage an alle Mobilteile</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBroadcastModal(false)}
+                className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Absender</label>
+                <input
+                  type="text"
+                  value={broadcastSender}
+                  onChange={(e) => setBroadcastSender(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white text-xs font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Nachricht / Durchsage</label>
+                <textarea
+                  rows={3}
+                  value={broadcastText}
+                  onChange={(e) => setBroadcastText(e.target.value)}
+                  placeholder="z. B. Grillstation kurzzeitig überlastet – bitte vorerst keine Steaks aufnehmen!"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white text-sm"
+                  autoFocus
+                />
+              </div>
+
+              <div className="p-3 bg-rose-950/40 border border-rose-800/60 rounded-xl text-xs text-rose-300 space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>Dringende Prioritätsmeldung</span>
+                </div>
+                <p className="text-[11px] text-rose-300/80">
+                  Erscheint sofort als In-App-Banner auf den Bildschirmen aller Bedienungen.
+                </p>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBroadcastModal(false)}
+                  className="flex-1 p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="button"
+                  disabled={!broadcastText.trim() || isSendingBroadcast}
+                  onClick={async () => {
+                    if (!broadcastText.trim()) return;
+                    setIsSendingBroadcast(true);
+                    try {
+                      await fetch('/api/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          senderName: broadcastSender.trim() || senderName.trim() || 'Leitung / Theke',
+                          message: broadcastText.trim(),
+                          isUrgent: true,
+                          broadcastAlert: true,
+                        }),
+                      });
+                      setBroadcastText('');
+                      setShowBroadcastModal(false);
+                      fetchMessages();
+                    } finally {
+                      setIsSendingBroadcast(false);
+                    }
+                  }}
+                  className="flex-1 p-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-lg shadow-rose-950/60 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{isSendingBroadcast ? 'Sendet...' : 'Jetzt senden'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

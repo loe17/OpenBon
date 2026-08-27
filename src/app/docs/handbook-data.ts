@@ -1,5 +1,5 @@
 /**
- * Umfassendes Handbuch und Referenz-Dokumentation für OpenBon v0.4.8.
+ * Umfassendes Handbuch und Referenz-Dokumentation für OpenBon v0.4.9.
  * Offline verfügbar, druckoptimiert (A4) und thematisch gegliedert.
  */
 
