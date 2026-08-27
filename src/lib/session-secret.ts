@@ -51,8 +51,13 @@ export async function ensureSessionSecret(): Promise<string> {
     setRuntimeSecret(secret);
     return secret;
   } catch (e) {
-    console.warn('[AUTH] Session-Secret konnte nicht aus der DB geladen werden:', e instanceof Error ? e.message : e);
-    // Fallback: bisheriges Lazy-Verhalten (globalThis) - besser als kein Betrieb
+    console.warn(
+      '[AUTH] Session-Secret konnte nicht aus der DB geladen/erstellt werden:',
+      e instanceof Error ? e.message : e,
+      '- Anmeldungen bleiben gesperrt (fail-closed), bis ein Secret etabliert ist.'
+    );
+    // Bewusst KEIN oeffentlicher Fallback mehr: Ohne Secret sind Tokens
+    // nicht signier- und nicht verifizierbar (M2.1).
     return '';
   }
 }

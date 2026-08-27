@@ -197,6 +197,41 @@ export async function setAllStationPins(pins: StationPinsInput): Promise<boolean
 }
 
 /**
+ * M3.1 Migriert historische Klartext-Waiter-PINs einmalig auf PBKDF2-Hashes.
+ * Idempotent: Bereits gehashte Eintraege ($pbkdf2$-Praefix) bleiben unberuehrt.
+ * Die Anmeldung funktioniert waehrend und nach der Migration identisch, da
+ * verifyPinHash() beide Formate akzeptiert.
+ */
+export async function migratePlaintextWaiterPins(): Promise<number> {
+  try {
+    const waiters = await prisma.waiterProfile.findMany({
+      select: { id: true, pin: true },
+    });
+
+    let migrated = 0;
+    for (const waiter of waiters) {
+      if (waiter.pin && !waiter.pin.startsWith('$pbkdf2$')) {
+        await prisma.waiterProfile.update({
+          where: { id: waiter.id },
+          data: { pin: hashPin(waiter.pin) },
+        });
+        migrated += 1;
+      }
+    }
+
+    if (migrated > 0) {
+      console.log(`[AUTH] ${migrated} Waiter-PIN(s) von Klartext auf PBKDF2 migriert.`);
+    }
+    return migrated;
+  } catch (err) {
+    // Migration ist best-effort: verifyPinHash akzeptiert weiterhin Klartext,
+    // der naechste Start versucht es erneut.
+    console.warn('[AUTH] Waiter-PIN-Migration uebersprungen:', err instanceof Error ? err.message : err);
+    return 0;
+  }
+}
+
+/**
  * Prüft, ob noch mindestens eine Standard-Werks-PIN aktiv ist oder die Ersteinrichtung noch aussteht.
  */
 export async function hasFactoryPin(): Promise<boolean> {

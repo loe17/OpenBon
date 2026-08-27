@@ -39,6 +39,16 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'asc' },
     });
 
+    // M6.5 Ehrliche TSE-Kennzeichnung: Ohne echte, konfigurierte und
+    // implementierte TSE duerfen die Export-Spalten KEINE Suggestiv-Werte
+    // fuehren (frueher: Zaehler=1, "Signatur" = Kartenterminal-AUTH-Code).
+    const hasRealTse =
+      Boolean(config?.tseSerialNumber?.trim()) &&
+      config?.tseProvider !== undefined &&
+      String(config.tseProvider).toUpperCase() !== 'NONE';
+
+    const tseSerial = hasRealTse ? config!.tseSerialNumber!.trim() : null;
+
     const bonkoepfe: DsfinvkBonkopf[] = [];
     const bonpos: DsfinvkBonpos[] = [];
     const bonposPreise: DsfinvkBonposPreise[] = [];
@@ -53,9 +63,12 @@ export async function GET(req: NextRequest) {
         zeitEnde: p.createdAt.toISOString(),
         kassenId: config?.id || 'POS-01',
         bedienerName: p.waiterName,
-        tseSeriennr: config?.tseSerialNumber || 'NONE',
-        tseSignaturzaehler: 1,
-        tseSignatur: p.cardAuthCode || null,
+        // Ohne echte TSE bleiben die Felder LEER -> DSFinV-K-Prueftools
+        // kennzeichnen die Kasse korrekt als NO_TSE statt gueltige Signatur
+        // vorzuspiegeln.
+        tseSeriennr: tseSerial,
+        tseSignaturzaehler: hasRealTse ? 1 : 0,
+        tseSignatur: hasRealTse ? p.cardAuthCode || null : null,
       });
 
       let posZeile = 1;
@@ -99,6 +112,13 @@ export async function GET(req: NextRequest) {
       periodStart: startDate.toISOString(),
       periodEnd: endDate.toISOString(),
       checksumSha256: result.checksumSha256,
+      // M6.5: Transparenz fuer den Operator - der Export wurde ohne echte
+      // TSE-Kennzeichnung erzeugt.
+      tseState: hasRealTse ? 'CONFIGURED' : 'NO_TSE',
+      tseNotice:
+        hasRealTse
+          ? null
+          : 'Keine echte TSE konfiguriert/angeschlossen. TSE-Felder im Export sind absichtlich leer (DSFinV-K NO_TSE).',
       tables: {
         bonkopfCsv: result.bonkopfCsv,
         bonposCsv: result.bonposCsv,

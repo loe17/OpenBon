@@ -2,6 +2,19 @@ import { NextResponse } from 'next/server';
 import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
+import { hashPin } from '@/lib/auth-pin';
+
+/**
+ * M3.2 Werks-PINs werden gehasht abgelegt ( statt bisher im Klartext ).
+ * verifyStationPin() akzeptiert Hashes nativ; hatFactoryPin() vergleicht
+ * weiterhin erfolgreich gegen die Werks-PINs via verifyPinHash().
+ */
+const FACTORY_PINS = {
+  adminPin: hashPin('0000'),
+  posPin: hashPin('1111'),
+  kitchenPin: hashPin('2222'),
+  waiterPin: hashPin('3333'),
+};
 
 export async function POST(req: Request) {
   const auth = await requireApiAuth(req, ['ADMIN']);
@@ -127,10 +140,10 @@ export async function POST(req: Request) {
           taxRateNormal: 19.0,
           taxRateReduced: 7.0,
           trainingMode: false,
-          adminPin: '0000',
-          posPin: '1111',
-          kitchenPin: '2222',
-          waiterPin: '3333',
+          adminPin: FACTORY_PINS.adminPin,
+          posPin: FACTORY_PINS.posPin,
+          kitchenPin: FACTORY_PINS.kitchenPin,
+          waiterPin: FACTORY_PINS.waiterPin,
           receiptHeader: '',
           receiptSubHeader: '',
           receiptFooterText: '',
@@ -158,10 +171,10 @@ export async function POST(req: Request) {
           taxRateNormal: 19.0,
           taxRateReduced: 7.0,
           trainingMode: false,
-          adminPin: '0000',
-          posPin: '1111',
-          kitchenPin: '2222',
-          waiterPin: '3333',
+          adminPin: FACTORY_PINS.adminPin,
+          posPin: FACTORY_PINS.posPin,
+          kitchenPin: FACTORY_PINS.kitchenPin,
+          waiterPin: FACTORY_PINS.waiterPin,
           receiptHeader: '',
           receiptSubHeader: '',
           receiptFooterText: '',

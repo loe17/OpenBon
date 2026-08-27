@@ -100,23 +100,35 @@ export class HighAvailabilityService {
   /**
    * Holt oder erneuert die PRIMARY-Lease. Gibt false zurueck, wenn ein anderer,
    * noch lebender Knoten die Lease haelt (Split-Brain-Fencing).
+   *
+   * M5.2: Vorher war dies ein nicht-atomares check-then-upsert - zwei Knoten
+   * konnten den anderen glücklich machen. Jetzt:
+   *  1. create() als schneller Pfad fuer die erste Uebernahme (PK-Kollision
+   *     verliert deterministisch),
+   *  2. konditionales updateMany(), das nur die Lease des EIGENEN holders oder
+   *     eine ABGELAUFENE Lease ueberschreibt - statementatomar in SQLite.
    */
   private async acquireOrRenewLease(): Promise<boolean> {
     const now = new Date();
     const expiresAt = new Date(Date.now() + LEASE_TTL_MS);
 
-    const existing = await prisma.haLease.findUnique({ where: { id: 'primary' } });
-
-    if (existing && existing.holderId !== this.instanceId && existing.expiresAt > now) {
-      return false; // fremde, noch gueltige Lease -> Fencing greift
+    try {
+      await prisma.haLease.create({
+        data: { id: 'primary', holderId: this.instanceId, expiresAt },
+      });
+      return true; // noch keine Lease vorhanden -> sofort ours
+    } catch {
+      // Zeile existiert bereits -> konditionaler Anspruch folgt
     }
 
-    await prisma.haLease.upsert({
-      where: { id: 'primary' },
-      update: { holderId: this.instanceId, expiresAt, updatedAt: now },
-      create: { id: 'primary', holderId: this.instanceId, expiresAt },
+    const claimed = await prisma.haLease.updateMany({
+      where: {
+        id: 'primary',
+        OR: [{ holderId: this.instanceId }, { expiresAt: { lte: now } }],
+      },
+      data: { holderId: this.instanceId, expiresAt, updatedAt: now },
     });
-    return true;
+    return claimed.count === 1;
   }
 
   private async getLeaseHolder(): Promise<string> {
@@ -256,6 +268,15 @@ export class HighAvailabilityService {
 
   private async applyJournalEntry(entry: SyncJournalEntry) {
     try {
+      // M5.2 Sequenz-Fencing: Bereits vorhandene Journal-Einträge werden
+      // NICHT erneut angewendet - das schützt vor Replays aelterer Deltas
+      // und Doppel-Anwendung bei (seltenem) Pull-Overlap.
+      const journalExists = await prisma.syncJournal.findUnique({
+        where: { id: entry.id },
+        select: { id: true },
+      });
+      if (journalExists) return;
+
       const payload = JSON.parse(entry.payload);
 
       // Store in local SyncJournal so sequence stays matched

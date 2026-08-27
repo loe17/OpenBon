@@ -30,6 +30,7 @@ export class StripeTerminalAdapter extends BasePaymentAdapter {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           body: body.toString(),
+          signal: AbortSignal.timeout(15_000),
         });
 
         if (res.ok) {
@@ -89,6 +90,7 @@ export class StripeTerminalAdapter extends BasePaymentAdapter {
         headers: {
           Authorization: `Bearer ${config.stripeSecretKey}`,
         },
+        signal: AbortSignal.timeout(15_000),
       });
       if (res.ok) {
         const intent = await res.json();
@@ -98,5 +100,27 @@ export class StripeTerminalAdapter extends BasePaymentAdapter {
       }
     } catch {}
     return 'PENDING';
+  }
+
+  /**
+   * M1.2 Verifikation eines gemeldeten Callbacks direkt gegen die Stripe-API.
+   * Nur ein von Stripe bestaetigter Intent ergibt true - dadurch kann kein
+   * handwerklich gebauter Callback (status=succeeded) eine Zahlung durchdruecken.
+   */
+  async verifyPaymentIntent(intentId: string, config: ProviderConfiguration): Promise<boolean> {
+    if (!config.stripeSecretKey || !intentId) return false;
+    try {
+      const res = await fetch(`https://api.stripe.com/v1/payment_intents/${encodeURIComponent(intentId)}`, {
+        headers: {
+          Authorization: `Bearer ${config.stripeSecretKey}`,
+        },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!res.ok) return false;
+      const intent = await res.json();
+      return intent.status === 'succeeded';
+    } catch {
+      return false;
+    }
   }
 }

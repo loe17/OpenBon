@@ -82,6 +82,17 @@ fi
 echo "[1/7] Überprüfe Netzwerkverbindung & DNS-Namensauflösung..."
 
 fix_dns() {
+  # M6.4: System-DNS nur noch mit ausdruecklicher Freigabe veraendern.
+  # Das Umbiegen auf oeffentliche Resolver (1.1.1.1/8.8.8.8) bricht
+  # sonst Offline-/Festnetz-Setups und ist ein sicherheitsrelevanter
+  # Systemeingriff.
+  if [ "${REPAIR_DNS:-}" != "1" ]; then
+    echo "  -> [HINWEIS] DNS-Namensauflösung schlägt fehl."
+    echo "     Ohne Internet keine Installation möglich. Wer den DNS bewusst"
+    echo "     reparieren will: REPAIR_DNS=1 sudo bash install-headless.sh"
+    exit 1
+  fi
+
   echo "  -> [NETZWERK-REPAIR] DNS-Namensauflösung schlägt fehl! Richte temporären Fallback-DNS ein..."
   if [ -f /etc/resolv.conf ]; then
     # Backup resolv.conf
@@ -298,7 +309,30 @@ sudo -u "$SERVICE_USER" npm install --production=false
 echo ""
 echo "[5/7] Führe Prisma Datenbank-Migrationen durch..."
 sudo -u "$SERVICE_USER" DATABASE_URL="file:./dev.db" npx prisma generate
-sudo -u "$SERVICE_USER" DATABASE_URL="file:./dev.db" npx prisma db push --accept-data-loss --skip-generate
+
+# M6.2/M6.4: Kein stiller Datenverlust beim Update - data-loss-Abgleich nur
+# mit ausdruecklicher Freigabe ueber OPENBON_ALLOW_DATA_LOSS=1.
+DBPUSH_RC=0
+DBPUSH_OUTPUT=$(sudo -u "$SERVICE_USER" DATABASE_URL="file:./dev.db" npx prisma db push --skip-generate 2>&1) || DBPUSH_RC=$?
+
+if [ "$DBPUSH_RC" -eq 0 ]; then
+  # Normaler Erfolgsfall: kurze Ausgabe anzeigen
+  printf '%s\n' "$DBPUSH_OUTPUT" | tail -n 15
+elif printf '%s' "$DBPUSH_OUTPUT" | grep -qi "data loss"; then
+  printf '%s\n' "$DBPUSH_OUTPUT"
+  if [ "${OPENBON_ALLOW_DATA_LOSS:-}" = "1" ]; then
+    echo "  -> Freigabe aktiv: Migration MIT Datenverlustrisiko wird ausgefuehrt..."
+    sudo -u "$SERVICE_USER" DATABASE_URL="file:./dev.db" npx prisma db push --accept-data-loss --skip-generate
+  else
+    echo "  [ABBRUCH] Schema-Migration wuerde Daten verlieren (NICHTS geloescht)."
+    echo "            Erst Backup ziehen, dann erneut mit OPENBON_ALLOW_DATA_LOSS=1 starten."
+    exit 1
+  fi
+else
+  printf '%s\n' "$DBPUSH_OUTPUT"
+  echo "  [ABBRUCH] Datenbank-Migration fehlgeschlagen (Code $DBPUSH_RC)."
+  exit "$DBPUSH_RC"
+fi
 
 # Seed nur bei Neuinstallation (wenn noch keine Tabellen/Bestellungen da sind)
 if [ "$IS_UPDATE" -eq 0 ]; then
@@ -364,7 +398,10 @@ echo "  -> Aktive Version:    $TARGET_REF (Commit $CURRENT_COMMIT)"
 echo "  -> Web-Zugriff (mDNS): http://openbon.local"
 echo "  -> Web-Zugriff (IP):   http://$IP_ADDR"
 echo "  -> Server-Status:      systemctl status openbon"
-echo "  -> Admin-PIN:          1234 (in Einstellungen anpassbar)"
+# M6.4: Keine PIN mehr im Klartext auf der Konsole - Erst-PIN wird bei der
+# ersten Anmeldung gefuehrt geaendert (Ersteinrichtung im Frontend).
+echo "  -> Admin-Zugang:       Erste Anmeldung mit Werks-PIN im Frontend;"
+echo "                         anschliessend PIN SOFORT in den Einstellungen aendern."
 echo "  -> Autostart:          Aktiviert (Startet automatisch bei Serverboot)"
 echo ""
 echo "======================================================================"

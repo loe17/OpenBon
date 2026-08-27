@@ -19,6 +19,22 @@ export async function registerNodeInstrumentation() {
     console.warn('[INSTRUMENTATION] Session-Secret konnte nicht initialisiert werden:', e);
   }
 
+  // M3.1 Historische Klartext-Kellner-PINs einmalig auf PBKDF2 heben.
+  try {
+    const { migratePlaintextWaiterPins } = await import('@/lib/auth-pin');
+    await migratePlaintextWaiterPins();
+  } catch (e) {
+    console.warn('[INSTRUMENTATION] Waiter-PIN-Migration fehlgeschlagen:', e);
+  }
+
+  // M5.1 HA-Sync-Secret haerten (Einzelknoten automatisch, Dual via Pairing).
+  try {
+    const { ensureHaSecretHardened } = await import('@/lib/ha/ha-secret');
+    await ensureHaSecretHardened();
+  } catch (e) {
+    console.warn('[INSTRUMENTATION] HA-Secret-Haertung fehlgeschlagen:', e);
+  }
+
   try {
     const { startDiagnosticsCycle } = await import('@/lib/diagnostics');
     startDiagnosticsCycle();

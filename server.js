@@ -15,6 +15,57 @@ const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOST || '0.0.0.0';
 const port = parseInt(process.env.PORT || '3000', 10);
 
+/**
+ * M4.1 Erlaubte WebSocket-Origins.
+ *
+ * Vorher galt cors.origin = '*' - jede Website im Internet durfte eine
+ * Socket.IO-Verbindung zur Kasse aufbauen und Events senden/empfangen.
+ *
+ * Neu: Allowlist aus localhost, openbon.local, allen eigenen Netzwerkkarten
+ * (damit Stationen via http://<LAN-IP>:<Port> wie gewohnt funktionieren) und
+ * optionalen Zusatz-Origin aus OPENBON_EXTRA_ORIGINS (z. B. Reverse Proxy).
+ * Mit OPENBON_SOCKET_ORIGIN=* laesst sich das alte Verhalten bewusst
+ * reaktivieren (Not-Aus-Hebel, nicht empfohlen).
+ */
+function buildAllowedSocketOrigins() {
+  const os = require('os');
+  const ports = new Set(['80', '3000', '3001']);
+  ports.add(String(port));
+  if (process.env.HA_PARTNER_PORT) ports.add(String(process.env.HA_PARTNER_PORT));
+
+  const origins = new Set();
+  for (const p of ports) {
+    origins.add(`http://localhost:${p}`);
+    origins.add(`http://127.0.0.1:${p}`);
+    origins.add(`http://openbon.local:${p}`);
+    origins.add(`https://openbon.local:${p}`);
+
+    // Browser lassen den Standard-Port im Origin-Header weg
+    if (p === '80') {
+      origins.add('http://localhost');
+      origins.add('http://127.0.0.1');
+      origins.add('http://openbon.local');
+      origins.add('https://openbon.local');
+    }
+
+    for (const name of Object.keys(os.networkInterfaces())) {
+      for (const iface of os.networkInterfaces()[name] || []) {
+        if (!iface.internal && iface.family === 'IPv4') {
+          origins.add(`http://${iface.address}:${p}`);
+          if (p === '80') origins.add(`http://${iface.address}`);
+        }
+      }
+    }
+  }
+
+  for (const extra of String(process.env.OPENBON_EXTRA_ORIGINS || '').split(',')) {
+    const trimmed = extra.trim().replace(/\/+$/, '');
+    if (trimmed) origins.add(trimmed);
+  }
+
+  return Array.from(origins);
+}
+
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
@@ -35,7 +86,11 @@ app.prepare().then(() => {
 
   const io = new Server(server, {
     cors: {
-      origin: '*',
+      // M4.1: Kein '*' mehr - siehe buildAllowedSocketOrigins().
+      origin:
+        process.env.OPENBON_SOCKET_ORIGIN === '*'
+          ? '*'
+          : buildAllowedSocketOrigins(),
       methods: ['GET', 'POST'],
     },
     pingInterval: 10000,
@@ -162,36 +217,50 @@ app.prepare().then(() => {
     });
 
     // Realtime Order & Kitchen events
+    // M4.1: Broadcasting ist ab sofort Personal-Sache. Unauthentifizierte
+    // GUEST-Verbindungen (ohne JWT, CORS offen) koennen keine Systemereignisse
+    // mehr erzeugen - Empfaenger inkl. Gastdisplay bleiben unberuehrt.
+    const isStaffSocket = () =>
+      Boolean(socket.authenticatedRole && socket.authenticatedRole !== 'GUEST');
+
     socket.on('order:created', (orderData) => {
+      if (!isStaffSocket()) return;
       socket.broadcast.emit('order:new', orderData);
     });
 
     socket.on('table:updated', (tableData) => {
+      if (!isStaffSocket()) return;
       socket.broadcast.emit('table:change', tableData);
     });
 
     socket.on('chat:message', (messageData) => {
+      if (!isStaffSocket()) return;
       io.emit('chat:incoming', messageData);
     });
 
     socket.on('stock:updated', (stockData) => {
+      if (!isStaffSocket()) return;
       io.emit('stock:change', stockData);
     });
 
     // Kundendisplay / Customer Facing Screen
     socket.on('pos:cart_updated', (payload) => {
+      if (!isStaffSocket()) return;
       io.emit('pos:cart_updated', payload);
     });
 
     socket.on('pos:cart_cleared', (payload) => {
+      if (!isStaffSocket()) return;
       io.emit('pos:cart_cleared', payload);
     });
 
     socket.on('pos:register_station', (payload) => {
+      if (!isStaffSocket()) return;
       io.emit('pos:station_online', payload);
     });
 
     socket.on('pos:request_cart_state', (payload) => {
+      if (!isStaffSocket()) return;
       socket.broadcast.emit('pos:request_cart_state', payload);
     });
 

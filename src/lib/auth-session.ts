@@ -11,14 +11,37 @@ export interface SessionPayload {
   exp?: number;
 }
 
-const DEFAULT_FALLBACK_JWT_SECRET = 'openbon-secure-session-auth-token-v1-persistent-jwt-key-2026';
-
+/**
+ * M2.1 Liefert das JWT-Signatursecret - OHNE oeffentlichen Fallback.
+ *
+ * Quelle-Reihenfolge:
+ *  1. Env-Variablen SESSION_SECRET (vom Startprozess via .env gesetzt)
+ *  2. Laufzeit-Secret aus ensureSessionSecret() (globalThis.__OPENBON_JWT_SECRET__)
+ *
+ * Ist keins vorhanden, wird bewusst eine Ausnahme geworfen:
+ *  - verifySessionToken faengt sie ab -> Token werden abgelehnt (fail-closed).
+ *  - signSessionToken kann dann keine Session ausstellen statt ein mit einem
+ *    oeffentlich bekannten Schlüssel gefaelschbares Token zu erzeugen.
+ * Ein vorher hartkodierter Fallback-Key (oefentliche Repo-Konstante) ist
+ * abgeschafft - er erlaubte das Faelschen gueltiger Admin-Tokens.
+ */
 export function getJwtSecretKey(): Uint8Array {
-  if (process.env.SESSION_SECRET && process.env.SESSION_SECRET.trim().length >= 16) {
-    return new TextEncoder().encode(process.env.SESSION_SECRET.trim());
+  const envSecret = process.env.SESSION_SECRET?.trim();
+  if (envSecret && envSecret.length >= 16) {
+    return new TextEncoder().encode(envSecret);
   }
 
-  return new TextEncoder().encode(DEFAULT_FALLBACK_JWT_SECRET);
+  const runtimeSecret =
+    typeof globalThis !== 'undefined'
+      ? String((globalThis as any).__OPENBON_JWT_SECRET__ || '').trim()
+      : '';
+  if (runtimeSecret.length >= 16) {
+    return new TextEncoder().encode(runtimeSecret);
+  }
+
+  throw new Error(
+    '[AUTH] Kein JWT-Session-Secret verfuegbar. Serverstart oder Datenbank pruefen (ensureSessionSecret).'
+  );
 }
 
 export const SESSION_COOKIE_NAME = 'openbon_session';

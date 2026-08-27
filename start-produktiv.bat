@@ -59,14 +59,46 @@ if not exist "node_modules" (
 REM ---------------------------------------------------------------
 echo.
 echo [2/5] Gleiche Datenbank-Schema ab...
-call npx prisma db push --accept-data-loss --skip-generate
+
+REM M6.2: Schema-Abgleich OHNE stillen Datenverlust. Nur mit expliziter
+REM Freigabe (set OPENBON_ALLOW_DATA_LOSS=1) wird ein datenveraendernder
+REM Abgleich durchgefuehrt.
+call npx prisma db push --skip-generate > "%TEMP%\openbon_dbpush.out" 2>&1
 if !ERRORLEVEL! neq 0 (
-  echo.
-  echo   FEHLER: Das Datenbank-Schema konnte nicht abgeglichen werden.
-  echo   Server wurde NICHT gestartet - bitte Meldung oben pruefen.
-  pause
-  exit /b !ERRORLEVEL!
+  findstr /i /c:"data loss" "%TEMP%\openbon_dbpush.out" >nul 2>&1
+  if !ERRORLEVEL! equ 0 (
+    type "%TEMP%\openbon_dbpush.out"
+    echo.
+    if /i "!OPENBON_ALLOW_DATA_LOSS!"=="1" (
+      echo   Freigabe aktiv - Abgleich MIT Datenverlustrisiko wird ausgefuehrt...
+      call npx prisma db push --accept-data-loss --skip-generate
+      if !ERRORLEVEL! neq 0 (
+        echo.
+        echo   FEHLER beim Datenbank-Abgleich mit Freigabe - bitte Meldung oben pruefen.
+        pause
+        exit /b 1
+      )
+    ) else (
+      echo   ABBRUCH: Das neue Schema wuerde bestehende Daten verlieren.
+      echo   Es wurde NICHTS geloescht. Backup ziehen und dann bewusst freigeben:
+      echo     set OPENBON_ALLOW_DATA_LOSS=1
+      if exist "%TEMP%\openbon_dbpush.out" del "%TEMP%\openbon_dbpush.out" >nul 2>&1
+      pause
+      exit /b 1
+    )
+  ) else (
+    type "%TEMP%\openbon_dbpush.out"
+    echo.
+    echo   FEHLER: Das Datenbank-Schema konnte nicht abgeglichen werden.
+    echo   Server wurde NICHT gestartet - bitte Meldung oben pruefen.
+    if exist "%TEMP%\openbon_dbpush.out" del "%TEMP%\openbon_dbpush.out" >nul 2>&1
+    pause
+    exit /b 1
+  )
+) else (
+  echo       Datenbank-Schema ist aktuell.
 )
+if exist "%TEMP%\openbon_dbpush.out" del "%TEMP%\openbon_dbpush.out" >nul 2>&1
 
 REM ---------------------------------------------------------------
 echo.

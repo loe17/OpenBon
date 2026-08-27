@@ -7,7 +7,18 @@ if (!process.env.DATABASE_URL) {
 }
 
 const { PrismaClient } = require('@prisma/client');
+const crypto = require('crypto');
 const prisma = new PrismaClient();
+
+/**
+ * M3.1: Waiter-PINs werden ab v0.4.10 ausschliesslich als PBKDF2-Hash gespeichert
+ * (identisches Format zu src/lib/auth-pin.ts hashPin()).
+ */
+function hashSeedPin(pin) {
+  const salt = crypto.randomBytes(16);
+  const derivedKey = crypto.pbkdf2Sync(pin, salt, 100000, 32, 'sha512');
+  return `$pbkdf2$${salt.toString('hex')}$${derivedKey.toString('hex')}`;
+}
 
 async function main() {
   console.log('[OPENBON] Starte Initialisierung der Demo-Daten...');
@@ -400,7 +411,7 @@ async function main() {
     await prisma.waiterProfile.create({
       data: {
         name,
-        pin: '3333',
+        pin: hashSeedPin('3333'),
         isActive: true,
         tipProfileId: standardTip.id,
       },

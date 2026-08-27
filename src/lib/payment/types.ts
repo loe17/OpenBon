@@ -8,6 +8,7 @@ export type PaymentProviderType =
 
 export type PaymentStatus =
   | 'PENDING'
+  | 'REPORTED_SUCCESS'
   | 'SUCCESS'
   | 'FAILED'
   | 'CANCELLED'

@@ -6,6 +6,7 @@ import haService from '@/lib/ha/ha-service';
 import { round2 } from '@/lib/pricing';
 import { VOID_REASONS } from '@/types/domain';
 import { requireApiAuth } from '@/lib/api-guard';
+import { verifyPinHash } from '@/lib/auth-pin';
 
 /**
  * Spec 6.4: Storno- & Korrektur-Workflow nach dem Abschicken.
@@ -34,8 +35,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
 
     // 1. PIN-Absicherung (Admin oder Kassenleitung)
+    // M3.2: verifyPinHash unterstuetzt PBKDF2-Hashes UND historische Klartexte -
+    // der vorherige direkte String-Vergleich scheiterte an gehashten PINs.
     const pin = (body.pin || '').trim();
-    if (pin !== config.adminPin && pin !== config.posPin) {
+    const adminPinOk = verifyPinHash(pin, config.adminPin);
+    const posPinOk = verifyPinHash(pin, config.posPin);
+    if (!adminPinOk && !posPinOk) {
       return NextResponse.json(
         { error: 'Storno nur mit Admin- oder Kassen-PIN möglich.' },
         { status: 403 }

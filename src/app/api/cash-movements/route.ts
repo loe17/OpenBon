@@ -6,6 +6,7 @@ import { EscPosBuilder } from '@/lib/printer/escpos-builder';
 import haService from '@/lib/ha/ha-service';
 import { getOrCreateOpenPeriod } from '@/lib/register-period';
 import { requireApiAuth } from '@/lib/api-guard';
+import { verifyPinHash } from '@/lib/auth-pin';
 
 /**
  * Spec 6.8: Kassenbuch & Geldbewegungen.
@@ -72,7 +73,8 @@ export async function POST(req: Request) {
     }
 
     const pin = (body.pin || '').trim();
-    if (pin !== config.adminPin && pin !== config.posPin) {
+    // M3.2: verifyPinHash unterstuetzt PBKDF2-Hashes UND historische Klartexte.
+    if (!verifyPinHash(pin, config.adminPin) && !verifyPinHash(pin, config.posPin)) {
       return NextResponse.json(
         { error: 'Geldbewegungen nur mit Admin- oder Kassen-PIN möglich.' },
         { status: 403 }

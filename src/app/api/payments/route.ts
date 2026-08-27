@@ -84,13 +84,110 @@ export async function POST(req: Request) {
       body.requestId ||
       (body as any).idempotencyKey;
 
-    // 1. Cent-genaue Berechnung
+    // M1.1 Serverseitige Preisautoritaet: unitPrice/deposit/taxRate werden IMMER
+    // aus dem OrderItem-Snapshot (DB) uebernommen, nie vom Client uebernommen.
+    // Verknuepfte Positionen, die in der DB fehlen, fuehren zu 409 statt zum
+    // bisherigen stillen Ueberspringen. Abweichung > 1 Cent = Manipulationsversuch.
+    const PRICE_TOLERANCE_CENTS = 1;
+    const toleranceOk = (clientValue: number, dbValue: number) =>
+      Math.abs(Number(clientValue || 0) - Number(dbValue || 0)) * 100 <= PRICE_TOLERANCE_CENTS + 1e-9;
+
+    const linkedIds = Array.from(
+      new Set(itemsToPay.map((i) => i.orderItemId).filter(Boolean) as string[])
+    );
+    const orderItemMap = new Map<string, { productName: string; unitPrice: number; deposit: number; taxRate: number }>();
+    if (linkedIds.length > 0) {
+      const rows = await prisma.orderItem.findMany({
+        where: { id: { in: linkedIds } },
+        select: { id: true, productName: true, unitPrice: true, deposit: true, taxRate: true },
+      });
+      for (const row of rows) {
+        orderItemMap.set(row.id, {
+          productName: row.productName,
+          unitPrice: row.unitPrice,
+          deposit: row.deposit,
+          taxRate: row.taxRate,
+        });
+      }
+    }
+
+    const pricedLines: Array<{
+      orderItemId: string | null;
+      productName: string;
+      quantity: number;
+      unitPrice: number;
+      deposit: number;
+      taxRate: number;
+    }> = [];
+
+    for (const item of itemsToPay) {
+      const quantity = Math.max(0, Math.floor(Number(item.quantityToPay)));
+      const linkedRow = item.orderItemId ? orderItemMap.get(item.orderItemId) : undefined;
+
+      if (!linkedRow) {
+        if (item.orderItemId) {
+          return NextResponse.json(
+            { error: `Position "${item.productName}" wurde zwischenzeitlich geloescht oder ist unbekannt.` },
+            { status: 409 }
+          );
+        }
+        // Legacy-Durchlass fuer nicht verknuepfte Posten (bestehende Flows).
+        pricedLines.push({
+          orderItemId: item.orderItemId ?? null,
+          productName: item.productName,
+          quantity,
+          unitPrice: round2(Number(item.unitPrice)),
+          deposit: round2(Number(item.deposit ?? 0)),
+          taxRate: Number(item.taxRate ?? config.taxRateNormal),
+        });
+        continue;
+      }
+
+      const clientUnitPrice = Number(item.unitPrice);
+      if (
+        !toleranceOk(clientUnitPrice, linkedRow.unitPrice) ||
+        !toleranceOk(Number(item.deposit ?? 0), linkedRow.deposit)
+      ) {
+        await logSystemActionSafe(() => ({
+          action: 'PAYMENT_PRICE_MISMATCH',
+          category: 'SALES',
+          actor: auth.session.waiterName || auth.session.role || 'unbekannt',
+          details: `Preisabweichung bei "${linkedRow.productName}" abgewiesen: Client sendete ${round2(clientUnitPrice).toFixed(2)} € / ${Number(item.deposit ?? 0).toFixed(2)} € Pfand, Server erwartet ${round2(linkedRow.unitPrice).toFixed(2)} € / ${linkedRow.deposit.toFixed(2)} € Pfand.`,
+          metadata: {
+            orderItemId: item.orderItemId,
+            clientUnitPrice: clientUnitPrice,
+            clientDeposit: Number(item.deposit ?? 0),
+            serverUnitPrice: linkedRow.unitPrice,
+            serverDeposit: linkedRow.deposit,
+            waiterName: body.waiterName || null,
+            deviceId: body.deviceId || null,
+          },
+        }));
+        return NextResponse.json(
+          {
+            error: `Preisabweichung bei Position "${linkedRow.productName}". Der Vorgang wurde verworfen - bitte Kassenseite neu laden.`,
+          },
+          { status: 409 }
+        );
+      }
+
+      pricedLines.push({
+        orderItemId: item.orderItemId ?? null,
+        productName: linkedRow.productName,
+        quantity,
+        unitPrice: round2(linkedRow.unitPrice),
+        deposit: round2(linkedRow.deposit),
+        taxRate: linkedRow.taxRate,
+      });
+    }
+
+    // 1. Cent-genaue Berechnung (mit Server-Preisen)
     const checkout = computeCheckout({
-      lines: itemsToPay.map((i) => ({
-        unitPrice: Number(i.unitPrice),
-        deposit: Number(i.deposit ?? 0),
-        quantity: Number(i.quantityToPay),
-        taxRate: Number(i.taxRate ?? config.taxRateNormal),
+      lines: pricedLines.map((i) => ({
+        unitPrice: i.unitPrice,
+        deposit: i.deposit,
+        quantity: i.quantity,
+        taxRate: i.taxRate,
       })),
       returnDepositAmount,
       discountAmount: Number(body.discountAmount ?? 0),
@@ -144,7 +241,13 @@ export async function POST(req: Request) {
       for (const item of itemsToPay) {
         if (!item.orderItemId) continue;
         const orderItem = await tx.orderItem.findUnique({ where: { id: item.orderItemId } });
-        if (!orderItem) continue;
+        // M1.1: Verknuepfte Position muss existieren - kein stiller Skip mehr,
+        // sonst wuerde ein Preis-POST ohne DB-Bezug gebucht.
+        if (!orderItem) {
+          throw new Error(
+            `Position "${item.productName}" wurde zwischenzeitlich geloescht. Zahlung abgebrochen.`
+          );
+        }
         const open = orderItem.quantity - orderItem.paidQuantity;
         if (item.quantityToPay > open) {
           throw new Error(
@@ -192,13 +295,13 @@ export async function POST(req: Request) {
           nonPaidReason: paymentMethod.startsWith('NON_PAID') ? body.nonPaidReason || null : null,
           isTraining,
           items: {
-            create: itemsToPay.map((i) => ({
+            create: pricedLines.map((i) => ({
               orderItemId: i.orderItemId || null,
               productName: i.productName,
-              quantity: i.quantityToPay,
+              quantity: i.quantity,
               unitPrice: i.unitPrice,
-              deposit: i.deposit ?? 0,
-              taxRate: i.taxRate ?? config.taxRateNormal,
+              deposit: i.deposit,
+              taxRate: i.taxRate,
             })),
           },
         },
@@ -267,6 +370,11 @@ export async function POST(req: Request) {
     if (body.printReceipt) {
       const receiptPrinter = await prisma.printer.findFirst({ where: { isActive: true } });
       if (receiptPrinter) {
+        // M6.6: E-Bon-URL auch aufs Papier bringen (wenn Schalter aktiv)
+        const ebReceiptUrl = payment.digitalReceiptCode
+          ? buildReceiptUrl(config.baseUrl || 'http://openbon.local', payment.digitalReceiptCode)
+          : null;
+
         const ticketData: TicketData = {
           title: 'KASSENBELEG / QUITTUNG',
           invoiceNumber: payment.invoiceNumber,
@@ -308,6 +416,8 @@ export async function POST(req: Request) {
           taxNumber: config.taxNumber || undefined,
           vatId: config.vatId || undefined,
           footerText: config.receiptFooterText || undefined,
+          showQr: Boolean(config.enableDigitalReceiptQr),
+          qrUrl: config.enableDigitalReceiptQr ? ebReceiptUrl ?? undefined : undefined,
         };
 
         await networkSpooler.printTicket(receiptPrinter, ticketData);
@@ -350,7 +460,12 @@ export async function POST(req: Request) {
       return {
         action: 'PAYMENT_COMPLETED',
         category: 'SALES',
-        actor: payment.waiterName || auth.session.waiterName || auth.session.role,
+        // M2.4: Signierte Session-Identitaet zuerst, gebuchter Name als Fallback
+        actor:
+          auth.session.waiterName ||
+          payment.waiterName ||
+          auth.session.role ||
+          'unbekannt',
         details: `Zahlung ${payment.invoiceNumber || payment.id}${tableText}: ${Number(payment.totalGross ?? 0).toFixed(2)} € [${methodLabel}${cashText}${tipText}] gebucht.`,
         metadata: {
           paymentId: payment.id,

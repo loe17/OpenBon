@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { signSessionToken, verifySessionToken, getJwtSecretKey } from '../lib/auth-session';
 import { checkRateLimit, registerFailedAttempt, resetRateLimit } from '../lib/rate-limiter';
 import { createDatabaseBackup } from '../lib/backup-scheduler';
@@ -8,6 +8,15 @@ import prisma from '../lib/db';
 import fs from 'fs';
 
 describe('OpenBon EMPFEHLUNGEN Hardening Tests', () => {
+  // M2.1: Es gibt kein oeffentliches Fallback-Secret mehr - Tests seeden ein
+  // deterministisches Laufzeit-Secret statt auf den geloeschten Hardcode zu bauen.
+  const TEST_JWT_SECRET = 'openbon-test-jwt-secret-hardening-suite-2026';
+  beforeAll(() => {
+    if (!(globalThis as any).__OPENBON_JWT_SECRET__) {
+      (globalThis as any).__OPENBON_JWT_SECRET__ = TEST_JWT_SECRET;
+    }
+  });
+
   describe('1.1 Echte serverseitige Authentifizierung', () => {
     it('sollte ein JWT Session-Token korrekt signieren und verifizieren', async () => {
       const payload = { role: 'ADMIN' as const, deviceId: 'device-test-123', waiterName: 'Chef' };
@@ -28,9 +37,36 @@ describe('OpenBon EMPFEHLUNGEN Hardening Tests', () => {
     });
 
     it('sollte ein dynamisches 256-Bit Secret erzeugen (kein hardcoded static secret)', () => {
-      const key = getJwtSecretKey();
-      expect(key).toBeInstanceOf(Uint8Array);
-      expect(key.length).toBeGreaterThanOrEqual(16);
+      const previousEnv = process.env.SESSION_SECRET;
+      delete process.env.SESSION_SECRET;
+      (globalThis as any).__OPENBON_JWT_SECRET__ = 'a'.repeat(64);
+      try {
+        const key = getJwtSecretKey();
+        expect(key).toBeInstanceOf(Uint8Array);
+        expect(key.length).toBeGreaterThanOrEqual(16);
+      } finally {
+        (globalThis as any).__OPENBON_JWT_SECRET__ = TEST_JWT_SECRET;
+        if (previousEnv !== undefined) process.env.SESSION_SECRET = previousEnv;
+      }
+    });
+
+    it('sollte ohne konfiguriertes Secret strikt ablehnen (kein oeffentlicher Fallback)', async () => {
+      const previousEnv = process.env.SESSION_SECRET;
+      const previousGlobal = (globalThis as any).__OPENBON_JWT_SECRET__;
+      delete process.env.SESSION_SECRET;
+      delete (globalThis as any).__OPENBON_JWT_SECRET__;
+      try {
+        expect(() => getJwtSecretKey()).toThrow();
+        const verified = await verifySessionToken('ganz.echt.jwt');
+        expect(verified).toBeNull();
+      } finally {
+        if (previousGlobal !== undefined) {
+          (globalThis as any).__OPENBON_JWT_SECRET__ = previousGlobal;
+        } else {
+          (globalThis as any).__OPENBON_JWT_SECRET__ = TEST_JWT_SECRET;
+        }
+        if (previousEnv !== undefined) process.env.SESSION_SECRET = previousEnv;
+      }
     });
 
     it('sollte nach 5 Fehlversuchen den Rate-Limiter sperren', () => {

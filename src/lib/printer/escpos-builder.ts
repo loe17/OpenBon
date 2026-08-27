@@ -109,12 +109,25 @@ export class EscPosBuilder {
     return this;
   }
 
+  /**
+   * M4.3 Entfernt ESC/POS-Steuerbytes aus nutzerkontrollierten Texten.
+   * Sonst koennte z. B. ein Produktname Steuersequenzen einschleusen und den
+   * Druckerzustand (Schneiden, Farbe, Groesse, Kassenlade) unbefugt schalten.
+   * Erlaubt bleibt der Zeilenvorschub (0x0a) innerhalb eines Strings.
+   */
+  public static sanitizeText(str: string): string {
+    return String(str ?? '')
+      .replace(/\r\n/g, '\n')
+      .replace(/[\u0000-\u0009\u000b-\u001f]/g, '') // alle C0-Steuerzeichen ausser \n
+      .replace(/\u007f/g, ''); // DEL
+  }
+
   public text(str: string): this {
     try {
-      const encoded = iconv.encode(str, this.encoding);
+      const encoded = iconv.encode(EscPosBuilder.sanitizeText(str), this.encoding);
       this.buffer.push(encoded);
     } catch {
-      this.buffer.push(Buffer.from(str, 'latin1'));
+      this.buffer.push(Buffer.from(EscPosBuilder.sanitizeText(str), 'latin1'));
     }
     return this;
   }
@@ -452,6 +465,15 @@ export class EscPosBuilder {
           builder.twoColumn('MwSt (enthalten):', `${data.totalTax.toFixed(2)} EUR`);
         }
       }
+    }
+
+    // M6.6: E-Bon-QR auf dem Papierbon (nur wenn Server den Link mitschickt)
+    if (data.qrUrl && data.showQr !== false && data.totalGross !== undefined) {
+      builder.lineFeed(1);
+      builder.align('center').qrCode(data.qrUrl, paperWidth === 58 ? 5 : 7);
+      builder.align('center').bold(true).textLine('E-BON ONLINE ABRUFBAR').bold(false);
+      builder.textLine('QR-Code scannen und Beleg auf dem Handy ansehen');
+      addText(`[QR] E-Bon: ${data.qrUrl}`);
     }
 
     if (data.footerText) {

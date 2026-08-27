@@ -143,7 +143,30 @@ export class PaymentService {
   }
 
   /**
+   * M1.2 Kassierer-Bestaetigung einer App-gemeldeten Zahlung (REPORTED_SUCCESS).
+   * Nur angemeldetes Personal kann die Session abschliessend auf SUCCESS heben.
+   */
+  public static async confirmReported(sessionId: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const res = await fetch(`/api/payments/session/${sessionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'CONFIRM_REPORTED' }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Bestätigung fehlgeschlagen' }));
+        return { ok: false, error: err.error };
+      }
+      this.clearPending();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Verbindungsfehler' };
+    }
+  }
+
+  /**
    * Bestätigt eine Zahlung manuell mit Autorisierungscode (Notfall-Wiederherstellung).
+   * Serverseitig ADMIN-only - die Abfrage ohne Admin-Session wird mit 403 abgelehnt.
    */
   public static async manualConfirm(sessionId: string, authCode: string): Promise<void> {
     await fetch(`/api/payments/session/${sessionId}`, {

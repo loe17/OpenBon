@@ -1,187 +1,19 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import haService from '@/lib/ha/ha-service';
 import { requireAdmin } from '@/lib/admin-guard';
 import { requireApiAuth } from '@/lib/api-guard';
-import { hashPin } from '@/lib/auth-pin';
+import {
+  sanitizeConfigInput,
+  hashPlaintextConfigPins,
+} from '@/lib/config-whitelist';
 
 /**
- * Nur ausdrücklich freigegebene Felder werden übernommen – so führt ein
- * versehentlich mitgesendetes Feld (z. B. `updatedAt`) nicht zum Fehler.
+ * M5.3: Die Feld-Whitelist, Typ-Koerzierung und PIN-Hashing wurde in
+ * src/lib/config-whitelist.ts ausgelagert und wird von /api/backup (Restore)
+ * mit denselben Regeln genutzt. Session-/HA-Secrets sind darin gesperrt.
  */
-const ALLOWED_FIELDS = [
-  'name',
-  'currency',
-  'taxRateNormal',
-  'taxRateReduced',
-  'trainingMode',
-  'trayMaxItems',
-  'adminPin',
-  'posPin',
-  'kitchenPin',
-  'waiterPin',
-  'enableVirtualPrinters',
-  'enableTax',
-  'enableCourses',
-  'enableDigitalReceipt',
-  'enableAgeVerificationAlerts',
-  'enableDigitalReceiptQr',
-  'enableGuestSelfOrder',
-  'enableGuestFacingDisplay',
-  'enableKioskMode',
-  'lockStartScreen',
-  'activeTheme',
-  'activeCardProvider',
-  'receiptHeader',
-  'receiptSubHeader',
-  'receiptFooterText',
-  'addressStreet',
-  'addressCity',
-  'taxNumber',
-  'vatId',
-  'receiptShowTimestamp',
-  'receiptShowWaiter',
-  'receiptShowTable',
-  'receiptShowTse',
-  'receiptTableFontSize',
-  'receiptItemFontSize',
-  'receiptOptionsFontSize',
-  'receiptMetaFontSize',
-  'receiptFoodTableFontSize',
-  'receiptFoodItemFontSize',
-  'receiptFoodOptionsFontSize',
-  'receiptDrinkTableFontSize',
-  'receiptDrinkItemFontSize',
-  'receiptDrinkOptionsFontSize',
-  'tableMarkerFontSize',
-  'receiptTemplate',
-  'receiptFoodTemplate',
-  'receiptDrinkTemplate',
-  'autoBackupEnabled',
-  'autoBackupIntervalMinutes',
-  'receiptSingleItemKitchenSlips',
-  'receiptSingleItemFoodSlips',
-  'receiptSingleItemDrinkSlips',
-  'receiptFoodShowHeader',
-  'receiptFoodShowTable',
-  'receiptFoodShowWaiter',
-  'receiptFoodShowTimestamp',
-  'receiptFoodShowOptions',
-  'receiptDrinkShowHeader',
-  'receiptDrinkShowTable',
-  'receiptDrinkShowWaiter',
-  'receiptDrinkShowTimestamp',
-  'receiptDrinkShowOptions',
-  'lowStockAlertPrinterId',
-  'sumupMerchantCode',
-  'sumupAppId',
-  'vrPayApiKey',
-  'vrPayTerminalId',
-  'sparkasseMerchantId',
-  'stripeSecretKey',
-  'stripePublishableKey',
-  'stripeLocationId',
-  'zvtHost',
-  'zvtPort',
-  'zvtPassword',
-  'baseUrl',
-  'initialPinSet',
-  'tseProvider',
-  'tseSerialNumber',
-  'datevConsultantNumber',
-  'datevClientNumber',
-  'datevCashAccount',
-  'licenseKey',
-  'haRole',
-  'haPartnerUrl',
-  'haAutoFailover',
-  'aisles',
-  'tokenSequence',
-  'invoiceSequence',
-  'orderSequence',
-] as const;
-
-const NUMERIC_FIELDS = new Set<string>([
-  'taxRateNormal',
-  'taxRateReduced',
-  'trayMaxItems',
-  'receiptTableFontSize',
-  'receiptItemFontSize',
-  'receiptOptionsFontSize',
-  'receiptMetaFontSize',
-  'receiptFoodTableFontSize',
-  'receiptFoodItemFontSize',
-  'receiptFoodOptionsFontSize',
-  'receiptDrinkTableFontSize',
-  'receiptDrinkItemFontSize',
-  'receiptDrinkOptionsFontSize',
-  'tableMarkerFontSize',
-  'autoBackupIntervalMinutes',
-  'zvtPort',
-  'tokenSequence',
-  'invoiceSequence',
-  'orderSequence',
-]);
-
-const BOOLEAN_FIELDS = new Set<string>([
-  'autoBackupEnabled',
-  'trainingMode',
-  'enableVirtualPrinters',
-  'enableTax',
-  'enableCourses',
-  'enableDigitalReceipt',
-  'enableAgeVerificationAlerts',
-  'enableDigitalReceiptQr',
-  'enableGuestSelfOrder',
-  'enableGuestFacingDisplay',
-  'enableKioskMode',
-  'lockStartScreen',
-  'receiptShowTimestamp',
-  'receiptShowWaiter',
-  'receiptShowTable',
-  'receiptShowTse',
-  'receiptSingleItemKitchenSlips',
-  'receiptSingleItemFoodSlips',
-  'receiptSingleItemDrinkSlips',
-  'receiptFoodShowHeader',
-  'receiptFoodShowTable',
-  'receiptFoodShowWaiter',
-  'receiptFoodShowTimestamp',
-  'receiptFoodShowOptions',
-  'receiptDrinkShowHeader',
-  'receiptDrinkShowTable',
-  'receiptDrinkShowWaiter',
-  'receiptDrinkShowTimestamp',
-  'receiptDrinkShowOptions',
-  'haAutoFailover',
-  'initialPinSet',
-]);
-
-function sanitize(body: Record<string, unknown>): Record<string, unknown> {
-  const data: Record<string, unknown> = {};
-  for (const field of ALLOWED_FIELDS) {
-    if (!(field in body)) continue;
-    const value = body[field];
-    if (value === undefined) continue;
-
-    if (NUMERIC_FIELDS.has(field)) {
-      const num = Number(value);
-      if (Number.isFinite(num)) data[field] = num;
-      continue;
-    }
-    if (BOOLEAN_FIELDS.has(field)) {
-      data[field] = Boolean(value);
-      continue;
-    }
-    if (value === null) {
-      data[field] = null;
-      continue;
-    }
-    data[field] = String(value);
-  }
-  return data;
-}
 
 export async function GET(req: Request) {
   const auth = await requireApiAuth(req, ['ADMIN']);
@@ -211,28 +43,15 @@ export async function POST(req: Request) {
   if (denied) return denied;
   try {
     const body = (await req.json()) as Record<string, unknown>;
-    const data = sanitize(body);
+    // M5.3: gemeinsame Whitelist + automatisches PIN-Hashing (wie im Backup-Restore)
+    const data = hashPlaintextConfigPins(sanitizeConfigInput(body));
 
     if (typeof data.adminPin === 'string' && data.adminPin.trim()) {
-      const pinStr = data.adminPin.trim();
-      if (!pinStr.startsWith('$pbkdf2$')) {
-        data.adminPin = hashPin(pinStr);
-      }
       await prisma.staff.upsert({
         where: { name: 'Administrator' },
         create: { name: 'Administrator', role: 'ADMIN', pinHash: data.adminPin as string, isActive: true },
         update: { pinHash: data.adminPin as string, isActive: true },
       });
-    }
-
-    if (typeof data.posPin === 'string' && data.posPin.trim() && !data.posPin.trim().startsWith('$pbkdf2$')) {
-      data.posPin = hashPin(data.posPin.trim());
-    }
-    if (typeof data.kitchenPin === 'string' && data.kitchenPin.trim() && !data.kitchenPin.trim().startsWith('$pbkdf2$')) {
-      data.kitchenPin = hashPin(data.kitchenPin.trim());
-    }
-    if (typeof data.waiterPin === 'string' && data.waiterPin.trim() && !data.waiterPin.trim().startsWith('$pbkdf2$')) {
-      data.waiterPin = hashPin(data.waiterPin.trim());
     }
 
     const updated = await prisma.eventConfig.upsert({
@@ -247,7 +66,7 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             error:
-              'Rollenwechsel abgelehnt: Eine andere Instanz hält noch eine gültige PRIMARY-Lease (Split-Brain-Schutz).',
+              'Rollenwechsel abgelehnt: Eine andere Instanz hÃ¤lt noch eine gÃ¼ltige PRIMARY-Lease (Split-Brain-Schutz).',
           },
           { status: 409 }
         );
@@ -255,14 +74,17 @@ export async function POST(req: Request) {
     }
 
     if (global.io) {
-      global.io.emit('config:updated', updated);
+      // M4.1: Secrets werden NICHT an die Clients gebroadcastet - nur der
+      // entschluesselte Ã¶ffentliche Teil der Konfiguration.
+      const { sanitizeConfigForBroadcast } = await import('@/lib/config-sanitize');
+      global.io.emit('config:updated', sanitizeConfigForBroadcast(updated));
     }
 
     await logSystemActionSafe(() => ({
       action: 'CONFIG_UPDATED',
       category: 'ADMIN',
       actor: auth.session.waiterName || auth.session.role,
-      details: `Konfiguration geändert: ${Object.keys(data).join(', ') || '(keine Felder)'}`,
+      details: `Konfiguration geÃ¤ndert: ${Object.keys(data).join(', ') || '(keine Felder)'}`,
       metadata: { changedFields: Object.keys(data) },
     }));
 

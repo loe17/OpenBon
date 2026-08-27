@@ -1,13 +1,21 @@
 import { NextResponse } from 'next/server';
 import { logSystemActionSafe } from '@/lib/action-logger';
 import { verifyStationPin, setAdminPin, StationPinType } from '@/lib/auth-pin';
-import { checkRateLimit, registerFailedAttempt, resetRateLimit } from '@/lib/rate-limiter';
+import {
+  checkRateLimit,
+  registerFailedAttempt,
+  resetRateLimit,
+  checkLayeredRateLimit,
+  registerLayeredFailure,
+  resetLayeredRateLimit,
+} from '@/lib/rate-limiter';
 import {
   signSessionToken,
   SESSION_COOKIE_NAME,
   SESSION_MAX_AGE_SECONDS,
   UserRole,
 } from '@/lib/auth-session';
+import { ensureSessionSecret } from '@/lib/session-secret';
 
 export async function POST(req: Request) {
   try {
@@ -21,7 +29,23 @@ export async function POST(req: Request) {
     if (action === 'VERIFY') {
       const targetStation: StationPinType = stationType || 'ADMIN';
 
-      // 1. Rate-Limit prüfen
+      // M2.2 Schicht-Limitierung: IP-Ebene zuerst (bestehendes Verhalten),
+      // danach stabile Stationsebene und globaler Instanz-Boden - damit
+      // rotierende x-forwarded-for-Werte einen Lockout nicht unwirksam machen.
+      const layeredCheck = checkLayeredRateLimit(rateLimitKey, targetStation);
+      if (!layeredCheck.allowed) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Zu viele Fehlversuche. Bitte warte ${layeredCheck.remainingSeconds} Sekunden.`,
+            locked: true,
+            remainingSeconds: layeredCheck.remainingSeconds,
+          },
+          { status: 429 }
+        );
+      }
+
+      // 1. IP-Rate-Limit bleibt erste Defensive (wie bisher)
       const rateCheck = checkRateLimit(rateLimitKey);
       if (!rateCheck.allowed) {
         return NextResponse.json(
@@ -38,15 +62,23 @@ export async function POST(req: Request) {
       // 2. PIN prüfen
       const isValid = await verifyStationPin(pin || '', targetStation);
       if (!isValid) {
-        const attempt = registerFailedAttempt(rateLimitKey);
+        const attempt = registerLayeredFailure(rateLimitKey, targetStation);
         // Fehlversuche gehoeren ins Protokoll - sonst faellt ein Durchprobieren
-        // des PINs niemandem auf.
+        // des PINs niemandem auf. M2.4: Der Actor ist die Station selbst - der
+        // vom Client angegebene Name ist VOR der Anmeldung nicht vertrauenswuerdig
+        // und wird nur noch als Metadatum protokolliert.
         await logSystemActionSafe(() => ({
           action: 'LOGIN_FAILED',
           category: 'AUTH',
-          actor: waiterName || deviceId || 'Unbekannt',
-          details: `Fehlgeschlagene Anmeldung an Station ${targetStation}${attempt.locked ? ' (gesperrt)' : ''}.`,
-          metadata: { station: targetStation, deviceId, locked: attempt.locked },
+          actor: `Station ${targetStation}`,
+          details: `Fehlgeschlagene Anmeldung an Station ${targetStation}${attempt.locked ? ` (gesperrt, Ebene ${attempt.layer})` : ''} (angegebener Name: "${waiterName || '-'}", Gerät: ${deviceId || '-'}).`,
+          metadata: {
+            station: targetStation,
+            claimedWaiterName: waiterName || null,
+            deviceId,
+            locked: attempt.locked,
+            layer: attempt.layer,
+          },
         }));
         return NextResponse.json(
           {
@@ -61,8 +93,9 @@ export async function POST(req: Request) {
         );
       }
 
-      // 3. Erfolgreich -> Rate-Limit zurücksetzen
+      // 3. Erfolgreich -> Rate-Limit zuruecksetzen (alle Ebenen des Vorgangs)
       resetRateLimit(rateLimitKey);
+      resetLayeredRateLimit(rateLimitKey, targetStation);
 
       // 4. Rolle & Session-Token erstellen
       const role: UserRole =
@@ -74,6 +107,10 @@ export async function POST(req: Request) {
           ? 'KITCHEN'
           : 'WAITER';
 
+      // M2.1: Vor der Signierung sicherstellen, dass ein persistiertes
+      // Session-Secret existiert (Selbstheilung nach Ausfall zum Boot-Zeitpunkt).
+      await ensureSessionSecret();
+
       const token = await signSessionToken({
         role,
         deviceId: deviceId || undefined,
@@ -83,9 +120,15 @@ export async function POST(req: Request) {
       await logSystemActionSafe(() => ({
         action: 'LOGIN_SUCCESS',
         category: 'AUTH',
-        actor: waiterName || deviceId || role,
-        details: `Anmeldung an Station ${targetStation} als ${role}.`,
-        metadata: { station: targetStation, role, deviceId },
+        // M2.4: Station statt Client-Angabe als Actor
+        actor: `Station ${targetStation}`,
+        details: `Anmeldung an Station ${targetStation} als ${role}${waiterName ? ` (angegebener Name: "${waiterName}")` : ''}.`,
+        metadata: {
+          station: targetStation,
+          role,
+          deviceId,
+          claimedWaiterName: waiterName || null,
+        },
       }));
 
       const res = NextResponse.json({

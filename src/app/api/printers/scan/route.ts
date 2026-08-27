@@ -3,6 +3,7 @@ import net from 'net';
 import os from 'os';
 import prisma from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
+import { isValidSubnetPrefix } from '@/lib/printer/validate';
 
 function testTcpPort(ip: string, port = 9100, timeout = 350): Promise<boolean> {
   return new Promise((resolve) => {
@@ -65,7 +66,10 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const customPrefix = searchParams.get('subnet');
-    const subnet = customPrefix || getLocalSubnetPrefix();
+    // M4.2: Subnetz-Prefix streng validieren (x.y.z, max. 255) - ohne Pruefung
+    // liess sich ein Admin-Scan gegen beliebige fremde Netze richten.
+    const subnet =
+      customPrefix && isValidSubnetPrefix(customPrefix) ? customPrefix : getLocalSubnetPrefix();
 
     const candidates: string[] = [];
     for (let i = 1; i <= 254; i++) {

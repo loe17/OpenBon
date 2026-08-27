@@ -1,0 +1,28 @@
+# M6.3 Schliesst sensible Dateien vom Docker-Build-Kontext aus.
+# Vorher schaufelte `COPY . .` u. a. die lokale .env und die SQLite-Datenbank
+# in Builder-Layer.
+.env
+.env.*
+!.env.example
+prisma/*.db
+prisma/*.db-journal
+prisma/dev.db*
+prisma/backups/
+_to_delete/
+.git/
+.github/
+.vscode/
+docs/
+*.log
+*.tmp
+tsconfig.tsbuildinfo
+license-generator.html
+github-1-click-publish.bat
+github-1-click-update.bat
+sync-to-P-and-publish.bat
+start-background.vbs
+node_modules
+.next
+Dockerfile
+docker-compose.yml
+README.md

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { logSystemActionSafe } from '@/lib/action-logger';
-import { exec } from 'child_process';
+import { exec, execFile } from 'child_process';
 import { promisify } from 'util';
 import { APP_VERSION, GITHUB_REPO_URL } from '@/lib/version';
 import { requireAdmin } from '@/lib/admin-guard';
@@ -8,6 +8,41 @@ import { requireApiAuth } from '@/lib/api-guard';
 
 const execAsync = promisify(exec);
 const projectRoot = process.cwd();
+
+/**
+ * M6.1 Shell-freie Git-Ausfuehrung: execFile() ohne Shell macht Command
+ * Injection ueber Referenz-/Tag-Namen strukturell unmoeglich (Argument-
+ * Grenzen sind hier hart - ein "master; rm -rf /" waere schlicht ein
+ * unbekannter Refname und nicht mehr eine neue Kommandokette).
+ */
+function runGit(args: string[], timeoutMs = 30000): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = execFile(
+      'git',
+      args,
+      {
+        cwd: projectRoot,
+        timeout: timeoutMs,
+        maxBuffer: 1024 * 1024 * 5,
+        windowsHide: true,
+      },
+      (error, stdout, stderr) => {
+        if (error) {
+          const errWithMeta = error as Error & { stdout?: string; stderr?: string };
+          errWithMeta.stdout = String(stdout ?? '');
+          errWithMeta.stderr = String(stderr ?? '');
+          reject(errWithMeta);
+        } else {
+          resolve({ stdout: String(stdout ?? ''), stderr: String(stderr ?? '') });
+        }
+      }
+    );
+    child.unref?.();
+  });
+}
+
+/** M6.1 Strenger Git-Refname (Tags/Branches ohne Meta-Zeichen). */
+const SAFE_GIT_REF_RE = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$/;
 
 function compareSemver(vA: string, vB: string): number {
   const cleanA = vA.replace(/^v/i, '').split('.').map((p) => parseInt(p, 10) || 0);
@@ -89,16 +124,15 @@ export async function GET(req: Request) {
       const { stdout: cOut } = await execAsync('git rev-parse --short HEAD', { cwd: projectRoot });
       localCommit = cOut.trim();
 
-      // Configure safe directory
-      await execAsync('git config --global --add safe.directory *', { cwd: projectRoot }).catch(() => {});
+      // M6.1: 'safe.directory *' global entfernt (maschinenweite Nebenwirkung).
+      // Der Projektordner ist der laufende Prozess-CWD und gilt per se als safe.
 
       // Fetch from remote
-      await execAsync('git fetch origin master', { cwd: projectRoot, timeout: 6000 }).catch(() => {});
+      await runGit(['fetch', 'origin', 'master'], 6000).catch(() => ({ stdout: '' }));
 
-      const { stdout: diffOut } = await execAsync(`git log HEAD..origin/${branch} --oneline`, {
-        cwd: projectRoot,
-        timeout: 4000,
-      }).catch(() => ({ stdout: '' }));
+      // Branchname vom Server selbst - trotzdem hart eingegrenzt
+      const safeBranch = SAFE_GIT_REF_RE.test(branch) ? branch : 'master';
+      const { stdout: diffOut } = await runGit(['log', `HEAD..origin/${safeBranch}`, '--oneline'], 4000).catch(() => ({ stdout: '' }));
 
       if (diffOut.trim()) {
         pendingCommits = diffOut.trim().split('\n');
@@ -262,7 +296,22 @@ export async function POST(req: Request) {
     if (action === 'INSTALL_UPDATE') {
       const logs: string[] = [];
       const startTime = Date.now();
-      const target = (targetVersion || 'master').trim();
+      // M6.1: Ziel hart validieren - frueher ungeprueft in Shell-Templates
+      // interpoliert (Command Injection / willkuerlicher Ref-Wechsel).
+      const rawTarget = typeof targetVersion === 'string' ? targetVersion.trim() : '';
+      const target = rawTarget || 'master';
+      if (!SAFE_GIT_REF_RE.test(target)) {
+        return NextResponse.json(
+          { error: 'Ungültiger Zielname für das Update (erlaubt sind einfache Tag-/Branch-Namen).' },
+          { status: 400 }
+        );
+      }
+      if (targetType !== undefined && targetType !== null && !['TAG', 'BRANCH'].includes(String(targetType))) {
+        return NextResponse.json(
+          { error: 'Ungültiger targetType (erlaubt: TAG oder BRANCH).' },
+          { status: 400 }
+        );
+      }
       const effectiveTargetType = targetType || (target.startsWith('v') ? 'TAG' : 'BRANCH');
 
       try {
@@ -278,29 +327,27 @@ export async function POST(req: Request) {
         }
 
         logs.push(`[1/4] Lade neuesten Code von GitHub & checke "${target}" aus...`);
-        await execAsync('git config --global --add safe.directory *', { cwd: projectRoot }).catch(() => {});
-        await execAsync('git fetch origin master --tags --force', { cwd: projectRoot, timeout: 45000 }).catch(() => {});
+        await runGit(['fetch', 'origin', 'master', '--tags', '--force'], 45000).catch(() => ({ stdout: '' }));
 
         if (target.startsWith('v') || effectiveTargetType === 'TAG') {
           // Lösche veralteten lokalen Tag-Cache und lade den frischen Remote-Tag
-          await execAsync(`git tag -d ${target}`, { cwd: projectRoot }).catch(() => {});
-          await execAsync(`git fetch origin refs/tags/${target}:refs/tags/${target} --force`, { cwd: projectRoot, timeout: 35000 }).catch(() => {});
+          await runGit(['tag', '-d', target], 15000).catch(() => ({ stdout: '' }));
+          await runGit(['fetch', 'origin', `refs/tags/${target}:refs/tags/${target}`, '--force'], 35000).catch(
+            () => ({ stdout: '' })
+          );
           try {
-            const { stdout: coOut } = await execAsync(`git checkout -f refs/tags/${target} || git checkout -f ${target}`, {
-              cwd: projectRoot,
-              timeout: 25000,
-            });
+            const { stdout: coOut } = await runGit(['checkout', '-f', `refs/tags/${target}`], 25000);
             logs.push(coOut.trim() || `Erfolgreich auf Tag ${target} gewechselt.`);
-          } catch (coErr) {
-            const { stdout: coOut2 } = await execAsync(`git checkout -f ${target}`, { cwd: projectRoot });
+          } catch {
+            const { stdout: coOut2 } = await runGit(['checkout', '-f', target], 25000);
             logs.push(coOut2.trim() || `Erfolgreich auf ${target} gewechselt.`);
           }
         } else if (target === 'master' || effectiveTargetType === 'BRANCH') {
-          await execAsync(`git checkout -f ${target}`, { cwd: projectRoot });
-          const { stdout: resetOut } = await execAsync(`git reset --hard origin/${target}`, { cwd: projectRoot });
+          await runGit(['checkout', '-f', target], 25000);
+          const { stdout: resetOut } = await runGit(['reset', '--hard', `origin/${target}`], 25000);
           logs.push(resetOut.trim() || `Codebasis erfolgreich auf origin/${target} aktualisiert.`);
         } else {
-          const { stdout: coOut } = await execAsync(`git checkout -f ${target}`, { cwd: projectRoot });
+          const { stdout: coOut } = await runGit(['checkout', '-f', target], 25000);
           logs.push(coOut.trim() || `Erfolgreich auf ${target} gewechselt.`);
         }
 

@@ -3,6 +3,15 @@ import { logSystemActionSafe } from '@/lib/action-logger';
 import { prisma } from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 import { getOrAssignWaiterNumber } from '@/lib/waiter-number';
+import { hashPin } from '@/lib/auth-pin';
+
+/** M3.1: Uebergebene PIN nur als PBKDF2-Hash persistieren (undefined = unverändert). */
+function resolveStoredPin(rawPin: unknown): string | undefined {
+  if (typeof rawPin !== 'string') return undefined;
+  const clean = rawPin.trim();
+  if (clean.length === 0) return undefined;
+  return hashPin(clean.length >= 4 ? clean : '3333');
+}
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const auth = await requireApiAuth(req, ['ADMIN']);
@@ -18,20 +27,22 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       targetName = id.replace('adhoc-', '').trim();
     }
 
+    const storedPin = resolveStoredPin(pin);
+
     let updated;
     if (targetName) {
       const waiterNumber = await getOrAssignWaiterNumber(targetName);
       updated = await prisma.waiterProfile.upsert({
         where: { name: targetName },
         update: {
-          pin: pin || undefined,
+          pin: storedPin,
           tipProfileId: tipProfileId !== undefined ? tipProfileId : undefined,
           isActive: isActive !== undefined ? Boolean(isActive) : undefined,
         },
         create: {
           name: targetName,
           waiterNumber,
-          pin: pin || '3333',
+          pin: storedPin ?? hashPin('3333'),
           tipProfileId: tipProfileId !== undefined ? tipProfileId : null,
           isActive: isActive !== undefined ? Boolean(isActive) : true,
         },
@@ -43,7 +54,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       updated = await prisma.waiterProfile.update({
         where: { id },
         data: {
-          pin: pin || undefined,
+          pin: storedPin,
           tipProfileId: tipProfileId !== undefined ? tipProfileId : undefined,
           isActive: isActive !== undefined ? Boolean(isActive) : undefined,
         },

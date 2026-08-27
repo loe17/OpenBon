@@ -104,7 +104,7 @@ model EventConfig {
 
   // Hochverfuegbarkeit & Lizenz & Sicherheit
   sessionSecret   String? // Kryptografischer Secret-Schlüssel für signierte JWT-Session-Cookies
-  haSyncSecret    String?  @default("openbon-ha-sync-secret-2026")
+  haSyncSecret    String? // M5.1: kein Default mehr - Einzelknoten erzeugt starkes Secret beim Start, Dual-Knoten pairen
   licenseKey      String   @default("OPENBON-COMMUNITY-FREE")
   haRole          String   @default("PRIMARY") // PRIMARY, STANDBY
   haPartnerUrl    String?  @default("http://192.168.1.101:3000")
@@ -714,7 +714,7 @@ model AuthAttempt {
 model PaymentSession {
   id                String    @id @default(cuid())
   provider          String    // VR_PAYME, SPARKASSE_SPOS, SUMUP, ZETTLE, STRIPE, ZVT
-  status            String    @default("PENDING") // PENDING, SUCCESS, FAILED, CANCELLED, TIMEOUT
+  status            String    @default("PENDING") // PENDING, REPORTED_SUCCESS, SUCCESS, FAILED, CANCELLED, TIMEOUT
   amountCents       Int
   currency          String    @default("EUR")
   orderId           String?

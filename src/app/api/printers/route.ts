@@ -4,6 +4,7 @@ import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
 import { EscPosBuilder } from '@/lib/printer/escpos-builder';
 import { TicketData } from '@/lib/printer/types';
+import { validatePrinterAddress } from '@/lib/printer/validate';
 import { requireApiAuth } from '@/lib/api-guard';
 
 export async function GET(req: Request) {
@@ -168,11 +169,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Druckername ist erforderlich' }, { status: 400 });
     }
 
+    // M4.2 Ziel-Adresse validieren (kein Raw-Socket zu oeffentlichen IPs)
+    const target = validatePrinterAddress(body.ipAddress, body.port);
+    if (!target.ok) {
+      return NextResponse.json({ error: target.error }, { status: 400 });
+    }
+
     const created = await prisma.printer.create({
       data: {
         name: body.name,
-        ipAddress: body.ipAddress || '127.0.0.1',
-        port: parseInt(body.port || 9100, 10),
+        ipAddress: target.ip,
+        port: target.port,
         paperWidth: parseInt(body.paperWidth || 80, 10),
         characterSet: body.characterSet || 'CP858',
         isVirtual: body.isVirtual ?? false,
@@ -197,23 +204,45 @@ export async function PUT(req: Request) {
   const auth = await requireApiAuth(req, ['ADMIN']);
   if (!auth.ok) return auth.response;
 
-  try {
-    const body = await req.json();
-    if (!body.id) return NextResponse.json({ error: 'Drucker-ID fehlt' }, { status: 400 });
+    try {
+      const body = await req.json();
+      if (!body.id) return NextResponse.json({ error: 'Drucker-ID fehlt' }, { status: 400 });
 
-    const updated = await prisma.printer.update({
-      where: { id: body.id },
-      data: {
-        name: body.name,
-        ipAddress: body.ipAddress !== undefined ? body.ipAddress : undefined,
-        port: body.port !== undefined ? parseInt(body.port, 10) : undefined,
-        paperWidth: body.paperWidth !== undefined ? parseInt(body.paperWidth, 10) : undefined,
-        characterSet: body.characterSet !== undefined ? body.characterSet : undefined,
-        isVirtual: body.isVirtual !== undefined ? body.isVirtual : undefined,
-        isActive: body.isActive !== undefined ? body.isActive : undefined,
-        hasCashDrawer: body.hasCashDrawer !== undefined ? Boolean(body.hasCashDrawer) : undefined,
-      },
-    });
+      // M4.2 Ziel-Adresse validieren, falls sie geaendert wird
+      let ipUpdate: string | undefined;
+      let portUpdate: number | undefined;
+      if (body.ipAddress !== undefined || body.port !== undefined) {
+        const existing = await prisma.printer.findUnique({
+          where: { id: body.id },
+          select: { ipAddress: true, port: true },
+        });
+        if (!existing) {
+          return NextResponse.json({ error: 'Drucker nicht gefunden' }, { status: 404 });
+        }
+        const target = validatePrinterAddress(
+          body.ipAddress !== undefined ? body.ipAddress : existing.ipAddress,
+          body.port !== undefined ? body.port : existing.port
+        );
+        if (!target.ok) {
+          return NextResponse.json({ error: target.error }, { status: 400 });
+        }
+        ipUpdate = body.ipAddress !== undefined ? target.ip : undefined;
+        portUpdate = body.port !== undefined ? target.port : undefined;
+      }
+
+      const updated = await prisma.printer.update({
+        where: { id: body.id },
+        data: {
+          name: body.name,
+          ipAddress: ipUpdate,
+          port: portUpdate,
+          paperWidth: body.paperWidth !== undefined ? parseInt(body.paperWidth, 10) : undefined,
+          characterSet: body.characterSet !== undefined ? body.characterSet : undefined,
+          isVirtual: body.isVirtual !== undefined ? body.isVirtual : undefined,
+          isActive: body.isActive !== undefined ? body.isActive : undefined,
+          hasCashDrawer: body.hasCashDrawer !== undefined ? Boolean(body.hasCashDrawer) : undefined,
+        },
+      });
     await logSystemActionSafe(() => ({
       action: 'PRINTER_UPDATED',
       category: 'SYSTEM',

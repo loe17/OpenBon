@@ -1,7 +1,19 @@
+import crypto from 'crypto';
 import prisma from '../db';
 
 let cachedSecret: { value: string; fetchedAt: number } | null = null;
 const CACHE_TTL_MS = 30000;
+
+/**
+ * Secrets, die oeffentlich im Quelltext/Repo bekannt sind oder leer sind.
+ * Sie erzeugen keine echte Vertraulichkeit und muessen rotiert werden.
+ */
+export const WEAK_HA_SECRETS = new Set<string>(['', 'openbon-ha-sync-secret-2026']);
+
+/** M5.1 Automatisch erzeugtes Secret fuer EINZELKNOTEN-Betrieb. */
+export function generateStrongHaSecret(): string {
+  return crypto.randomBytes(24).toString('hex');
+}
 
 /**
  * Liefert das Shared Secret fuer die HA-Sync-Endpunkte.
@@ -29,19 +41,102 @@ export async function getHaSyncSecret(): Promise<string> {
   }
 }
 
+let loggedLegacyBypass = false;
+
 /**
- * Prueft den X-HA-Secret-Header eines eingehenden Sync-Requests.
- * Gibt false zurueck, wenn ein Secret konfiguriert ist, aber nicht uebereinstimmt
- * oder fehlt. Ohne konfiguriertes Secret wird der Betrieb (Legacy) erlaubt.
+ * M5.1 Prueft den X-HA-Secret-Header eines eingehenden Sync-Requests.
+ *
+ * Neues Verhalten:
+ *  - Konfiguriertes, NICHT-oeffentliches Secret: strikte konstantzeitige Pruefung.
+ *  - Fehlendes ODER oeffentlich bekannten Default-Secret bei AKTIVEM Partner-
+ *    Setup: Warnung pro Boot + Legacy-Durchlass, DAMIT der laufende Doppelbetrieb
+ *    nicht abrupt ausfaellt. Mit ENV HA_ENFORCE_SECRET=1 wird sofort fail-closed.
+ *    Einzelnodes werden durch ensureHaSecretHardened() automatisch gehaertet.
+ *
+ * Der fruehere `?secret=`-Query-Umweg wurde entfernt (Log-Leakage-Gefahr).
  */
 export async function verifyHaSecret(req: Request): Promise<boolean> {
-  const expected = await getHaSyncSecret();
-  if (!expected) return true; // kein Secret konfiguriert -> Legacy-Verhalten
+  const expected = (await getHaSyncSecret()) || '';
 
-  const provided =
-    req.headers.get('x-ha-secret') ||
-    new URL(req.url).searchParams.get('secret') ||
-    '';
+  if (WEAK_HA_SECRETS.has(expected)) {
+    if (process.env.HA_PARTNER_URL) {
+      if (!loggedLegacyBypass) {
+        loggedLegacyBypass = true;
+        console.warn(
+          '[HA] Schwaches/oefentliches HA-Sync-Secret aktiv. Bitte einmalig scripts/ha-pair.mjs ' +
+            'ausfuehren oder ein eigenes HA_SYNC_SECRET setzen. Mit HA_ENFORCE_SECRET=1 wird der ' +
+            'Zugriff ohne starkes Secret hart abgelehnt.'
+        );
+      }
+      if (process.env.HA_ENFORCE_SECRET !== '1') {
+        return true; // Upgrade-Fenster: laufende Doppelinstallation nicht brechen
+      }
+      return false;
+    }
+    // Kein Partner konfiguriert: Endpunkte bleiben bewusst geschlossen.
+    return false;
+  }
 
-  return provided === expected;
+  const provided = req.headers.get('x-ha-secret') || '';
+  if (!provided) return false;
+  if (new URL(req.url).searchParams.has('secret')) {
+    // Alte Clients, die das Query-Secret nutzen, sind nicht mehr zulaessig.
+    return false;
+  }
+
+  return timingSafeEqualHex(provided.trim(), expected);
+}
+
+/** Konstantzeitiger Vergleich (keine Timing-Orakel ueber Praefixe). */
+export function timingSafeEqualHex(a: string, b: string): boolean {
+  if (a.length !== b.length || a.length === 0) {
+    // Auch Laengenunterschiede kosten konstant Zeit je Byte-Slot
+    let diffMismatch = a.length ^ b.length;
+    const limit = Math.max(a.length, b.length);
+    for (let i = 0; i < limit; i++) {
+      diffMismatch |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+    }
+    return diffMismatch === 0 && a.length === b.length && a.length > 0;
+  }
+  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+
+/**
+ * M5.1 Haertet das Sync-Secret beim Start fuer Systeme OHNE konfigurierten
+ * Partnerknoten vollautomatisch. Dual-Setups behalten ihr (ggf. altes) Secret,
+ * bis einmalig gepairt wurde - hier wartet die dokumentierte Rotaufgabe.
+ */
+export async function ensureHaSecretHardened(): Promise<void> {
+  try {
+    const config = await prisma.eventConfig.findUnique({
+      where: { id: 'default' },
+      select: { haSyncSecret: true, haPartnerUrl: true },
+    });
+
+    if (!config) return;
+    const hasPartner = Boolean(config.haPartnerUrl && config.haPartnerUrl.trim());
+    const current = config.haSyncSecret?.trim() || '';
+
+    if (hasPartner) {
+      // Doppelbetrieb: Secret wird NICHT automatisch rotiert (beide Knoten
+      // muessen es teilen). Einmalig ueber scripts/ha-pair.mjs pairen.
+      return;
+    }
+
+    if (WEAK_HA_SECRETS.has(current)) {
+      const next = generateStrongHaSecret();
+      await prisma.eventConfig.upsert({
+        where: { id: 'default' },
+        update: { haSyncSecret: next },
+        create: { id: 'default', haSyncSecret: next },
+      });
+      cachedSecret = null; // Cache invalidieren
+      console.log('[HA] Starkes HA-Sync-Secret fuer Einzelknoten-Betrieb erzeugt.');
+    }
+  } catch (err) {
+    console.warn(
+      '[HA] HA-Secret-Haertung uebersprungen:',
+      err instanceof Error ? err.message : err
+    );
+  }
 }

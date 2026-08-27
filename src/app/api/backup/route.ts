@@ -4,6 +4,10 @@ import prisma from '@/lib/db';
 import { APP_VERSION } from '@/lib/version';
 import { requireAdmin } from '@/lib/admin-guard';
 import { requireApiAuth } from '@/lib/api-guard';
+import {
+  sanitizeConfigInput,
+  hashPlaintextConfigPins,
+} from '@/lib/config-whitelist';
 
 export async function GET(req: Request) {
   const auth = await requireApiAuth(req, ['ADMIN']);
@@ -109,11 +113,16 @@ export async function POST(req: Request) {
     }
 
     // 1. Restore Config
+    // M5.3: Kein Mass-Assignment mehr - nur Whitelist-Felder, PINs gehasht,
+    // sessionSecret/haSyncSecret sind in der Whitelist gesperrt.
     if (restoreOptions.config && backupData.config) {
+      const restoredConfig = hashPlaintextConfigPins(
+        sanitizeConfigInput(backupData.config as Record<string, unknown>)
+      );
       await prisma.eventConfig.upsert({
         where: { id: 'default' },
-        update: backupData.config,
-        create: backupData.config,
+        update: restoredConfig,
+        create: restoredConfig,
       });
     }
 

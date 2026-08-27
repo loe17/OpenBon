@@ -3,6 +3,13 @@ import { logSystemActionSafe } from '@/lib/action-logger';
 import { prisma } from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 import { getOrAssignWaiterNumber } from '@/lib/waiter-number';
+import { hashPin } from '@/lib/auth-pin';
+
+/** M3.1: Gepinnte Eingabe normalisieren und NUR als PBKDF2-Hash persistieren. */
+function resolveStoredPin(rawPin: unknown): string {
+  const clean = typeof rawPin === 'string' ? rawPin.trim() : '';
+  return hashPin(clean.length >= 4 ? clean : '3333');
+}
 
 export async function GET(req: Request) {
   // Lesend fuer jede angemeldete Station: die Schichtabrechnung an der
@@ -122,18 +129,19 @@ export async function POST(req: NextRequest) {
     }
 
     const waiterNumber = await getOrAssignWaiterNumber(name);
+    const storedPin = resolveStoredPin(pin);
 
     const waiter = await prisma.waiterProfile.upsert({
       where: { name: name.trim() },
       update: {
-        pin: pin || '3333',
+        pin: storedPin,
         tipProfileId,
         isActive: isActive !== undefined ? Boolean(isActive) : true,
       },
       create: {
         name: name.trim(),
         waiterNumber,
-        pin: pin || '3333',
+        pin: storedPin,
         tipProfileId,
         isActive: isActive !== undefined ? Boolean(isActive) : true,
       },

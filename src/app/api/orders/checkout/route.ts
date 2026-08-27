@@ -346,6 +346,10 @@ export async function POST(req: Request) {
       const receiptPrinter = await prisma.printer.findFirst({ where: { isActive: true } });
       if (receiptPrinter && config) {
         const { formatWaiterLabel } = await import('@/lib/waiter-number');
+        const ebReceiptUrl =
+          config.enableDigitalReceiptQr && payment.digitalReceiptCode && config.baseUrl
+            ? buildReceiptUrl(config.baseUrl, payment.digitalReceiptCode)
+            : undefined;
         const ticketData: TicketData = {
           title: 'KASSENBELEG / QUITTUNG',
           invoiceNumber: payment.invoiceNumber,
@@ -385,6 +389,8 @@ export async function POST(req: Request) {
           taxNumber: config.taxNumber || undefined,
           vatId: config.vatId || undefined,
           footerText: config.receiptFooterText || undefined,
+          showQr: Boolean(config.enableDigitalReceiptQr),
+          qrUrl: ebReceiptUrl,
         };
         await networkSpooler.printTicket(receiptPrinter, ticketData).catch(() => undefined);
       }

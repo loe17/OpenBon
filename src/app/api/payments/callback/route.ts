@@ -2,18 +2,34 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import PaymentAdapterRegistry from '@/lib/payment/adapters/registry';
 import { logSystemActionSafe } from '@/lib/action-logger';
+import type { PaymentResult } from '@/lib/payment/types';
+
+/**
+ * M1.2 Callback-Zustandsmaschine:
+ *
+ * App-to-App-Callbacks (Deep-Link-Provider) sind kryptografisch NICHT verifizierbar.
+ * Damit kein handwerklich gebauter Callback (status=succeeded) eine Zahlung durchdrueckt,
+ * gilt:
+ *  - STRIPE: Intent wird serverseitig gegen die Stripe-API verifiziert; nur ein von
+ *    Stripe bestaetigter Zahlungslauf ergibt direkt SUCCESS.
+ *  - Alle anderen Provider: Callback erzeugt hoechstens REPORTED_SUCCESS und muss
+ *    vom Kassierer an der Station bestätigt werden (POST /api/payments/session/[id]
+ *    mit action=CONFIRM_REPORTED, erfordert angemeldetes Personal).
+ */
+
+async function loadProviderConfig(provider: string) {
+  const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
+  if (!config) return null;
+  return {
+    stripeSecretKey: config.stripeSecretKey,
+  };
+}
 
 async function processCallback(params: Record<string, string>) {
   const providerKey = params.provider || params['smp-status'] ? (params['smp-status'] ? 'SUMUP' : params.provider) : 'SUMUP';
   const adapter = PaymentAdapterRegistry.getAdapter(providerKey) || PaymentAdapterRegistry.getAdapter('SUMUP');
 
-  const result: {
-    status: 'SUCCESS' | 'FAILED' | 'CANCELLED' | 'PENDING' | 'TIMEOUT';
-    customerReference?: string;
-    authCode?: string;
-    externalTransactionId?: string;
-    errorMessage?: string;
-  } = adapter
+  const adapterResult: PaymentResult = adapter
     ? adapter.handleCallback(params)
     : {
         status: params.status === 'success' ? 'SUCCESS' : 'FAILED',
@@ -23,7 +39,26 @@ async function processCallback(params: Record<string, string>) {
         errorMessage: params.error,
       };
 
-  const ref = result.customerReference || params.referenceId || params.orderId || params.reference || '';
+  // M1.2: Erfolgsmeldung nicht ungeprueft akzeptieren.
+  let effectiveStatus = adapterResult.status;
+  let verified = false;
+  if (adapterResult.status === 'SUCCESS') {
+    const providerType = String(providerKey).toUpperCase().replace(/^CARD_/, '');
+    if (providerType === 'STRIPE') {
+      const providerConfig = await loadProviderConfig(providerKey);
+      const stripeAdapter = PaymentAdapterRegistry.getAdapter('STRIPE');
+      const intentId =
+        params.payment_intent || params.intentId || params.id || adapterResult.externalTransactionId || '';
+      if (providerConfig && stripeAdapter && typeof (stripeAdapter as any).verifyPaymentIntent === 'function') {
+        verified = await (stripeAdapter as any).verifyPaymentIntent(intentId, providerConfig);
+      }
+      effectiveStatus = verified ? 'SUCCESS' : 'REPORTED_SUCCESS';
+    } else {
+      effectiveStatus = 'REPORTED_SUCCESS';
+    }
+  }
+
+  const ref = adapterResult.customerReference || params.referenceId || params.orderId || params.reference || '';
 
   // Suche nach der zugehörigen PaymentSession
   let session: any = null;
@@ -41,24 +76,25 @@ async function processCallback(params: Record<string, string>) {
   }
 
   if (session) {
+    // Bereits abschliessend bestatigte Sessions bleiben unveraenderlich.
     if (session.status !== 'SUCCESS') {
       session = await prisma.paymentSession.update({
         where: { id: session.id },
         data: {
-          status: result.status,
-          authCode: result.authCode || session.authCode,
-          externalTxId: result.externalTransactionId || session.externalTxId,
-          errorMessage: result.errorMessage,
+          status: effectiveStatus,
+          authCode: adapterResult.authCode || session.authCode,
+          externalTxId: adapterResult.externalTransactionId || session.externalTxId,
+          errorMessage: effectiveStatus === 'REPORTED_SUCCESS' ? null : adapterResult.errorMessage,
           resolvedAt: new Date(),
         },
       });
 
-      if (result.status === 'SUCCESS') {
+      if (effectiveStatus === 'SUCCESS') {
         await logSystemActionSafe(() => ({
           action: 'PAYMENT_COMPLETED',
           category: 'SALES',
           actor: session.waiterName || 'App-to-App',
-          details: `App-to-App Zahlung (${session.provider}) über ${(session.amountCents / 100).toFixed(2)} € erfolgreich abgeschlossen.`,
+          details: `App-to-App Zahlung (${session.provider}) über ${(session.amountCents / 100).toFixed(2)} € erfolgreich abgeschlossen${verified ? ' (Stripe-API-verifiziert)' : ''}.`,
         }));
 
         if (global.io) {
@@ -69,11 +105,23 @@ async function processCallback(params: Record<string, string>) {
             amount: session.amountCents / 100,
           });
         }
+      } else if (effectiveStatus === 'REPORTED_SUCCESS') {
+        await logSystemActionSafe(() => ({
+          action: 'PAYMENT_REPORTED',
+          category: 'SALES',
+          actor: session.waiterName || 'App-to-App',
+          details: `App-to-App Erfolgsmeldung (${session.provider}) für ${(session.amountCents / 100).toFixed(2)} € empfangen - wartet auf Kassierer-Bestätigung.`,
+          metadata: {
+            sessionId: session.id,
+            provider: session.provider,
+            amountCents: session.amountCents,
+          },
+        }));
       }
     }
   }
 
-  return { result, session };
+  return { result: { ...adapterResult, status: effectiveStatus }, verified, session };
 }
 
 export async function GET(req: Request) {
@@ -84,12 +132,14 @@ export async function GET(req: Request) {
       params[k] = v;
     });
 
-    const { result, session } = await processCallback(params);
+    const { result, verified, session } = await processCallback(params);
 
     return NextResponse.json({
       success: result.status === 'SUCCESS',
       status: result.status,
+      requiresCashierConfirmation: result.status === 'REPORTED_SUCCESS',
       result,
+      verified,
       session,
     });
   } catch (error) {
@@ -103,12 +153,14 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { result, session } = await processCallback(body);
+    const { result, verified, session } = await processCallback(body);
 
     return NextResponse.json({
       success: result.status === 'SUCCESS',
       status: result.status,
+      requiresCashierConfirmation: result.status === 'REPORTED_SUCCESS',
       result,
+      verified,
       session,
     });
   } catch (error) {

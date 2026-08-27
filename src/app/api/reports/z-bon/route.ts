@@ -6,6 +6,7 @@ import { EscPosBuilder, type ZBonReport } from '@/lib/printer/escpos-builder';
 import { computePeriodTotals, getOrCreateOpenPeriod, signFiscalBlock } from '@/lib/register-period';
 import haService from '@/lib/ha/ha-service';
 import { requireApiAuth } from '@/lib/api-guard';
+import { verifyPinHash } from '@/lib/auth-pin';
 
 /**
  * Spec 6.7: Z-Bon (offizieller Kassenabschluss).
@@ -53,7 +54,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Keine Konfiguration gefunden' }, { status: 500 });
     }
 
-    if ((body.pin || '').trim() !== config.adminPin) {
+    // M3.2: verifyPinHash statt Direktvergleich - funktioniert mit gehashten
+    // und legacy Klartext-Eintraegen identisch.
+    if (!verifyPinHash((body.pin || '').trim(), config.adminPin)) {
       return NextResponse.json(
         { error: 'Der Tagesabschluss ist nur mit dem Admin-PIN möglich.' },
         { status: 403 }
