@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Settings,
   Building2,
@@ -38,6 +38,8 @@ export default function AdminSettingsPage() {
   const [autostartInfo, setAutostartInfo] = useState<any>(null);
   const [togglingAutostart, setTogglingAutostart] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  // N3.4: Basis-Snapshot gegen ungespeicherte Änderungen schützen
+  const baselineRef = useRef<string | null>(null);
 
   const fetchConfig = async () => {
     try {
@@ -51,6 +53,9 @@ export default function AdminSettingsPage() {
       const printData = await printRes.json();
 
       setConfig(data);
+      try {
+        baselineRef.current = JSON.stringify(data);
+      } catch {}
       setAutostartInfo(autoData);
       if (Array.isArray(printData)) setPrinters(printData);
     } catch (e) {
@@ -68,10 +73,33 @@ export default function AdminSettingsPage() {
     setConfig((prev) => (prev ? { ...prev, ...updates } : null));
   };
 
+  const isDirty = Boolean(
+    config && baselineRef.current !== null && JSON.stringify(config) !== baselineRef.current
+  );
+
+  // N3.4: Browser-Warnung bei ungespeicherten Änderungen (Tab schließen/navigieren)
+  useEffect(() => {
+    if (!isDirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [isDirty]);
+
   const handleSave = async () => {
-    if (!config) return;
+    if (!config || saving) return;
     setSaving(true);
     triggerHapticFeedback();
+    const snapshot = (() => {
+      try {
+        return JSON.stringify(config);
+      } catch {
+        return null;
+      }
+    })();
     try {
       const res = await fetch('/api/config', {
         method: 'POST',
@@ -80,6 +108,9 @@ export default function AdminSettingsPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
+        if (snapshot !== null) {
+          baselineRef.current = snapshot;
+        }
         success('Einstellungen erfolgreich gespeichert!');
       } else {
         error(data.error || data.message || data.details || 'Fehler beim Speichern der Einstellungen');
@@ -149,11 +180,21 @@ export default function AdminSettingsPage() {
         <button
           type="button"
           onClick={handleSave}
-          disabled={saving}
-          className="min-h-[48px] px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black text-sm transition active:scale-95 touch-manipulation shadow-lg shadow-emerald-950/40 flex items-center gap-2"
+          disabled={saving || !isDirty}
+          className={`min-h-[48px] px-6 py-2.5 rounded-xl text-white font-black text-sm transition active:scale-95 touch-manipulation shadow-lg flex items-center gap-2 ${
+            isDirty && !saving
+              ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-950/40'
+              : 'bg-slate-700 opacity-60 cursor-not-allowed'
+          }`}
         >
           <Save className="w-4 h-4" />
-          <span>{saving ? 'Wird gespeichert...' : 'Änderungen speichern'}</span>
+          <span>
+            {saving
+              ? 'Wird gespeichert...'
+              : isDirty
+                ? 'Änderungen speichern •'
+                : 'Keine Änderungen'}
+          </span>
         </button>
       </div>
 

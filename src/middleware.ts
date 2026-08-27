@@ -20,6 +20,9 @@ const PUBLIC_PATHS = [
   '/api/receipt',
   '/api/guest/orders',
   '/api/sync', // HA-Sync (Heartbeat + Pull) – eigener Schutz über Shared Secret (X-HA-Secret)
+  // N1 Pairing-Abruf: Server-zu-Server vom Partnerknoten (keine Admin-Session
+  // moeglich). Interne Doppelabsicherung: Shared Secret + 6-stelliger Code.
+  '/api/system/ha/pull',
   '/customer-display',
   '/receipt',
   '/guest',

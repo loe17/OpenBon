@@ -1,5 +1,18 @@
 #!/usr/bin/env node
 /**
+ * @deprecated seit v0.4.11
+ *
+ * N1: Das HA-Pairing läuft jetzt als IN-APP-ASSISTENT:
+ *   Admin-Oberfläche -> Einstellungen -> Allgemein -> Hochverfügbarkeit
+ *   -> "Pairing starten" (6-stelliger Bestätigungscode statt Token-Befehl).
+ *
+ * HINWEIS ZU DIESER DATEI: Sie funktioniert NICHT mehr wie dokumentiert -
+ * das Script setzt haSyncSecret per POST /api/config, dieser Feldname ist
+ * seit der Restore-Whitelist (v0.4.10) serverseitig gesperrt. Die Datei
+ * bleibt nur als historische Referenz im Repo.
+ *
+ * ------------------------------------------------------------------------
+ */
  * M5.1 HA-Secret-Pairing fuer OpenBon Doppelinstallationen (Primary <-> Standby).
  *
  * Hintergrund: Bis v0.4.9 verwendeten beide Knoten das im Quellcode bekannte

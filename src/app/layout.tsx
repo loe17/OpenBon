@@ -6,6 +6,8 @@ import { ThemeProvider } from '@/components/providers/theme-provider';
 import Navbar from '@/components/navigation/navbar';
 import TrainingWatermark from '@/components/ui/training-watermark';
 import OfflineBanner from '@/components/ui/offline-banner';
+import HaBanner from '@/components/ui/ha-banner';
+import UpdateNoticeBar from '@/components/ui/update-notice-bar';
 import { BroadcastAlertOverlay } from '@/components/notifications/broadcast-alert-overlay';
 
 // Spec 3.3: Fliesstext & Labels = Inter (500/600)
@@ -92,6 +94,8 @@ export default function RootLayout({
           <ToastProvider>
             <SocketProvider>
               <OfflineBanner />
+              <HaBanner />
+              <UpdateNoticeBar />
               <BroadcastAlertOverlay />
               <Navbar />
               <TrainingWatermark />

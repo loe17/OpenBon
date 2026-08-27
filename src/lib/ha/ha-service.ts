@@ -69,6 +69,29 @@ export class HighAvailabilityService {
     return this.currentRole;
   }
 
+  /** N1: Aktuell wirksame Partner-URL (ENV oder DB-Konfiguration). */
+  public getPartnerUrl(): string {
+    return this.partnerUrl || '';
+  }
+
+  /**
+   * N1: Maschinenlesbarer Herzschlag-/Lease-Zustand fuer Diagnose & UI -
+   * ohne Geheimnisse, ohne Seiteneffekte.
+   */
+  public getHeartbeatInfo(): {
+    role: 'PRIMARY' | 'STANDBY';
+    partnerUrl: string;
+    missedHeartbeats: number;
+    instanceId: string;
+  } {
+    return {
+      role: this.currentRole,
+      partnerUrl: this.partnerUrl,
+      missedHeartbeats: this.missedHeartbeats,
+      instanceId: this.instanceId,
+    };
+  }
+
   /**
    * Stoppt den Heartbeat-/Lease-Zyklus dieser Instanz (Shutdown / Tests).
    * Ohne Aufruf würde ein abgemeldeter PRIMARY seine Lease weiter erneuern.

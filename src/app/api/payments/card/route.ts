@@ -9,6 +9,7 @@ import {
 import { runZvtPayment, probeZvtTerminal } from '@/lib/payment/zvt-client';
 import { toCents } from '@/lib/pricing';
 import { requireApiAuth } from '@/lib/api-guard';
+import { signCardCallback } from '@/lib/payment/callback-signature';
 
 /**
  * Spec 4: Einheitlicher Einstieg in alle Kartenzahlverfahren.
@@ -64,6 +65,13 @@ export async function GET(req: Request) {
         referenceId: reference,
         baseUrl: config.baseUrl || 'http://openbon.local',
         currency: config.currency,
+        // N2.1: Ruecksprung-URL serverseitig signieren - die Callback-Seite
+        // prueft ts/sig, bevor eine App-Rueckkehr als "autorisiert" gilt.
+        callbackSignature: await signCardCallback({
+          orderId: reference,
+          provider: String(provider),
+          status: 'success',
+        }),
       },
       {
         sumupAppId: config.sumupAppId,

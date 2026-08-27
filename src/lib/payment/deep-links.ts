@@ -15,6 +15,13 @@ export interface DeepLinkContext {
   /** Basis-URL des Servers, z. B. http://openbon.local */
   baseUrl: string;
   currency?: string;
+  /**
+   * N2.1: Serverseitige Signatur des Ruecksprung-Callbacks (ts+sig). Wird
+   * vom /api/payments/card Handler beigefuegt und von der Callback-Seite
+   * verifiziert - ohne gueltige Signatur gilt die App-Rueckkehr als
+   * nicht autorisiert.
+   */
+  callbackSignature?: { ts: string; sig: string } | null;
 }
 
 export interface SumUpConfig {
@@ -53,15 +60,20 @@ export function buildCallbackUrl(
   baseUrl: string,
   referenceId: string,
   provider: string,
-  status: 'success' | 'failed' = 'success'
+  status: 'success' | 'failed' = 'success',
+  callbackSignature?: { ts: string; sig: string } | null
 ): string {
   const normalized = baseUrl.replace(/\/+$/, '');
-  const params = encodeQuery({
+  const params: Record<string, string> = {
     orderId: referenceId,
     provider,
     status,
-  });
-  return `${normalized}/waiter/payment/callback?${params}`;
+  };
+  if (callbackSignature) {
+    params.ts = callbackSignature.ts;
+    params.sig = callbackSignature.sig;
+  }
+  return `${normalized}/waiter/payment/callback?${encodeQuery(params)}`;
 }
 
 /** Spec 4.1: sumupaffiliate://pay/v0.1 */
@@ -74,7 +86,7 @@ export function buildSumUpDeepLink(ctx: DeepLinkContext, config: SumUpConfig): s
     currency: ctx.currency ?? 'EUR',
     title: ctx.title,
     'foreign-tx-id': ctx.referenceId,
-    callback: buildCallbackUrl(ctx.baseUrl, ctx.referenceId, 'sumup'),
+    callback: buildCallbackUrl(ctx.baseUrl, ctx.referenceId, 'sumup', 'success', ctx.callbackSignature),
   });
   return `sumupaffiliate://pay/v0.1?${params}`;
 }
@@ -87,7 +99,7 @@ export function buildVrPayDeepLink(ctx: DeepLinkContext, config: VrPayConfig): s
     terminalId: config.terminalId ?? '',
     reference: ctx.referenceId,
     purpose: ctx.title,
-    callback: buildCallbackUrl(ctx.baseUrl, ctx.referenceId, 'vrpay'),
+    callback: buildCallbackUrl(ctx.baseUrl, ctx.referenceId, 'vrpay', 'success', ctx.callbackSignature),
   });
   return `vrpayme://pay?${params}`;
 }
@@ -100,7 +112,7 @@ export function buildSparkasseDeepLink(ctx: DeepLinkContext, config: SparkasseCo
     merchantId: config.merchantId ?? '',
     receiptId: ctx.referenceId,
     description: ctx.title,
-    callback: buildCallbackUrl(ctx.baseUrl, ctx.referenceId, 'sparkasse'),
+    callback: buildCallbackUrl(ctx.baseUrl, ctx.referenceId, 'sparkasse', 'success', ctx.callbackSignature),
   });
   return `spos://payment?${params}`;
 }

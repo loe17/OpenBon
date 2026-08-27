@@ -224,8 +224,11 @@ function PosCounterContent() {
     const lineId = `${product.id}_${variant ? variant.name : 'def'}_${optionsKey}`;
 
     // Pruefe Meldebestand-Warnung
-    if (product.trackStock && product.stockQuantity <= ((product as any).minStockAlert || 10)) {
-      setLowStockWarning(`Hinweis: "${product.name}" hat nur noch ${product.stockQuantity} Stk. auf Lager!`);
+    // N3.2: Verbindliche Quelle ist der abgebuchte StockItem-Bestand - das
+    // alte Feld stockQuantity blieb bei Standard-Verkaeften auf Altstand.
+    const currentStock = product.stockItem?.currentQuantity ?? product.stockQuantity;
+    if (product.trackStock && currentStock <= ((product as any).minStockAlert || 10)) {
+      setLowStockWarning(`Hinweis: "${product.name}" hat nur noch ${currentStock} Stk. auf Lager!`);
     }
 
     setCart((prev) => {

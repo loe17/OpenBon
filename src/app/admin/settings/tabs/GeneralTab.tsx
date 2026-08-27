@@ -22,6 +22,7 @@ import {
   Info,
 } from 'lucide-react';
 import type { EventConfigDTO } from '@/types/domain';
+import HaPairingAssistant from '@/components/admin/ha-pairing-assistant';
 
 interface GeneralTabProps {
   config: EventConfigDTO;
@@ -556,6 +557,9 @@ export function GeneralTab({
             } as any)
           }
         />
+
+        {/* N1 In-App-HA-Pairing-Assistent: ersetzt das manuelle ha-pair-Skript */}
+        <HaPairingAssistant />
       </div>
 
       {/* Betriebsdaten & Veranstaltung zurücksetzen */}

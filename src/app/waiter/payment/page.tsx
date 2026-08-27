@@ -31,6 +31,7 @@ import {
   VolumeX,
 } from 'lucide-react';
 import { isAudioMuted, setAudioMuted } from '@/lib/socket-client';
+import { sendWithOutboxFallback } from '@/lib/offline/outbox';
 import { WaiterOrderHistoryModal } from '@/components/waiter/waiter-order-history-modal';
 
 import StationGate from '@/components/auth/station-gate';
@@ -68,11 +69,6 @@ function WaiterPaymentContent() {
 
   const [returnDepositCount, setReturnDepositCount] = useState(0);
   const [depositUnit, setDepositUnit] = useState(1.0);
-  const [discountAmount, setDiscountAmount] = useState(0);
-  const [tipAmount, setTipAmount] = useState(0);
-  const [surchargePercent, setSurchargePercent] = useState(0);
-  const [surchargeFixed, setSurchargeFixed] = useState(0);
-  const [surchargeReason, setSurchargeReason] = useState('');
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
   const [nonPaidReason, setNonPaidReason] = useState('');
@@ -175,22 +171,9 @@ function WaiterPaymentContent() {
             taxRate: i.taxRate,
           })),
         returnDepositAmount: returnDepositCount * depositUnit,
-        discountAmount,
-        surchargeFixed,
-        surchargePercent,
-        tipAmount,
         givenAmount: Number(keypadValue.replace(',', '.')) || 0,
       }),
-    [
-      items,
-      returnDepositCount,
-      depositUnit,
-      discountAmount,
-      surchargeFixed,
-      surchargePercent,
-      tipAmount,
-      keypadValue,
-    ]
+    [items, returnDepositCount, depositUnit, keypadValue]
   );
 
   const hasSelection = items.some((i) => i.selectedQty > 0) || returnDepositCount > 0;
@@ -330,8 +313,6 @@ function WaiterPaymentContent() {
           context: {
             requestId,
             amountDue: checkout.amountDue,
-            tipAmount: checkout.tipAmount,
-            discountAmount: checkout.discountAmount,
             returnDeposit: checkout.returnDeposit,
             selectedItems: items.filter((i) => i.selectedQty > 0),
           },
@@ -364,19 +345,30 @@ function WaiterPaymentContent() {
   );
 
   // Rückkehr aus der Karten-App auswerten (Spec 4.1 Callback)
+  // N2.1: Nur noch serverseitig signaturverifizierte Rückkehr schaltet die
+  // Verbuchung frei. Unverifizierte Rückkehr (alte Links, Manipulation oder
+  // verpasste Signatur) erzeugt eine klare Meldung statt "OK".
   useEffect(() => {
     if (stage !== 'CARD') return;
     const check = () => {
       try {
         const raw = sessionStorage.getItem('openbon_card_result');
         if (!raw) return;
-        const result = JSON.parse(raw) as CardCallbackResult;
+        const result = JSON.parse(raw) as CardCallbackResult & { verified?: boolean; unverifiedNote?: string };
         sessionStorage.removeItem('openbon_card_result');
-        if (result.status === 'success') {
+
+        if (result.status === 'success' && result.verified === true) {
           setCardStatus('OK');
           setCardAuthCode(result.authCode);
           setCardMessage('Zahlung autorisiert.');
           playPaymentSuccess();
+        } else if (result.status === 'success' && result.verified !== true) {
+          setCardStatus('FAILED');
+          setCardMessage(
+            result.unverifiedNote ||
+              'Rückkehr der Karten-App war nicht serverseitig signiert - bitte am Terminal prüfen und die Zahlung erneut starten.'
+          );
+          playPaymentFailure();
         } else {
           setCardStatus('FAILED');
           setCardMessage('Die Kartenzahlung wurde abgebrochen.');
@@ -408,13 +400,10 @@ function WaiterPaymentContent() {
     setIsProcessing(true);
     setError(null);
     try {
-      const res = await fetch('/api/payments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Idempotency-Key': requestId,
-        },
-        body: JSON.stringify({
+      const res = await sendWithOutboxFallback(
+        'PAYMENT',
+        '/api/payments',
+        {
           tableId: tableId || null,
           waiterName: localStorage.getItem('pos_waiter_name') || 'Bedienung 1',
           deviceId: localStorage.getItem('pos_device_id'),
@@ -423,26 +412,36 @@ function WaiterPaymentContent() {
           cardAuthCode,
           returnDepositCount,
           returnDepositAmount: returnDepositCount * depositUnit,
-          discountAmount,
-          tipAmount,
-          surchargeAmount: surchargeFixed,
-          surchargePercent,
-          surchargeReason: surchargeFixed + surchargePercent > 0 ? surchargeReason || 'Aufschlag' : null,
           givenAmount: paymentMethod === 'CASH' ? givenAmount : 0,
           printReceipt: opts.printReceipt,
           requestId,
           idempotencyKey: requestId,
           itemsToPay,
-        }),
-      });
+        }
+      );
 
-      const data = (await res.json()) as { id?: string; invoiceNumber?: string; error?: string };
-      if (!res.ok) {
-        setError(data.error || 'Fehler bei der Zahlung');
+      // N3.1: Zahlungsversuche laufen über die Offline-Outbox. Gelingt der
+      // Versand nicht sofort, ist der Vorgang sicher eingereiht und wird
+      // automatisch nachgesendet - inklusive Idempotenz gegen Doppelbuchung.
+      if (!res.success) {
+        setError(res.error || 'Fehler bei der Zahlung');
         playPaymentFailure();
         return;
       }
 
+      if (res.pending || !res.data) {
+        playPaymentFailure();
+        setError(
+          res.error ||
+            'Verbindung unterbrochen – Zahlung wurde LOKAL gesichert und wird automatisch nachgesendet. Bitte Verbindung wiederherstellen und Vorgang im Sync-Hinweis beobachten.'
+        );
+        // Neuer Idempotenzschlüssel für den nächsten Versuch, damit keine
+        // Wiedereinspielung mit verändertem Warenkorb kollidiert.
+        setRequestId(generateIdempotencyKey('pay'));
+        return;
+      }
+
+      const data = res.data as { id?: string; invoiceNumber?: string; error?: string };
       haptic();
       if (paymentMethod === 'CASH') playPaymentSuccess();
       // Neuer Schluessel fuer den naechsten Teilbetrag / naechsten Gast
@@ -492,13 +491,6 @@ function WaiterPaymentContent() {
                   {formatCurrency(checkout.amountDueWithTip)}
                 </span>
               </div>
-              {checkout.tipAmount > 0 && (
-                <div className="sm:self-center">
-                  <span className="text-sm sm:text-base text-emerald-300 font-black bg-emerald-950/90 px-4 py-2 rounded-2xl border border-emerald-600 shadow inline-block">
-                    inkl. {formatCurrency(checkout.tipAmount)} Trinkgeld
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -1144,7 +1136,6 @@ function WaiterPaymentContent() {
                 setCompletedPaymentId(null);
                 setReceiptPrinted(false);
                 setKeypadValue('');
-                setTipAmount(0);
                 setReturnDepositCount(0);
                 setStage('SPLIT');
                 void fetchTableOrders();

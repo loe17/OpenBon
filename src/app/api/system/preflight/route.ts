@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import prisma from '@/lib/db';
 import haService from '@/lib/ha/ha-service';
-import { getHaSyncSecret } from '@/lib/ha/ha-secret';
+import { getHaSyncSecret, getHaSecretStatus } from '@/lib/ha/ha-secret';
 import { requireAdmin } from '@/lib/admin-guard';
 import { requireApiAuth } from '@/lib/api-guard';
 
@@ -136,6 +136,36 @@ export async function GET(req: Request) {
     }
   } catch {
     checks.push({ id: 'ha_partner', label: 'HA-Partner', status: 'SKIPPED', detail: 'Konfiguration nicht lesbar.' });
+  }
+
+  // N1 2b. HA-Secret-Zustand (maschinenlesbar, ohne Secret-Wert)
+  try {
+    const secretStatus = await getHaSecretStatus();
+    if (!secretStatus.partnerConfigured) {
+      checks.push({
+        id: 'ha_secret',
+        label: 'HA-Sync-Secret',
+        status: 'OK',
+        detail: 'Einzelbetrieb - Sync-Endpunkte geschlossen.',
+      });
+    } else if (secretStatus.isWeak) {
+      checks.push({
+        id: 'ha_secret',
+        label: 'HA-Sync-Secret',
+        status: 'WARNING',
+        detail:
+          'Oeffentlich bekanntes Standard-Secret im Doppelbetrieb. HA-Assistent in den Einstellungen oeffnen und pairen.',
+      });
+    } else {
+      checks.push({
+        id: 'ha_secret',
+        label: 'HA-Sync-Secret',
+        status: 'OK',
+        detail: `Starkes Secret aktiv (${secretStatus.source})${secretStatus.enforceMode ? ', Enforce-Modus' : ''}.`,
+      });
+    }
+  } catch {
+    checks.push({ id: 'ha_secret', label: 'HA-Sync-Secret', status: 'WARNING', detail: 'Zustand nicht pruefbar.' });
   }
 
   // 3. Drucker-Erreichbarkeit

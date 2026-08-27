@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import PaymentAdapterRegistry from '@/lib/payment/adapters/registry';
+import { requireApiAuth } from '@/lib/api-guard';
 import type { PaymentProviderType, ProviderConfiguration, PaymentRequest } from '@/lib/payment/types';
 
 export async function POST(req: Request) {
+  // N2.2: Expliziter Node-Guard - ohne ihn reichte im Degradationsfenster ein
+  // unsigniertes Token durch die Middleware und konnte Terminalzahlungen
+  // ausloesen. Jede Station hat ohnehin eine gueltige Staff-Session.
+  const auth = await requireApiAuth(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await req.json();
     const {

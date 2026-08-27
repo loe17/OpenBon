@@ -364,12 +364,45 @@ export async function POST(req: Request) {
           timeout: 45000,
           env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db' },
         }).catch(() => {});
-        const { stdout: dbOut } = await execAsync('npx prisma db push --accept-data-loss --skip-generate', {
+
+        // N2.3: Kein stiller Datenverlust im Update-Pfad - gleiche Regel wie
+        // bei den Startskripten: normaler Abgleich zuerst, Data-Loss nur mit
+        // expliziter Freigabe OPENBON_ALLOW_DATA_LOSS=1.
+        const pushEnv = {
           cwd: projectRoot,
           timeout: 45000,
           env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db' },
-        });
-        logs.push(dbOut.trim() || 'Datenbankschema aktuell.');
+        };
+
+        let dbPushFailed = false;
+        let dbPushOutput = '';
+        try {
+          const { stdout } = await execAsync('npx prisma db push --skip-generate', pushEnv);
+          logs.push(String(stdout).trim() || 'Datenbankschema aktuell.');
+        } catch (pushErr) {
+          dbPushFailed = true;
+          dbPushOutput = String((pushErr as any).stdout || '') + String((pushErr as any).stderr || '') + String((pushErr as { message?: string }).message || '');
+        }
+
+        if (dbPushFailed) {
+          if (/data loss/i.test(dbPushOutput)) {
+            if (process.env.OPENBON_ALLOW_DATA_LOSS === '1') {
+              logs.push('[WARNUNG] Freigabe aktiv - Schema-Abgleich MIT Datenverlustrisiko wird ausgefuehrt...');
+              const { stdout } = await execAsync('npx prisma db push --accept-data-loss --skip-generate', pushEnv);
+              logs.push(String(stdout).trim() || 'Schema-Abgleich abgeschlossen.');
+            } else {
+              throw new Error(
+                'SCHEMA-DATA-LOSS-GATE: Der neue Code erfordert Schemaaenderungen, die bestehende Daten verlieren wuerden.\n' +
+                  'Nichts wurde veraendert. Sicherung erstellen und anschliessend den Start der neuen Version einmal\n' +
+                  'mit OPENBON_ALLOW_DATA_LOSS=1 freigeben (siehe docs/BETRIEB_FLAGS.md), dann Update wiederholen.'
+              );
+            }
+          } else {
+            throw new Error(
+              `Datenbank-Abgleich fehlgeschlagen:\n${dbPushOutput.slice(0, 800)}`
+            );
+          }
+        }
 
         logs.push('[4/4] Kompiliere Produktions-Build (npm run build)...');
         const { stdout: buildOut } = await execAsync('npm run build', {

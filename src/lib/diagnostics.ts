@@ -1,4 +1,5 @@
 import net from 'net';
+import fs from 'fs';
 import prisma from './db';
 
 /**
@@ -8,6 +9,7 @@ import prisma from './db';
  *  - Datenbank-Integrität: prüft Tabellenstrukturen und behebt verwaiste Bestellzeilen
  *  - Drucker-Socket-Wächter: erkennt hängende Druckaufträge und startet den Spooler neu
  *  - HA-Journal-Konsistenz: bereinigt fehlerhafte Sync-Locks
+ *  - N1: HA-Sync-Secret-Zustand (schwach/ok) + Litestream-Replikat-Frische
  */
 
 export type CheckStatus = 'OK' | 'WARNING' | 'ERROR';
@@ -350,6 +352,160 @@ async function checkSyncJournal(): Promise<DiagnosticCheck> {
 
 let isRunning = false;
 
+/**
+ * N1 Prüfung 4: Zustand des HA-Sync-Secrets.
+ * Automatische Erkennung statt manuellem Pairing-Skript: Ein schwaches Secret
+ * bei konfiguriertem Partnerknoten erzeugt eine dauerhafte Meldung mit
+ * Fix-Hinweis auf den In-App-Assistenten (Einstellungen > Allgemein).
+ */
+async function checkHaSecret(): Promise<DiagnosticCheck> {
+  const startedAt = Date.now();
+  try {
+    const { getHaSecretStatus } = await import('./ha/ha-secret');
+    const status = await getHaSecretStatus();
+
+    if (!status.partnerConfigured) {
+      if (status.isWeak || !status.hasSecret) {
+        // Einzelknoten: ensureHaSecretHardened rotiert beim naechsten Start;
+        // solange kein Sync-Endpunkt exponiert wird, ist das unkritisch.
+        return {
+          id: 'ha_secret',
+          label: 'HA-Sync-Secret',
+          status: 'OK',
+          detail:
+            'Einzelbetrieb ohne Partner - Sync-Endpunkte bleiben geschlossen.' +
+            (status.enforceMode ? ' Enforce-Modus aktiv.' : ''),
+          repaired: 0,
+          durationMs: Date.now() - startedAt,
+        };
+      }
+      return {
+        id: 'ha_secret',
+        label: 'HA-Sync-Secret',
+        status: 'OK',
+        detail: 'Starkes Einzelknoten-Secret aktiv.',
+        repaired: 0,
+        durationMs: Date.now() - startedAt,
+      };
+    }
+
+    if (status.isWeak) {
+      return {
+        id: 'ha_secret',
+        label: 'HA-Sync-Secret',
+        status: 'WARNING',
+        detail:
+          'Doppelbetrieb mit oeffentlich bekanntem Standard-Secret. Bitte in den Einstellungen ' +
+          '(Allgemein > Hochverfuegbarkeit) den HA-Assistenten oeffnen und die Knoten pairen.',
+        repaired: 0,
+        durationMs: Date.now() - startedAt,
+      };
+    }
+
+    return {
+      id: 'ha_secret',
+      label: 'HA-Sync-Secret',
+      status: 'OK',
+      detail:
+        `Starkes Secret aktiv (${status.source})` +
+        (status.enforceMode ? ', Enforce-Modus aktiv' : '') +
+        '.',
+      repaired: 0,
+      durationMs: Date.now() - startedAt,
+    };
+  } catch (err) {
+    return {
+      id: 'ha_secret',
+      label: 'HA-Sync-Secret',
+      status: 'WARNING',
+      detail: `Zustand nicht pruefbar: ${err instanceof Error ? err.message : String(err)}`,
+      repaired: 0,
+      durationMs: Date.now() - startedAt,
+    };
+  }
+}
+
+/**
+ * N1 Prüfung 5: Frische des Litestream-Replikats (lokale Backup-Kopie).
+ * Dieselben Schwellwerte wie im Preflight (120 s OK, darunter Warnung/Störung),
+ * damit die Regelmeldung aus einem einzigen 60-s-Zyklus kommt.
+ */
+async function checkLitestreamReplicaFreshness(): Promise<DiagnosticCheck> {
+  const startedAt = Date.now();
+  const replicaDir = './prisma/backups/litestream-replica';
+  try {
+    if (!fs.existsSync(replicaDir)) {
+      return {
+        id: 'litestream_age',
+        label: 'Litestream-Replikat',
+        status: 'OK',
+        detail: 'Kein lokales Replikatverzeichnis vorhanden - Litestream offenbar nicht konfiguriert.',
+        repaired: 0,
+        durationMs: Date.now() - startedAt,
+      };
+    }
+
+    let newestMtime = 0;
+    for (const entry of fs.readdirSync(replicaDir)) {
+      if (!entry.endsWith('.db')) continue;
+      try {
+        const stat = fs.statSync(`${replicaDir}/${entry}`);
+        if (stat.mtimeMs > newestMtime) newestMtime = stat.mtimeMs;
+      } catch {}
+    }
+
+    if (newestMtime === 0) {
+      return {
+        id: 'litestream_age',
+        label: 'Litestream-Replikat',
+        status: 'WARNING',
+        detail: 'Replikatverzeichnis enthaelt keine .db-Datei - Backup-Frische unklar.',
+        repaired: 0,
+        durationMs: Date.now() - startedAt,
+      };
+    }
+
+    const ageSeconds = Math.round((Date.now() - newestMtime) / 1000);
+    if (ageSeconds < 120) {
+      return {
+        id: 'litestream_age',
+        label: 'Litestream-Replikat',
+        status: 'OK',
+        detail: `Letztes Replikat vor ${ageSeconds}s aktualisiert.`,
+        repaired: 0,
+        durationMs: Date.now() - startedAt,
+      };
+    }
+    if (ageSeconds < 600) {
+      return {
+        id: 'litestream_age',
+        label: 'Litestream-Replikat',
+        status: 'WARNING',
+        detail: `Replikat ${Math.round(ageSeconds / 60)} Minuten alt - schwaecher als gewoehnlich.`,
+        repaired: 0,
+        durationMs: Date.now() - startedAt,
+      };
+    }
+    return {
+      id: 'litestream_age',
+      label: 'Litestream-Replikat',
+      status: 'ERROR',
+      detail: `Replikat ${Math.round(ageSeconds / 60)} Minuten alt - Litestream laeuft moeglicherweise nicht.`,
+      repaired: 0,
+      durationMs: Date.now() - startedAt,
+    };
+  } catch (err) {
+    return {
+      id: 'litestream_age',
+      label: 'Litestream-Replikat',
+      status: 'WARNING',
+      detail: `Frische nicht pruefbar: ${err instanceof Error ? err.message : String(err)}`,
+      repaired: 0,
+      durationMs: Date.now() - startedAt,
+    };
+  }
+}
+
 /** Führt alle Prüfungen aus und protokolliert das Ergebnis. */
 export async function runDiagnostics(persist = true): Promise<DiagnosticsResult> {
   if (isRunning) {
@@ -365,7 +521,13 @@ export async function runDiagnostics(persist = true): Promise<DiagnosticsResult>
   const started = Date.now();
 
   try {
-    const checks = [await checkDatabase(), await checkPrinters(), await checkSyncJournal()];
+    const checks = [
+      await checkDatabase(),
+      await checkPrinters(),
+      await checkSyncJournal(),
+      await checkHaSecret(), // N1: automatische Pruefung statt manueller Skript-Befehle
+      await checkLitestreamReplicaFreshness(), // N1: Backup-Frische im Regelbetrieb sichtbar machen
+    ];
 
     const repairsCount = checks.reduce((s, c) => s + c.repaired, 0);
     const status: CheckStatus = checks.some((c) => c.status === 'ERROR')

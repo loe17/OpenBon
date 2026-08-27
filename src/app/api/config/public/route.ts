@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { APP_VERSION } from '@/lib/version';
 
 export async function GET() {
   try {
@@ -88,6 +89,8 @@ export async function GET() {
       baseUrl: config.baseUrl,
       tseProvider: config.tseProvider,
       initialPinSet: config.initialPinSet,
+      // N3.3: Versionskennung fuer den "Update verfuegbar"-Hinweis der Clients
+      appVersion: APP_VERSION,
     };
 
     return NextResponse.json(publicConfig);

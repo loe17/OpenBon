@@ -69,6 +69,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const { action, authCode, reason } = body;
 
     if (action === 'CANCEL') {
+      // N2.2: Auch das Abbrechen erfordert Personal-Session; Actor = echte
+      // Station statt Client-Angabe.
+      const cancelAuth = await requireApiAuth(req);
+      if (!cancelAuth.ok) return cancelAuth.response;
+
       const updated = await prisma.paymentSession.update({
         where: { id: session.id },
         data: {
@@ -78,10 +83,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         },
       });
 
+      const cancelledBy = cancelAuth.session.waiterName || cancelAuth.session.role;
       await logSystemActionSafe(() => ({
         action: 'CONFIG_CHANGED',
         category: 'SALES',
-        actor: session.waiterName || 'System',
+        actor: cancelledBy,
         details: `Kartenzahlungs-Sitzung ${session.id} manuell abgebrochen.`,
       }));
 

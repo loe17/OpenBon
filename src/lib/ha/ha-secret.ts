@@ -41,6 +41,111 @@ export async function getHaSyncSecret(): Promise<string> {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* N1 Partner-URL-Erkennung & Status                                    */
+/*                                                                      */
+/* Der Weak-Secret-Bypass darf NICHT nur die ENV-Umgebungsvariable       */
+/* beruecksichtigen: Die Admin-Oberflaeche schreibt die Partner-URL      */
+/* ausschliesslich in die Datenbank (EventConfig.haPartnerUrl). Ohne     */
+/* diese zentrale Erkennung erhielten DB-konfigurierte Doppelinstallation*/
+/* en Heartbeat-401er und faelschlich einen Failover ausloesen.          */
+/* ------------------------------------------------------------------ */
+
+let cachedPartner: { url: string | null; fetchedAt: number } | null = null;
+const PARTNER_CACHE_TTL_MS = 30_000;
+
+/** Partner-URL: ENV zuerst, sonst Datenbank (mit kleinem Cache). */
+export async function getConfiguredPartnerUrl(): Promise<string | null> {
+  const envUrl = process.env.HA_PARTNER_URL?.trim();
+  if (envUrl) return envUrl;
+
+  if (cachedPartner && Date.now() - cachedPartner.fetchedAt < PARTNER_CACHE_TTL_MS) {
+    return cachedPartner.url;
+  }
+
+  try {
+    const config = await prisma.eventConfig.findUnique({
+      where: { id: 'default' },
+      select: { haPartnerUrl: true },
+    });
+    const url = config?.haPartnerUrl?.trim() || null;
+    cachedPartner = { url, fetchedAt: Date.now() };
+    return url;
+  } catch {
+    return cachedPartner?.url ?? null;
+  }
+}
+
+/** Invalidiert beide Kurzzeitcaches (nach Secret-/URL-Aenderungen aufrufen). */
+export function clearHaCaches(): void {
+  cachedSecret = null;
+  cachedPartner = null;
+}
+
+export interface HaSecretStatus {
+  /** Ein Secret ist konfiguriert (egal wie stark). */
+  hasSecret: boolean;
+  /** Das aktive Secret ist leer oder oeffentlich bekannt. */
+  isWeak: boolean;
+  source: 'ENV' | 'DB' | 'NONE';
+  /** Ein Partnerknoten ist konfiguriert (ENV oder DB). */
+  partnerConfigured: boolean;
+  /** HA_ENFORCE_SECRET=1 -> ohne starkes Secret wird fail-closed geantwortet. */
+  enforceMode: boolean;
+}
+
+/**
+ * N1 Maschinenlesbarer Zustand fuer Diagnose/UI - enthaelt NIEMALS den
+ * Secret-Wert selbst (der GET /api/config bleibt den Admin-Clients vorbehalten).
+ */
+export async function getHaSecretStatus(): Promise<HaSecretStatus> {
+  const envSecret = process.env.HA_SYNC_SECRET?.trim();
+  const partnerConfigured = Boolean(await getConfiguredPartnerUrl());
+  const enforceMode = process.env.HA_ENFORCE_SECRET === '1';
+
+  if (envSecret) {
+    return {
+      hasSecret: true,
+      isWeak: WEAK_HA_SECRETS.has(envSecret),
+      source: 'ENV',
+      partnerConfigured,
+      enforceMode,
+    };
+  }
+
+  let dbValue = '';
+  try {
+    dbValue =
+      (
+        await prisma.eventConfig.findUnique({
+          where: { id: 'default' },
+          select: { haSyncSecret: true },
+        })
+      )?.haSyncSecret?.trim() || '';
+  } catch {}
+
+  return {
+    hasSecret: dbValue.length > 0,
+    isWeak: WEAK_HA_SECRETS.has(dbValue),
+    source: dbValue ? 'DB' : 'NONE',
+    partnerConfigured,
+    enforceMode,
+  };
+}
+
+/**
+ * N1 Schreibt das Sync-Secret in die Konfiguration und invalidiert saemtliche
+ * Caches. Aufrufer muessen ADMIN-gesichert sein (siehe /api/system/ha/*).
+ */
+export async function setHaSyncSecret(nextValue: string): Promise<void> {
+  await prisma.eventConfig.upsert({
+    where: { id: 'default' },
+    update: { haSyncSecret: nextValue },
+    create: { id: 'default', haSyncSecret: nextValue },
+  });
+  clearHaCaches();
+}
+
 let loggedLegacyBypass = false;
 
 /**
@@ -48,7 +153,7 @@ let loggedLegacyBypass = false;
  *
  * Neues Verhalten:
  *  - Konfiguriertes, NICHT-oeffentliches Secret: strikte konstantzeitige Pruefung.
- *  - Fehlendes ODER oeffentlich bekannten Default-Secret bei AKTIVEM Partner-
+ *  - Fehlendes ODER oeffentlich bekanntes Default-Secret bei AKTIVEM Partner-
  *    Setup: Warnung pro Boot + Legacy-Durchlass, DAMIT der laufende Doppelbetrieb
  *    nicht abrupt ausfaellt. Mit ENV HA_ENFORCE_SECRET=1 wird sofort fail-closed.
  *    Einzelnodes werden durch ensureHaSecretHardened() automatisch gehaertet.
@@ -59,13 +164,16 @@ export async function verifyHaSecret(req: Request): Promise<boolean> {
   const expected = (await getHaSyncSecret()) || '';
 
   if (WEAK_HA_SECRETS.has(expected)) {
-    if (process.env.HA_PARTNER_URL) {
+    // N1-Fix: Partner kann in der ENV ODER (wie vom Admin-UI geschrieben)
+    // ausschliesslich in der Datenbank konfiguriert sein.
+    const partnerUrl = await getConfiguredPartnerUrl();
+    if (partnerUrl) {
       if (!loggedLegacyBypass) {
         loggedLegacyBypass = true;
         console.warn(
-          '[HA] Schwaches/oefentliches HA-Sync-Secret aktiv. Bitte einmalig scripts/ha-pair.mjs ' +
-            'ausfuehren oder ein eigenes HA_SYNC_SECRET setzen. Mit HA_ENFORCE_SECRET=1 wird der ' +
-            'Zugriff ohne starkes Secret hart abgelehnt.'
+          '[HA] Schwaches/oefentliches HA-Sync-Secret aktiv (Partner: ' +
+            `${partnerUrl}). Bitte einmalig ueber den In-App-HA-Assistenten pairen.` +
+            ' Mit HA_ENFORCE_SECRET=1 wird der Zugriff ohne starkes Secret hart abgelehnt.'
         );
       }
       if (process.env.HA_ENFORCE_SECRET !== '1') {

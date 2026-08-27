@@ -200,6 +200,14 @@ export interface ProductDTO {
   variants?: ProductVariantDTO[];
   options?: ProductOptionDTO[];
   category?: ProductCategoryDTO;
+  /** N3.2: Aktueller Lagerbestand aus dem verbindlichen StockItem-Pfad. */
+  stockItem?: {
+    productId: string;
+    initialQuantity: number;
+    currentQuantity: number;
+    alertThreshold: number;
+    isAutoDeactivate: boolean;
+  } | null;
 }
 
 export interface ProductCategoryDTO {
