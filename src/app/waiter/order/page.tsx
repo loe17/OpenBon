@@ -30,6 +30,7 @@ import {
   History,
   Volume2,
   VolumeX,
+  MessageSquare,
 } from 'lucide-react';
 import { COURSES } from '@/types/domain';
 import { calculateMinBirthdate, EU_ALLERGENS, filterProductsByExcludedAllergens } from '@/lib/compliance';
@@ -454,15 +455,25 @@ function WaiterOrderContent() {
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white max-w-full">
       {/* Top Header */}
       <div className="p-2.5 sm:p-3 bg-slate-900 border-b border-slate-700 flex items-center justify-between gap-2 shadow-md shrink-0">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={() => router.push('/waiter')}
-            className="pos-touch-btn p-2 bg-slate-800 hover:bg-slate-700 rounded-2xl text-slate-300 flex items-center gap-1.5 text-xs font-bold transition active:scale-95"
+            className="pos-touch-btn p-2 bg-slate-800 hover:bg-slate-700 rounded-2xl text-slate-300 flex items-center gap-1.5 text-xs font-bold transition active:scale-95 shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Tische</span>
+            <span>Zurück</span>
           </button>
 
+          <div className="min-w-0 flex items-center gap-1.5 pl-1">
+            <span className="text-xs sm:text-sm font-bold text-slate-400 truncate">{waiterName}</span>
+            <span className="text-slate-600 font-bold">•</span>
+            <h2 className="text-sm sm:text-base font-black text-white truncate">
+              {table ? table.label : `Tisch ${tableId}`}
+            </h2>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             onClick={() => setShowHistoryModal(true)}
@@ -489,22 +500,16 @@ function WaiterOrderContent() {
           >
             {soundMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
-        </div>
 
-        <div className="text-center">
-          <span className="text-[11px] text-slate-400 font-bold block">
-            {waiterName} • Tisch:
-          </span>
-          <h2 className="text-base sm:text-lg font-black text-white leading-none">
-            {table ? table.label : `Tisch ${tableId}`}
-          </h2>
-        </div>
-
-        <div className="text-right">
-          <span className="text-[11px] text-slate-400 font-bold block">{totalItemCount} Pos.</span>
-          <span className="text-sm sm:text-base font-black text-emerald-400 font-mono">
-            {formatCurrency(totalAmount)}
-          </span>
+          <button
+            type="button"
+            onClick={() => router.push('/chat')}
+            className="p-2 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-2xl text-slate-300 hover:text-white flex items-center gap-1 text-xs font-bold transition active:scale-95 shadow"
+            title="Team-Chat öffnen"
+          >
+            <MessageSquare className="w-4 h-4 text-emerald-400" />
+            <span className="hidden md:inline">Chat</span>
+          </button>
         </div>
       </div>
 
@@ -563,12 +568,12 @@ function WaiterOrderContent() {
       )}
 
       {/* Kategorien-Leiste (Eindeutig oben - Extra groß & touchfreundlich) */}
-      <div className="bg-slate-900 px-3 py-2.5 border-b border-slate-800 flex items-center gap-2.5 overflow-x-auto shrink-0 shadow-inner">
+      <div className="bg-slate-900 px-3 py-2 border-b border-slate-800 flex items-center gap-2 overflow-x-auto shrink-0 shadow-inner">
         {categories.map((cat) => (
           <button
             key={cat.id}
             onClick={() => setSelectedCatId(cat.id)}
-            className={`pos-touch-btn px-5 py-3 rounded-2xl text-sm sm:text-base font-black whitespace-nowrap transition-all border-2 shadow-sm ${
+            className={`pos-touch-btn px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black whitespace-nowrap transition-all border-2 shadow-sm ${
               selectedCatId === cat.id
                 ? 'bg-blue-600 text-white border-blue-400 shadow-md shadow-blue-950/60 scale-[1.02]'
                 : 'bg-slate-800/90 text-slate-300 border-slate-700 hover:bg-slate-700 hover:text-white'
@@ -598,7 +603,7 @@ function WaiterOrderContent() {
                   : 'bg-slate-800 text-slate-400 border-slate-700'
               }`}
             >
-              Gang {c.number}
+              {c.label}
             </button>
           ))}
           <button
@@ -627,32 +632,36 @@ function WaiterOrderContent() {
         </div>
       )}
 
-      {/* Hauptbereich: Artikelkacheln mit flexibler voller Höhe & einklappbarem Warenkorb-Drawer */}
+      {/* Hauptbereich: Kompakte Artikelkacheln ohne Preise & ohne Plus für maximalen Platz */}
       <div className="flex-1 flex flex-col overflow-hidden min-h-0 relative">
-        {/* ARTIKEL KACHELN: Großzügige Kacheln, große Typografie, maximaler vertikaler Platz */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3">
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(125px,1fr))] gap-2 sm:gap-3">
+        <div className="flex-1 min-h-0 overflow-y-auto p-2 sm:p-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(105px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2">
             {displayedProducts?.map((product) => {
               const hasVariants = product.variants && product.variants.length > 0;
               const hasOptions = product.options && product.options.length > 0;
               const isOut = product.isSoldOut;
-              const { price: effectivePrice, isHappyHour } = getEffectiveProductPrice(product as any);
+              const { isHappyHour } = getEffectiveProductPrice(product as any);
 
               return (
                 <button
                   key={product.id}
                   disabled={isOut}
                   onClick={() => handleProductClick(product)}
-                  className={`pos-touch-btn relative flex flex-col justify-between p-3.5 sm:p-4 rounded-2xl border-2 shadow-md text-left transition ${
+                  className={`pos-touch-btn relative flex flex-col justify-between p-2.5 sm:p-3 rounded-2xl border-2 shadow-sm text-left transition min-h-[72px] sm:min-h-[82px] active:scale-95 ${
                     isOut
                       ? 'bg-slate-950/60 border-rose-900/40 opacity-40 cursor-not-allowed line-through'
-                      : 'bg-slate-900 border-slate-700 hover:border-blue-500 active:scale-95'
+                      : hasVariants || hasOptions
+                      ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/40 border-slate-700 hover:border-blue-400 shadow-md ring-1 ring-blue-500/20'
+                      : 'bg-slate-900 border-slate-700 hover:border-blue-500'
                   }`}
-                  style={{ borderLeftColor: isOut ? '#991b1b' : product.buttonColor || '#3b82f6', borderLeftWidth: '6px' }}
+                  style={{
+                    borderLeftColor: isOut ? '#991b1b' : product.buttonColor || '#3b82f6',
+                    borderLeftWidth: '5px',
+                  }}
                 >
                   <div className="w-full">
-                    <div className="flex items-start justify-between gap-1.5">
-                      <h3 className="font-black text-sm sm:text-base text-white line-clamp-2 leading-snug tracking-tight">
+                    <div className="flex items-start justify-between gap-1">
+                      <h3 className="font-extrabold text-xs sm:text-sm text-white line-clamp-2 leading-tight tracking-tight pr-1">
                         {product.name}
                       </h3>
                       {product.allergens && (
@@ -661,42 +670,26 @@ function WaiterOrderContent() {
                             e.stopPropagation();
                             setSelectedProductInfo(product);
                           }}
-                          className="text-slate-500 hover:text-amber-400 p-0.5"
+                          className="text-slate-500 hover:text-amber-400 p-0.5 shrink-0"
                           title="Allergene"
                         >
-                          <AlertCircle className="w-3.5 h-3.5" />
+                          <AlertCircle className="w-3 h-3 text-slate-400" />
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1.5 mt-1.5">
+                    <div className="flex flex-wrap items-center gap-1 mt-1.5">
                       {isHappyHour && (
-                        <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                          <Sparkles className="w-2.5 h-2.5" /> HH
+                        <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-black px-1 py-0.2 rounded flex items-center gap-0.5">
+                          <Sparkles className="w-2 h-2" /> HH
                         </span>
                       )}
                       {(product as any).hasAgeRestriction && (
-                        <span className="bg-red-500/20 text-red-300 border border-red-500/30 text-[10px] font-black px-1.5 py-0.5 rounded">
+                        <span className="bg-red-500/20 text-red-300 border border-red-500/30 text-[9px] font-black px-1 py-0.2 rounded">
                           {(product as any).minAge}+
                         </span>
                       )}
-                      {(hasVariants || hasOptions) && (
-                        <span className="bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] font-bold px-1.5 py-0.5 rounded">
-                          +Sorten
-                        </span>
-                      )}
                     </div>
-                  </div>
-
-                  <div className="flex items-center justify-between w-full mt-3 pt-1.5 border-t border-slate-800/80">
-                    <span className="text-sm sm:text-base font-mono font-black text-emerald-400">
-                      {formatCurrency(effectivePrice)}
-                    </span>
-                    {!isOut && (
-                      <div className="w-7 h-7 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200">
-                        <Plus className="w-4 h-4" />
-                      </div>
-                    )}
                   </div>
                 </button>
               );

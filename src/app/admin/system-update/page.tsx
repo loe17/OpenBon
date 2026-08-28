@@ -65,6 +65,11 @@ export default function AdminSystemUpdatePage() {
   const [updateProgress, setUpdateProgress] = useState(0);
   const [updateStage, setUpdateStage] = useState('Vorbereitung...');
   const [updateElapsed, setUpdateElapsed] = useState(0);
+  const terminalEndRef = React.useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [terminalHistory]);
 
   // Live Timer & Progress Simulation waehrend des Update-Laufs
   useEffect(() => {
@@ -611,6 +616,7 @@ export default function AdminSystemUpdatePage() {
               </pre>
             </div>
           ))}
+          <div ref={terminalEndRef} />
         </div>
 
         {/* Command Input Bar */}

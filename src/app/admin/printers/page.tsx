@@ -716,44 +716,112 @@ export default function AdminPrintersPage() {
             <form onSubmit={handleSavePrinter} className="space-y-3">
               <div>
                 <label className="text-xs font-bold text-slate-400 block mb-1">
+                  Verbindungsart
+                </label>
+                <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrinterForm({
+                        ...printerForm,
+                        isVirtual: false,
+                        ipAddress: printerForm.ipAddress.startsWith('/dev/') ? '192.168.1.200' : printerForm.ipAddress,
+                        port: printerForm.port || 9100,
+                      });
+                    }}
+                    className={`py-1.5 text-[11px] font-bold rounded-lg transition ${
+                      !printerForm.isVirtual && !printerForm.ipAddress.startsWith('/dev/')
+                        ? 'bg-blue-600 text-white shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Netzwerk (IP)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrinterForm({
+                        ...printerForm,
+                        isVirtual: false,
+                        ipAddress: '/dev/usb/lp0',
+                        port: 0,
+                      });
+                    }}
+                    className={`py-1.5 text-[11px] font-bold rounded-lg transition ${
+                      !printerForm.isVirtual && printerForm.ipAddress.startsWith('/dev/')
+                        ? 'bg-blue-600 text-white shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    USB (/dev/usb/lp0)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrinterForm({
+                        ...printerForm,
+                        isVirtual: true,
+                        ipAddress: '127.0.0.1',
+                        port: 9100,
+                      });
+                    }}
+                    className={`py-1.5 text-[11px] font-bold rounded-lg transition ${
+                      printerForm.isVirtual
+                        ? 'bg-purple-600 text-white shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Virtuell
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">
                   Name / Bezeichnung
                 </label>
                 <input
                   required
                   type="text"
-                  placeholder="z. B. Grill / Ausschank"
+                  placeholder="z. B. Grill / Ausschank / Kasse 1"
                   value={printerForm.name}
                   onChange={(e) => setPrinterForm({ ...printerForm, name: e.target.value })}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">IP-Adresse</label>
-                  <input
-                    required
-                    type="text"
-                    value={printerForm.ipAddress}
-                    onChange={(e) =>
-                      setPrinterForm({ ...printerForm, ipAddress: e.target.value })
-                    }
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                  />
+              {!printerForm.isVirtual && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 block mb-1">
+                      {printerForm.ipAddress.startsWith('/dev/') ? 'Gerätepfad' : 'IP-Adresse'}
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      placeholder={printerForm.ipAddress.startsWith('/dev/') ? '/dev/usb/lp0' : '192.168.1.200'}
+                      value={printerForm.ipAddress}
+                      onChange={(e) =>
+                        setPrinterForm({ ...printerForm, ipAddress: e.target.value })
+                      }
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-400 block mb-1">Port</label>
+                    <input
+                      required
+                      type="number"
+                      disabled={printerForm.ipAddress.startsWith('/dev/')}
+                      value={printerForm.port}
+                      onChange={(e) =>
+                        setPrinterForm({ ...printerForm, port: parseInt(e.target.value, 10) })
+                      }
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono disabled:opacity-40"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-1">Port</label>
-                  <input
-                    required
-                    type="number"
-                    value={printerForm.port}
-                    onChange={(e) =>
-                      setPrinterForm({ ...printerForm, port: parseInt(e.target.value, 10) })
-                    }
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
-                  />
-                </div>
-              </div>
+              )}
 
               <div className="flex items-center gap-2 p-2.5 bg-slate-950 rounded-xl border border-slate-800">
                 <input

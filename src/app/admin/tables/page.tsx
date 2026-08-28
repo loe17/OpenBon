@@ -633,20 +633,54 @@ export default function AdminTablesPage() {
 
                         {/* Row Cells */}
                         {isRowAisle ? (
-                          /* Horizontal Walkway / Gang */
-                          <div className="flex-1 min-h-[48px] bg-amber-950/20 border-2 border-dashed border-amber-600/50 rounded-2xl flex items-center justify-between px-4 text-amber-300 font-bold text-xs select-none">
-                            <span className="flex items-center gap-2">
-                              <Footprints className="w-4 h-4 text-amber-400" />
-                              <span>GANG / LAUFWEG (Reihe {rowNum})</span>
-                            </span>
-                            <button
-                              onClick={() => aisleRowObj && handleDeleteAisle(aisleRowObj.id)}
-                              className="p-1.5 rounded-lg bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 flex items-center gap-1 text-[11px] font-bold transition shadow"
-                              title="Gang entfernen"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>Gang löschen</span>
-                            </button>
+                          /* Horizontaler Laufweg / Gang - exakt auf Rasterbreite begrenzt mit Kreuzungs-Verrundung */
+                          <div className="flex items-stretch gap-2">
+                            {Array.from({ length: floorCols }).map((__, cIdx) => {
+                              const colNum = cIdx + 1;
+                              const isColAisle = aisles.some((a) => a.type === 'COL' && a.index === colNum);
+                              const isFirstCol = colNum === 1;
+                              const isLastCol = colNum === floorCols;
+
+                              if (isColAisle) {
+                                /* Kreuzung: Horizontaler & Vertikaler Gang fließen ineinander */
+                                return (
+                                  <div
+                                    key={`aisle-cross-${colNum}-${rowNum}`}
+                                    className="w-[48px] min-h-[48px] bg-amber-950/40 border-2 border-amber-500/70 rounded-xl flex items-center justify-center p-1 text-amber-300 text-[10px] font-black select-none shadow-inner"
+                                    title={`Gang-Kreuzung (R${rowNum} / S${colNum})`}
+                                  >
+                                    <Footprints className="w-4 h-4 text-amber-400" />
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div
+                                  key={`aisle-row-cell-${colNum}-${rowNum}`}
+                                  className={`w-[90px] min-h-[48px] bg-amber-950/20 border-y-2 border-dashed border-amber-600/50 flex items-center justify-between px-2 text-amber-300 font-bold text-xs select-none ${
+                                    isFirstCol ? 'border-l-2 rounded-l-2xl' : ''
+                                  } ${isLastCol ? 'border-r-2 rounded-r-2xl' : ''}`}
+                                >
+                                  {isFirstCol ? (
+                                    <span className="flex items-center gap-1.5 text-[11px] font-black text-amber-400">
+                                      <Footprints className="w-3.5 h-3.5" />
+                                      <span>GANG</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-amber-500/60 font-mono">···</span>
+                                  )}
+                                  {isLastCol && aisleRowObj && (
+                                    <button
+                                      onClick={() => handleDeleteAisle(aisleRowObj.id)}
+                                      className="p-1 rounded-md bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-300 text-[10px] font-bold"
+                                      title="Reihen-Gang löschen"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         ) : (
                           <div className="flex items-stretch gap-2">

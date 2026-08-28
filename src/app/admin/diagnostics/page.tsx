@@ -176,6 +176,53 @@ export default function DiagnosticsPage() {
     }
   };
 
+  const handleGeneralprobe = async () => {
+    setIsSimulating(true);
+    setSimulationSteps(null);
+    try {
+      const res = await fetch('/api/diagnostics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'GENERALPROBE' }),
+      });
+      const data = await res.json();
+      if (data.steps) {
+        setSimulationSteps(data.steps);
+        success('Fest-Generalprobe erfolgreich durchgeführt!');
+      }
+      runDiagnostics();
+    } catch {
+      error('Fehler bei der Generalprobe.');
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+  const handlePurgeTestData = async () => {
+    if (!confirm('Möchten Sie wirklich alle Test-Bestellungen, Test-Zahlungen und Druckaufträge rückstandsfrei bereinigen?\n\nIhre Stammdaten (Artikel, Warengruppen, Tische, Drucker) bleiben dabei vollständig erhalten.')) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch('/api/diagnostics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'PURGE_TEST_DATA' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        success(data.message);
+      } else {
+        error(data.error || 'Fehler beim Bereinigen der Testdaten');
+      }
+      runDiagnostics();
+    } catch {
+      error('Verbindungsfehler beim Bereinigen der Testdaten.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-y-auto bg-slate-950 text-white p-3 sm:p-6 max-w-7xl mx-auto w-full font-sans print:bg-white print:text-black">
       {/* Header */}
@@ -204,27 +251,37 @@ export default function DiagnosticsPage() {
           </button>
 
           <button
-            onClick={handlePrintAllTestTickets}
-            disabled={isPrintingTest || loading}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-xl text-xs font-bold transition shadow-md shadow-blue-950/50"
+            onClick={handleGeneralprobe}
+            disabled={isSimulating || loading}
+            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white rounded-xl text-xs font-black transition shadow-lg shadow-blue-950/60"
+            title="Drucker-Testschnitt auf allen Druckern + Kassenladen-Kick"
           >
-            <Printer className="w-4 h-4" />
-            <span>{isPrintingTest ? 'Druckt...' : 'Alle Drucker testen'}</span>
+            <Zap className="w-4 h-4 text-amber-300" />
+            <span>{isSimulating ? 'Prüft...' : 'Fest-Generalprobe'}</span>
           </button>
 
           <button
-            onClick={handleSimulateOrderCycle}
-            disabled={isSimulating || loading}
-            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-950/50"
+            onClick={handlePurgeTestData}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-rose-950/60 hover:bg-rose-900 active:scale-95 text-rose-300 rounded-xl text-xs font-bold transition border border-rose-800"
+            title="Löscht alle Test-Bestellungen und Zahlungen vor Festbeginn"
           >
-            <Zap className="w-4 h-4" />
-            <span>{isSimulating ? 'Simuliert...' : 'E2E-Kassenzyklus testen'}</span>
+            <span>Testdaten bereinigen</span>
+          </button>
+
+          <button
+            onClick={handlePrintAllTestTickets}
+            disabled={isPrintingTest || loading}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-white rounded-xl text-xs font-bold transition border border-slate-700"
+          >
+            <Printer className="w-4 h-4 text-blue-400" />
+            <span>{isPrintingTest ? 'Druckt...' : 'Alle Drucker testen'}</span>
           </button>
 
           <button
             onClick={runPreflight}
             disabled={preflightLoading}
-            className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 rounded-xl text-xs font-black transition shadow-md shadow-amber-950/50"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 rounded-xl text-xs font-black transition shadow-md shadow-amber-950/50"
             title="DB, HA-Partner, Drucker & Backup-Replikat vor Festbeginn prüfen"
           >
             <ShieldCheck className={`w-4 h-4 ${preflightLoading ? 'animate-pulse' : ''}`} />

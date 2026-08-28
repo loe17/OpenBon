@@ -239,6 +239,35 @@
     3. **Dauerhafte Persistenz & Signal-Event:** Speicherung des Bildschirmskalierungs-Status in `localStorage` (`openbon_autofit_screen`) und globales Event-Dispatching (`openbon:autofit_changed`).
     4. **Scrollfreie Bonkassenansicht (`/pos`):** Automatische Viewport-Einpassung (`h-[calc(100vh-4rem)] overflow-hidden`) mit flexiblen Kachel- & Korb-Größen bei aktivierter Bildschirmanpassung, sodass kein vertikaler Scrollbalken mehr entsteht.
 
+* **28.08.2026 18:00 – Release v0.4.16: 18-Punkte Master-Upgrade & Zuverlässigkeits-Härtung** `[✓]`
+  * **Weshalb:** Umfassende Optimierung des 2-Schritt-Bestellvorgangs an der Bonkasse, variable Multi-Pfand-Rückgabematrix für Kellner, native USB-Bondrucker-Unterstützung (`/dev/usb/lp0`), synchrone Offline-Drucker-Erkennung, intelligentes Tischplan-Pruning beim Verkleinern von Rastern, automatischer Heartbeat-Monitor für Mobilteile, Behebung von Authentifizierungs- und Zod-Validierungsfehlern bei Bestelloptionen sowie vollständiger UI-Feinschliff für maximalen Durchsatz im Hektikbetrieb.
+  * **Wie:**
+    1. **Detail-Ausgaben im WebUI-Update (`/admin/system-update`):** Vollständige Erfassung und Ausgabe von stdout/stderr bei Fehlern während npm install, prisma db push und next build; Auto-Scroll im Konsolen-Terminal.
+    2. **Bonkasse 2-Schritt-Checkout & Bezahl-Modal (`/pos`):** Rechte Seitenleiste zeigt im Normalzustand nur die Warenkorb-Positionen, Summe und den vollbreiten `[Kassieren]`-Button; Klick öffnet ein aufgeräumtes Bezahl-Modal mit 2-Spalten-Layout (links: Zahlart, Ziffernblock, Scheine 5€–200€, Wechselgeldrechner; rechts: Artikelübersicht, Endbetrag, Rückgeld) und `[ESC]`-Schließen.
+    3. **Variable Rückpfand-Matrix für Bedienungen (`/waiter/payment`):** Unterstützung beliebiger Stückelungen gleichzeitig (z. B. 1x 1,00 €, 2x 2,00 €, 0,50 €) mit Plus/Minus-Karten und korrekter Verrechnung im Gesamtabrechnungsbetrag.
+    4. **Bonkassen Druck-Feedback:** Sofortiges visuelles Toast-Feedback beim Absenden von Bons und Wertmarken.
+    5. **Tischplan Designer & Gänge (`/admin/tables` & `/admin/tables/print`):**
+       - Horizontale Gänge werden exakt auf die Rasterbreite begrenzt (kein Überstehen mehr).
+       - Kreuzungen zwischen horizontalen und vertikalen Gängen gehen nahtlos mit verrundeten Ecken ineinander über.
+       - Gänge werden in der Druckansicht sauber dargestellt und dauerhaft via `/api/config` persistiert (PUT-Alias ergänzt).
+    6. **USB-Bondrucker Unterstützung (`network-spooler.ts` & `/admin/printers`):** Direkte Schreibunterstützung auf Gerätedateien (`/dev/usb/lp0`, `/dev/ttyUSB0`, `COM1`) ohne externe Spooler; Direktauswahl in der UI.
+    7. **Strenge Offline-Erkennung für Bondrucker:** Synchrone Überprüfung bei Testdrucken mit 1500ms Socket-Timeout und USB-Existenzprüfung – ausgeschaltete Drucker melden sofort einen klaren Fehler statt falscher Erfolgsmeldungen.
+    8. **Live Geräte- & Akkumonitor (`/admin/devices` & `socket-client.ts`):** 15-Sekunden periodischer Heartbeat von allen Bedien- und Kassen-Stationen mit Live-Akkustand und Ladestatus.
+    9. **Fehlerbehebung 401 HA-Status & 400 Bestell-Optionen:**
+       - `/api/system/ha/status`: Freigabe für alle authentifizierten Personalrollen (`ADMIN`, `POS_CASHIER`, `WAITER`, `KITCHEN`), wodurch 401-Konsolenfehler auf Kellner-Mobilteilen eliminiert werden.
+       - `OrderItemInputSchema.selectedOptions`: Erweiterung des Zod-Schemas zur Validierung von Options-Objekten mit Mengen (`{ name, quantity }`).
+    10. **Fest-Generalprobe & Testdaten-Bereinigung (`/admin/diagnostics`):**
+        - 1-Klick-Selbsttest ("Fest-Generalprobe") mit Probeschnitt auf allen Bondruckern und Kassenladen-Kick.
+        - 1-Klick-Bereinigung aller Testbestellungen, Zahlungen und Druckjobs vor Festbeginn unter vollständiger Beibehaltung aller Stammdaten (Artikel, Tische, Drucker, Mitarbeiter).
+    11. **Team-Chat Benachrichtigungspunkt:** Blauer Benachrichtigungspunkt am Hamburger-Menübutton in `navbar.tsx` bei ungelesenen Team-Nachrichten.
+    12. **Live-Sync Warengruppen & Produkte:** Socket-Ereignisse `category:created`, `category:updated`, `category:deleted` aktualisieren Bedienungs- und Kassen-Oberflächen in Echtzeit ohne Seiten-Reload.
+    13. **Kompakte Kellner-Kacheln (`/waiter/order`):** Entfernung von Preisen und Plus-Symbolen auf Artikelkacheln zur maximalen Platzausnutzung; Sorten/Varianten werden durch feine Farbverläufe dargestellt; Allergen-Badge (`<AlertCircle />`) oben rechts überdeckt keine langen Artikelnamen mehr.
+    14. **Branding & Version:** Entfernung des blauen `[OB]`-Icons; Anzeige der Versions-Pille ausschließlich in Admin-Ansichten.
+    15. **Kellner-Header Bereinigung (`/waiter/order`):** Oben links: `[ < Zurück ]` und `Bedienung • Tisch X`; oben rechts: gruppierte Buttons für Verlauf, Stummschaltung und Chat; Entfernung der doppelten Positionszählung aus der Kopfleiste.
+    16. **Standard-Stummschaltung:** Akustische Signale standardmäßig deaktiviert (`isAudioMuted = true`), um Kellner-Mobilteile im lauten Festbetrieb nicht zu stören.
+    17. **Tischnummern-Schnellwahl unten (`/waiter`):** Prominenter, zentrierter Ziffernblock-Button über die gesamte untere Bildschirmbreite ohne ablenkende Hinweistexte.
+    18. **Light-Theme Kontraste:** Tiefschwarze Schrift (`text-slate-950`) für Münzen im Wechselgeldrechner sowie kontraststarke Buttons in hellen Designs.
+
 ---
 
 ## 4. Theme-Spezifikation & Design-Tokens (Master-Referenz)

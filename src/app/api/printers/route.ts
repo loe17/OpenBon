@@ -69,7 +69,7 @@ export async function POST(req: Request) {
       return NextResponse.json(result);
     }
 
-    // 3. Test print action
+    // 3. Test print action - jetzt synchron & mit echter Verbindungspruefung
     if (body.action === 'TEST_PRINT') {
       const printer = await prisma.printer.findUnique({ where: { id: body.printerId } });
       if (!printer) return NextResponse.json({ error: 'Drucker nicht gefunden' }, { status: 404 });
@@ -82,10 +82,18 @@ export async function POST(req: Request) {
           { name: 'Druckertest erfolgreich', quantity: 1, unitPrice: 0.0 },
           { name: 'Umlaute-Test: ä ö ü Ä Ö Ü ß €', quantity: 1, unitPrice: 0.0 },
         ],
-        footerText: `IP: ${printer.ipAddress}:${printer.port} | Breite: ${printer.paperWidth}mm`,
+        footerText: `${printer.ipAddress.startsWith('/dev/') ? 'USB-Port: ' : 'IP: '}${printer.ipAddress}${printer.port ? `:${printer.port}` : ''} | Breite: ${printer.paperWidth}mm`,
       };
 
-      const result = await networkSpooler.printTicket(printer, testTicket);
+      const { rawBuffer, textRepresentation } = EscPosBuilder.buildTicket(testTicket, printer.paperWidth);
+      const result = await networkSpooler.sendRawBuffer(printer, rawBuffer, textRepresentation);
+      
+      if (!result.success) {
+        return NextResponse.json(
+          { error: `Drucker nicht erreichbar oder ausgeschaltet (${result.error || 'Verbindung fehlgeschlagen'})` },
+          { status: 503 }
+        );
+      }
       return NextResponse.json(result);
     }
 
@@ -118,9 +126,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, retriedCount });
     }
 
-    // 6. TCP Connection Probe / Ping Check
+    // 6. TCP Connection Probe / Ping Check & USB Device Detection
     if (body.action === 'PING_PRINTER' || body.action === 'PING_ALL') {
       const net = await import('net');
+      const fs = await import('fs');
       const printers = body.printerId
         ? await prisma.printer.findMany({ where: { id: body.printerId } })
         : await prisma.printer.findMany();
@@ -134,10 +143,16 @@ export async function POST(req: Request) {
             return Promise.resolve();
           }
 
+          if (p.ipAddress.startsWith('/dev/')) {
+            const exists = fs.existsSync(p.ipAddress);
+            results[p.id] = { online: exists, isVirtual: false, latencyMs: exists ? 1 : undefined, hasCashDrawer: p.hasCashDrawer };
+            return Promise.resolve();
+          }
+
           return new Promise<void>((resolve) => {
             const start = Date.now();
             const socket = new net.Socket();
-            socket.setTimeout(600);
+            socket.setTimeout(1500);
 
             let finished = false;
             const finish = (online: boolean) => {

@@ -82,6 +82,27 @@ export default function Navbar() {
   const [pendingOutboxCount, setPendingOutboxCount] = useState(0);
   const [isOnline, setIsOnline] = useState(true);
   const [isAutoFit, setIsAutoFit] = useState(false);
+  const [hasUnreadChat, setHasUnreadChat] = useState(false);
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleChat = (msg: any) => {
+      if (pathname !== '/chat' && !msg?.isEmergency) {
+        setHasUnreadChat(true);
+      }
+    };
+    socket.on('chat:message', handleChat);
+    return () => {
+      socket.off('chat:message', handleChat);
+    };
+  }, [socket, pathname]);
+
+  useEffect(() => {
+    if (pathname === '/chat') {
+      setHasUnreadChat(false);
+    }
+  }, [pathname]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -321,20 +342,25 @@ export default function Navbar() {
           {/* Logo & Brand */}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition active:scale-95 touch-manipulation"
+              onClick={() => {
+                setIsOpen(!isOpen);
+                setHasUnreadChat(false);
+              }}
+              className="relative p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition active:scale-95 touch-manipulation"
               title="Menü öffnen"
             >
               {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {hasUnreadChat && !isOpen && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full ring-2 ring-slate-900 animate-pulse shadow" />
+              )}
             </button>
             <Link href="/" className="flex items-center gap-2 font-black text-lg sm:text-xl tracking-tight">
-              <span className="bg-blue-600 text-white px-2 py-0.5 rounded-lg text-xs font-black tracking-wider uppercase shadow">
-                OB
-              </span>
               <span className="text-white">OpenBon</span>
-              <span className="text-[11px] font-semibold text-slate-400 bg-slate-800/70 px-2 py-0.5 rounded-full border border-slate-700/60 tracking-normal">
-                v{APP_VERSION}{APP_IS_BETA ? ' Beta' : ''}
-              </span>
+              {pathname.startsWith('/admin') && (
+                <span className="text-[11px] font-semibold text-slate-400 bg-slate-800/70 px-2 py-0.5 rounded-full border border-slate-700/60 tracking-normal">
+                  v{APP_VERSION}{APP_IS_BETA ? ' Beta' : ''}
+                </span>
+              )}
             </Link>
           </div>
 

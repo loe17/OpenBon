@@ -1,4 +1,5 @@
 import net from 'net';
+import fs from 'fs';
 import { EscPosBuilder } from './escpos-builder';
 import { TicketData, VirtualTicketRecord } from './types';
 import prisma from '../db';
@@ -106,6 +107,22 @@ class NetworkSpooler {
 
     if (printer.isVirtual) {
       return { success: true, isVirtual: true };
+    }
+
+    if (printer.ipAddress.startsWith('/dev/')) {
+      return new Promise((resolve) => {
+        try {
+          fs.writeFile(printer.ipAddress, rawBuffer, (err) => {
+            if (err) {
+              resolve({ success: false, isVirtual: false, error: `USB-Fehler: ${err.message}` });
+            } else {
+              resolve({ success: true, isVirtual: false });
+            }
+          });
+        } catch (err: any) {
+          resolve({ success: false, isVirtual: false, error: err?.message || 'USB-Gerätefehler' });
+        }
+      });
     }
 
     return new Promise((resolve) => {
@@ -277,8 +294,22 @@ class NetworkSpooler {
   }
 
   private sendToRawSocket(job: SpoolJob): Promise<void> {
+    const { rawBuffer } = EscPosBuilder.buildTicket(job.ticketData, job.paperWidth);
+
+    if (job.printerIp.startsWith('/dev/')) {
+      return new Promise((resolve, reject) => {
+        try {
+          fs.writeFile(job.printerIp, rawBuffer, (err) => {
+            if (err) reject(new Error(`USB-Druckfehler (${job.printerIp}): ${err.message}`));
+            else resolve();
+          });
+        } catch (err: any) {
+          reject(new Error(`USB-Gerätefehler (${job.printerIp}): ${err?.message || String(err)}`));
+        }
+      });
+    }
+
     return new Promise((resolve, reject) => {
-      const { rawBuffer } = EscPosBuilder.buildTicket(job.ticketData, job.paperWidth);
       const client = new net.Socket();
       client.setNoDelay(true);
       client.setTimeout(2500);

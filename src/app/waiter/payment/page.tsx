@@ -71,8 +71,28 @@ function WaiterPaymentContent() {
   const [table, setTable] = useState<DiningTableDTO | null>(null);
   const [items, setItems] = useState<PayableItem[]>([]);
 
-  const [returnDepositCount, setReturnDepositCount] = useState(0);
-  const [depositUnit, setDepositUnit] = useState(1.0);
+  const [returnDeposits, setReturnDeposits] = useState<Record<number, number>>({
+    0.5: 0,
+    1.0: 0,
+    2.0: 0,
+    3.0: 0,
+    5.0: 0,
+  });
+
+  const updateDepositQty = (unit: number, delta: number) => {
+    haptic();
+    setReturnDeposits((prev) => ({
+      ...prev,
+      [unit]: Math.max(0, (prev[unit] || 0) + delta),
+    }));
+  };
+
+  const totalReturnDeposit = useMemo(() => {
+    return Object.entries(returnDeposits).reduce(
+      (sum, [unit, count]) => sum + parseFloat(unit) * count,
+      0
+    );
+  }, [returnDeposits]);
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
   const [nonPaidReason, setNonPaidReason] = useState('');
@@ -97,7 +117,7 @@ function WaiterPaymentContent() {
   const [guestFacingMode, setGuestFacingMode] = useState(false);
   const [guestFacingRotated, setGuestFacingRotated] = useState(true);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [soundMuted, setSoundMuted] = useState(false);
+  const [soundMuted, setSoundMuted] = useState(true);
   const [waiterName, setWaiterName] = useState('Bedienung');
   // WICHTIG: Der Idempotenz-Schluessel gilt fuer GENAU EINEN Kassiervorgang.
   // Bleibt er ueber mehrere Zahlungen gleich, erkennt der Server die zweite
@@ -113,40 +133,21 @@ function WaiterPaymentContent() {
     if (!tableId) return;
     try {
       const res = await fetch(`/api/orders?tableId=${tableId}`);
-      const orders = (await res.json()) as OrderDTO[];
-
-      const payables: PayableItem[] = [];
-      for (const ord of orders) {
-        if (ord.status === 'COMPLETED' || ord.status === 'CANCELLED') continue;
-        for (const itm of ord.items) {
-          if (itm.isCancelled) continue;
-          const unpaid = itm.quantity - itm.paidQuantity;
-          if (unpaid > 0) {
-            payables.push({
-              orderItemId: itm.id,
-              productName: itm.productName,
-              variantName: itm.variantName,
-              unitPrice: itm.unitPrice,
-              deposit: itm.deposit || 0,
-              taxRate: itm.taxRate || 19,
-              totalUnpaidQty: unpaid,
-              selectedQty: unpaid,
-            });
-          }
-        }
-      }
+      if (!res.ok) return;
+      const orders = await res.json();
+      const openOrders = (orders as any[]).filter(
+        (o) => o.status !== 'PAID' && o.status !== 'CANCELLED'
+      );
+      const payables = extractPayableItems(openOrders);
       setItems(payables);
-    } catch (e) {
-      console.error(e);
-      setError('Die offenen Posten konnten nicht geladen werden.');
+    } catch {
+      /* Leise ignorieren */
     }
   }, [tableId]);
 
   useEffect(() => {
-    setSoundMuted(isAudioMuted());
-    setWaiterName(localStorage.getItem('pos_waiter_name') || 'Bedienung');
     fetch('/api/config/public')
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => r.json())
       .then((cfg) => {
         if (cfg && !cfg.error) {
           setConfig(cfg);
@@ -181,13 +182,13 @@ function WaiterPaymentContent() {
             quantity: i.selectedQty,
             taxRate: i.taxRate,
           })),
-        returnDepositAmount: returnDepositCount * depositUnit,
+        returnDepositAmount: totalReturnDeposit,
         givenAmount: Number(keypadValue.replace(',', '.')) || 0,
       }),
-    [items, returnDepositCount, depositUnit, keypadValue]
+    [items, totalReturnDeposit, keypadValue]
   );
 
-  const hasSelection = items.some((i) => i.selectedQty > 0) || returnDepositCount > 0;
+  const hasSelection = items.some((i) => i.selectedQty > 0) || totalReturnDeposit > 0;
   const givenAmount = Number(keypadValue.replace(',', '.')) || 0;
   const isCashSufficient = givenAmount >= checkout.amountDueWithTip;
 
@@ -397,8 +398,8 @@ function WaiterPaymentContent() {
           paymentMethod,
           nonPaidReason: paymentMethod.startsWith('NON_PAID') ? nonPaidReason : null,
           cardAuthCode,
-          returnDepositCount,
-          returnDepositAmount: returnDepositCount * depositUnit,
+          returnDepositCount: Object.values(returnDeposits).reduce((a, b) => a + b, 0),
+          returnDepositAmount: totalReturnDeposit,
           givenAmount: paymentMethod === 'CASH' ? givenAmount : 0,
           printReceipt: opts.printReceipt,
           requestId,
@@ -763,49 +764,58 @@ function WaiterPaymentContent() {
               })
             )}
 
-            {/* Rückpfand */}
-            <div className="p-4 rounded-3xl bg-slate-900 border-2 border-blue-900/80">
-              <div className="flex items-center justify-between mb-3">
+            {/* Rückpfand Matrix (Mehrere Pfandwerte gleichzeitig, z. B. 1x 1€, 2x 2€) */}
+            <div className="p-4 rounded-3xl bg-slate-900 border-2 border-blue-900/80 space-y-3">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm font-black text-blue-300">
                   <Coins className="w-5 h-5 text-blue-400" />
-                  <span>Rückpfand (Leergut)</span>
+                  <span>Rückpfand (Leergut-Gutschrift)</span>
                 </div>
                 <div className="text-base font-mono font-black text-amber-400">
-                  −{formatCurrency(returnDepositCount * depositUnit)}
+                  {totalReturnDeposit > 0 ? `−${formatCurrency(totalReturnDeposit)}` : '0,00 €'}
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
-                  {DEPOSIT_UNITS.map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => setDepositUnit(d)}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold font-mono ${
-                        depositUnit === d ? 'bg-blue-600 text-white' : 'text-slate-400'
-                      }`}
+              {/* Grid von Pfandwerten mit Plus/Minus Zählern */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {[
+                  { unit: 1.0, label: '1,00 € (Glas/Becher)' },
+                  { unit: 2.0, label: '2,00 € (Krug/Teller)' },
+                  { unit: 0.5, label: '0,50 € (Flasche)' },
+                ].map(({ unit, label }) => {
+                  const count = returnDeposits[unit] || 0;
+                  return (
+                    <div
+                      key={unit}
+                      className="p-2.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between shadow-sm"
                     >
-                      {d.toFixed(2)} €
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setReturnDepositCount(Math.max(0, returnDepositCount - 1))}
-                    className="touch-target w-12 h-12 flex items-center justify-center bg-slate-800 border border-slate-700 rounded-2xl text-slate-200 font-bold text-2xl active:scale-95"
-                  >
-                    −
-                  </button>
-                  <span className="w-12 text-center font-black font-mono text-lg">
-                    {returnDepositCount}x
-                  </span>
-                  <button
-                    onClick={() => setReturnDepositCount(returnDepositCount + 1)}
-                    className="touch-target w-12 h-12 flex items-center justify-center bg-blue-600 rounded-2xl text-white font-bold text-2xl active:scale-95"
-                  >
-                    +
-                  </button>
-                </div>
+                      <div className="min-w-0 pr-1">
+                        <div className="text-xs font-black text-slate-200">{unit.toFixed(2)} €</div>
+                        <div className="text-[10px] text-slate-500 truncate">{label}</div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => updateDepositQty(unit, -1)}
+                          disabled={count === 0}
+                          className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-700 disabled:opacity-30 border border-slate-700 rounded-xl text-slate-200 font-bold text-lg active:scale-95 transition"
+                        >
+                          −
+                        </button>
+                        <span className="w-7 text-center font-black font-mono text-sm text-blue-400">
+                          {count}x
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => updateDepositQty(unit, 1)}
+                          className="w-8 h-8 flex items-center justify-center bg-blue-600 hover:bg-blue-500 rounded-xl text-white font-bold text-lg active:scale-95 transition shadow"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -845,7 +855,7 @@ function WaiterPaymentContent() {
                   setStage('METHOD');
                 }}
                 disabled={!hasSelection}
-                className="pos-touch-btn h-16 rounded-2xl font-black text-base bg-emerald-600 text-white shadow-lg shadow-emerald-950/50 disabled:bg-slate-800 disabled:text-slate-500"
+                className="pos-touch-btn h-16 rounded-2xl font-black text-base bg-emerald-500 hover:bg-emerald-400 text-slate-950 dark:text-white dark:bg-emerald-600 dark:hover:bg-emerald-500 shadow-lg shadow-emerald-950/50 disabled:bg-slate-800 disabled:text-slate-500"
               >
                 Weiter zur Zahlart
               </button>

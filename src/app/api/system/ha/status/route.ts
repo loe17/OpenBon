@@ -11,11 +11,8 @@ export const dynamic = 'force-dynamic';
  * Antwort enthaelt bewusst KEINE Geheimnisse (nur Booleans/Fingerprint-Ebene).
  */
 export async function GET(req: Request) {
-  const auth = await requireApiAuth(req, ['ADMIN']);
+  const auth = await requireApiAuth(req, ['ADMIN', 'POS_CASHIER', 'WAITER', 'KITCHEN']);
   if (!auth.ok) return auth.response;
-
-  const denied = await requireAdmin(req);
-  if (denied) return denied;
 
   try {
     const secretStatus = await getHaSecretStatus();

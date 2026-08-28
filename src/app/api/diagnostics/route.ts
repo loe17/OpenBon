@@ -375,6 +375,88 @@ export async function POST(req: Request) {
       });
     }
 
+    // 2. Fest-Generalprobe & 1-Klick Hardware-Selbsttest
+    if (body.action === 'GENERALPROBE') {
+      const printers = await prisma.printer.findMany();
+      const probeResults: { name: string; success: boolean; details: string }[] = [];
+
+      for (const printer of printers) {
+        const testTicket: TicketData = {
+          title: 'FEST-GENERALPROBE',
+          tableLabel: 'SELBSTCHECK',
+          waiterName: auth.session.waiterName || 'Administrator',
+          items: [
+            { name: 'Hardware-Selbsttest OK', quantity: 1, unitPrice: 0.0 },
+            { name: 'Papierschneider / Cutter OK', quantity: 1, unitPrice: 0.0 },
+          ],
+          footerText: `${printer.name} | ${printer.ipAddress} | Breite: ${printer.paperWidth}mm`,
+        };
+
+        const { rawBuffer, textRepresentation } = EscPosBuilder.buildTicket(testTicket, printer.paperWidth);
+        const printRes = await networkSpooler.sendRawBuffer(printer, rawBuffer, textRepresentation);
+        
+        probeResults.push({
+          name: `Drucker "${printer.name}"`,
+          success: printRes.success,
+          details: printRes.success ? 'Druckauftrag & Schnitt übertragen' : (printRes.error || 'Fehler'),
+        });
+
+        if (printer.hasCashDrawer) {
+          await networkSpooler.openDrawer(printer);
+          probeResults.push({
+            name: `Kassenlade an "${printer.name}"`,
+            success: true,
+            details: 'Öffnungsimpuls gesendet',
+          });
+        }
+      }
+
+      await logSystemActionSafe(() => ({
+        action: 'GENERALPROBE_RUN',
+        category: 'SYSTEM',
+        actor: auth.session.waiterName || auth.session.role,
+        details: `Fest-Generalprobe durchgeführt (${printers.length} Drucker getestet).`,
+      }));
+
+      return NextResponse.json({
+        success: true,
+        message: 'Fest-Generalprobe erfolgreich durchgeführt.',
+        steps: probeResults,
+      });
+    }
+
+    // 3. Testdaten rückstandsfrei bereinigen
+    if (body.action === 'PURGE_TEST_DATA') {
+      const orderCount = await prisma.order.count();
+      const paymentCount = await prisma.payment.count();
+      const printJobCount = await prisma.printJob.count();
+
+      await prisma.orderItem.deleteMany({});
+      await prisma.payment.deleteMany({});
+      await prisma.order.deleteMany({});
+      await prisma.printJob.deleteMany({});
+      await prisma.cashRegisterLog.deleteMany({});
+      await prisma.tipLog.deleteMany({});
+      await prisma.voidLog.deleteMany({});
+
+      if (global.virtualPrinterHistory) {
+        global.virtualPrinterHistory = [];
+      }
+
+      await logSystemActionSafe(() => ({
+        action: 'TEST_DATA_PURGED',
+        category: 'ADMIN',
+        actor: auth.session.waiterName || auth.session.role,
+        details: `Testdaten-Bereinigung durchgeführt (${orderCount} Bestellungen, ${paymentCount} Zahlungen, ${printJobCount} Druckaufträge gelöscht).`,
+      }));
+
+      return NextResponse.json({
+        success: true,
+        message: `Testdaten erfolgreich bereinigt (${orderCount} Bestellungen, ${paymentCount} Zahlungen, ${printJobCount} Druckaufträge entfernt). Stammdaten (Artikel, Tische, Drucker) blieben unberührt.`,
+        deleted: { orders: orderCount, payments: paymentCount, printJobs: printJobCount },
+      });
+    }
+
     return NextResponse.json({ error: 'Unbekannte Aktion' }, { status: 400 });
   } catch (error: any) {
     console.error('Diagnostics POST error:', error);

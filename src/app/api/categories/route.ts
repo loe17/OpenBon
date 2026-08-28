@@ -72,6 +72,11 @@ export async function POST(req: Request) {
       details: 'Warengruppe angelegt.',
     }));
 
+    if (global.io) {
+      global.io.emit('category:created', created);
+      global.io.emit('categories:changed');
+    }
+
     return NextResponse.json(created);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
@@ -101,6 +106,11 @@ export async function PUT(req: Request) {
       actor: auth.session.waiterName || auth.session.role,
       details: 'Warengruppe geaendert.',
     }));
+
+    if (global.io) {
+      global.io.emit('category:updated', updated);
+      global.io.emit('categories:changed');
+    }
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -137,6 +147,11 @@ export async function DELETE(req: Request) {
       actor: auth.session.waiterName || auth.session.role,
       details: 'Warengruppe geloescht.',
     }));
+
+    if (global.io) {
+      global.io.emit('category:deleted', { id });
+      global.io.emit('categories:changed');
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -202,7 +202,7 @@ export function ChangeCalculator({
             </div>
           </div>
 
-          {/* Schnellwahltasten Münzen (0,01 € bis 2 € zum Addieren) */}
+            {/* Schnellwahltasten Münzen (0,01 € bis 2 € zum Addieren) */}
           <div>
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1">
               <Coins className="w-3 h-3 text-amber-400" />
@@ -214,7 +214,7 @@ export function ChangeCalculator({
                   key={coin.value}
                   type="button"
                   onClick={() => handleAdd(coin.value)}
-                  className="min-h-[34px] py-1 rounded-xl bg-amber-950/40 hover:bg-amber-900/70 border border-amber-800/60 active:scale-95 text-amber-200 font-bold font-mono text-[11px] transition flex items-center justify-center shadow"
+                  className="min-h-[34px] py-1 rounded-xl bg-amber-200/90 dark:bg-amber-950/40 hover:bg-amber-300 dark:hover:bg-amber-900/70 border border-amber-400 dark:border-amber-800/60 active:scale-95 text-slate-950 dark:text-amber-200 font-black font-mono text-[11px] transition flex items-center justify-center shadow-sm"
                 >
                   +{coin.label}
                 </button>

@@ -474,34 +474,6 @@ function WaiterTablesContent() {
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950">
-      {/* Quick Order by Table Number Input Bar (Prominenter Touch-Banner) */}
-      <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 px-3 sm:px-4 py-2.5 border-b border-blue-700/60 flex items-center justify-between gap-3 shadow-lg shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-blue-600 border border-blue-400 flex items-center justify-center text-white font-black shadow-md shrink-0">
-            <PlusCircle className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-sm font-black text-white block leading-tight">Tischnummer-Schnellwahl</span>
-            <span className="text-xs text-blue-300">Tippe hier für Ziffernblock 0-9 oder tippe die Nummer ein</span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              triggerHapticFeedback();
-              setKeypadTableNumber(directTableNumber || '');
-              setShowTableKeypadModal(true);
-            }}
-            className="min-h-[48px] px-4 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 touch-manipulation text-white font-black text-xs sm:text-sm rounded-2xl shadow-lg shadow-blue-950/60 flex items-center gap-2 transition"
-          >
-            <Hash className="w-4 h-4" />
-            <span>Ziffernblock (0-9)</span>
-          </button>
-        </div>
-      </div>
-
       {/* Top Waiter Bar & Search Bar */}
       <div className="p-2.5 sm:p-3 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2.5 shadow-md shrink-0">
         {/* Waiter Pill, History & Sound Toggle */}
@@ -671,6 +643,22 @@ function WaiterTablesContent() {
             })}
           </div>
         )}
+      </div>
+
+      {/* Tischnummern-Schnellwahl (Unten, Zentriert & Breit über fast gesamte Breite) */}
+      <div className="p-2.5 sm:p-3 bg-slate-900/95 border-t border-slate-800 shrink-0 shadow-[0_-8px_20px_rgba(0,0,0,0.5)] flex justify-center">
+        <button
+          type="button"
+          onClick={() => {
+            triggerHapticFeedback();
+            setKeypadTableNumber(directTableNumber || '');
+            setShowTableKeypadModal(true);
+          }}
+          className="w-full max-w-xl min-h-[50px] sm:min-h-[54px] px-6 py-2.5 bg-blue-600 hover:bg-blue-500 active:scale-98 touch-manipulation text-white font-black text-sm sm:text-base rounded-2xl shadow-xl shadow-blue-950/70 flex items-center justify-center gap-2.5 transition"
+        >
+          <Hash className="w-5 h-5" />
+          <span>Tischnummer eingeben (Ziffernblock)</span>
+        </button>
       </div>
 
       {/* Table Action Bottom Sheet / Modal */}

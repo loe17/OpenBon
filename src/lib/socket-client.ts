@@ -52,6 +52,24 @@ export function getSocket(): Socket {
       });
     });
 
+    // Start periodic device & battery heartbeat (every 15s)
+    setInterval(async () => {
+      if (!socket?.connected) return;
+      let batteryLevel = 100;
+      let isCharging = false;
+      if (typeof navigator !== 'undefined' && 'getBattery' in navigator) {
+        try {
+          const battery = await (navigator as any).getBattery!();
+          batteryLevel = Math.round(battery.level * 100);
+          isCharging = battery.charging;
+        } catch {}
+      }
+      socket?.emit('device:heartbeat', {
+        batteryLevel,
+        isCharging,
+      });
+    }, 15000);
+
     // Handle "Find My Device" Acoustic Ping
     socket.on('device:play_sound', ({ targetDeviceId }) => {
       const myId = localStorage.getItem('pos_device_id');
@@ -74,12 +92,12 @@ export function getSocket(): Socket {
   return socket!;
 }
 
-let memoryMuted = false;
+let memoryMuted = true;
 
 export function isAudioMuted(): boolean {
   if (typeof window === 'undefined') return memoryMuted;
   const stored = localStorage.getItem('openbon_sound_muted');
-  return stored !== null ? stored === 'true' : memoryMuted;
+  return stored !== null ? stored === 'true' : true;
 }
 
 export function setAudioMuted(muted: boolean): void {

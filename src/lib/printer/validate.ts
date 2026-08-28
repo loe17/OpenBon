@@ -51,6 +51,17 @@ export function validatePrinterAddress(
 
   const allowAny = process.env.PRINTERS_ALLOW_ANY_IP === '1';
 
+  // USB- und serielle Geraetepfade (/dev/usb/lp0, /dev/ttyUSB0, COM1, \\localhost\...)
+  if (
+    ip.startsWith('/dev/usb/lp') ||
+    ip.startsWith('/dev/tty') ||
+    ip.startsWith('/dev/lp') ||
+    /^COM\d+$/i.test(ip) ||
+    ip.startsWith('\\\\')
+  ) {
+    return { ok: true, ip, port: Number(rawPort) || 0 };
+  }
+
   const octets = octetsOf(ip);
   if (octets) {
     if (!allowAny && !isPrivateOrLocalIPv4(ip)) {
@@ -59,7 +70,7 @@ export function validatePrinterAddress(
         ip,
         port: Number(rawPort) || 9100,
         error:
-          'Oeffentliche IP-Adressen sind als Druckerziel nicht erlaubt. Nur LAN-Bereiche (10.x, 172.16-31.x, 192.168.x), Loopback oder Link-local.',
+          'Oeffentliche IP-Adressen sind als Druckerziel nicht erlaubt. Nur LAN-Bereiche (10.x, 172.16-31.x, 192.168.x), Loopback, USB (/dev/usb/lp0) oder Link-local.',
       };
     }
   } else if (!SAFE_HOSTNAME_RE.test(ip)) {
@@ -67,7 +78,7 @@ export function validatePrinterAddress(
       ok: false,
       ip,
       port: Number(rawPort) || 9100,
-      error: 'Ungueltige Druckeradresse (erwartet wird eine LAN-IP oder ein Hostname).',
+      error: 'Ungueltige Druckeradresse (erwartet wird eine LAN-IP, Hostname oder USB-Pfad wie /dev/usb/lp0).',
     };
   }
 

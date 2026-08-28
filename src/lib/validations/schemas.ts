@@ -5,7 +5,11 @@ export const OrderItemInputSchema = z.object({
   productId: z.string().min(1, 'Produkt-ID ist erforderlich'),
   quantity: z.number().int().positive('Menge muss positiv sein'),
   variantName: z.string().nullable().optional(),
-  selectedOptions: z.union([z.array(z.string()), z.string()]).nullable().optional(),
+  selectedOptions: z.union([
+    z.array(z.string()),
+    z.array(z.object({ name: z.string(), quantity: z.number().optional() })),
+    z.string()
+  ]).nullable().optional(),
   customizationText: z.string().nullable().optional(),
   courseNumber: z.number().int().min(1).default(1),
   isHold: z.boolean().default(false),
