@@ -5,6 +5,7 @@ import { promisify } from 'util';
 import { APP_VERSION, GITHUB_REPO_URL } from '@/lib/version';
 import { requireAdmin } from '@/lib/admin-guard';
 import { requireApiAuth } from '@/lib/api-guard';
+import { getDiskSpace } from '@/lib/disk-space';
 
 const execAsync = promisify(exec);
 const projectRoot = process.cwd();
@@ -173,6 +174,7 @@ export async function GET(req: Request) {
       platform: process.platform,
       arch: process.arch,
       uptime: Math.round(process.uptime()),
+      diskSpace: getDiskSpace(projectRoot),
     });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
@@ -314,6 +316,31 @@ export async function POST(req: Request) {
       }
       const effectiveTargetType = targetType || (target.startsWith('v') ? 'TAG' : 'BRANCH');
 
+      const disk = getDiskSpace(projectRoot);
+      logs.push(`[SYSTEM] Festplattenspeicher: ${disk.formattedFree} frei von ${disk.formattedTotal} (${disk.usedPercentage}% belegt)`);
+
+      if (!disk.isSufficient) {
+        logs.push(`[WARNUNG] Geringer Speicherplatz (${disk.formattedFree} frei, mindestens ${disk.minRequiredMb} MB empfohlen). Bereinige temporäre Build-Caches vorab...`);
+        try {
+          const fs = await import('fs');
+          const path = await import('path');
+          const cacheDir = path.join(projectRoot, '.next', 'cache');
+          if (fs.existsSync(cacheDir)) {
+            fs.rmSync(cacheDir, { recursive: true, force: true });
+          }
+          const backupDir = path.join(projectRoot, 'prisma', 'backups');
+          if (fs.existsSync(backupDir)) {
+            const files = fs.readdirSync(backupDir)
+              .filter((f) => f.endsWith('.db'))
+              .map((f) => ({ name: f, path: path.join(backupDir, f), time: fs.statSync(path.join(backupDir, f)).mtimeMs }))
+              .sort((a, b) => b.time - a.time);
+            for (let i = 2; i < files.length; i++) {
+              fs.unlinkSync(files[i].path);
+            }
+          }
+        } catch {}
+      }
+
       try {
         logs.push('[0/4] Erstelle Sicherheits-Backup vor dem Update...');
         try {
@@ -327,20 +354,25 @@ export async function POST(req: Request) {
         }
 
         logs.push(`[1/4] Lade neuesten Code von GitHub & checke "${target}" aus...`);
-        await runGit(['fetch', 'origin', 'master', '--tags', '--force'], 45000).catch(() => ({ stdout: '' }));
+        // Hole alle Tags und Branches sauber vom Remote
+        await runGit(['fetch', '--all', '--tags', '--force', '--prune', 'origin'], 45000).catch(() =>
+          runGit(['fetch', 'origin', 'master', '--tags', '--force'], 30000).catch(() => ({ stdout: '' }))
+        );
 
         if (target.startsWith('v') || effectiveTargetType === 'TAG') {
-          // Lösche veralteten lokalen Tag-Cache und lade den frischen Remote-Tag
-          await runGit(['tag', '-d', target], 15000).catch(() => ({ stdout: '' }));
-          await runGit(['fetch', 'origin', `refs/tags/${target}:refs/tags/${target}`, '--force'], 35000).catch(
-            () => ({ stdout: '' })
-          );
           try {
-            const { stdout: coOut } = await runGit(['checkout', '-f', `refs/tags/${target}`], 25000);
+            const { stdout: coOut } = await runGit(['checkout', '-f', target], 25000);
             logs.push(coOut.trim() || `Erfolgreich auf Tag ${target} gewechselt.`);
           } catch {
-            const { stdout: coOut2 } = await runGit(['checkout', '-f', target], 25000);
-            logs.push(coOut2.trim() || `Erfolgreich auf ${target} gewechselt.`);
+            try {
+              const { stdout: coOut2 } = await runGit(['checkout', '-f', `tags/${target}`], 25000);
+              logs.push(coOut2.trim() || `Erfolgreich auf ${target} gewechselt.`);
+            } catch {
+              // Tag gezielt fetchen falls noch nicht im lokalen Refspace
+              await runGit(['fetch', 'origin', `refs/tags/${target}:refs/tags/${target}`, '--force'], 35000).catch(() => ({ stdout: '' }));
+              const { stdout: coOut3 } = await runGit(['checkout', '-f', target], 25000);
+              logs.push(coOut3.trim() || `Erfolgreich auf ${target} gewechselt.`);
+            }
           }
         } else if (target === 'master' || effectiveTargetType === 'BRANCH') {
           await runGit(['checkout', '-f', target], 25000);

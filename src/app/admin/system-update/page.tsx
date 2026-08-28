@@ -19,6 +19,7 @@ import {
   Check,
   Layers,
   ArrowDownCircle,
+  HardDrive,
 } from 'lucide-react';
 import { APP_VERSION, GITHUB_REPO_URL } from '@/lib/version';
 import { triggerHapticFeedback } from '@/lib/socket-client';
@@ -43,6 +44,17 @@ interface SystemInfo {
   latestReleaseUrl?: string | null;
   availableTags?: string[];
   pendingCommits?: string[];
+  diskSpace?: {
+    totalBytes: number;
+    freeBytes: number;
+    usedBytes: number;
+    usedPercentage: number;
+    formattedTotal: string;
+    formattedFree: string;
+    formattedUsed: string;
+    isSufficient: boolean;
+    minRequiredMb: number;
+  };
 }
 
 interface TerminalLog {
@@ -249,6 +261,16 @@ export default function AdminSystemUpdatePage() {
     const isTag = targetRef.startsWith('v');
     const label = isMaster ? 'Entwicklungs-Branch (master)' : `Release-Version ${targetRef}`;
 
+    if (sysInfo?.diskSpace && !sysInfo.diskSpace.isSufficient) {
+      if (
+        !confirm(
+          `⚠️ ACHTUNG: Auf dem Server sind nur ${sysInfo.diskSpace.formattedFree} freier Festplattenspeicher verfügbar (empfohlen: mindestens ${sysInfo.diskSpace.minRequiredMb} MB für den Build-Prozess).\n\nMöchtest du trotzdem fortfahren? Das System wird versuchen, vor dem Bauen temporäre Caches und alte Backups automatisch zu bereinigen.`
+        )
+      ) {
+        return;
+      }
+    }
+
     if (
       !confirm(
         `OpenBon jetzt auf ${label} setzen?\n\nDer Server führt vorab ein Sicherheits-Backup der Datenbank durch, lädt den Stand von GitHub herunter, führt eventuelle Datenbankmigrationen aus, kompiliert die Anwendung neu und startet den Dienst wieder.`
@@ -449,7 +471,7 @@ export default function AdminSystemUpdatePage() {
       )}
 
       {/* Status Info Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 shrink-0">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4 shrink-0">
         <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800 flex items-center gap-3">
           <GitBranch className="w-5 h-5 text-blue-400 shrink-0" />
           <div className="min-w-0">
@@ -467,6 +489,28 @@ export default function AdminSystemUpdatePage() {
             <span className="text-xs font-mono font-bold text-slate-200 truncate block">
               Node {sysInfo?.nodeVersion || process.version} ({sysInfo?.arch || 'x64'})
             </span>
+          </div>
+        </div>
+
+        <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800 flex items-center gap-3">
+          <HardDrive className={`w-5 h-5 shrink-0 ${sysInfo?.diskSpace?.isSufficient === false ? 'text-rose-400' : 'text-sky-400'}`} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Speicherplatz</span>
+              {sysInfo?.diskSpace && (
+                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${sysInfo.diskSpace.isSufficient ? 'text-emerald-400 bg-emerald-950/60' : 'text-rose-400 bg-rose-950/80 font-black animate-pulse'}`}>
+                  {sysInfo.diskSpace.isSufficient ? 'OK' : 'KNAPP'}
+                </span>
+              )}
+            </div>
+            <span className="text-xs font-mono font-bold text-slate-200 truncate block">
+              {sysInfo?.diskSpace ? `${sysInfo.diskSpace.formattedFree} frei` : 'Wird geprüft...'}
+            </span>
+            {sysInfo?.diskSpace && (
+              <span className="text-[10px] text-slate-500 block truncate">
+                von {sysInfo.diskSpace.formattedTotal} ({sysInfo.diskSpace.usedPercentage}% belegt)
+              </span>
+            )}
           </div>
         </div>
 
