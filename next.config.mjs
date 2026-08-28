@@ -1,3 +1,5 @@
+import path from 'path';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false, // Prevents duplicate socket connections in dev mode
@@ -18,6 +20,10 @@ const nextConfig = {
   webpack: (config) => {
     // Verhindert ENOSPC (Disk Full durch Webpack PackFileCache) auf RPi und kleinen Servern
     config.cache = false;
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.resolve(process.cwd(), 'src'),
+    };
     return config;
   },
   experimental: {
