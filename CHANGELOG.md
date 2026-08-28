@@ -218,15 +218,18 @@
        - `playCashRegisterChime()` und `playWarningBeep()` in `src/lib/audio-feedback.ts`.
        - Integrierter USB-Replikations- und Schreibbereitschafts-Check in `src/app/api/health/route.ts`.
 
-* **28.08.2026 14:50 – Release v0.4.14 Detailverbesserungen & Design-Härtung** `[✓]`
-  * **Weshalb:** Präzise Ausrichtung des Tischplan-Designers, Freiraum-Option beim Raumplan-Druck, bereinigte PIN-Anzeige im QR-Center, homogenes Versionierungs-Branding und Dokumentation der Design-Token.
+* **28.08.2026 14:50 – Release v0.4.14 Detailverbesserungen, Font-Autarkie & Design-Härtung** `[✓]`
+  * **Weshalb:** Vollständig lokaler System-Font-Stack ohne externe Google-Font-Abrufe beim Offline-Build; Bereinigung der Themes auf 4 klare Varianten (`Dunkel`, `Hell`, `Tradition`, `Kompakt`) ohne Klammerzusätze; präzise Ausrichtung des Tischplan-Designers; Freiraum-Option beim Raumplan-Druck; bereinigte PIN-Anzeige im QR-Center; homogenes Versionierungs-Branding; lückenlose 39-View Screenshot-Pipeline mit Versionierungs-Archivierung und vollständige Dokumentation der Design-Token.
   * **Wie:**
-    1. **Tischplan-Designer Ausrichtung:** Spaltenköpfe `S1`–`Sn` und Reihenköpfe `R1`–`Rn` wurden geometrisch fest mit den Grid-Zellen synchronisiert (relative Zwischen-Buttons ohne Flex-Verzerrung).
-    2. **Druckansicht Tischplan:** Checkbox `[x] Freie Tische als Freiraum darstellen` blendet leere Rasterfelder als weiße Flächen ohne Rahmen und Text aus.
-    3. **QR-Code Center:** Erkennung von PBKDF2-Hashes ersetzt kryptische 100-Zeichen-Strings durch `PIN geschützt (4 Ziffern)`.
-    4. **Homogene Versionsanzeige:** `v0.4.13` in der Top-Navbar wurde typografisch in `Plus Jakarta Sans` als dezent elegantes Pill-Badge integriert.
-    5. **Jugendschutz-Kontrast:** Helle, kontraststarke Farbgebung für den Jugendschutz- und Allergenbalken im Light-Theme (`#f1f5f9` mit `#991b1b` / `#b45309`).
-    6. **Screenshot-Archivierung & .gitignore:** Screenshots werden bei Testläufen automatisch mit Version (`v0.4.13`) und ISO-Zeitstempel nach `screenshots/alt/` archiviert; `/screenshots/` ist in `.gitignore` eingetragen.
+    1. **Lokaler Font-Stack & Build-Autarkie:** Umstellung in `src/app/layout.tsx` von `next/font/google` auf einen robusten, lokalen System-Font-Stack (`Plus Jakarta Sans`, `system-ui`, `sans-serif`), wodurch Builds auch ohne Internetverbindung in unter 30s übersetzt werden.
+    2. **Theme-Bereinigung (4 saubere Themes):** Entfernung des `contrast`-Themes zugunsten der 4 klaren, optimierten Themes `Dunkel`, `Hell`, `Tradition` und `Kompakt`. Säuberung der Theme-Labels in der UI (Entfernung von Klammern und Zusätzen).
+    3. **Tischplan-Designer Ausrichtung:** Spaltenköpfe `S1`–`Sn` und Reihenköpfe `R1`–`Rn` wurden geometrisch fest mit den Grid-Zellen synchronisiert (relative Zwischen-Buttons ohne Flex-Verzerrung).
+    4. **Druckansicht Tischplan:** Checkbox `[x] Freie Tische als Freiraum darstellen` blendet leere Rasterfelder als weiße Flächen ohne Rahmen und Text aus.
+    5. **QR-Code Center:** Erkennung von PBKDF2-Hashes ersetzt kryptische 100-Zeichen-Strings durch `PIN geschützt (4 Ziffern)`.
+    6. **Homogene Versionsanzeige:** `v0.4.14` in der Top-Navbar wurde typografisch in `Plus Jakarta Sans` als dezent elegantes Pill-Badge integriert.
+    7. **Jugendschutz-Kontrast:** Helle, kontraststarke Farbgebung für den Jugendschutz- und Allergenbalken im Light-Theme (`#f1f5f9` mit `#991b1b` / `#b45309`).
+    8. **Screenshot-Archivierung & .gitignore:** Screenshots werden bei Testläufen automatisch mit Version (`v0.4.14`) und ISO-Zeitstempel nach `screenshots/alt/` archiviert; `/screenshots/` ist in `.gitignore` eingetragen.
+    9. **Master-Featurekatalog & Ungetestet-Hinweise:** Vollständige Aktualisierung des Feature-Katalogs in Abschnitt 1 mit Kennzeichnung von Kartenzahlung und HA als `[!] (Ungetestet)`.
 
 ---
 
