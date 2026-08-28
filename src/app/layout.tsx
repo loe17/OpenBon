@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { SocketProvider } from '@/components/providers/socket-provider';
 import { ThemeProvider } from '@/components/providers/theme-provider';
@@ -9,29 +8,6 @@ import OfflineBanner from '@/components/ui/offline-banner';
 import HaBanner from '@/components/ui/ha-banner';
 import UpdateNoticeBar from '@/components/ui/update-notice-bar';
 import { BroadcastAlertOverlay } from '@/components/notifications/broadcast-alert-overlay';
-
-// Spec 3.3: Fliesstext & Labels = Inter (500/600)
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-sans',
-  display: 'swap',
-});
-
-// Spec 3.3: Ueberschriften & Buttons = Plus Jakarta Sans (700-900)
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['500', '600', '700', '800'],
-  variable: '--font-display',
-  display: 'swap',
-});
-
-// Spec 3.3: Betraege, Zaehler & Bestellnummern = JetBrains Mono (800)
-const jetbrains = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '700', '800'],
-  variable: '--font-mono',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: 'OpenBon - Kassensystem',
@@ -62,7 +38,7 @@ export default function RootLayout({
   return (
     <html
       lang="de"
-      className={`dark h-full ${inter.variable} ${jakarta.variable} ${jetbrains.variable}`}
+      className="dark h-full font-sans"
       suppressHydrationWarning
     >
       <head>
