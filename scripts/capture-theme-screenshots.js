@@ -57,7 +57,7 @@ const SCREENS = [
   { name: '39_admin_docs', path: '/admin/docs', width: 1280, height: 800 },
 ];
 
-const APP_VERSION = 'v0.4.14';
+const APP_VERSION = 'v0.4.15';
 
 function archiveExistingScreenshots() {
   const altDir = path.join(LOCAL_SCREENSHOT_DIR, 'alt');

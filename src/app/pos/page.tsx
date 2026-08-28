@@ -79,6 +79,19 @@ function PosCounterContent() {
   const [editStationName, setEditStationName] = useState('Bonkasse 1');
   const [editDrawerConnected, setEditDrawerConnected] = useState(true);
   const [hasDrawerAvailable, setHasDrawerAvailable] = useState(false);
+  const [isAutoFitScreen, setIsAutoFitScreen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsAutoFitScreen(localStorage.getItem('openbon_autofit_screen') === '1');
+      const handleAutofitChange = (e: Event) => {
+        const customEv = e as CustomEvent;
+        setIsAutoFitScreen(Boolean(customEv.detail));
+      };
+      window.addEventListener('openbon:autofit_changed', handleAutofitChange);
+      return () => window.removeEventListener('openbon:autofit_changed', handleAutofitChange);
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -423,9 +436,9 @@ function PosCounterContent() {
   const displayedProducts = filterProductsByExcludedAllergens(rawProducts, selectedAllergens);
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white font-sans">
+    <div className={`flex-1 flex flex-col ${isAutoFitScreen ? 'h-[calc(100vh-4rem)] overflow-hidden' : 'h-full overflow-hidden'} bg-slate-950 text-white font-sans`}>
       {/* Top Header */}
-      <div className="p-3 sm:p-4 bg-slate-900 border-b border-slate-700 flex items-center justify-between flex-wrap gap-3 shadow-md">
+      <div className={`${isAutoFitScreen ? 'p-2 sm:p-3' : 'p-3 sm:p-4'} bg-slate-900 border-b border-slate-700 flex items-center justify-between flex-wrap gap-3 shadow-md`}>
         <div className="flex items-center gap-3">
           <div className="bg-emerald-600 text-white p-2.5 rounded-2xl shadow">
             <Ticket className="w-5 h-5" />
@@ -588,8 +601,8 @@ function PosCounterContent() {
       {/* Main Split */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Left: Product Tiles */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-5">
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(135px,1fr))] gap-2.5 sm:gap-3.5">
+        <div className={`flex-1 ${isAutoFitScreen ? 'overflow-y-auto p-2 sm:p-3' : 'overflow-y-auto p-3 sm:p-5'}`}>
+          <div className={`grid ${isAutoFitScreen ? 'grid-cols-[repeat(auto-fill,minmax(125px,1fr))] gap-2' : 'grid-cols-[repeat(auto-fill,minmax(135px,1fr))] gap-2.5 sm:gap-3.5'}`}>
             {displayedProducts?.map((prod) => {
               const isOut = prod.isSoldOut;
               const { price: effectivePrice, isHappyHour } = getEffectiveProductPrice(prod as any);
@@ -599,7 +612,7 @@ function PosCounterContent() {
                   key={prod.id}
                   disabled={isOut}
                   onClick={() => handleProductClick(prod)}
-                  className={`pos-touch-btn relative flex flex-col justify-between p-4 rounded-3xl border-2 shadow-lg text-left min-h-[120px] transition ${
+                  className={`pos-touch-btn relative flex flex-col justify-between ${isAutoFitScreen ? 'p-2.5 rounded-2xl min-h-[95px]' : 'p-4 rounded-3xl min-h-[120px]'} border-2 shadow-lg text-left transition ${
                     isOut
                       ? 'bg-slate-950/60 border-rose-900/40 opacity-40 cursor-not-allowed line-through'
                       : 'bg-slate-900 border-slate-700 hover:border-emerald-500 active:scale-95'
@@ -660,18 +673,18 @@ function PosCounterContent() {
         </div>
 
         {/* Right: Cart & Quick Checkout */}
-        <div className="w-full lg:w-[420px] bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-700 p-5 flex flex-col justify-between overflow-y-auto shadow-2xl">
+        <div className={`w-full lg:w-[420px] bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-700 ${isAutoFitScreen ? 'p-3' : 'p-5'} flex flex-col justify-between overflow-y-auto shadow-2xl`}>
           <div>
             {/* Last Token Banner */}
             {lastToken && (
-              <div className="p-3 mb-3 rounded-2xl bg-gradient-to-r from-emerald-950 to-blue-950 border-2 border-emerald-500 text-center animate-in zoom-in-95 shadow">
+              <div className={`p-2.5 mb-2 rounded-2xl bg-gradient-to-r from-emerald-950 to-blue-950 border-2 border-emerald-500 text-center animate-in zoom-in-95 shadow`}>
                 <span className="text-xs text-slate-300 uppercase font-black tracking-wider">Letzte Abholnummer:</span>
-                <div className="text-4xl font-black text-emerald-400 font-mono">#{lastToken}</div>
+                <div className="text-3xl font-black text-emerald-400 font-mono">#{lastToken}</div>
               </div>
             )}
 
             {/* Cart Items */}
-            <div className="space-y-2 max-h-48 overflow-y-auto mb-3 pr-1">
+            <div className={`space-y-1.5 ${isAutoFitScreen ? 'max-h-36 overflow-y-auto mb-2' : 'max-h-48 overflow-y-auto mb-3'} pr-1`}>
               {cart.length === 0 ? (
                 <div className="text-center py-8 text-xs text-slate-500 font-medium">Korb ist leer.</div>
               ) : (

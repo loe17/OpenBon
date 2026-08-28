@@ -352,10 +352,21 @@ export async function POST(req: Request) {
         }
 
         logs.push('[2/4] Aktualisiere Abhängigkeiten (npm install)...');
-        const { stdout: npmOut } = await execAsync('npm install --production=false --no-audit --no-fund', {
-          cwd: projectRoot,
-          timeout: 120000,
-        });
+        let npmOut = '';
+        try {
+          const res = await execAsync('npm install --production=false --no-audit --no-fund --no-engine-strict', {
+            cwd: projectRoot,
+            timeout: 120000,
+          });
+          npmOut = res.stdout;
+        } catch (npmErr) {
+          logs.push('[HINWEIS] Dev-Abhängigkeiten konnten nicht vollständig installiert werden, versuche Produktiv-Installation (--omit=dev)...');
+          const res = await execAsync('npm install --omit=dev --no-audit --no-fund --no-engine-strict', {
+            cwd: projectRoot,
+            timeout: 120000,
+          });
+          npmOut = res.stdout;
+        }
         logs.push(npmOut.trim() || 'Abhängigkeiten aktuell.');
 
         logs.push('[3/4] Aktualisiere Datenbankschema (prisma db push)...');

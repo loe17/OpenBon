@@ -231,6 +231,14 @@
     8. **Screenshot-Archivierung & .gitignore:** Screenshots werden bei Testläufen automatisch mit Version (`v0.4.14`) und ISO-Zeitstempel nach `screenshots/alt/` archiviert; `/screenshots/` ist in `.gitignore` eingetragen.
     9. **Master-Featurekatalog & Ungetestet-Hinweise:** Vollständige Aktualisierung des Feature-Katalogs in Abschnitt 1 mit Kennzeichnung von Kartenzahlung und HA als `[!] (Ungetestet)`.
 
+* **28.08.2026 16:00 – Release v0.4.15: Node 20 Update-Resilienz & Globaler Skalierungs-Symbolbutton** `[✓]`
+  * **Weshalb:** Behebung des `EBADENGINE`-Update-Fehlers bei 1-Klick-WebUI-Updates auf Produktionsservern mit Node.js 20 LTS; Entkopplung von Entwickler-Tools (Puppeteer); Einführung eines reinen Symbol-Toggle-Buttons in der obersten Navigationsleiste zur bildschirmfüllenden Skalierung ohne Scrollen auf allen Terminals & Tablets.
+  * **Wie:**
+    1. **Puppeteer & Node 20 LTS Entkopplung:** Pinning von `puppeteer` auf `^23.6.0` in `package.json` für Node 20 LTS Kompatibilität; Ausführung von `npm install` mit `--no-engine-strict` und Fallback-Handling auf `--omit=dev` in `/api/system/update/route.ts`.
+    2. **Globaler Skalierungs-Symbolbutton in Navbar:** Einbau eines reinen Icon-Buttons (`<Scaling className="w-4 h-4" />` ohne Textbeschriftung) in `src/components/navigation/navbar.tsx` exakt zwischen `<FullscreenButton />` und der Statusanzeige `Lokal (Aktiv)`.
+    3. **Dauerhafte Persistenz & Signal-Event:** Speicherung des Bildschirmskalierungs-Status in `localStorage` (`openbon_autofit_screen`) und globales Event-Dispatching (`openbon:autofit_changed`).
+    4. **Scrollfreie Bonkassenansicht (`/pos`):** Automatische Viewport-Einpassung (`h-[calc(100vh-4rem)] overflow-hidden`) mit flexiblen Kachel- & Korb-Größen bei aktivierter Bildschirmanpassung, sodass kein vertikaler Scrollbalken mehr entsteht.
+
 ---
 
 ## 4. Theme-Spezifikation & Design-Tokens (Master-Referenz)

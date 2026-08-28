@@ -49,6 +49,7 @@ import {
   ChevronDown,
   Sparkles,
   Activity,
+  Scaling,
 } from 'lucide-react';
 
 interface NavItem {
@@ -80,6 +81,20 @@ export default function Navbar() {
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [pendingOutboxCount, setPendingOutboxCount] = useState(0);
   const [isOnline, setIsOnline] = useState(true);
+  const [isAutoFit, setIsAutoFit] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsAutoFit(localStorage.getItem('openbon_autofit_screen') === '1');
+    }
+  }, []);
+
+  const toggleAutoFit = () => {
+    const next = !isAutoFit;
+    setIsAutoFit(next);
+    localStorage.setItem('openbon_autofit_screen', next ? '1' : '0');
+    window.dispatchEvent(new CustomEvent('openbon:autofit_changed', { detail: next }));
+  };
 
   // Outbox & Online Tracker
   useEffect(() => {
@@ -399,6 +414,19 @@ export default function Navbar() {
 
             {/* Fullscreen Button */}
             <FullscreenButton />
+
+            {/* Screen Auto-Fit Scale Toggle (Symbol-Only, between Fullscreen and Server Status) */}
+            <button
+              onClick={toggleAutoFit}
+              className={`p-2 rounded-xl border transition active:scale-95 flex items-center justify-center ${
+                isAutoFit
+                  ? 'bg-blue-600 text-white border-blue-500 shadow-md'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+              }`}
+              title={isAutoFit ? 'Bildschirmanpassung aktiv (Klick zum Deaktivieren)' : 'Auf Bildschirmhöhe einpassen (Scrollen vermeiden)'}
+            >
+              <Scaling className="w-4 h-4" />
+            </button>
 
             {/* HA / Server Status Indicator */}
             <div
