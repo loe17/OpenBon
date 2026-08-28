@@ -20,9 +20,11 @@ import {
   Radio,
   Globe,
   ExternalLink,
+  ListOrdered,
 } from 'lucide-react';
 
 import { useToast } from '@/components/ui/toast';
+import { PrintQueueManager } from '@/components/admin/print-queue-manager';
 
 interface PrinterRow {
   id: string;
@@ -54,6 +56,7 @@ export default function AdminPrintersPage() {
   const [showPrinterModal, setShowPrinterModal] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [enableVirtual, setEnableVirtual] = useState(true);
+  const [mainTab, setMainTab] = useState<'CONFIG' | 'QUEUE'>('CONFIG');
 
   // Network Scan State
   const [isScanning, setIsScanning] = useState(false);
@@ -409,8 +412,41 @@ export default function AdminPrintersPage() {
         </div>
       </div>
 
-      {/* Step-by-Step Info Box: Drucker & Druckgruppen Routing */}
-      <div className="bg-gradient-to-r from-blue-950/60 via-slate-900 to-indigo-950/60 border border-blue-800/60 rounded-3xl p-5 shadow-xl space-y-3">
+      {/* Tab Switcher */}
+      <div className="flex items-center gap-2 mb-6">
+        <button
+          type="button"
+          onClick={() => setMainTab('CONFIG')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition ${
+            mainTab === 'CONFIG'
+              ? 'bg-blue-600 text-white shadow-lg'
+              : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+          }`}
+        >
+          <Printer className="w-4 h-4" />
+          <span>Drucker & Druckgruppen</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainTab('QUEUE')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition ${
+            mainTab === 'QUEUE'
+              ? 'bg-blue-600 text-white shadow-lg'
+              : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+          }`}
+        >
+          <ListOrdered className="w-4 h-4" />
+          <span>Live-Druckerwarteschlange</span>
+        </button>
+      </div>
+
+      {mainTab === 'QUEUE' ? (
+        <PrintQueueManager printers={printers} />
+      ) : (
+        <>
+          {/* Step-by-Step Info Box: Drucker & Druckgruppen Routing */}
+          <div className="bg-gradient-to-r from-blue-950/60 via-slate-900 to-indigo-950/60 border border-blue-800/60 rounded-3xl p-5 shadow-xl space-y-3 mb-6">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-black text-white flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-blue-400" />
@@ -594,6 +630,8 @@ export default function AdminPrintersPage() {
           </div>
         </div>
       </div>
+      </>
+      )}
 
       {/* Network Scan Results Modal */}
       {showScanModal && (

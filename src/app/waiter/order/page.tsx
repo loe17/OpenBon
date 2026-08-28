@@ -631,7 +631,7 @@ function WaiterOrderContent() {
       <div className="flex-1 flex flex-col overflow-hidden min-h-0 relative">
         {/* ARTIKEL KACHELN: Großzügige Kacheln, große Typografie, maximaler vertikaler Platz */}
         <div className="flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(125px,1fr))] gap-2 sm:gap-3">
             {displayedProducts?.map((product) => {
               const hasVariants = product.variants && product.variants.length > 0;
               const hasOptions = product.options && product.options.length > 0;

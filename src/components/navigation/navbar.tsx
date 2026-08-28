@@ -370,7 +370,8 @@ export default function Navbar() {
                       t.id === 'dark' ? Moon :
                       t.id === 'light' ? Sun :
                       t.id === 'contrast' ? Zap :
-                      t.id === 'klassisch' ? LayoutGrid : Square;
+                      t.id === 'tradition' ? Sparkles :
+                      t.id === 'speed' ? LayoutGrid : Square;
 
                     return (
                       <button

@@ -76,12 +76,12 @@ function Toggle({
   );
 }
 
-const THEMES: { id: string; label: string }[] = [
-  { id: 'klassisch', label: 'Klassisch (Standard)' },
-  { id: 'dark', label: 'Dunkel' },
-  { id: 'light', label: 'Hell' },
-  { id: 'contrast', label: 'Hoher Kontrast' },
-  { id: 'minimal', label: 'Minimal' },
+const THEMES: { id: string; label: string; description: string }[] = [
+  { id: 'dark', label: 'Dunkel (Modern Slate)', description: 'Eleganter Mitternachtsmodus mit tiefen Kontrasten und subtilem Glow' },
+  { id: 'light', label: 'Hell (Klares Tageslicht)', description: 'Schneeweißer Grund mit sonnenlichttauglichen Kontrasten' },
+  { id: 'contrast', label: 'Festzelt High-Contrast (OLED & Signalgelb)', description: 'Blendfreies reines OLED-Schwarz mit signalgelben Akzenten für Außenbereiche' },
+  { id: 'tradition', label: 'Tradition & Verein (Warm Amber)', description: 'Warme Natur- und Bernsteintöne für zünftige Vereinsfeste und Biergärten' },
+  { id: 'speed', label: 'High-Speed Tresen (Kompakt-Modus)', description: 'Maximale Kacheldichte und extra große Ziffern für hohen Thekendurchsatz' },
 ];
 
 const RESET_HELP: Record<string, { title: string; tables: string[]; description: string }> = {
@@ -444,11 +444,11 @@ export function GeneralTab({
         </div>
       </div>
 
-      {/* Zugang */}
+      {/* Zugang & Sicherheit */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
         <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
           <Lock className="w-5 h-5 text-amber-400" />
-          <h3 className="font-bold text-base text-white">Zugang</h3>
+          <h3 className="font-bold text-base text-white">Zugang & Sperre</h3>
         </div>
         <Toggle
           label="Startseite sperren"
@@ -457,6 +457,69 @@ export function GeneralTab({
           value={config.lockStartScreen !== false}
           onToggle={() => onChange({ lockStartScreen: !(config.lockStartScreen !== false) })}
         />
+        <div className="pt-2 border-t border-slate-800">
+          <label className="block text-xs font-bold text-slate-300 mb-1">
+            Auto-Lock nach Inaktivität auf Kellner-Smartphones
+          </label>
+          <select
+            value={config.waiterAutoLockMinutes ?? 0}
+            onChange={(e) => onChange({ waiterAutoLockMinutes: parseInt(e.target.value, 10) || 0 })}
+            className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-bold focus:border-amber-500"
+          >
+            <option value={0}>Deaktiviert (Display bleibt immer entsperrt)</option>
+            <option value={1}>Nach 1 Minute Inaktivität automatisch sperren</option>
+            <option value={2}>Nach 2 Minuten Inaktivität automatisch sperren</option>
+            <option value={3}>Nach 3 Minuten Inaktivität automatisch sperren</option>
+            <option value={5}>Nach 5 Minuten Inaktivität automatisch sperren</option>
+            <option value={10}>Nach 10 Minuten Inaktivität automatisch sperren</option>
+          </select>
+          <p className="text-[11px] text-slate-400 mt-1">
+            Schützt das Kassensystem vor unbefugten Buchungen, falls eine Bedienung das Smartphone am Tisch liegen lässt.
+          </p>
+        </div>
+      </div>
+
+      {/* Erscheinungsbild & Theme */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+        <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
+          <Palette className="w-5 h-5 text-blue-400" />
+          <h3 className="font-bold text-base text-white">Erscheinungsbild & Theme</h3>
+        </div>
+        <p className="text-xs text-slate-400 -mt-2">
+          Wählen Sie das Design für alle Stationen und Bildschirme. Jedes Theme bietet dieselben Funktionen bei eigenständiger Ästhetik und optimierten Kontrasten.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {THEMES.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => {
+                onChange({ activeTheme: t.id });
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('openbon_theme', t.id);
+                  document.documentElement.setAttribute('data-theme', t.id);
+                  document.documentElement.classList.remove('dark', 'light', 'contrast', 'tradition', 'speed', 'modern', 'minimal', 'plain', 'klassisch');
+                  document.documentElement.classList.add(t.id);
+                }
+              }}
+              className={`p-4 rounded-2xl border text-left transition-all ${
+                (config.activeTheme || 'dark') === t.id
+                  ? 'bg-blue-950/40 border-blue-500 shadow-lg'
+                  : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-sm text-white">{t.label}</span>
+                {(config.activeTheme || 'dark') === t.id && (
+                  <span className="px-2 py-0.5 rounded-md bg-blue-500 text-[10px] font-bold text-white">
+                    Aktiv
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400">{t.description}</p>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Betriebsmodi */}

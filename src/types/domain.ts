@@ -106,6 +106,7 @@ export interface EventConfigDTO {
   receiptKitchenShowTimestamp?: boolean;
   receiptKitchenShowOptions?: boolean;
   activeTheme?: string;
+  waiterAutoLockMinutes?: number;
   enableAgeVerificationAlerts?: boolean;
   enableDigitalReceiptQr?: boolean;
   enableNfc?: boolean;

@@ -93,7 +93,10 @@ Jedes Smartphone, Tablet, Touchscreen-Terminal oder PC kann direkt im Webbrowser
 ## 👆 Durchgängige Touch-Bedienung & UI
 
 - **Große Touch-Ziele:** Sämtliche Schaltflächen und Schnellauswahlfelder besitzen eine Mindesthöhe von 48px (`min-h-[48px]`) mit haptischem Feedback und `touch-manipulation`.
+- **5 Barrierefreie POS-Themes:** Umschaltbar zwischen *Dunkel (Modern Slate)*, *Hell (Klares Tageslicht)*, *Festzelt High-Contrast (OLED & Signalgelb)*, *Tradition & Verein (Warm Amber)* und *High-Speed Tresen (Kompakt)* – alle mit automatisierter mathematischer WCAG 2.1 Kontrastvalidierung.
 - **Vollständiger Bargeld-Ziffernblock & Stückelung:** Einheitlicher Touch-Ziffernblock (`0–9`, `00`, `C`, `,`) plus Direkttasten für alle Euro-Scheine (5€ bis 200€) und Münzen (0,01€ bis 2€) mit automatischer Wechselgeld-Berechnung.
+- **Live-Druckerwarteschlange (Spooler Manager):** Interaktive Überwachung aller offenen, gedruckten und fehlgeschlagenen Druckaufträge mit 1-Klick-Wiederholung (Retry), Drucker-Umleitung (Reroute) und Bon-Vorschau.
+- **Kellner-Zwischenstand (X-Bon) & Auto-Lock:** Schneller 1-Klick Schichteinblick (Bargeld-Soll im Geldbeutel, Umsatz, Trinkgeld) und Inaktivitäts-Schutz auf Smartphones.
 - **Kontaktloser E-Bon per NFC & QR:** Direkte Belegübertragung via Web NFC an Gast-Smartphones oder per Cloudflare Tunnel / Netcup Webhosting über Mobilfunk.
 - **Keine blockierenden Browser-Popups:** Alle Bestätigungen und Warnungen erfolgen über animierte Toasts und barrierefreie Touch-Dialoge.
 - **Kellner-Schichtabrechnung (`/waiter/settle`):** Touch-optimierter Soll/Ist-Kassensturz mit Trinkgeld-Ausschüttung und digitalem Kassenabschlussbeleg.
@@ -124,4 +127,4 @@ npm test
 npm run build
 ```
 
-- **18 Test-Suiten / 121 Tests (100% bestanden):** E2E-Lebenszyklus, Idempotenz, Berechtigungen, PBKDF2-PIN-Hashing, Drucker-Fallback, DSFinV-K/DATEV-Fiskalisierung, Druckspooler-Resilienz und ESC/POS-Rendering.
+- **26 Test-Suiten / 189 Tests (100% bestanden):** E2E-Lebenszyklus, WCAG 2.1 Kontrastvalidierung, Idempotenz, Berechtigungen, PBKDF2-PIN-Hashing, Drucker-Fallback, DSFinV-K/DATEV-Fiskalisierung, Druckspooler-Resilienz und ESC/POS-Rendering.

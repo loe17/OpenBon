@@ -101,3 +101,17 @@ export function playOrderReadyChime(): void {
   playTone({ frequency: 783.99, durationMs: 300, delayMs: 240, gain: 0.25 }); // G5
 }
 
+/** Haptischer Kassen-Chime beim Bar-Bezahlvorgang & Schubladenimpuls */
+export function playCashRegisterChime(): void {
+  playTone({ frequency: 1567.98, durationMs: 80, gain: 0.15 }); // G6
+  playTone({ frequency: 2093.0, durationMs: 220, delayMs: 70, gain: 0.18 }); // C7
+}
+
+/** Dringender Dreifach-Signalton (z. B. Altersprüfung oder Fehlermeldung) */
+export function playWarningBeep(): void {
+  playTone({ frequency: 880, durationMs: 80, type: 'square', gain: 0.15 });
+  playTone({ frequency: 880, durationMs: 80, delayMs: 120, type: 'square', gain: 0.15 });
+  playTone({ frequency: 880, durationMs: 140, delayMs: 240, type: 'square', gain: 0.18 });
+}
+
+

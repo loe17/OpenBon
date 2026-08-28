@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
 
@@ -28,8 +30,28 @@ export async function GET() {
     });
   } catch {}
 
-  const isHealthy = dbStatus === 'UP' && failedPrintJobs === 0;
-  const isDegraded = dbStatus === 'UP' && failedPrintJobs > 0;
+  // USB / Litestream Backup-Wächter
+  const usbReplicaPath = process.env.LITESTREAM_REPLICA_PATH || process.env.OPENBON_BACKUP_PATH || null;
+  let usbStatus: 'OK' | 'UNWRITABLE' | 'NOT_CONFIGURED' = 'NOT_CONFIGURED';
+  let usbError: string | null = null;
+
+  if (usbReplicaPath) {
+    try {
+      if (fs.existsSync(usbReplicaPath)) {
+        fs.accessSync(usbReplicaPath, fs.constants.W_OK);
+        usbStatus = 'OK';
+      } else {
+        usbStatus = 'UNWRITABLE';
+        usbError = 'Pfad nicht gefunden';
+      }
+    } catch (e: any) {
+      usbStatus = 'UNWRITABLE';
+      usbError = e.message || 'Kein Schreibzugriff';
+    }
+  }
+
+  const isHealthy = dbStatus === 'UP' && failedPrintJobs === 0 && usbStatus !== 'UNWRITABLE';
+  const isDegraded = dbStatus === 'UP' && (failedPrintJobs > 0 || usbStatus === 'UNWRITABLE');
   const status = isHealthy ? 'HEALTHY' : isDegraded ? 'DEGRADED' : 'UNHEALTHY';
 
   const durationMs = Date.now() - startTime;
@@ -46,6 +68,11 @@ export async function GET() {
       printerQueue: {
         inMemoryQueueLength: queueLength,
         failedDbJobs: failedPrintJobs,
+      },
+      usbHealth: {
+        status: usbStatus,
+        path: usbReplicaPath,
+        error: usbError,
       },
       memory: {
         rssMb: memoryRssMb,

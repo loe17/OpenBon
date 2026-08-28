@@ -35,7 +35,8 @@ model EventConfig {
   enableKioskMode             Boolean @default(false)
   // Startseite verlangt eine PIN-Anmeldung, bevor eine Station gewaehlt werden kann
   lockStartScreen             Boolean @default(true)
-  activeTheme                 String  @default("klassisch") // klassisch, dark, light, contrast, modern, minimal
+  activeTheme                 String  @default("dark") // dark, light, contrast, tradition, speed
+  waiterAutoLockMinutes       Int     @default(0) // 0 = Deaktiviert, sonst 1, 2, 3, 5, 10 Minuten
   lowStockAlertPrinterId      String?
 
   // Beleg- & Bon-Druck Layout & Schriftgrößen

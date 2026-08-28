@@ -66,16 +66,17 @@
 }
 
 /* ==========================================================================
-   Themes: Dunkel, Hell, Kontrastreich, Modern, Minimalistisch, Biergarten
+   Themes: dark (Slate), light (Tageslicht), contrast (Festzelt OLED/Gelb),
+           tradition (Warm Amber/Biergarten), speed (High-Speed Tresen)
    ========================================================================== */
 
-/* Theme: Dunkel (Standard Deep Midnight Slate) */
+/* Theme 1: Dunkel (Standard Modern Deep Slate) */
 html.dark body, html[data-theme="dark"] body {
   background-color: #020617 !important;
   color: #f8fafc !important;
 }
 
-/* Theme: Hell (Klares Tageslicht, sonnenlichttaugliche Kontraste) */
+/* Theme 2: Hell (Klares Tageslicht, sonnenlichttaugliche Kontraste) */
 html.light body, html[data-theme="light"] body {
   background-color: #f8fafc !important;
   color: #000000 !important;
@@ -94,7 +95,7 @@ html.light .text-white, html.light .text-slate-100, html.light .text-slate-200, 
 html.light .text-slate-500, html.light .text-slate-600, html[data-theme="light"] .text-slate-500, html[data-theme="light"] .text-slate-600 { color: #334155 !important; }
 html.light input, html.light select, html.light textarea, html[data-theme="light"] input, html[data-theme="light"] select, html[data-theme="light"] textarea { background-color: #ffffff !important; color: #000000 !important; border-color: #64748b !important; }
 
-/* Theme: Kontrastreich (Pures OLED-Schwarz mit sonnengelben Akzenten) */
+/* Theme 3: Festzelt High-Contrast (Pures OLED-Schwarz mit signalgelben 2px-Rahmen) */
 html.contrast body, html[data-theme="contrast"] body {
   background-color: #000000 !important;
   color: #ffffff !important;
@@ -104,126 +105,58 @@ html.contrast header, html.contrast nav, html[data-theme="contrast"] header, htm
   border-color: #eab308 !important;
   border-bottom-width: 2px !important;
 }
-html.contrast .bg-slate-950, html[data-theme="contrast"] .bg-slate-950 { background-color: #000000 !important; border-color: #ca8a04 !important; }
-html.contrast .bg-slate-900, html[data-theme="contrast"] .bg-slate-900 { background-color: #0c0a09 !important; border-color: #eab308 !important; border-width: 1.5px !important; }
-html.contrast .bg-slate-800, html[data-theme="contrast"] .bg-slate-800 { background-color: #1c1917 !important; border-color: #facc15 !important; }
+html.contrast .bg-slate-950, html[data-theme="contrast"] .bg-slate-950 { background-color: #000000 !important; border-color: #eab308 !important; }
+html.contrast .bg-slate-900, html[data-theme="contrast"] .bg-slate-900 { background-color: #0c0a09 !important; border-color: #eab308 !important; border-width: 2px !important; }
+html.contrast .bg-slate-800, html[data-theme="contrast"] .bg-slate-800 { background-color: #18181b !important; border-color: #facc15 !important; border-width: 1.5px !important; }
 html.contrast .border-slate-800, html.contrast .border-slate-700, html[data-theme="contrast"] .border-slate-800, html[data-theme="contrast"] .border-slate-700 { border-color: #eab308 !important; }
 html.contrast .text-white, html[data-theme="contrast"] .text-white { color: #ffffff !important; font-weight: 800 !important; }
 html.contrast .text-slate-300, html.contrast .text-slate-400, html.contrast .text-slate-500, html[data-theme="contrast"] .text-slate-300, html[data-theme="contrast"] .text-slate-400, html[data-theme="contrast"] .text-slate-500 { color: #fef08a !important; font-weight: 700 !important; }
 html.contrast .text-amber-400, html.contrast .text-amber-300, html[data-theme="contrast"] .text-amber-400, html[data-theme="contrast"] .text-amber-300 { color: #facc15 !important; font-weight: 900 !important; }
 html.contrast button, html[data-theme="contrast"] button { font-weight: 800 !important; }
 
-/* ◽ Theme: Minimalistisch (Monochrome Flat Carbon, ultra-präzise Linien) */
-html.minimal body, html[data-theme="minimal"] body {
-  background-color: #09090b !important;
-  color: #fafafa !important;
+/* Theme 4: Tradition & Verein (Warme Bernstein- & Holztöne, Biergarten-Eleganz) */
+html.tradition body, html[data-theme="tradition"] body {
+  background-color: #140d07 !important;
+  color: #fef3c7 !important;
 }
-html.minimal header, html.minimal nav, html[data-theme="minimal"] header, html[data-theme="minimal"] nav {
-  background-color: #121215 !important;
-  border-color: #27272a !important;
-  box-shadow: none !important;
+html.tradition header, html.tradition nav, html[data-theme="tradition"] header, html[data-theme="tradition"] nav {
+  background-color: #1e130a !important;
+  border-color: #78350f !important;
+  color: #fef3c7 !important;
 }
-html.minimal .bg-slate-950, html[data-theme="minimal"] .bg-slate-950 { background-color: #09090b !important; border-color: #27272a !important; box-shadow: none !important; }
-html.minimal .bg-slate-900, html[data-theme="minimal"] .bg-slate-900 { background-color: #121215 !important; border-color: #27272a !important; box-shadow: none !important; }
-html.minimal .bg-slate-800, html[data-theme="minimal"] .bg-slate-800 { background-color: #1c1c21 !important; border-color: #3f3f46 !important; }
-html.minimal .border-slate-800, html.minimal .border-slate-700, html[data-theme="minimal"] .border-slate-800, html[data-theme="minimal"] .border-slate-700 { border-color: #27272a !important; }
-html.minimal .rounded-2xl, html.minimal .rounded-3xl, html[data-theme="minimal"] .rounded-2xl, html[data-theme="minimal"] .rounded-3xl { border-radius: 0.5rem !important; }
+html.tradition .bg-slate-950, html[data-theme="tradition"] .bg-slate-950 { background-color: #140d07 !important; border-color: #78350f !important; }
+html.tradition .bg-slate-900, html[data-theme="tradition"] .bg-slate-900 { background-color: #1f140b !important; border-color: #92400e !important; }
+html.tradition .bg-slate-800, html[data-theme="tradition"] .bg-slate-800 { background-color: #2b1b0e !important; border-color: #b45309 !important; }
+html.tradition .border-slate-800, html.tradition .border-slate-700, html[data-theme="tradition"] .border-slate-800, html[data-theme="tradition"] .border-slate-700 { border-color: #78350f !important; }
+html.tradition .text-white, html.tradition .text-slate-100, html[data-theme="tradition"] .text-white, html[data-theme="tradition"] .text-slate-100 { color: #fffbeb !important; }
+html.tradition .text-slate-300, html.tradition .text-slate-400, html[data-theme="tradition"] .text-slate-300, html[data-theme="tradition"] .text-slate-400 { color: #fde68a !important; }
+html.tradition .text-slate-500, html[data-theme="tradition"] .text-slate-500 { color: #d97706 !important; }
 
-/* ------------------------------------------------------------------ */
-/* Theme "Klassisch" (Tiefschwarze Schrift & Saubere Akzentfarben)    */
-/* ------------------------------------------------------------------ */
-html.klassisch body, html[data-theme="klassisch"] body {
-  background-color: #ffffff !important;
-  color: #000000 !important;
+/* Theme 5: High-Speed Tresen (Kompakt, extra kontrastreich, scharfe Kanten) */
+html.speed body, html[data-theme="speed"] body {
+  background-color: #090d16 !important;
+  color: #ffffff !important;
 }
-html.klassisch, html[data-theme="klassisch"] { --ob-accent: #2563eb; }
-
-html.klassisch header, html.klassisch nav,
-html[data-theme="klassisch"] header, html[data-theme="klassisch"] nav {
-  background-color: #ffffff !important;
-  border-color: #cbd5e1 !important;
-  box-shadow: none !important;
-  color: #000000 !important;
+html.speed header, html.speed nav, html[data-theme="speed"] header, html[data-theme="speed"] nav {
+  background-color: #0e1524 !important;
+  border-color: #2563eb !important;
+  border-bottom-width: 2px !important;
 }
+html.speed .bg-slate-950, html[data-theme="speed"] .bg-slate-950 { background-color: #090d16 !important; border-color: #1e293b !important; }
+html.speed .bg-slate-900, html[data-theme="speed"] .bg-slate-900 { background-color: #0f172a !important; border-color: #3b82f6 !important; }
+html.speed .bg-slate-800, html[data-theme="speed"] .bg-slate-800 { background-color: #1e293b !important; border-color: #60a5fa !important; }
+html.speed .border-slate-800, html.speed .border-slate-700, html[data-theme="speed"] .border-slate-800, html[data-theme="speed"] .border-slate-700 { border-color: #334155 !important; }
+html.speed .rounded-3xl, html.speed .rounded-2xl, html[data-theme="speed"] .rounded-3xl, html[data-theme="speed"] .rounded-2xl { border-radius: 0.375rem !important; }
+html.speed button, html[data-theme="speed"] button { font-weight: 800 !important; }
 
-/* Flaechen */
-html.klassisch .bg-slate-950, html[data-theme="klassisch"] .bg-slate-950 { background-color: #f8fafc !important; border-color: #cbd5e1 !important; box-shadow: none !important; }
-html.klassisch .bg-slate-900, html[data-theme="klassisch"] .bg-slate-900 { background-color: #ffffff !important; border-color: #cbd5e1 !important; box-shadow: none !important; }
-html.klassisch .bg-slate-800, html[data-theme="klassisch"] .bg-slate-800 { background-color: #f1f5f9 !important; border-color: #cbd5e1 !important; }
-html.klassisch .bg-slate-700, html[data-theme="klassisch"] .bg-slate-700 { background-color: #e2e8f0 !important; }
-html.klassisch .border-slate-800, html.klassisch .border-slate-700, html.klassisch .border-slate-600,
-html[data-theme="klassisch"] .border-slate-800, html[data-theme="klassisch"] .border-slate-700, html[data-theme="klassisch"] .border-slate-600 { border-color: #cbd5e1 !important; }
-
-/* Schrift */
-html.klassisch .text-white, html.klassisch .text-slate-100, html.klassisch .text-slate-200,
-html.klassisch .text-slate-300, html.klassisch .text-slate-400,
-html[data-theme="klassisch"] .text-white, html[data-theme="klassisch"] .text-slate-100, html[data-theme="klassisch"] .text-slate-200,
-html[data-theme="klassisch"] .text-slate-300, html[data-theme="klassisch"] .text-slate-400 { color: #000000 !important; }
-html.klassisch .text-slate-500, html.klassisch .text-slate-600,
-html[data-theme="klassisch"] .text-slate-500, html[data-theme="klassisch"] .text-slate-600 { color: #1e293b !important; }
-
-/* Eingabefelder */
-html.klassisch input, html.klassisch select, html.klassisch textarea,
-html[data-theme="klassisch"] input, html[data-theme="klassisch"] select, html[data-theme="klassisch"] textarea {
-  background-color: #ffffff !important;
-  color: #000000 !important;
-  border-color: #64748b !important;
-}
-
-/* Flach: kleine Radien, keine Schatten, normale Schriftstaerke */
-html.klassisch .rounded-3xl, html.klassisch .rounded-2xl, html.klassisch .rounded-xl,
-html[data-theme="klassisch"] .rounded-3xl, html[data-theme="klassisch"] .rounded-2xl, html[data-theme="klassisch"] .rounded-xl { border-radius: 0.375rem !important; }
-html.klassisch [class*="shadow"], html[data-theme="klassisch"] [class*="shadow"] { box-shadow: none !important; }
-html.klassisch .font-black, html.klassisch .font-extrabold,
-html[data-theme="klassisch"] .font-black, html[data-theme="klassisch"] .font-extrabold { font-weight: 700 !important; }
-html.klassisch .tracking-tight, html[data-theme="klassisch"] .tracking-tight { letter-spacing: normal !important; }
-html.klassisch [class*="bg-gradient"], html[data-theme="klassisch"] [class*="bg-gradient"] { background-image: none !important; }
-
-/* Akzentflaechen mit starkem Kontrast */
-html.klassisch .bg-emerald-600, html.klassisch .bg-emerald-500, html.klassisch .bg-green-600,
-html[data-theme="klassisch"] .bg-emerald-600, html[data-theme="klassisch"] .bg-emerald-500, html[data-theme="klassisch"] .bg-green-600 { background-color: #16a34a !important; color: #ffffff !important; border-color: #15803d !important; }
-html.klassisch .bg-rose-600, html.klassisch .bg-rose-500, html.klassisch .bg-red-600,
-html[data-theme="klassisch"] .bg-rose-600, html[data-theme="klassisch"] .bg-rose-500, html[data-theme="klassisch"] .bg-red-600 { background-color: #dc2626 !important; color: #ffffff !important; border-color: #b91c1c !important; }
-html.klassisch .bg-amber-600, html.klassisch .bg-amber-500, html.klassisch .bg-orange-600,
-html[data-theme="klassisch"] .bg-amber-600, html[data-theme="klassisch"] .bg-amber-500, html[data-theme="klassisch"] .bg-orange-600 { background-color: #d97706 !important; color: #ffffff !important; border-color: #b45309 !important; }
-html.klassisch .bg-blue-600, html.klassisch .bg-blue-500, html.klassisch .bg-indigo-600,
-html[data-theme="klassisch"] .bg-blue-600, html[data-theme="klassisch"] .bg-blue-500, html[data-theme="klassisch"] .bg-indigo-600 { background-color: #2563eb !important; color: #ffffff !important; border-color: #1d4ed8 !important; }
-
-/* Dunkle Farbkacheln (z. B. Statusflaechen) aufhellen */
-html.klassisch [class*="-950"], html[data-theme="klassisch"] [class*="-950"] { background-color: #f8fafc !important; border-color: #cbd5e1 !important; }
-
-/* Akzentschrift und Symbole */
-html.klassisch .text-blue-400, html.klassisch .text-blue-300, html.klassisch .text-blue-500,
-html[data-theme="klassisch"] .text-blue-400, html[data-theme="klassisch"] .text-blue-300, html[data-theme="klassisch"] .text-blue-500 { color: #2563eb !important; }
-html.klassisch .text-emerald-400, html.klassisch .text-emerald-300,
-html[data-theme="klassisch"] .text-emerald-400, html[data-theme="klassisch"] .text-emerald-300 { color: #16a34a !important; }
-html.klassisch .text-rose-400, html.klassisch .text-rose-300, html.klassisch .text-red-400,
-html[data-theme="klassisch"] .text-rose-400, html[data-theme="klassisch"] .text-rose-300, html[data-theme="klassisch"] .text-red-400 { color: #dc2626 !important; }
-html.klassisch .text-amber-400, html.klassisch .text-amber-300,
-html[data-theme="klassisch"] .text-amber-400, html[data-theme="klassisch"] .text-amber-300 { color: #d97706 !important; }
-
-/* Ziffernblock passend zum flachen Bild */
-html.klassisch .keypad-key, html[data-theme="klassisch"] .keypad-key {
-  background-color: #f1f5f9 !important;
-  color: #000000 !important;
-  border-color: #cbd5e1 !important;
-  border-radius: 0.375rem !important;
-  font-weight: 700 !important;
-}
-html.klassisch .keypad-key:active, html[data-theme="klassisch"] .keypad-key:active { background-color: #e2e8f0 !important; }
-
-/* Erhalte weisse Schrift auf farbigen Buttons und Badges in allen Themes */
+/* Erhalte weisse Schrift auf bunten Funktions-Buttons in allen Themes */
 html.light button[class*="bg-blue-"], html.light button[class*="bg-emerald-"], html.light button[class*="bg-rose-"], html.light button[class*="bg-amber-"], html.light button[class*="bg-indigo-"], html.light [class*="bg-blue-600"], html.light [class*="bg-emerald-600"], html.light [class*="bg-rose-600"],
-html[data-theme="light"] button[class*="bg-blue-"], html[data-theme="light"] button[class*="bg-emerald-"], html[data-theme="light"] button[class*="bg-rose-"], html[data-theme="light"] button[class*="bg-amber-"], html[data-theme="light"] button[class*="bg-indigo-"], html[data-theme="light"] [class*="bg-blue-600"], html[data-theme="light"] [class*="bg-emerald-600"], html[data-theme="light"] [class*="bg-rose-600"],
-html.klassisch button[class*="bg-blue-"], html.klassisch button[class*="bg-emerald-"], html.klassisch button[class*="bg-rose-"], html.klassisch button[class*="bg-amber-"], html.klassisch button[class*="bg-indigo-"], html.klassisch [class*="bg-blue-600"], html.klassisch [class*="bg-emerald-600"], html.klassisch [class*="bg-rose-600"],
-html[data-theme="klassisch"] button[class*="bg-blue-"], html[data-theme="klassisch"] button[class*="bg-emerald-"], html[data-theme="klassisch"] button[class*="bg-rose-"], html[data-theme="klassisch"] button[class*="bg-amber-"], html[data-theme="klassisch"] button[class*="bg-indigo-"], html[data-theme="klassisch"] [class*="bg-blue-600"], html[data-theme="klassisch"] [class*="bg-emerald-600"], html[data-theme="klassisch"] [class*="bg-rose-600"] {
+html[data-theme="light"] button[class*="bg-blue-"], html[data-theme="light"] button[class*="bg-emerald-"], html[data-theme="light"] button[class*="bg-rose-"], html[data-theme="light"] button[class*="bg-amber-"], html[data-theme="light"] button[class*="bg-indigo-"], html[data-theme="light"] [class*="bg-blue-600"], html[data-theme="light"] [class*="bg-emerald-600"], html[data-theme="light"] [class*="bg-rose-600"] {
   color: #ffffff !important;
 }
 
 html.light button[class*="bg-blue-"] *, html.light button[class*="bg-emerald-"] *, html.light button[class*="bg-rose-"] *, html.light [class*="bg-blue-600"] *, html.light [class*="bg-emerald-600"] *, html.light [class*="bg-rose-600"] *,
-html[data-theme="light"] button[class*="bg-blue-"] *, html[data-theme="light"] button[class*="bg-emerald-"] *, html[data-theme="light"] button[class*="bg-rose-"] *, html[data-theme="light"] [class*="bg-blue-600"] *, html[data-theme="light"] [class*="bg-emerald-600"] *, html[data-theme="light"] [class*="bg-rose-600"] *,
-html.klassisch button[class*="bg-blue-"] *, html.klassisch button[class*="bg-emerald-"] *, html.klassisch button[class*="bg-rose-"] *, html.klassisch [class*="bg-blue-600"] *, html.klassisch [class*="bg-emerald-600"] *, html.klassisch [class*="bg-rose-600"] *,
-html[data-theme="klassisch"] button[class*="bg-blue-"] *, html[data-theme="klassisch"] button[class*="bg-emerald-"] *, html[data-theme="klassisch"] button[class*="bg-rose-"] *, html[data-theme="klassisch"] [class*="bg-blue-600"] *, html[data-theme="klassisch"] [class*="bg-emerald-600"] *, html[data-theme="klassisch"] [class*="bg-rose-600"] * {
+html[data-theme="light"] button[class*="bg-blue-"] *, html[data-theme="light"] button[class*="bg-emerald-"] *, html[data-theme="light"] button[class*="bg-rose-"] *, html[data-theme="light"] [class*="bg-blue-600"] *, html[data-theme="light"] [class*="bg-emerald-600"] *, html[data-theme="light"] [class*="bg-rose-600"] * {
   color: #ffffff !important;
 }
 

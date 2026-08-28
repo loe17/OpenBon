@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-export type Theme = 'klassisch' | 'dark' | 'light' | 'contrast' | 'minimal';
+export type Theme = 'dark' | 'light' | 'contrast' | 'tradition' | 'speed';
 
 export interface ThemeOption {
   id: Theme;
@@ -11,11 +11,11 @@ export interface ThemeOption {
 }
 
 export const AVAILABLE_THEMES: ThemeOption[] = [
-  { id: 'klassisch', label: 'Klassisch (Standard)', description: 'Weißer Grund, klare Farben, optimaler Tageslicht-Kontrast' },
-  { id: 'dark', label: 'Dunkel', description: 'Deep Slate / Nachtmodus' },
-  { id: 'light', label: 'Hell', description: 'Klares Tageslicht' },
-  { id: 'contrast', label: 'Kontrastreich', description: 'OLED-Kontrast (Schwarz/Gold)' },
-  { id: 'minimal', label: 'Minimalistisch', description: 'Monochromes reines Zink-Design' },
+  { id: 'dark', label: 'Dunkel (Modern Slate)', description: 'Eleganter Mitternachtsmodus mit tiefen Kontrasten und subtilem Glow' },
+  { id: 'light', label: 'Hell (Klares Tageslicht)', description: 'Schneeweißer Grund mit sonnenlichttauglichen Kontrasten' },
+  { id: 'contrast', label: 'Festzelt High-Contrast (OLED & Signalgelb)', description: 'Blendfreies reines OLED-Schwarz mit signalgelben Akzenten für Außenbereiche' },
+  { id: 'tradition', label: 'Tradition & Verein (Warm Amber)', description: 'Warme Natur- und Bernsteintöne für zünftige Vereinsfeste und Biergärten' },
+  { id: 'speed', label: 'High-Speed Tresen (Kompakt-Modus)', description: 'Maximale Kacheldichte und extra große Ziffern für hohen Thekendurchsatz' },
 ];
 
 interface ThemeContextType {
@@ -24,17 +24,17 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: 'klassisch',
+  theme: 'dark',
   setTheme: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('klassisch');
+  const [theme, setThemeState] = useState<Theme>('dark');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const validThemes: Theme[] = ['klassisch', 'dark', 'light', 'contrast', 'minimal'];
+    const validThemes: Theme[] = ['dark', 'light', 'contrast', 'tradition', 'speed'];
     const saved = localStorage.getItem('openbon_theme') as Theme | null;
     
     if (saved && validThemes.includes(saved)) {
@@ -49,20 +49,20 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             setThemeState(data.activeTheme);
             applyTheme(data.activeTheme);
           } else {
-            setThemeState('klassisch');
-            applyTheme('klassisch');
+            setThemeState('dark');
+            applyTheme('dark');
           }
         })
         .catch(() => {
-          setThemeState('klassisch');
-          applyTheme('klassisch');
+          setThemeState('dark');
+          applyTheme('dark');
         });
     }
   }, []);
 
   const applyTheme = (t: Theme) => {
     document.documentElement.setAttribute('data-theme', t);
-    document.documentElement.classList.remove('dark', 'light', 'contrast', 'modern', 'minimal', 'plain', 'klassisch');
+    document.documentElement.classList.remove('dark', 'light', 'contrast', 'tradition', 'speed', 'modern', 'minimal', 'plain', 'klassisch');
     document.documentElement.classList.add(t);
   };
 

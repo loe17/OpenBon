@@ -27,6 +27,9 @@ import {
   History,
   Volume2,
   VolumeX,
+  Wallet,
+  Coins,
+  Printer,
 } from 'lucide-react';
 import { VOID_REASONS, type OrderDTO } from '@/types/domain';
 import { playConfirm, playVoidAlert, playOrderReadyChime } from '@/lib/audio-feedback';
@@ -99,6 +102,81 @@ function WaiterTablesContent() {
   // Bestellverlauf & Stummschaltung
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [soundMuted, setSoundMuted] = useState(false);
+
+  // X-Bon (Zwischenstand)
+  const [showXBonModal, setShowXBonModal] = useState(false);
+  const [xBonData, setXBonData] = useState<any>(null);
+  const [loadingXBon, setLoadingXBon] = useState(false);
+  const [printingXBon, setPrintingXBon] = useState(false);
+
+  // Auto-Lock nach Inaktivität
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    let autoLockMinutes = 0;
+
+    fetch('/api/config/public')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.waiterAutoLockMinutes && data.waiterAutoLockMinutes > 0) {
+          autoLockMinutes = data.waiterAutoLockMinutes;
+          resetTimer();
+        }
+      })
+      .catch(() => {});
+
+    const resetTimer = () => {
+      if (timer) clearTimeout(timer);
+      if (autoLockMinutes > 0) {
+        timer = setTimeout(() => {
+          sessionStorage.removeItem('openbon_station_pin_WAITER');
+          window.location.reload();
+        }, autoLockMinutes * 60 * 1000);
+      }
+    };
+
+    const events = ['mousedown', 'mousemove', 'touchstart', 'scroll', 'keydown'];
+    events.forEach((ev) => window.addEventListener(ev, resetTimer, { passive: true }));
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      events.forEach((ev) => window.removeEventListener(ev, resetTimer));
+    };
+  }, []);
+
+  const handleOpenXBon = async () => {
+    triggerHapticFeedback();
+    setLoadingXBon(true);
+    setShowXBonModal(true);
+    try {
+      const res = await fetch(`/api/reports/x-bon?waiterName=${encodeURIComponent(waiterName)}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setXBonData(data);
+    } catch {
+      showToast('err', 'Fehler beim Laden des Zwischenstands');
+    } finally {
+      setLoadingXBon(false);
+    }
+  };
+
+  const handlePrintXBon = async () => {
+    triggerHapticFeedback();
+    setPrintingXBon(true);
+    try {
+      const res = await fetch('/api/reports/x-bon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ waiterName }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      showToast('ok', `X-Bon gedruckt auf ${data.printedOn || 'Drucker'}`);
+    } catch {
+      showToast('err', 'Fehler beim Drucken des X-Bons');
+    } finally {
+      setPrintingXBon(false);
+    }
+  };
 
   const openTableFromNumber = async (rawInput: string) => {
     const raw = rawInput.trim();
@@ -438,6 +516,16 @@ function WaiterTablesContent() {
             <UserCheck className="w-4 h-4 text-blue-400" />
             <span>Bedienung: <strong className="text-white">{waiterName}</strong></span>
             <Edit3 className="w-3 h-3 text-blue-400" />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleOpenXBon}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-950 border border-slate-800 hover:border-slate-700 text-emerald-300 hover:text-emerald-200 rounded-xl text-xs font-bold transition active:scale-95 shadow"
+            title="Aktueller Schicht-Zwischenstand & Bargeld-Soll im Geldbeutel"
+          >
+            <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">Zwischenstand (X-Bon)</span>
           </button>
 
           <button
@@ -1132,6 +1220,111 @@ function WaiterTablesContent() {
               <ArrowRight className="w-5 h-5" />
               <span>Tisch öffnen & Bestellen</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* X-Bon (Zwischenstand) Modal */}
+      {showXBonModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-5 h-5 text-emerald-400" />
+                <h3 className="font-bold text-lg text-white">Mein Zwischenstand (X-Bon)</h3>
+              </div>
+              <button
+                onClick={() => setShowXBonModal(false)}
+                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {loadingXBon ? (
+              <div className="py-8 text-center text-slate-400 text-sm flex flex-col items-center gap-2">
+                <RefreshCw className="w-6 h-6 animate-spin text-emerald-500" />
+                <span>Berechne aktuellen Zwischenstand...</span>
+              </div>
+            ) : !xBonData ? (
+              <div className="py-6 text-center text-slate-400 text-sm">
+                Keine Daten für diesen Abrechnungszeitraum vorhanden.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs text-slate-400 bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                  <span>Bedienung: <strong className="text-white">{waiterName}</strong></span>
+                  <span>Schicht-Periode: <strong className="text-white">#{xBonData.periodNumber || 1}</strong></span>
+                </div>
+
+                {/* Großes Bar-Soll Highlight */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-950/80 to-slate-900 border border-emerald-500/60 shadow-lg text-center space-y-1">
+                  <div className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                    Bargeld-Soll im Geldbeutel
+                  </div>
+                  <div className="text-3xl font-black font-mono text-emerald-300">
+                    {formatCurrency(xBonData.totalCash || 0)}
+                  </div>
+                  <div className="text-[11px] text-slate-400">
+                    Dieser Betrag muss sich aktuell in bar bei Ihnen befinden.
+                  </div>
+                </div>
+
+                {/* Kennzahlen Grid */}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                    <span className="text-slate-400 block mb-0.5">Gesamtumsatz (Brutto)</span>
+                    <span className="font-bold text-white font-mono text-sm">
+                      {formatCurrency(xBonData.totalGross || 0)}
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                    <span className="text-slate-400 block mb-0.5">Kartenzahlungen</span>
+                    <span className="font-bold text-blue-400 font-mono text-sm">
+                      {formatCurrency(xBonData.totalCard || 0)}
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                    <span className="text-slate-400 block mb-0.5">Trinkgeld erhalten</span>
+                    <span className="font-bold text-amber-400 font-mono text-sm">
+                      {formatCurrency(xBonData.totalTips || 0)}
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                    <span className="text-slate-400 block mb-0.5">Ausbezahltes Pfand</span>
+                    <span className="font-bold text-rose-400 font-mono text-sm">
+                      {formatCurrency(xBonData.totalDepositReturned || 0)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-slate-500 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800 text-center">
+                  Abgeschlossene Kassiervorgänge: <strong>{xBonData.transactionCount || 0}</strong> · X-Bon schließt die Kasse nicht ab.
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setShowXBonModal(false)}
+                    className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-bold"
+                  >
+                    Schließen
+                  </button>
+                  <button
+                    type="button"
+                    disabled={printingXBon}
+                    onClick={handlePrintXBon}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <Printer className={`w-3.5 h-3.5 ${printingXBon ? 'animate-spin' : ''}`} />
+                    <span>{printingXBon ? 'Druckt...' : 'X-Bon drucken'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
