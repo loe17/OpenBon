@@ -60,7 +60,7 @@ const THEME_PALETTES: Record<Theme, ThemePalette> = {
   },
   light: {
     id: 'light',
-    background: '#f8fafc',
+    background: '#f1f5f9',
     card: '#ffffff',
     foreground: '#000000',
     mutedForeground: '#334155',
@@ -69,18 +69,6 @@ const THEME_PALETTES: Record<Theme, ThemePalette> = {
     primaryActionText: '#ffffff',
     badgeHighlight: '#15803d',
     badgeHighlightText: '#ffffff',
-  },
-  contrast: {
-    id: 'contrast',
-    background: '#000000',
-    card: '#0c0a09',
-    foreground: '#ffffff',
-    mutedForeground: '#fef08a',
-    border: '#eab308',
-    primaryAction: '#eab308',
-    primaryActionText: '#000000',
-    badgeHighlight: '#facc15',
-    badgeHighlightText: '#000000',
   },
   tradition: {
     id: 'tradition',
@@ -96,7 +84,7 @@ const THEME_PALETTES: Record<Theme, ThemePalette> = {
   },
   speed: {
     id: 'speed',
-    background: '#090d16',
+    background: '#080c14',
     card: '#0f172a',
     foreground: '#ffffff',
     mutedForeground: '#93c5fd',
@@ -109,10 +97,17 @@ const THEME_PALETTES: Record<Theme, ThemePalette> = {
 };
 
 describe('OpenBon Automated Theme & WCAG 2.1 Contrast Validation Test Suite', () => {
-  it('should verify that all 5 available themes are defined without the legacy theme', () => {
+  it('should verify that all 4 available themes are defined without parentheses or legacy themes', () => {
     const ids = AVAILABLE_THEMES.map((t) => t.id);
-    expect(ids).toEqual(['dark', 'light', 'contrast', 'tradition', 'speed']);
+    expect(ids).toEqual(['dark', 'light', 'tradition', 'speed']);
+    expect(ids).not.toContain('contrast');
     expect(ids).not.toContain('klassisch');
+
+    // Keine Klammern in den Labels
+    AVAILABLE_THEMES.forEach((t) => {
+      expect(t.label).not.toContain('(');
+      expect(t.label).not.toContain(')');
+    });
   });
 
   // WCAG 2.1 AA Normal Text: Mindestens 4.5:1
@@ -145,16 +140,6 @@ describe('OpenBon Automated Theme & WCAG 2.1 Contrast Validation Test Suite', ()
         expect(ratio).toBeGreaterThanOrEqual(4.5);
       });
     });
-  });
-
-  // Spezifischer Test fuer den Festzelt High-Contrast Sonnenschein-Modus
-  it('Festzelt High-Contrast Modus erreicht Spitzenkontrast (>= 12:1) fuer sonnige Biergaerten', () => {
-    const contrastPalette = THEME_PALETTES.contrast;
-    const bodyRatio = calculateContrastRatio(contrastPalette.foreground, contrastPalette.background);
-    expect(bodyRatio).toBeGreaterThanOrEqual(12.0); // 21:1 bei Schwarz/Weiss
-
-    const signalRatio = calculateContrastRatio(contrastPalette.border, contrastPalette.background);
-    expect(signalRatio).toBeGreaterThanOrEqual(7.0); // Signalgelb auf Schwarz
   });
 
   // Stationen-Abdeckung

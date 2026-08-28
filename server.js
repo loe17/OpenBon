@@ -283,7 +283,7 @@ app.prepare().then(() => {
     console.log(`[mDNS]    Domain-URL:   http://openbon.local:${port}`);
     console.log(`[NETZ]    Netzwerk-URL: http://${hostname}:${port}`);
     console.log(`[MODE]    Modus:        ${dev ? 'Entwicklung' : 'Produktion'}`);
-    console.log(`[HA]      HA-Rolle:     ${process.env.HA_ROLE || 'PRIMARY'}`);
+    console.log(`[HA]      HA-Rolle:     ${process.env.HA_ROLE || 'STANDALONE'}`);
     console.log(`==================================================\n`);
 
     // Spec 7.2: Self-Healing Selbstdiagnose + Backup- + Retention-Scheduler werden

@@ -66,8 +66,13 @@ export async function getConfiguredPartnerUrl(): Promise<string | null> {
   try {
     const config = await prisma.eventConfig.findUnique({
       where: { id: 'default' },
-      select: { haPartnerUrl: true },
+      select: { haPartnerUrl: true, haRole: true },
     });
+    // Wenn Einzelserver-Betrieb (STANDALONE), ist kein Partner aktiv
+    if (!config?.haRole || config.haRole === 'STANDALONE') {
+      cachedPartner = { url: null, fetchedAt: Date.now() };
+      return null;
+    }
     const url = config?.haPartnerUrl?.trim() || null;
     cachedPartner = { url, fetchedAt: Date.now() };
     return url;

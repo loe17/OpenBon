@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-export type Theme = 'dark' | 'light' | 'contrast' | 'tradition' | 'speed';
+export type Theme = 'dark' | 'light' | 'tradition' | 'speed';
 
 export interface ThemeOption {
   id: Theme;
@@ -11,11 +11,10 @@ export interface ThemeOption {
 }
 
 export const AVAILABLE_THEMES: ThemeOption[] = [
-  { id: 'dark', label: 'Dunkel (Modern Slate)', description: 'Eleganter Mitternachtsmodus mit tiefen Kontrasten und subtilem Glow' },
-  { id: 'light', label: 'Hell (Klares Tageslicht)', description: 'Schneeweißer Grund mit sonnenlichttauglichen Kontrasten' },
-  { id: 'contrast', label: 'Festzelt High-Contrast (OLED & Signalgelb)', description: 'Blendfreies reines OLED-Schwarz mit signalgelben Akzenten für Außenbereiche' },
-  { id: 'tradition', label: 'Tradition & Verein (Warm Amber)', description: 'Warme Natur- und Bernsteintöne für zünftige Vereinsfeste und Biergärten' },
-  { id: 'speed', label: 'High-Speed Tresen (Kompakt-Modus)', description: 'Maximale Kacheldichte und extra große Ziffern für hohen Thekendurchsatz' },
+  { id: 'dark', label: 'Dunkel', description: 'Eleganter Mitternachtsmodus mit tiefen Kontrasten und subtilem Glow' },
+  { id: 'light', label: 'Hell', description: 'Schneeweißer Grund mit sonnenlichttauglichen Kontrasten' },
+  { id: 'tradition', label: 'Tradition', description: 'Warme Natur- und Bernsteintöne für zünftige Vereinsfeste und Biergärten' },
+  { id: 'speed', label: 'Kompakt', description: 'Maximale Kacheldichte und extra große Ziffern für hohen Thekendurchsatz' },
 ];
 
 interface ThemeContextType {
@@ -34,7 +33,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
-    const validThemes: Theme[] = ['dark', 'light', 'contrast', 'tradition', 'speed'];
+    const validThemes: Theme[] = ['dark', 'light', 'tradition', 'speed'];
     const saved = localStorage.getItem('openbon_theme') as Theme | null;
     
     if (saved && validThemes.includes(saved)) {

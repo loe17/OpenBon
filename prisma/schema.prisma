@@ -110,8 +110,8 @@ model EventConfig {
   sessionSecret   String? // Kryptografischer Secret-Schlüssel für signierte JWT-Session-Cookies
   haSyncSecret    String? // M5.1: kein Default mehr - Einzelknoten erzeugt starkes Secret beim Start, Dual-Knoten pairen
   licenseKey      String   @default("OPENBON-COMMUNITY-FREE")
-  haRole          String   @default("PRIMARY") // PRIMARY, STANDBY
-  haPartnerUrl    String?  @default("http://192.168.1.101:3000")
+  haRole          String   @default("STANDALONE") // STANDALONE, PRIMARY, STANDBY
+  haPartnerUrl    String?
   haAutoFailover  Boolean  @default(true)
   aisles          String?  @default("[]")
   tokenSequence   Int      @default(1)

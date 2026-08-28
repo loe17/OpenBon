@@ -77,11 +77,10 @@ function Toggle({
 }
 
 const THEMES: { id: string; label: string; description: string }[] = [
-  { id: 'dark', label: 'Dunkel (Modern Slate)', description: 'Eleganter Mitternachtsmodus mit tiefen Kontrasten und subtilem Glow' },
-  { id: 'light', label: 'Hell (Klares Tageslicht)', description: 'Schneeweißer Grund mit sonnenlichttauglichen Kontrasten' },
-  { id: 'contrast', label: 'Festzelt High-Contrast (OLED & Signalgelb)', description: 'Blendfreies reines OLED-Schwarz mit signalgelben Akzenten für Außenbereiche' },
-  { id: 'tradition', label: 'Tradition & Verein (Warm Amber)', description: 'Warme Natur- und Bernsteintöne für zünftige Vereinsfeste und Biergärten' },
-  { id: 'speed', label: 'High-Speed Tresen (Kompakt-Modus)', description: 'Maximale Kacheldichte und extra große Ziffern für hohen Thekendurchsatz' },
+  { id: 'dark', label: 'Dunkel', description: 'Eleganter Mitternachtsmodus mit tiefen Kontrasten und subtilem Glow' },
+  { id: 'light', label: 'Hell', description: 'Schneeweißer Grund mit sonnenlichttauglichen Kontrasten' },
+  { id: 'tradition', label: 'Tradition', description: 'Warme Natur- und Bernsteintöne für zünftige Vereinsfeste und Biergärten' },
+  { id: 'speed', label: 'Kompakt', description: 'Maximale Kacheldichte und extra große Ziffern für hohen Thekendurchsatz' },
 ];
 
 const RESET_HELP: Record<string, { title: string; tables: string[]; description: string }> = {

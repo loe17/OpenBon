@@ -16,8 +16,8 @@ const LEASE_TTL_MS = 10000;
 
 export class HighAvailabilityService {
   private static instance: HighAvailabilityService;
-  private currentRole: 'PRIMARY' | 'STANDBY' = (process.env.HA_ROLE as 'PRIMARY' | 'STANDBY' | undefined) || 'PRIMARY';
-  private partnerUrl: string = process.env.HA_PARTNER_URL || 'http://127.0.0.1:3001';
+  private currentRole: 'STANDALONE' | 'PRIMARY' | 'STANDBY' = (process.env.HA_ROLE as any) || 'STANDALONE';
+  private partnerUrl: string = process.env.HA_PARTNER_URL || '';
   private missedHeartbeats = 0;
   private heartbeatInterval: NodeJS.Timeout | null = null;
   /** Eindeutige Instanz-ID fuer das Split-Brain-Fencing (Leader-Lease) */
@@ -40,11 +40,16 @@ export class HighAvailabilityService {
     try {
       const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
       if (config) {
-        this.currentRole = config.haRole as 'PRIMARY' | 'STANDBY';
+        this.currentRole = (config.haRole as any) || 'STANDALONE';
         if (config.haPartnerUrl) this.partnerUrl = config.haPartnerUrl;
       }
     } catch {
       // DB not ready yet, keep env defaults
+    }
+
+    // STANDALONE ist der ressourcenschonende Standard: kein Hintergrundpolling
+    if (this.currentRole === 'STANDALONE') {
+      return;
     }
 
     // Split-Brain-Schutz beim Start: Wenn ein anderer Knoten noch eine gueltige
@@ -60,12 +65,12 @@ export class HighAvailabilityService {
       }
     }
 
-    // Watcher laeuft in beiden Rollen: STANDBY ueberwacht den Primary,
+    // Watcher laeuft nur in Cluster-Rollen: STANDBY ueberwacht den Primary,
     // PRIMARY erneuert seine Lease gegen Split-Brain.
     this.startHeartbeatWatcher();
   }
 
-  public getRole(): 'PRIMARY' | 'STANDBY' {
+  public getRole(): 'STANDALONE' | 'PRIMARY' | 'STANDBY' {
     return this.currentRole;
   }
 
@@ -79,7 +84,7 @@ export class HighAvailabilityService {
    * ohne Geheimnisse, ohne Seiteneffekte.
    */
   public getHeartbeatInfo(): {
-    role: 'PRIMARY' | 'STANDBY';
+    role: 'STANDALONE' | 'PRIMARY' | 'STANDBY';
     partnerUrl: string;
     missedHeartbeats: number;
     instanceId: string;
@@ -107,7 +112,13 @@ export class HighAvailabilityService {
    * Setzt die Rolle. Ein Wechsel zu PRIMARY erfordert eine gueltige Lease,
    * damit es im Netzwerk-Partitionsfall nie zwei schreibende Knoten gibt.
    */
-  public async setRole(role: 'PRIMARY' | 'STANDBY'): Promise<boolean> {
+  public async setRole(role: 'STANDALONE' | 'PRIMARY' | 'STANDBY'): Promise<boolean> {
+    if (role === 'STANDALONE') {
+      this.dispose();
+      this.currentRole = 'STANDALONE';
+      return true;
+    }
+
     if (role === 'PRIMARY') {
       const acquired = await this.acquireOrRenewLease().catch(() => false);
       if (!acquired) {
@@ -124,26 +135,13 @@ export class HighAvailabilityService {
    * Holt oder erneuert die PRIMARY-Lease. Gibt false zurueck, wenn ein anderer,
    * noch lebender Knoten die Lease haelt (Split-Brain-Fencing).
    *
-   * M5.2: Vorher war dies ein nicht-atomares check-then-upsert - zwei Knoten
-   * konnten den anderen glücklich machen. Jetzt:
-   *  1. create() als schneller Pfad fuer die erste Uebernahme (PK-Kollision
-   *     verliert deterministisch),
-   *  2. konditionales updateMany(), das nur die Lease des EIGENEN holders oder
-   *     eine ABGELAUFENE Lease ueberschreibt - statementatomar in SQLite.
+   * Verwendet statement-atomares updateMany() ohne Exception-Logging bei bestehender Lease.
    */
   private async acquireOrRenewLease(): Promise<boolean> {
     const now = new Date();
     const expiresAt = new Date(Date.now() + LEASE_TTL_MS);
 
-    try {
-      await prisma.haLease.create({
-        data: { id: 'primary', holderId: this.instanceId, expiresAt },
-      });
-      return true; // noch keine Lease vorhanden -> sofort ours
-    } catch {
-      // Zeile existiert bereits -> konditionaler Anspruch folgt
-    }
-
+    // 1. Zuerst atomar erneuern, wenn wir bereits Inhaber sind oder die Lease abgelaufen ist
     const claimed = await prisma.haLease.updateMany({
       where: {
         id: 'primary',
@@ -151,7 +149,27 @@ export class HighAvailabilityService {
       },
       data: { holderId: this.instanceId, expiresAt, updatedAt: now },
     });
-    return claimed.count === 1;
+
+    if (claimed.count === 1) {
+      return true;
+    }
+
+    // 2. Falls noch gar kein Eintrag existiert (Erster Kaltstart), sauber anlegen via upsert
+    try {
+      const existing = await prisma.haLease.findUnique({ where: { id: 'primary' } });
+      if (!existing) {
+        await prisma.haLease.upsert({
+          where: { id: 'primary' },
+          create: { id: 'primary', holderId: this.instanceId, expiresAt },
+          update: { holderId: this.instanceId, expiresAt, updatedAt: now },
+        });
+        return true;
+      }
+    } catch {
+      // Falls paralleler Insert stattfindet
+    }
+
+    return false;
   }
 
   private async getLeaseHolder(): Promise<string> {
@@ -165,6 +183,7 @@ export class HighAvailabilityService {
 
   // Record a transaction mutation to the Sync Journal
   public async logMutation(entityType: string, entityId: string, operation: 'INSERT' | 'UPDATE' | 'DELETE', payload: unknown) {
+    if (this.currentRole === 'STANDALONE') return;
     try {
       await prisma.syncJournal.create({
         data: {
@@ -193,7 +212,7 @@ export class HighAvailabilityService {
           return;
         }
 
-        if (this.currentRole !== 'STANDBY') return;
+        if (this.currentRole !== 'STANDBY' || !this.partnerUrl) return;
 
         const res = await fetch(`${this.partnerUrl}/api/sync/heartbeat`, {
           method: 'GET',

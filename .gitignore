@@ -40,13 +40,13 @@ yarn-error.log*
 *.md
 **/*.md
 !README.md
+!CHANGELOG.md
 !**/README.md
 !docs/**
 docs/SPECIFICATION.md
 docs/SPECIFICATION_V2.md
 docs/IMPLEMENTATION_PLAN_V2.md
 docs/GITHUB_EXPLORER_GUIDE.md
-CHANGELOG.md
 
 # Backup & Planning Files
 github-1-click*.bat
@@ -74,3 +74,7 @@ license-generator.html
 *.sw?
 .DS_Store
 Thumbs.db
+
+# Screenshots & Visual Quality Assurance
+/screenshots/
+screenshots/

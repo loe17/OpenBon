@@ -317,8 +317,8 @@ export default function Navbar() {
                 OB
               </span>
               <span className="text-white">OpenBon</span>
-              <span className="text-[10px] text-amber-300 font-mono font-bold bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-700">
-                v{APP_VERSION} {APP_IS_BETA ? 'Beta' : ''}
+              <span className="text-[11px] font-semibold text-slate-400 bg-slate-800/70 px-2 py-0.5 rounded-full border border-slate-700/60 tracking-normal">
+                v{APP_VERSION}{APP_IS_BETA ? ' Beta' : ''}
               </span>
             </Link>
           </div>
@@ -369,7 +369,6 @@ export default function Navbar() {
                     const ThemeIcon =
                       t.id === 'dark' ? Moon :
                       t.id === 'light' ? Sun :
-                      t.id === 'contrast' ? Zap :
                       t.id === 'tradition' ? Sparkles :
                       t.id === 'speed' ? LayoutGrid : Square;
 
@@ -447,8 +446,8 @@ export default function Navbar() {
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-black text-lg text-white">Hauptmenü</h3>
-                  <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-950 px-1.5 py-0.5 rounded border border-amber-800">
-                    v{APP_VERSION} Beta
+                  <span className="text-[11px] font-semibold text-slate-400 bg-slate-800/70 px-2 py-0.5 rounded-full border border-slate-700/60">
+                    v{APP_VERSION}{APP_IS_BETA ? ' Beta' : ''}
                   </span>
                 </div>
                 <p className="text-xs text-slate-400">OpenBon Kassen- &amp; Bestellsystem</p>

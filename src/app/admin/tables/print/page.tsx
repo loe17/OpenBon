@@ -14,6 +14,7 @@ export default function PrintTableOverviewPage() {
   const [tables, setTables] = useState<any[]>([]);
   const [aisles, setAisles] = useState<AisleItem[]>([]);
   const [eventName, setEventName] = useState('Festveranstaltung 2026');
+  const [hideEmptySpaces, setHideEmptySpaces] = useState(false);
 
   useEffect(() => {
     fetch('/api/tables?all=true')
@@ -46,7 +47,7 @@ export default function PrintTableOverviewPage() {
   return (
     <div className="min-h-screen bg-white text-black p-6 font-sans">
       {/* Screen-only Controls */}
-      <div className="print:hidden max-w-4xl mx-auto mb-6 p-4 bg-slate-900 text-white rounded-2xl flex items-center justify-between shadow-lg">
+      <div className="print:hidden max-w-4xl mx-auto mb-6 p-4 bg-slate-900 text-white rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-lg">
         <Link
           href="/admin/tables"
           className="flex items-center gap-2 text-xs font-bold text-slate-300 hover:text-white"
@@ -54,10 +55,19 @@ export default function PrintTableOverviewPage() {
           <ArrowLeft className="w-4 h-4" />
           <span>Zurück zum Tischplan</span>
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-xs text-slate-300 font-bold cursor-pointer select-none bg-slate-800 px-3 py-2 rounded-xl border border-slate-700 hover:border-slate-600 transition">
+            <input
+              type="checkbox"
+              checked={hideEmptySpaces}
+              onChange={(e) => setHideEmptySpaces(e.target.checked)}
+              className="rounded border-slate-600 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+            />
+            <span>Freie Tische als Freiraum darstellen</span>
+          </label>
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow transition"
           >
             <Printer className="w-4 h-4" />
             <span>Tischübersicht jetzt drucken / PDF speichern</span>
@@ -135,6 +145,15 @@ export default function PrintTableOverviewPage() {
                           ({x},{y})
                         </div>
                       </div>
+                    );
+                  }
+
+                  if (hideEmptySpaces) {
+                    return (
+                      <div
+                        key={`empty-${x}-${y}`}
+                        className="min-h-[72px] bg-transparent border-none"
+                      />
                     );
                   }
 

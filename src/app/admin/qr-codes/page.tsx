@@ -209,7 +209,9 @@ export default function QrCodesPage() {
           role: station.role,
           description: station.description,
           url: station.fullUrl,
-          pin: station.pin,
+          pin: station.pin?.startsWith('$pbkdf2$') || (station.pin?.length || 0) > 8
+            ? '4-stelliger PIN erforderlich (siehe Administrator)'
+            : station.pin,
         }),
       });
 
@@ -341,15 +343,28 @@ export default function QrCodesPage() {
               <p className="text-xs text-slate-400 mb-4 min-h-[32px]">{station.description}</p>
 
               {/* Station PIN Badge */}
-              <div className="w-full bg-slate-950 border border-slate-800 rounded-xl py-1.5 px-3 mb-4 flex items-center justify-between">
-                <span className="text-[11px] text-slate-400 flex items-center gap-1 font-semibold">
-                  <Lock className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Stations-PIN:</span>
-                </span>
-                <span className="font-mono font-black text-amber-300 text-sm tracking-widest">
-                  {station.pin}
-                </span>
-              </div>
+              {(() => {
+                const rawPin = station.pin || '';
+                const isHash = rawPin.startsWith('$pbkdf2$') || rawPin.length > 8;
+                const isPublic = rawPin.includes('Kein PIN') || rawPin.includes('Öffentlich');
+                const displayLabel = isPublic
+                  ? 'Kein PIN (Öffentlich)'
+                  : isHash
+                  ? 'PIN geschützt (4 Ziffern)'
+                  : rawPin;
+
+                return (
+                  <div className="w-full bg-slate-950 border border-slate-800 rounded-xl py-1.5 px-3 mb-4 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-400 flex items-center gap-1 font-semibold">
+                      <Lock className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Stations-PIN:</span>
+                    </span>
+                    <span className={`text-xs font-bold ${isPublic ? 'text-emerald-400' : 'text-amber-300 font-mono tracking-wider'}`}>
+                      {displayLabel}
+                    </span>
+                  </div>
+                );
+              })()}
 
               {/* QR Code */}
               <div className="bg-white p-3 rounded-2xl shadow-inner mb-4 flex items-center justify-center">

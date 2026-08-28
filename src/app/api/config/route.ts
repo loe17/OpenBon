@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import haService from '@/lib/ha/ha-service';
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     });
 
     if (typeof data.haRole === 'string') {
-      const promoted = await haService.setRole(data.haRole as 'PRIMARY' | 'STANDBY');
+      const promoted = await haService.setRole(data.haRole as 'STANDALONE' | 'PRIMARY' | 'STANDBY');
       if (!promoted) {
         return NextResponse.json(
           {

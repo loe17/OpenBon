@@ -546,7 +546,7 @@ export default function AdminTablesPage() {
                   const aisleColObj = aisles.find((a) => a.type === 'COL' && a.index === colNum);
 
                   return (
-                    <React.Fragment key={`col-header-${colNum}`}>
+                    <div key={`col-header-${colNum}`} className="relative shrink-0">
                       <div
                         className={`${
                           isColAisle ? 'w-[48px]' : 'w-[90px]'
@@ -580,13 +580,13 @@ export default function AdminTablesPage() {
                               posY: rect.bottom + 8,
                             });
                           }}
-                          className="w-5 h-5 -mx-1.5 shrink-0 rounded-full bg-blue-950 hover:bg-blue-600 border border-blue-700 text-blue-300 hover:text-white flex items-center justify-center text-xs font-black shadow transition active:scale-95 z-10"
+                          className="absolute -right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-blue-950 hover:bg-blue-600 border border-blue-700 text-blue-300 hover:text-white flex items-center justify-center text-xs font-black shadow transition active:scale-95 z-20"
                           title={`Gang oder Spalte nach Spalte ${colNum} einfügen`}
                         >
                           +
                         </button>
                       )}
-                    </React.Fragment>
+                    </div>
                   );
                 })}
               </div>
@@ -602,9 +602,9 @@ export default function AdminTablesPage() {
                     <div key={`row-wrap-${rowNum}`} className="space-y-0">
                       <div className="flex items-stretch gap-2 my-1">
                         {/* Left Row Label & + Insert Handle */}
-                        <div className="w-8 flex flex-col items-center justify-center shrink-0">
+                        <div className="w-8 flex flex-col items-center justify-center shrink-0 relative">
                           <div
-                            className={`text-center font-mono text-[10px] font-bold px-1 py-1 rounded border ${
+                            className={`w-full text-center font-mono text-[10px] font-bold px-1 py-1 rounded border ${
                               isRowAisle
                                 ? 'bg-amber-950/40 border-amber-800 text-amber-300'
                                 : 'bg-slate-950 border-slate-800 text-slate-400'
@@ -612,6 +612,23 @@ export default function AdminTablesPage() {
                           >
                             {isRowAisle ? <Footprints className="w-3.5 h-3.5 mx-auto text-amber-400" /> : `R${rowNum}`}
                           </div>
+                          {rowNum < floorRows && (
+                            <button
+                              onClick={(e) => {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setInsertPopup({
+                                  type: 'ROW',
+                                  index: rowNum,
+                                  posX: rect.right + 8,
+                                  posY: rect.top - 10,
+                                });
+                              }}
+                              className="absolute -bottom-3.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-blue-950 hover:bg-blue-600 border border-blue-700 text-blue-300 hover:text-white flex items-center justify-center text-xs font-black shadow transition active:scale-95 z-20"
+                              title={`Gang oder Reihe nach Reihe ${rowNum} einfügen`}
+                            >
+                              +
+                            </button>
+                          )}
                         </div>
 
                         {/* Row Cells */}
@@ -721,27 +738,6 @@ export default function AdminTablesPage() {
                           </div>
                         )}
                       </div>
-
-                      {/* Intermediate Row + Insert Handle */}
-                      {rowNum < floorRows && (
-                        <div className="flex items-center pl-1.5 my-1">
-                          <button
-                            onClick={(e) => {
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              setInsertPopup({
-                                type: 'ROW',
-                                index: rowNum,
-                                posX: rect.right + 8,
-                                posY: rect.top - 10,
-                              });
-                            }}
-                            className="w-5 h-5 rounded-full bg-blue-950 hover:bg-blue-600 border border-blue-700 text-blue-300 hover:text-white flex items-center justify-center text-xs font-black shadow transition active:scale-95"
-                            title={`Gang oder Reihe nach Reihe ${rowNum} einfügen`}
-                          >
-                            +
-                          </button>
-                        </div>
-                      )}
                     </div>
                   );
                 })}
