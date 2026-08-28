@@ -36,13 +36,17 @@ yarn-error.log*
 .pnpm-debug.log*
 *.tmp
 
-# Markdown & Internal Documentation (Ignore temporary markdown files except README, CHANGELOG and docs/)
+# Markdown & Internal Documentation
 *.md
 **/*.md
 !README.md
 !**/README.md
-!CHANGELOG.md
 !docs/**
+docs/SPECIFICATION.md
+docs/SPECIFICATION_V2.md
+docs/IMPLEMENTATION_PLAN_V2.md
+docs/GITHUB_EXPLORER_GUIDE.md
+CHANGELOG.md
 
 # Backup & Planning Files
 github-1-click*.bat
