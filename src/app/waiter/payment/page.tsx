@@ -4,12 +4,13 @@ import React, { useCallback, useEffect, useMemo, useState, Suspense } from 'reac
 import { useRouter, useSearchParams } from 'next/navigation';
 import { formatCurrency, generateIdempotencyKey } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
-import { computeCheckout, CASH_QUICK_NOTES } from '@/lib/pricing';
+import { computeCheckout } from '@/lib/pricing';
 import { PAYMENT_METHODS, isPaymentMethodAvailable, getActiveCardPaymentMethod } from '@/lib/payment/methods';
 import { playPaymentSuccess, playPaymentFailure } from '@/lib/audio-feedback';
 import { ChangeCalculator } from '@/components/ui/change-calculator';
 import PaymentService from '@/lib/payment/payment-service';
 import type { DiningTableDTO, OrderDTO, PaymentMethod, EventConfigDTO } from '@/types/domain';
+import QRCode from 'qrcode';
 import {
   ArrowLeft,
   Check,
@@ -19,7 +20,6 @@ import {
   Ban,
   RefreshCw,
   Coins,
-  Delete,
   PlusCircle,
   Receipt,
   CreditCard,
@@ -29,6 +29,10 @@ import {
   History,
   Volume2,
   VolumeX,
+  QrCode,
+  Radio,
+  Smartphone,
+  X,
 } from 'lucide-react';
 import { isAudioMuted, setAudioMuted } from '@/lib/socket-client';
 import { sendWithOutboxFallback } from '@/lib/offline/outbox';
@@ -83,6 +87,13 @@ function WaiterPaymentContent() {
   const [completedInvoice, setCompletedInvoice] = useState<string | null>(null);
   const [completedPaymentId, setCompletedPaymentId] = useState<string | null>(null);
   const [receiptPrinted, setReceiptPrinted] = useState(false);
+  const [completedDigitalReceiptUrl, setCompletedDigitalReceiptUrl] = useState<string | null>(null);
+  const [completedDigitalReceiptCode, setCompletedDigitalReceiptCode] = useState<string | null>(null);
+  const [showEBonModal, setShowEBonModal] = useState(false);
+  const [eBonQrDataUrl, setEBonQrDataUrl] = useState<string | null>(null);
+  const [eBonMode, setEBonMode] = useState<'QR' | 'NFC'>('QR');
+  const [nfcStatus, setNfcStatus] = useState<'IDLE' | 'WRITING' | 'SUCCESS' | 'ERROR' | 'UNSUPPORTED'>('IDLE');
+  const [nfcMessage, setNfcMessage] = useState<string>('');
   const [guestFacingMode, setGuestFacingMode] = useState(false);
   const [guestFacingRotated, setGuestFacingRotated] = useState(true);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -265,30 +276,6 @@ function WaiterPaymentContent() {
     );
   };
 
-  /* ----------------------------------------------------- Stufe 3: Keypad */
-
-  const pressKey = (key: string) => {
-    haptic();
-    setKeypadValue((prev) => {
-      if (key === 'DEL') return prev.slice(0, -1);
-      if (key === 'CLR') return '';
-      if (key === ',') return prev.includes(',') ? prev : (prev || '0') + ',';
-      if (prev.includes(',') && prev.split(',')[1].length >= 2) return prev;
-      if (prev === '0') return key;
-      return prev + key;
-    });
-  };
-
-  const setNote = (value: number) => {
-    haptic();
-    setKeypadValue(value.toFixed(2).replace('.', ','));
-  };
-
-  const setExact = () => {
-    haptic();
-    setKeypadValue(checkout.amountDueWithTip.toFixed(2).replace('.', ','));
-  };
-
   /* ----------------------------------------- Stufe 4: Kartenzahlung (Spec 4) */
 
   const startCardPayment = useCallback(
@@ -441,7 +428,13 @@ function WaiterPaymentContent() {
         return;
       }
 
-      const data = res.data as { id?: string; invoiceNumber?: string; error?: string };
+      const data = res.data as {
+        id?: string;
+        invoiceNumber?: string;
+        digitalReceiptUrl?: string;
+        digitalReceiptCode?: string;
+        error?: string;
+      };
       haptic();
       if (paymentMethod === 'CASH') playPaymentSuccess();
       // Neuer Schluessel fuer den naechsten Teilbetrag / naechsten Gast
@@ -449,12 +442,75 @@ function WaiterPaymentContent() {
       setCompletedInvoice(data.invoiceNumber ?? null);
       setCompletedPaymentId(data.id ?? null);
       setReceiptPrinted(opts.printReceipt);
+      setCompletedDigitalReceiptUrl(data.digitalReceiptUrl ?? null);
+      setCompletedDigitalReceiptCode(data.digitalReceiptCode ?? null);
+      if (data.digitalReceiptUrl) {
+        QRCode.toDataURL(data.digitalReceiptUrl, { width: 256, margin: 1 })
+          .then((url) => setEBonQrDataUrl(url))
+          .catch(() => {});
+      } else {
+        setEBonQrDataUrl(null);
+      }
       setStage('DONE');
     } catch {
       setError('Verbindungsfehler beim Kassieren.');
       playPaymentFailure();
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  /* ------------------------------------------------------------- E-Bon & NFC */
+
+  const isInternetActive = Boolean(config?.enableDigitalReceipt || config?.enableDigitalReceiptQr);
+  const isNfcActive = Boolean(config?.enableNfc && config?.enableNfcWaiter !== false);
+  const isEBonAvailable = isInternetActive || isNfcActive;
+
+  const startNfcBeam = async (url?: string) => {
+    const targetUrl = url || completedDigitalReceiptUrl;
+    if (!targetUrl) return;
+    haptic();
+
+    if (typeof window === 'undefined' || !('NDEFReader' in window)) {
+      setNfcStatus('UNSUPPORTED');
+      setNfcMessage(
+        'Web NFC wird auf diesem Gerät/Browser nicht direkt unterstützt (z. B. iOS). Bitte auf Android-Chrome mit NFC nutzen oder den QR-Code verwenden.'
+      );
+      return;
+    }
+
+    try {
+      setNfcStatus('WRITING');
+      setNfcMessage('Halte die Rückseite deines Smartphones jetzt an das Kunden-Smartphone...');
+      const ndef = new (window as any).NDEFReader();
+      await ndef.write({
+        records: [{ recordType: 'url', data: targetUrl }],
+      });
+      setNfcStatus('SUCCESS');
+      setNfcMessage('E-Bon erfolgreich per NFC übertragen!');
+      triggerHapticFeedback();
+      playPaymentSuccess();
+    } catch (err: any) {
+      console.error('NFC Write Error:', err);
+      setNfcStatus('ERROR');
+      setNfcMessage(err?.message ? `NFC-Fehler: ${err.message}` : 'Übertragung fehlgeschlagen. Bitte erneut versuchen.');
+      playPaymentFailure();
+    }
+  };
+
+  const openEBonDialog = () => {
+    haptic();
+    if (isInternetActive && isNfcActive) {
+      setEBonMode('QR');
+      setNfcStatus('IDLE');
+      setShowEBonModal(true);
+    } else if (isNfcActive) {
+      setEBonMode('NFC');
+      setShowEBonModal(true);
+      void startNfcBeam();
+    } else if (isInternetActive) {
+      setEBonMode('QR');
+      setShowEBonModal(true);
     }
   };
 
@@ -859,61 +915,28 @@ function WaiterPaymentContent() {
 
       {/* ====================== STUFE 3: BARGELD-RECHENCENTER ==================== */}
       {stage === 'CASH' && (
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-          <div className="flex-1 flex flex-col p-4 sm:p-6 overflow-y-auto">
-            <div className="rounded-3xl bg-slate-900 border border-slate-800 p-4 mb-4">
-              <div className="flex justify-between text-sm font-bold text-slate-300 mb-1">
-                <span>Zu zahlen</span>
-                <span className="font-mono text-emerald-400 text-2xl">
+        <div className="flex-1 flex flex-col p-4 sm:p-6 overflow-y-auto max-w-2xl w-full mx-auto space-y-4">
+          {/* Stückelungs-Rechner mit Scheinen (5€–200€), Münzen (1ct–2€) und Ziffernblock */}
+          {paymentMethod === 'CASH' && (
+            <ChangeCalculator
+              amountDue={checkout.amountDueWithTip}
+              givenAmount={givenAmount}
+              onGivenChange={(val) => {
+                setKeypadValue(val > 0 ? val.toFixed(2).replace('.', ',') : '');
+              }}
+              defaultExpanded={true}
+            />
+          )}
+
+          {paymentMethod.startsWith('NON_PAID') && (
+            <div className="rounded-3xl bg-slate-900 border border-slate-800 p-5 space-y-3">
+              <div className="flex justify-between text-sm font-bold text-slate-300">
+                <span>Zu buchender Betrag</span>
+                <span className="font-mono text-amber-400 text-2xl">
                   {formatCurrency(checkout.amountDueWithTip)}
                 </span>
               </div>
-              <div className="flex justify-between text-xs font-semibold text-slate-400">
-                <span>Gegeben</span>
-                <span className="font-mono text-lg text-white">
-                  {givenAmount > 0 ? formatCurrency(givenAmount) : '—'}
-                </span>
-              </div>
-            </div>
-
-            {/* Rückgeld-Anzeige: 48px Bernstein (Spec 5.3) */}
-            <div
-              className={`rounded-3xl border-2 p-5 text-center mb-4 transition-all ${
-                givenAmount > checkout.amountDueWithTip
-                  ? 'bg-amber-950/50 border-amber-500'
-                  : 'bg-slate-900 border-slate-800'
-              }`}
-            >
-              <div className="text-xs font-extrabold uppercase tracking-widest text-amber-300/80 mb-1">
-                Rückgeld
-              </div>
-              <div
-                className="font-mono font-extrabold leading-none"
-                style={{
-                  fontSize: '48px',
-                  color: givenAmount > checkout.amountDueWithTip ? '#F59E0B' : '#334155',
-                }}
-              >
-                {formatCurrency(checkout.changeAmount)}
-              </div>
-            </div>
-
-            {/* Stückelungs-Rechner mit Scheinen und Münzen */}
-            {paymentMethod === 'CASH' && (
-              <div className="mb-4">
-                <ChangeCalculator
-                  amountDue={checkout.amountDueWithTip}
-                  givenAmount={givenAmount}
-                  onGivenChange={(val) => {
-                    setKeypadValue(val > 0 ? val.toFixed(2).replace('.', ',') : '');
-                  }}
-                  defaultExpanded={true}
-                />
-              </div>
-            )}
-
-            {paymentMethod.startsWith('NON_PAID') && (
-              <div className="mt-4">
+              <div>
                 <label className="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">
                   Grund (Pflicht)
                 </label>
@@ -924,71 +947,26 @@ function WaiterPaymentContent() {
                   className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
               </div>
+            </div>
+          )}
+
+          {/* Zentraler Kassieren-Button */}
+          <button
+            onClick={() => void submitPayment({ printReceipt: false })}
+            disabled={
+              isProcessing ||
+              (paymentMethod === 'CASH' && givenAmount > 0 && !isCashSufficient) ||
+              (paymentMethod.startsWith('NON_PAID') && !nonPaidReason.trim())
+            }
+            className="pos-touch-btn w-full h-16 sm:h-20 rounded-3xl font-black text-xl flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xl shadow-emerald-950/60 disabled:bg-slate-800 disabled:text-slate-500 transition active:scale-95"
+          >
+            {isProcessing ? (
+              <RefreshCw className="w-6 h-6 animate-spin" />
+            ) : (
+              <Check className="w-7 h-7" />
             )}
-          </div>
-
-          {/* Riesen-Keypad 4x3 (Spec 5.3) */}
-          <div className="w-full lg:w-[440px] bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 p-4 flex flex-col gap-3 shrink-0">
-            {paymentMethod === 'CASH' && (
-              <>
-                <div className="grid grid-cols-3 gap-2">
-                  {CASH_QUICK_NOTES.map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => setNote(n)}
-                      className="touch-target h-12 rounded-2xl bg-emerald-950 border border-emerald-800 text-emerald-300 font-mono font-bold text-sm"
-                    >
-                      {n} €
-                    </button>
-                  ))}
-                  <button
-                    onClick={setExact}
-                    className="touch-target h-12 rounded-2xl bg-emerald-600 text-white font-bold text-sm"
-                  >
-                    Passend
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((k) => (
-                    <button key={k} onClick={() => pressKey(k)} className="keypad-key">
-                      {k}
-                    </button>
-                  ))}
-                  <button onClick={() => pressKey(',')} className="keypad-key">
-                    ,
-                  </button>
-                  <button onClick={() => pressKey('0')} className="keypad-key">
-                    0
-                  </button>
-                  <button
-                    onClick={() => pressKey('DEL')}
-                    onDoubleClick={() => pressKey('CLR')}
-                    className="keypad-key !bg-slate-700"
-                  >
-                    <Delete className="w-7 h-7" />
-                  </button>
-                </div>
-              </>
-            )}
-
-            <button
-              onClick={() => void submitPayment({ printReceipt: false })}
-              disabled={
-                isProcessing ||
-                (paymentMethod === 'CASH' && givenAmount > 0 && !isCashSufficient) ||
-                (paymentMethod.startsWith('NON_PAID') && !nonPaidReason.trim())
-              }
-              className="pos-touch-btn mt-auto h-20 rounded-3xl font-black text-xl flex items-center justify-center gap-3 bg-emerald-600 text-white shadow-2xl shadow-emerald-950/60 disabled:bg-slate-800 disabled:text-slate-500"
-            >
-              {isProcessing ? (
-                <RefreshCw className="w-6 h-6 animate-spin" />
-              ) : (
-                <Check className="w-7 h-7" />
-              )}
-              <span>Kassieren {formatCurrency(checkout.amountDueWithTip)}</span>
-            </button>
-          </div>
+            <span>Kassieren {formatCurrency(checkout.amountDueWithTip)}</span>
+          </button>
         </div>
       )}
 
@@ -1090,7 +1068,7 @@ function WaiterPaymentContent() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-3xl">
+          <div className={`grid grid-cols-1 sm:grid-cols-${isEBonAvailable ? '4' : '3'} gap-3 w-full max-w-3xl`}>
             <button
               disabled={!completedPaymentId || receiptPrinted}
               onClick={() => {
@@ -1101,17 +1079,40 @@ function WaiterPaymentContent() {
                   () => setReceiptPrinted(false)
                 );
               }}
-              className="pos-touch-btn h-20 rounded-3xl bg-blue-600 text-white font-black flex flex-col items-center justify-center gap-1 disabled:bg-slate-800 disabled:text-slate-500"
+              className="pos-touch-btn h-20 rounded-3xl bg-blue-600 hover:bg-blue-500 text-white font-black flex flex-col items-center justify-center gap-1 disabled:bg-slate-800 disabled:text-slate-500 transition active:scale-95 shadow"
             >
               <Printer className="w-6 h-6" />
-              <span className="text-sm">{receiptPrinted ? 'Beleg gedruckt' : 'Beleg drucken'}</span>
+              <span className="text-sm">{receiptPrinted ? 'Beleg gedruckt' : 'Papierbon'}</span>
             </button>
+
+            {/* E-Bon Button: Nur aktiv/sichtbar wenn Internet- oder NFC-Option im Admin aktiv ist */}
+            {isEBonAvailable && (
+              <button
+                type="button"
+                onClick={openEBonDialog}
+                className="pos-touch-btn h-20 rounded-3xl bg-emerald-600 hover:bg-emerald-500 text-white font-black flex flex-col items-center justify-center gap-1 transition active:scale-95 shadow shadow-emerald-950/60"
+              >
+                <div className="flex items-center gap-1">
+                  {isInternetActive && <QrCode className="w-5 h-5" />}
+                  {isInternetActive && isNfcActive && <span className="text-xs opacity-70">/</span>}
+                  {isNfcActive && <Radio className="w-5 h-5" />}
+                </div>
+                <span className="text-sm">
+                  {isInternetActive && isNfcActive
+                    ? 'E-Bon (QR / NFC)'
+                    : isNfcActive
+                    ? 'E-Bon per NFC'
+                    : 'E-Bon (QR-Code)'}
+                </span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 haptic();
                 router.push('/waiter');
               }}
-              className="pos-touch-btn h-20 rounded-3xl bg-slate-800 border border-slate-700 text-slate-200 font-black flex flex-col items-center justify-center gap-1"
+              className="pos-touch-btn h-20 rounded-3xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-black flex flex-col items-center justify-center gap-1 transition active:scale-95"
             >
               <Ban className="w-6 h-6" />
               <span className="text-sm">Kein Beleg</span>
@@ -1121,12 +1122,137 @@ function WaiterPaymentContent() {
                 haptic();
                 router.push('/waiter');
               }}
-              className="pos-touch-btn h-20 rounded-3xl bg-emerald-600 text-white font-black flex flex-col items-center justify-center gap-1"
+              className="pos-touch-btn h-20 rounded-3xl bg-emerald-900 hover:bg-emerald-800 border border-emerald-700 text-emerald-100 font-black flex flex-col items-center justify-center gap-1 transition active:scale-95 shadow"
             >
               <DoorOpen className="w-6 h-6" />
               <span className="text-sm">Tisch schließen</span>
             </button>
           </div>
+
+          {/* Digitaler E-Bon & NFC Dialog */}
+          {showEBonModal && (
+            <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-slate-900 border border-slate-700 p-6 rounded-3xl max-w-sm w-full shadow-2xl text-center space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <h3 className="font-black text-base text-white flex items-center gap-2">
+                    <Receipt className="w-5 h-5 text-emerald-400" />
+                    <span>Digitaler E-Bon (§ 33)</span>
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEBonModal(false);
+                      setNfcStatus('IDLE');
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-white rounded-xl bg-slate-800"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Umschalter wenn beides (Internet-QR und NFC) aktiv ist */}
+                {isInternetActive && isNfcActive && (
+                  <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-2xl border border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptic();
+                        setEBonMode('QR');
+                        setNfcStatus('IDLE');
+                      }}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                        eBonMode === 'QR' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <QrCode className="w-3.5 h-3.5" />
+                      <span>QR-Code</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptic();
+                        setEBonMode('NFC');
+                        void startNfcBeam();
+                      }}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                        eBonMode === 'NFC' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Radio className="w-3.5 h-3.5" />
+                      <span>NFC Beamen</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* QR-Code Ansicht */}
+                {eBonMode === 'QR' && (
+                  <div className="space-y-3">
+                    {eBonQrDataUrl ? (
+                      <div className="bg-white p-3 rounded-2xl w-48 h-48 mx-auto flex items-center justify-center shadow-lg border-2 border-slate-700">
+                        <img src={eBonQrDataUrl} alt="E-Bon QR-Code" className="w-full h-full" />
+                      </div>
+                    ) : (
+                      <div className="p-8 bg-slate-950 rounded-2xl border border-slate-800 text-slate-500 text-xs">
+                        Generiere QR-Code...
+                      </div>
+                    )}
+                    <p className="text-xs text-slate-400">Gast scannt den QR-Code mit der Smartphone-Kamera:</p>
+                    {completedDigitalReceiptUrl && (
+                      <div className="bg-slate-950 p-2 rounded-xl border border-slate-800 font-mono text-[11px] text-emerald-400 break-all select-all">
+                        {completedDigitalReceiptUrl}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* NFC Ansicht */}
+                {eBonMode === 'NFC' && (
+                  <div className="space-y-4 py-2">
+                    <div className="relative w-24 h-24 mx-auto rounded-full bg-emerald-950/60 border-2 border-emerald-500 flex items-center justify-center shadow-lg">
+                      {nfcStatus === 'WRITING' && (
+                        <span className="absolute inset-0 rounded-full animate-ping bg-emerald-500/20" />
+                      )}
+                      <Radio
+                        className={`w-10 h-10 ${
+                          nfcStatus === 'SUCCESS'
+                            ? 'text-emerald-400'
+                            : nfcStatus === 'ERROR'
+                            ? 'text-rose-400'
+                            : 'text-emerald-300 animate-pulse'
+                        }`}
+                      />
+                    </div>
+
+                    <div className="text-xs text-slate-300 font-semibold px-2 leading-relaxed">
+                      {nfcMessage || 'Smartphone an die Geräterückseite halten...'}
+                    </div>
+
+                    {nfcStatus !== 'WRITING' && (
+                      <button
+                        type="button"
+                        onClick={() => void startNfcBeam()}
+                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow"
+                      >
+                        <Radio className="w-3.5 h-3.5" />
+                        <span>NFC Übertragung erneut starten</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEBonModal(false);
+                    setNfcStatus('IDLE');
+                  }}
+                  className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-2xl text-xs"
+                >
+                  Schließen
+                </button>
+              </div>
+            </div>
+          )}
 
           {items.some((i) => i.selectedQty < i.totalUnpaidQty) && (
             <button

@@ -53,7 +53,7 @@ Jedes Smartphone, Tablet, Touchscreen-Terminal oder PC kann direkt im Webbrowser
 | **🖥️ SB-Kiosk Terminal** | `http://openbon.local/kiosk` | Eigenständiges Gäste-Bestellterminal |
 | **👨‍🍳 Küchenmonitor (KDS)** | `http://openbon.local/kitchen` | Live-Küchenbons abhaken mit Zubereitungs-Timer |
 | **📲 QR-Tischbestellung** | `http://openbon.local/guest/table/1` | Gäste bestellen kontaktlos vom Smartphone am Tisch |
-| **🧾 Digitaler E-Bon** | `http://openbon.local/receipt/[code]` | Papierloser Kassenbeleg (§33 KassenSichV) via QR-Code |
+| **🧾 Digitaler E-Bon & NFC** | `http://openbon.local/receipt/[code]` | Papierloser Kassenbeleg (§33 KassenSichV) via QR & NFC |
 | **💬 Team-Funk** | `http://openbon.local/chat` | Echtzeit-Notrufe & Küchen-Durchsagen |
 
 ---
@@ -93,7 +93,8 @@ Jedes Smartphone, Tablet, Touchscreen-Terminal oder PC kann direkt im Webbrowser
 ## 👆 Durchgängige Touch-Bedienung & UI
 
 - **Große Touch-Ziele:** Sämtliche Schaltflächen und Schnellauswahlfelder besitzen eine Mindesthöhe von 48px (`min-h-[48px]`) mit haptischem Feedback und `touch-manipulation`.
-- **Touch-Ziffernblöcke:** Keypads für PIN-Eingabe, Geldbeträge und Schichtabrechnung sind mit großzügigen 58px-Tasten für fehlerfreie Bedienung unter Stress optimiert.
+- **Vollständiger Bargeld-Ziffernblock & Stückelung:** Einheitlicher Touch-Ziffernblock (`0–9`, `00`, `C`, `,`) plus Direkttasten für alle Euro-Scheine (5€ bis 200€) und Münzen (0,01€ bis 2€) mit automatischer Wechselgeld-Berechnung.
+- **Kontaktloser E-Bon per NFC & QR:** Direkte Belegübertragung via Web NFC an Gast-Smartphones oder per Cloudflare Tunnel / Netcup Webhosting über Mobilfunk.
 - **Keine blockierenden Browser-Popups:** Alle Bestätigungen und Warnungen erfolgen über animierte Toasts und barrierefreie Touch-Dialoge.
 - **Kellner-Schichtabrechnung (`/waiter/settle`):** Touch-optimierter Soll/Ist-Kassensturz mit Trinkgeld-Ausschüttung und digitalem Kassenabschlussbeleg.
 - **1-Klick EventProfile-Snapshots:** Speichern und blitzschnelles Wiederherstellen kompletter Fest-Konfigurationen (Tische, Drucker-Routing, Warengruppen, Artikel) im Einstellungsmenü.
@@ -104,10 +105,12 @@ Jedes Smartphone, Tablet, Touchscreen-Terminal oder PC kann direkt im Webbrowser
 
 Im Verzeichnis [`docs/`](docs/) stehen praxisnahe Anleitungen bereit:
 
+- 🌐 **[`docs/EBON_ONLINE_ANLEITUNG.md`](docs/EBON_ONLINE_ANLEITUNG.md)**: E-Bon Online-Bereitstellung (Cloudflare Tunnel, Netcup DynDNS) & NFC-Übertragung.
 - 📖 **[`docs/AUSFALLSICHERHEIT_LITESTREAM.md`](docs/AUSFALLSICHERHEIT_LITESTREAM.md)**: Litestream-Setup, USB-Replikation und Kalt-Standby.
 - 📱 **[`docs/OFFLINE_FIRST_GUIDE.md`](docs/OFFLINE_FIRST_GUIDE.md)**: Offline-First Leitfaden für Kassenbedienungen und Helfer.
 - 🆘 **[`docs/NOTFALL_RUNBOOK.md`](docs/NOTFALL_RUNBOOK.md)**: Stufenplan & Papier-Notbetrieb bei Stromausfall.
 - 💳 **[`docs/KARTENZAHLUNG_ANLEITUNG.md`](docs/KARTENZAHLUNG_ANLEITUNG.md)**: Einrichtung von ZVT-Terminals, SumUp & Sparkasse S-POS.
+- 🔒 **[`docs/ONLINE_BETRIEB.md`](docs/ONLINE_BETRIEB.md)**: Sicherheits-Leitfaden für den gesicherten Internet-Betrieb.
 
 ---
 

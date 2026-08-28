@@ -143,7 +143,7 @@ describe('Payment Adapters & Multi-Provider Engine', () => {
   });
 
   it('should provide full coin and note values for cash change calculator', () => {
-    expect(CASH_NOTE_VALUES).toEqual([100, 50, 20, 10, 5]);
+    expect(CASH_NOTE_VALUES).toEqual([200, 100, 50, 20, 10, 5]);
     expect(CASH_COIN_VALUES).toEqual([2, 1, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01]);
   });
 });

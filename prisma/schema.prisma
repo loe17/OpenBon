@@ -27,6 +27,9 @@ model EventConfig {
   enableDigitalReceipt        Boolean @default(false)
   enableAgeVerificationAlerts Boolean @default(true)
   enableDigitalReceiptQr      Boolean @default(false)
+  enableNfc                   Boolean @default(false)
+  enableNfcWaiter             Boolean @default(true)
+  enableNfcPos                Boolean @default(true)
   enableGuestSelfOrder        Boolean @default(false) // Standardmäßig deaktiviert
   enableGuestFacingDisplay    Boolean @default(false) // Gastansicht beim Kassieren standardmäßig deaktiviert
   enableKioskMode             Boolean @default(false)

@@ -194,8 +194,8 @@ export function computeCheckout(input: CheckoutInput): CheckoutResult {
 }
 
 /** Spec 5.3: Schnellwahltasten fuer Banknoten & Muenzen */
-export const CASH_QUICK_NOTES = [5, 10, 20, 50, 100] as const;
-export const CASH_NOTE_VALUES = [100, 50, 20, 10, 5] as const;
+export const CASH_QUICK_NOTES = [5, 10, 20, 50, 100, 200] as const;
+export const CASH_NOTE_VALUES = [200, 100, 50, 20, 10, 5] as const;
 export const CASH_COIN_VALUES = [2, 1, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01] as const;
 
 /**

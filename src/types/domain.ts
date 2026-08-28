@@ -108,6 +108,9 @@ export interface EventConfigDTO {
   activeTheme?: string;
   enableAgeVerificationAlerts?: boolean;
   enableDigitalReceiptQr?: boolean;
+  enableNfc?: boolean;
+  enableNfcWaiter?: boolean;
+  enableNfcPos?: boolean;
   enableGuestSelfOrder?: boolean;
   enableGuestFacingDisplay?: boolean;
   lockStartScreen?: boolean;

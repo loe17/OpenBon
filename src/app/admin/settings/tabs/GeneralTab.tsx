@@ -414,10 +414,33 @@ export function GeneralTab({
           />
           <Toggle
             label="QR-Code auf dem Beleg"
-            hint="Druckt den Link zum digitalen Beleg als QR-Code."
+            hint="Druckt den Link zum digitalen Beleg als QR-Code auf den Bon / zeigt ihn an."
             value={Boolean(config.enableDigitalReceiptQr)}
             onToggle={() => onChange({ enableDigitalReceiptQr: !config.enableDigitalReceiptQr })}
           />
+          <Toggle
+            label="E-Bon per NFC"
+            hint="Ermöglicht das direkte Übertragen des Belegs per NFC an Kunden-Smartphones."
+            color="emerald"
+            value={Boolean(config.enableNfc)}
+            onToggle={() => onChange({ enableNfc: !config.enableNfc })}
+          />
+          {config.enableNfc && (
+            <div className="pl-4 border-l-2 border-emerald-500/40 space-y-3 pt-1">
+              <Toggle
+                label="NFC auf Kellner-Handys"
+                hint="Kellner können E-Bons per Smartphone-NFC an Gäste übertragen."
+                value={config.enableNfcWaiter !== false}
+                onToggle={() => onChange({ enableNfcWaiter: !(config.enableNfcWaiter !== false) })}
+              />
+              <Toggle
+                label="NFC an der Bonkasse"
+                hint="Thekenkasse bietet NFC-Belegübertragung an."
+                value={config.enableNfcPos !== false}
+                onToggle={() => onChange({ enableNfcPos: !(config.enableNfcPos !== false) })}
+              />
+            </div>
+          )}
         </div>
       </div>
 

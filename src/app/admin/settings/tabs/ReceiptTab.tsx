@@ -706,6 +706,30 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
                 onToggle={() => onChange({ enableDigitalReceiptQr: !config.enableDigitalReceiptQr })}
               />
 
+              <Toggle
+                label="E-Bon per NFC (Near Field Communication)"
+                hint="Ermöglicht das direkte Übertragen des Beleg-Links per Smartphone-NFC an den Gast."
+                value={Boolean(config.enableNfc)}
+                onToggle={() => onChange({ enableNfc: !config.enableNfc })}
+              />
+
+              {config.enableNfc && (
+                <div className="pl-4 border-l-2 border-emerald-500/40 space-y-2 pt-1">
+                  <Toggle
+                    label="NFC auf Kellner-Handys"
+                    hint="Kellner können E-Bons per Smartphone-NFC an Gäste übertragen."
+                    value={config.enableNfcWaiter !== false}
+                    onToggle={() => onChange({ enableNfcWaiter: !(config.enableNfcWaiter !== false) })}
+                  />
+                  <Toggle
+                    label="NFC an der Bonkasse"
+                    hint="Thekenkasse bietet NFC-Belegübertragung an."
+                    value={config.enableNfcPos !== false}
+                    onToggle={() => onChange({ enableNfcPos: !(config.enableNfcPos !== false) })}
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1">
                   Öffentliche Basis-URL für E-Bons (z. B. Cloudflare Tunnel, DynDNS oder Fest-Domain)
