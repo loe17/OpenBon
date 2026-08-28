@@ -249,7 +249,14 @@ export async function POST(req: Request) {
         );
       }
 
-      const isAllowed = ALLOWED_COMMANDS.includes(trimmed);
+      const isAllowed =
+        ALLOWED_COMMANDS.includes(trimmed) ||
+        /^git (status|log|pull|fetch|checkout|reset|tag|stash|diff)/.test(trimmed) ||
+        /^npm (install|run build|cache clean)/.test(trimmed) ||
+        /^npx prisma (db push|generate|studio)/.test(trimmed) ||
+        trimmed === 'df -h' ||
+        trimmed === 'free -m';
+
       if (!isAllowed) {
         return NextResponse.json(
           {
@@ -257,7 +264,7 @@ export async function POST(req: Request) {
             command: trimmed,
             stdout: '',
             stderr: `[SICHERHEITSHINWEIS] Der Befehl "${trimmed}" ist nicht in der System-Allowlist erlaubt.`,
-            error: 'Befehl nicht in der Allowlist',
+            error: 'Befehl nicht erlaubt',
           },
           { status: 403 }
         );
