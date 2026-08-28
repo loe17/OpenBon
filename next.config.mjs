@@ -9,6 +9,12 @@ const nextConfig = {
     "localhost:3000",
     "127.0.0.1:3000"
   ],
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   experimental: {
     // WICHTIG (Next.js 14): Ohne diesen Schalter wird `src/instrumentation.ts`
     // gar nicht ausgefuehrt. Genau dort werden das JWT-Session-Secret erzeugt

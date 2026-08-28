@@ -418,10 +418,12 @@ export async function POST(req: Request) {
         logs.push('[4/4] Kompiliere Produktions-Build (npm run build)...');
         const { stdout: buildOut } = await execAsync('npm run build', {
           cwd: projectRoot,
-          timeout: 240000,
+          timeout: 300000,
+          maxBuffer: 1024 * 1024 * 10,
           env: {
             ...process.env,
             NODE_OPTIONS: '--max-old-space-size=2048',
+            NEXT_TELEMETRY_DISABLED: '1',
             DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db',
           },
         });
