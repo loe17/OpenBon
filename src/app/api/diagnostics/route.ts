@@ -6,6 +6,7 @@ import prisma from '@/lib/db';
 import { parseAndValidateLicense } from '@/lib/license';
 import { EscPosBuilder } from '@/lib/printer/escpos-builder';
 import networkSpooler from '@/lib/printer/network-spooler';
+import { TicketData } from '@/lib/printer/types';
 import { requireApiAuth } from '@/lib/api-guard';
 
 // Hilfsfunktion: TCP Socket Ping für Bondrucker
@@ -431,13 +432,14 @@ export async function POST(req: Request) {
       const paymentCount = await prisma.payment.count();
       const printJobCount = await prisma.printJob.count();
 
-      await prisma.orderItem.deleteMany({});
+      await prisma.paymentItem.deleteMany({});
       await prisma.payment.deleteMany({});
+      await prisma.orderItem.deleteMany({});
       await prisma.order.deleteMany({});
       await prisma.printJob.deleteMany({});
-      await prisma.cashRegisterLog.deleteMany({});
-      await prisma.tipLog.deleteMany({});
-      await prisma.voidLog.deleteMany({});
+      await prisma.cashMovement.deleteMany({});
+      await prisma.tokenTransaction.deleteMany({});
+      await prisma.paymentSession.deleteMany({});
 
       if (global.virtualPrinterHistory) {
         global.virtualPrinterHistory = [];

@@ -416,6 +416,27 @@ export async function POST(req: Request) {
         }
 
         logs.push('[4/4] Kompiliere Produktions-Build (npm run build)...');
+        
+        // Speicherplatz freigeben vor dem Bauen (verhindert ENOSPC auf kleinen Speichern / Raspberry Pi)
+        try {
+          const fs = await import('fs');
+          const path = await import('path');
+          const cacheDir = path.join(projectRoot, '.next', 'cache');
+          if (fs.existsSync(cacheDir)) {
+            fs.rmSync(cacheDir, { recursive: true, force: true });
+          }
+          const backupDir = path.join(projectRoot, 'prisma', 'backups');
+          if (fs.existsSync(backupDir)) {
+            const files = fs.readdirSync(backupDir)
+              .filter((f) => f.endsWith('.db'))
+              .map((f) => ({ name: f, path: path.join(backupDir, f), time: fs.statSync(path.join(backupDir, f)).mtimeMs }))
+              .sort((a, b) => b.time - a.time);
+            for (let i = 3; i < files.length; i++) {
+              fs.unlinkSync(files[i].path);
+            }
+          }
+        } catch {}
+
         const { stdout: buildOut } = await execAsync('npm run build', {
           cwd: projectRoot,
           timeout: 300000,

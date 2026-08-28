@@ -15,6 +15,11 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  webpack: (config) => {
+    // Verhindert ENOSPC (Disk Full durch Webpack PackFileCache) auf RPi und kleinen Servern
+    config.cache = false;
+    return config;
+  },
   experimental: {
     // WICHTIG (Next.js 14): Ohne diesen Schalter wird `src/instrumentation.ts`
     // gar nicht ausgefuehrt. Genau dort werden das JWT-Session-Secret erzeugt

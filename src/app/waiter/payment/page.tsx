@@ -61,6 +61,30 @@ interface CardCallbackResult {
 
 const DEPOSIT_UNITS = [1.0, 2.0, 0.5];
 
+function extractPayableItems(orders: any[]): PayableItem[] {
+  const result: PayableItem[] = [];
+  for (const order of orders) {
+    if (!order.items) continue;
+    for (const item of order.items) {
+      if (item.isCancelled) continue;
+      const unpaid = (item.quantity || 0) - (item.paidQuantity || 0);
+      if (unpaid > 0) {
+        result.push({
+          orderItemId: item.id,
+          productName: item.productName || item.name || 'Artikel',
+          variantName: item.variantName || item.variant?.name || null,
+          unitPrice: item.unitPrice || 0,
+          deposit: item.deposit || 0,
+          taxRate: item.taxRate || 19,
+          totalUnpaidQty: unpaid,
+          selectedQty: unpaid,
+        });
+      }
+    }
+  }
+  return result;
+}
+
 function WaiterPaymentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1272,7 +1296,7 @@ function WaiterPaymentContent() {
                 setCompletedPaymentId(null);
                 setReceiptPrinted(false);
                 setKeypadValue('');
-                setReturnDepositCount(0);
+                setReturnDeposits({ 0.5: 0, 1.0: 0, 2.0: 0, 3.0: 0, 5.0: 0 });
                 setStage('SPLIT');
                 void fetchTableOrders();
               }}
