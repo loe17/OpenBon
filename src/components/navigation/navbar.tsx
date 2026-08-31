@@ -88,12 +88,14 @@ export default function Navbar() {
   useEffect(() => {
     if (!socket) return;
     const handleChat = (msg: any) => {
-      if (pathname !== '/chat' && !msg?.isEmergency) {
+      if (pathname !== '/chat') {
         setHasUnreadChat(true);
       }
     };
+    socket.on('chat:incoming', handleChat);
     socket.on('chat:message', handleChat);
     return () => {
+      socket.off('chat:incoming', handleChat);
       socket.off('chat:message', handleChat);
     };
   }, [socket, pathname]);

@@ -88,13 +88,24 @@ export async function POST(req: Request) {
       const startNum = parseInt(body.startNumber || 10, 10);
       const stepX = parseInt(body.stepX !== undefined ? body.stepX : 1, 10);
       const stepY = parseInt(body.stepY !== undefined ? body.stepY : 10, 10);
-
+      // Verknüpfungen bestehender Bestellungen/Zahlungen sicher lösen vor dem Neuaufbau
+      await prisma.order.updateMany({ where: { tableId: { not: null } }, data: { tableId: null } });
+      await prisma.payment.updateMany({ where: { tableId: { not: null } }, data: { tableId: null } });
       await prisma.diningTable.deleteMany({});
+
+      // Kollisionsfreie Schrittberechnung (verhindert doppelte Tischnummern bei breiten Rastern wie 8x12)
+      const effectiveStepY = Math.max(stepY, cols * (stepX || 1));
+      const usedNumbers = new Set<number>();
+      let fallbackSeq = startNum;
 
       const createdTables = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-          const num = startNum + r * stepY + c * stepX;
+          let num = startNum + r * effectiveStepY + c * stepX;
+          while (usedNumbers.has(num)) {
+            num = ++fallbackSeq;
+          }
+          usedNumbers.add(num);
           const posX = 1 + c;
           const posY = 1 + r;
           const table = await prisma.diningTable.create({

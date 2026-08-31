@@ -12,7 +12,19 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(req: Request) {
   const auth = await requireApiAuth(req, ['ADMIN', 'POS_CASHIER', 'WAITER', 'KITCHEN']);
-  if (!auth.ok) return auth.response;
+  if (!auth.ok) {
+    // Unauthentifizierte Clients (z. B. vor PIN-Eingabe) erhalten neutralen Standalone-Status ohne 401-Konsolenfehler
+    const heartbeat = haService.getHeartbeatInfo();
+    return NextResponse.json({
+      role: heartbeat.role || 'STANDALONE',
+      instanceId: heartbeat.instanceId || 'default',
+      missedHeartbeats: 0,
+      partnerUrl: null,
+      secret: { hasSecret: true, isWeak: false, source: 'default', enforceMode: 'OFF' },
+      pairingRequired: false,
+      enforceBlocked: false,
+    });
+  }
 
   try {
     const secretStatus = await getHaSecretStatus();

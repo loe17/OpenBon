@@ -30,6 +30,7 @@ import {
   Package,
   Store,
   X,
+  History,
 } from 'lucide-react';
 import { SubCategoryIcon } from '@/components/ui/subcategory-icon';
 import { calculateMinBirthdate, EU_ALLERGENS, filterProductsByExcludedAllergens } from '@/lib/compliance';
@@ -38,6 +39,7 @@ import { hasAnyCardPaymentConfigured, getActiveCardPaymentMethod } from '@/lib/p
 import { sendWithOutboxFallback } from '@/lib/offline/outbox';
 import { useToast } from '@/components/ui/toast';
 import { ChangeCalculator } from '@/components/ui/change-calculator';
+import { WaiterOrderHistoryModal } from '@/components/waiter/waiter-order-history-modal';
 import type { ProductDTO, ProductVariantDTO, OrderItemDTO, ProductCategoryDTO, EventConfigDTO } from '@/types/domain';
 
 import StationGate from '@/components/auth/station-gate';
@@ -81,6 +83,9 @@ function PosCounterContent() {
   const [hasDrawerAvailable, setHasDrawerAvailable] = useState(false);
   const [isAutoFitScreen, setIsAutoFitScreen] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedCartItemIds, setSelectedCartItemIds] = useState<string[]>([]);
+  const [printReceipt, setPrintReceipt] = useState(true);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -312,8 +317,12 @@ function PosCounterContent() {
     } catch {}
   };
 
-  const handleCheckout = async () => {
-    if (cart.length === 0 || isProcessing) return;
+  const handleCheckout = async (explicitMethod?: string) => {
+    const activeMethod = explicitMethod || paymentMethod;
+    const itemsToPay = cart.filter((item) =>
+      selectedCartItemIds.length > 0 ? selectedCartItemIds.includes(item.id) : true
+    );
+    if (itemsToPay.length === 0 || isProcessing) return;
     setIsProcessing(true);
     triggerHapticFeedback();
 
@@ -331,15 +340,15 @@ function PosCounterContent() {
         waiterName,
         deviceId,
         idempotencyKey,
-        items: cart.map((item) => ({
+        items: itemsToPay.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
           variantName: item.variantName || undefined,
         })),
-        paymentMethod,
-        givenAmount: paymentMethod === 'CASH' ? givenAmount : undefined,
+        paymentMethod: activeMethod,
+        givenAmount: activeMethod === 'CASH' ? givenAmount : undefined,
         openDrawer: false,
-        printReceipt: mode !== 'DIRECT',
+        printReceipt: printReceipt,
       });
 
       if (!result.success) {
@@ -355,8 +364,12 @@ function PosCounterContent() {
             ? `Server meldet einen Fehler – Vorgang wurde gesichert und wird erneut gesendet. Bon noch NICHT gebucht. (${result.error || ''})`
             : 'Keine Serververbindung – Vorgang wurde offline gespeichert und wird automatisch synchronisiert.'
         );
-        setCart([]);
+        const remaining = cart.filter((item) => !itemsToPay.some((p) => p.id === item.id));
+        setCart(remaining);
         setGivenAmount(0);
+        if (remaining.length === 0) {
+          setShowCheckoutModal(false);
+        }
         return;
       }
 
@@ -381,9 +394,19 @@ function PosCounterContent() {
       } else {
         success('Zahlung erfolgreich abgeschlossen!');
       }
-      setCart([]);
+
+      const remaining = cart.filter((item) => !itemsToPay.some((p) => p.id === item.id));
+      setCart(remaining);
       setGivenAmount(0);
-      if (paymentMethod === 'CASH') {
+
+      if (remaining.length > 0) {
+        // Teilzahlung: verbleibende Artikel direkt für den nächsten Bezahlvorgang anwählen
+        setSelectedCartItemIds(remaining.map((i) => i.id));
+      } else {
+        setShowCheckoutModal(false);
+      }
+
+      if (activeMethod === 'CASH') {
         openDrawer();
       }
     } catch (e) {
@@ -506,6 +529,17 @@ function PosCounterContent() {
             Gutschein + Gegenbon
           </button>
         </div>
+
+        {/* Bestellhistorie Button */}
+        <button
+          type="button"
+          onClick={() => setShowHistoryModal(true)}
+          className="pos-touch-btn flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2.5 rounded-2xl text-xs font-bold border border-slate-700 shadow transition active:scale-95"
+          title="Vergangene Bestellungen und Rechnungen an dieser Kasse einsehen"
+        >
+          <History className="w-4 h-4 text-blue-400" />
+          <span>Bestellhistorie</span>
+        </button>
 
         {/* Open Drawer Button (Nur wenn Kassenlade an einem konfigurierten Drucker verfügbar ist) */}
         {hasDrawerAvailable && (
@@ -767,6 +801,8 @@ function PosCounterContent() {
               disabled={cart.length === 0 || isProcessing}
               onClick={() => {
                 triggerHapticFeedback();
+                setSelectedCartItemIds(cart.map((i) => i.id));
+                setGivenAmount(0);
                 setShowCheckoutModal(true);
               }}
               className={`pos-touch-btn w-full h-14 sm:h-16 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 shadow-2xl transition ${
@@ -782,169 +818,225 @@ function PosCounterContent() {
         </div>
       </div>
 
-      {/* Neuer 2-Schritt Bezahldialog (Modal) */}
-      {showCheckoutModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-4xl max-h-[95vh] shadow-2xl flex flex-col overflow-hidden text-white animate-in zoom-in-95">
-            {/* Modal Header */}
-            <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="bg-emerald-600 text-white p-2 rounded-xl">
-                  <Banknote className="w-5 h-5" />
+      {/* Neuer Kassiervorgang nach Bild 1 (Scheine/Münzen/Teilzahlung) */}
+      {showCheckoutModal && (() => {
+        const payableItems = cart.filter((item) =>
+          selectedCartItemIds.length > 0 ? selectedCartItemIds.includes(item.id) : true
+        );
+        const payableTotal = payableItems.reduce((s, i) => s + (i.price + i.deposit) * i.quantity, 0);
+        const isPartial = payableItems.length < cart.length;
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 animate-in fade-in">
+            <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-5xl max-h-[96vh] shadow-2xl flex flex-col overflow-hidden text-white animate-in zoom-in-95">
+              {/* Modal Header mit großem Betrag */}
+              <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="bg-emerald-600 text-white p-2.5 rounded-2xl shadow">
+                    <Banknote className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-black">Bezahlvorgang &amp; Kasse</h3>
+                    <p className="text-xs text-slate-400">
+                      {isPartial ? `Teilzahlung (${payableItems.length} von ${cart.length} Artikeln)` : 'Vollständige Zahlung'} • {stationName}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-black">Zahlung durchführen & Kassieren</h3>
-                  <p className="text-xs text-slate-400">
-                    Modus: {mode === 'DIRECT' ? 'Direktverkauf (Theke)' : mode === 'VOUCHER' ? 'Wertmarken mit Abholnummer' : 'Gutschein + Gegenbon'}
-                  </p>
+
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Zu zahlen:</span>
+                    <span className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono leading-none">
+                      {formatCurrency(payableTotal)}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setShowCheckoutModal(false)}
+                    className="p-2 bg-slate-800 hover:bg-slate-700 rounded-2xl text-slate-400 hover:text-white transition"
+                    title="Schließen"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
-              <button
-                onClick={() => setShowCheckoutModal(false)}
-                className="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            {/* Modal Body: Split View (Links: Zahlungs-Numpad & Rechner | Rechts: Warenkorb-Zusammenfassung) */}
-            <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-              {/* Left Column: Zahlart & Ziffernblock */}
-              <div className="flex-1 p-4 sm:p-5 overflow-y-auto border-b md:border-b-0 md:border-r border-slate-800 space-y-4">
-                {/* Zahlarten-Auswahl */}
-                <div>
-                  <label className="text-xs font-black uppercase text-slate-400 tracking-wider mb-1.5 block">
-                    Zahlungsart wählen:
-                  </label>
-                  <div className={`grid ${hasAnyCardPaymentConfigured(config) ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
+              {/* Modal Body: Split View (Links: Zahlungs-Buttons & Rechner | Rechts: Artikel-Auswahl & Teilzahlung) */}
+              <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
+                {/* Left Column: Aktions-Buttons (Bild 1) & Scheine/Münzen Rechner */}
+                <div className="flex-1 p-4 sm:p-5 overflow-y-auto border-b md:border-b-0 md:border-r border-slate-800 space-y-4">
+                  {/* Top Action Buttons (Bild 1 Layout: Rot Abbrechen, Grün Barzahlung, Blau Kartenzahlung, Amber Wertmarke) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod('CASH')}
-                      className={`py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 border transition ${
-                        paymentMethod === 'CASH'
-                          ? 'bg-emerald-600 text-white border-emerald-500 shadow-md ring-2 ring-emerald-400/40'
-                          : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
-                      }`}
+                      onClick={() => setShowCheckoutModal(false)}
+                      className="min-h-[50px] rounded-2xl font-black text-xs sm:text-sm bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-950/50 flex items-center justify-center gap-1.5 transition active:scale-95"
+                    >
+                      <X className="w-4 h-4" />
+                      <span>Abbrechen</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isProcessing || payableItems.length === 0}
+                      onClick={() => handleCheckout('CASH')}
+                      className="min-h-[50px] rounded-2xl font-black text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white shadow-lg shadow-emerald-950/60 flex items-center justify-center gap-1.5 transition active:scale-95"
                     >
                       <Banknote className="w-4 h-4" />
-                      <span>Bargeld</span>
+                      <span>Barzahlung</span>
                     </button>
-                    {hasAnyCardPaymentConfigured(config) && (
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod(getActiveCardPaymentMethod(config) || 'CARD_SUMUP')}
-                        className={`py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 border transition ${
-                          paymentMethod.startsWith('CARD_') || paymentMethod === 'CARD'
-                            ? 'bg-blue-600 text-white border-blue-500 shadow-md ring-2 ring-blue-400/40'
-                            : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
-                        }`}
-                      >
-                        <CreditCard className="w-4 h-4" />
-                        <span>Kartenzahlung</span>
-                      </button>
-                    )}
+
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod('TOKEN')}
-                      className={`py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 border transition ${
-                        paymentMethod === 'TOKEN'
-                          ? 'bg-amber-600 text-white border-amber-500 shadow-md ring-2 ring-amber-400/40'
-                          : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
-                      }`}
+                      disabled={isProcessing || payableItems.length === 0}
+                      onClick={() => handleCheckout(getActiveCardPaymentMethod(config) || 'CARD_SUMUP')}
+                      className="min-h-[50px] rounded-2xl font-black text-xs sm:text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 shadow-md flex items-center justify-center gap-1.5 transition active:scale-95"
+                    >
+                      <CreditCard className="w-4 h-4 text-blue-400" />
+                      <span>Kartenzahlung</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isProcessing || payableItems.length === 0}
+                      onClick={() => handleCheckout('TOKEN')}
+                      className="min-h-[50px] rounded-2xl font-black text-xs sm:text-sm bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-950/50 flex items-center justify-center gap-1.5 transition active:scale-95"
                     >
                       <Ticket className="w-4 h-4" />
                       <span>Wertmarke</span>
                     </button>
                   </div>
-                </div>
 
-                {/* Bargeld-Rückgeldrechner */}
-                {paymentMethod === 'CASH' && (
+                  {/* Kassenbon Druck Schalter */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-2.5 flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={printReceipt}
+                        onChange={(e) => setPrintReceipt(e.target.checked)}
+                        className="w-4 h-4 rounded accent-emerald-500 cursor-pointer"
+                      />
+                      <Receipt className="w-4 h-4 text-emerald-400" />
+                      <span>Kassenbon am Kassen-Drucker drucken</span>
+                    </label>
+                    <span className="text-[10px] text-slate-500 font-semibold">Standard: Aktiv</span>
+                  </div>
+
+                  {/* Bargeld-Rückgeldrechner (Scheine 5-200€, Münzen 1ct-2€, Numpad ohne 00) */}
                   <div>
                     <ChangeCalculator
-                      amountDue={totalAmount}
+                      amountDue={payableTotal}
                       givenAmount={givenAmount}
                       onGivenChange={(val) => setGivenAmount(val)}
                       defaultExpanded={true}
                     />
                   </div>
-                )}
-              </div>
-
-              {/* Right Column: Warenkorb-Übersicht & Finaler Abschluss */}
-              <div className="w-full md:w-[320px] bg-slate-950 p-4 sm:p-5 flex flex-col justify-between overflow-hidden">
-                <div className="flex-1 flex flex-col min-h-0">
-                  <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider mb-2">
-                    Bestellte Artikel ({cart.reduce((s, i) => s + i.quantity, 0)} Stk.)
-                  </h4>
-                  <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-48 md:max-h-none">
-                    {cart.map((item) => (
-                      <div key={item.id} className="p-2 rounded-xl bg-slate-900 border border-slate-800 flex justify-between text-xs">
-                        <span className="font-bold text-slate-200 truncate pr-2">
-                          {item.quantity}x {item.name} {item.variantName ? `(${item.variantName})` : ''}
-                        </span>
-                        <span className="font-mono font-bold text-emerald-400 whitespace-nowrap">
-                          {formatCurrency((item.price + item.deposit) * item.quantity)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
                 </div>
 
-                {/* Summenblock & Abschluss */}
-                <div className="pt-3 border-t border-slate-800 space-y-2 mt-2">
-                  <div className="flex justify-between items-baseline">
-                    <span className="text-xs text-slate-400 font-bold">Zu zahlen:</span>
-                    <span className="text-2xl font-black text-emerald-400 font-mono">
-                      {formatCurrency(totalAmount)}
-                    </span>
+                {/* Right Column: Artikel-Auswahl & Teilzahlung */}
+                <div className="w-full md:w-[340px] bg-slate-950 p-4 sm:p-5 flex flex-col justify-between overflow-hidden">
+                  <div className="flex-1 flex flex-col min-h-0">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800 mb-2">
+                      <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider">
+                        Artikel ({payableItems.reduce((s, i) => s + i.quantity, 0)} von {cart.reduce((s, i) => s + i.quantity, 0)})
+                      </h4>
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCartItemIds(cart.map((i) => i.id))}
+                          className="text-blue-400 hover:text-blue-300 font-bold underline"
+                        >
+                          Alle
+                        </button>
+                        <span className="text-slate-600">|</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCartItemIds([])}
+                          className="text-slate-400 hover:text-slate-300 font-bold underline"
+                        >
+                          Keine
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+                      {cart.map((item) => {
+                        const isSelected = selectedCartItemIds.includes(item.id);
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => {
+                              setSelectedCartItemIds((prev) =>
+                                prev.includes(item.id) ? prev.filter((id) => id !== item.id) : [...prev, item.id]
+                              );
+                            }}
+                            className={`p-2.5 rounded-2xl border cursor-pointer select-none transition flex items-center justify-between gap-2 text-xs ${
+                              isSelected
+                                ? 'bg-slate-900 border-emerald-500/80 text-white shadow-sm ring-1 ring-emerald-500/30'
+                                : 'bg-slate-950 border-slate-800 text-slate-500 opacity-60'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {}}
+                                className="w-4 h-4 rounded accent-emerald-500 cursor-pointer pointer-events-none"
+                              />
+                              <div className="truncate">
+                                <span className="font-extrabold text-xs text-white">
+                                  {item.quantity}x {item.name}
+                                </span>
+                                {item.variantName && (
+                                  <div className="text-[10px] text-emerald-400 font-semibold">{item.variantName}</div>
+                                )}
+                              </div>
+                            </div>
+                            <span className="font-mono font-bold text-emerald-400 whitespace-nowrap">
+                              {formatCurrency((item.price + item.deposit) * item.quantity)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  {paymentMethod === 'CASH' && givenAmount > 0 && (
-                    <div className="flex justify-between items-baseline text-xs bg-slate-900 p-2 rounded-xl border border-slate-800">
-                      <span className="text-slate-400">Rückgeld:</span>
-                      <span className="text-base font-black text-amber-300 font-mono">
-                        {formatCurrency(changeAmount)}
+                  {/* Teilzahlungs-Hinweis & Abschluss */}
+                  <div className="pt-3 border-t border-slate-800 space-y-2.5 mt-2">
+                    {isPartial && (
+                      <div className="bg-amber-950/60 border border-amber-800/80 text-amber-300 p-2.5 rounded-2xl text-[11px] font-bold">
+                        <span>Teilzahlung aktiv: {payableItems.length} Positionen gewählt.</span>
+                        <div className="text-[10px] text-amber-400 font-normal mt-0.5">
+                          Verbleibender Rest ({formatCurrency(totalAmount - payableTotal)}) bleibt im Warenkorb.
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-xs text-slate-400 font-bold">Zu zahlen:</span>
+                      <span className="text-2xl font-black text-emerald-400 font-mono">
+                        {formatCurrency(payableTotal)}
                       </span>
                     </div>
-                  )}
 
-                  {/* Final Checkout Button */}
-                  <button
-                    disabled={isProcessing}
-                    onClick={async () => {
-                      await handleCheckout();
-                      setShowCheckoutModal(false);
-                    }}
-                    className="pos-touch-btn w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base flex items-center justify-center gap-2 shadow-xl active:scale-98 transition"
-                  >
-                    <Check className="w-5 h-5" />
-                    <span>
-                      {isProcessing
-                        ? 'Wird gebucht & gedruckt...'
-                        : mode === 'DIRECT'
-                        ? hasDrawerAvailable
-                          ? 'Zahlung abschließen & Lade auf'
-                          : 'Zahlung abschließen'
-                        : hasDrawerAvailable
-                        ? 'Abschließen, Lade auf & Bons drucken'
-                        : 'Abschließen & Bons drucken'}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowCheckoutModal(false)}
-                    className="w-full py-2 text-xs font-bold text-slate-400 hover:text-white transition text-center"
-                  >
-                    Zurück zum Warenkorb
-                  </button>
+                    <button
+                      disabled={isProcessing || payableItems.length === 0}
+                      onClick={() => handleCheckout()}
+                      className="pos-touch-btn w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black text-base flex items-center justify-center gap-2 shadow-xl active:scale-98 transition"
+                    >
+                      <Check className="w-5 h-5" />
+                      <span>
+                        {isProcessing
+                          ? 'Wird gebucht & gedruckt...'
+                          : `Jetzt kassieren (${formatCurrency(payableTotal)})`}
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Digital Receipt E-Bon & NFC Modal */}
       {enableDigitalReceipt && completedPayment?.digitalReceiptUrl && (
@@ -1309,6 +1401,13 @@ function PosCounterContent() {
           </div>
         </div>
       )}
+
+      {/* Bestellhistorie Modal */}
+      <WaiterOrderHistoryModal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        waiterName={stationName}
+      />
     </div>
   );
 }

@@ -116,13 +116,22 @@ export default function PrintTableOverviewPage() {
                   const isAisle = isRowAisle || isColAisle;
 
                   if (isAisle) {
+                    const isCrossing = isRowAisle && isColAisle;
                     return (
                       <div
                         key={`aisle-${x}-${y}`}
-                        className="p-2 rounded-lg border-2 border-amber-400 bg-amber-50 text-center flex flex-col justify-center items-center min-h-[72px] text-amber-800"
+                        className={`min-h-[72px] flex flex-col justify-center items-center text-amber-900 transition ${
+                          isCrossing
+                            ? 'bg-amber-100/90 border-2 border-dashed border-amber-400 rounded-xl'
+                            : isRowAisle
+                            ? 'bg-amber-50/80 border-y-2 border-dashed border-amber-300/80'
+                            : 'bg-amber-50/80 border-x-2 border-dashed border-amber-300/80'
+                        }`}
                       >
-                        <Footprints className="w-4 h-4 text-amber-600 mb-0.5" />
-                        <span className="text-[9px] font-black uppercase tracking-wider">GANG</span>
+                        <Footprints className="w-3.5 h-3.5 text-amber-600/70 opacity-60" />
+                        <span className="text-[8px] font-bold uppercase tracking-widest text-amber-700/60 mt-0.5">
+                          {isCrossing ? 'KREUZUNG' : 'GANG'}
+                        </span>
                       </div>
                     );
                   }

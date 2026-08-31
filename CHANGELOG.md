@@ -268,6 +268,29 @@
     17. **Tischnummern-Schnellwahl unten (`/waiter`):** Prominenter, zentrierter Ziffernblock-Button über die gesamte untere Bildschirmbreite ohne ablenkende Hinweistexte.
     18. **Light-Theme Kontraste:** Tiefschwarze Schrift (`text-slate-950`) für Münzen im Wechselgeldrechner sowie kontraststarke Buttons in hellen Designs.
 
+* **31.08.2026 14:30 – Release v0.4.17: Kassen- & Bedienungs-UX-Upgrade, Scheine/Münzen-Rechencenter & System-Fixes** `[✓]`
+  * **Weshalb:** Umfassendes Upgrade des Kassiervorgangs an der Bonkasse mit Euro-Banknoten und Euro-Münzen, Unterstützung von Teilzahlungen per Artikel-Abwahl, automatischer Kassenbon-Druck für Thekenverkäufe, Bestellhistorie an der Kasse, aufgeräumte und kompakte Tischkacheln ohne doppelte Texte, fest fixierter Tischnummern-Button am unteren Bildschirmrand, Auto-Öffnen des Tischnummern-Keypads nach Buchung/Kassieren, Angleich der Bedienungs-Header, scrollbarer Teamfunk mit Auto-Scroll, Behebung des 8x12 Tisch-Raster-Generierungsfehlers sowie Korrektur des Geräte-Managers und der unauthentifizierten 401-Konsolenfehler.
+  * **Wie:**
+    1. **Kassiervorgang an der Bonkasse (`/pos` & `change-calculator.tsx`):**
+       - Euro-Scheine (5€ bis 200€) als farbige Rechteck-Karten zur Direktwahl.
+       - Euro-Münzen (1ct bis 2€) als runde Münz-Kreise zum einfachen Aufaddieren.
+       - Ziffernblock auf 3x4 (1–9, C, 0, Komma) ohne `00`-Taste bereinigt.
+       - Große Aktionsbuttons (`[Abbrechen]`, `[Barzahlung]`, `[Kartenzahlung]`, `[Wertmarke]`).
+    2. **Teilzahlung an der Bonkasse:** Checkboxen an allen Warenkorb-Positionen im Kassiermodal; nicht ausgewählte Artikel verbleiben im Korb für die nächste Abrechnung.
+    3. **Automatischer Kassenbon-Druck:** Neuer Schalter `[x] Kassenbon drucken` (Standard: Aktiv) an der Bonkasse, sodass auch Theken-Direktverkäufe am Kassendrucker gedruckt werden.
+    4. **Bestellhistorie an der Bonkasse:** Neuer Button `[Bestellhistorie]` im Header; Anzeige der „Letzten Abhol-Nr.“ in der Seitenleiste entfernt.
+    5. **Chat-Benachrichtigungspunkt:** Socket-Event in `navbar.tsx` auf `chat:incoming` korrigiert – blauer Punkt am Hamburger-Menü leuchtet bei neuen Nachrichten sofort auf.
+    6. **Kompakte Tischkacheln (`/waiter`):** Entfernung von `Nr. X` und Entfernung des Textes `Frei` (Status nur noch über den farbigen Punkt); verkleinertes Padding für maximale Tischanzahl auf einem Bildschirm.
+    7. **Sticky Tischnummer-Button (`/waiter`):** Feste Fixierung am unteren Bildschirmrand (`fixed bottom-0 z-20`) mit `pb-28` im Scrollbereich.
+    8. **Auto-Öffnen des Tischnummern-Keypads (`/waiter`):** Neuer Toggle `[Auto-Öffnen: AN/AUS]` im Keypad; öffnet die Tischnummerneingabe beim Zurückkehren auf die Tischübersicht automatisch.
+    9. **Header-Angleich (`/waiter` & `/waiter/order`):** Visuelle Harmonisierung; Chatsymbol aus dem Bestellheader entfernt.
+    10. **Team-Funk Scrollbarkeit (`/chat`):** Feste Viewport-Höhe (`h-[calc(100vh-4rem)]`) mit scrollbarem Nachrichtenbereich und automatischem Smooth-Scroll zum neuesten Funkspruch.
+    11. **8x12 Tischplan-Raster Fix (`/api/tables`):** Kollisionsfreie Schrittweiten-Berechnung (`effectiveStepY = Math.max(stepY, cols * stepX)`) und sicheres Lösen von Altdaten-Fremdschlüsseln verhindern Unique-Constraint-Fehler bei großen Rastern.
+    12. **Tischplan Druckansicht (`/admin/tables/print`):** Gänge werden als durchgehende Laufweg-Korridore gerendert.
+    13. **Geräte-Manager Praesenzliste (`/api/devices` & `server.js`):** Stale-Filter Typo (`dev.lastSeen` -> `dev.lastSeenAt`) behoben und Socket-Updates global synchronisiert.
+    14. **401 Konsolenfehler eliminiert (`/api/system/ha/status`):** Unauthentifizierte Anfragen erhalten einen sicheren Standalone-Status mit HTTP 200.
+
+
 ---
 
 ## 4. Theme-Spezifikation & Design-Tokens (Master-Referenz)

@@ -177,12 +177,11 @@ app.prepare().then(() => {
         socket.join('admin_room');
       }
 
-      // Geräteliste gezielt an Admins und den anmeldenden Client senden
-      io.to('admin_room').emit('device:update', Array.from(global.connectedDevices.values()));
-      socket.emit('device:update', Array.from(global.connectedDevices.values()));
+      // Geräteliste an alle Admins und Manager senden
+      io.emit('device:update', Array.from(global.connectedDevices.values()));
     });
 
-    // Heartbeat & Battery updates (nur an Admins übertragen)
+    // Heartbeat & Battery updates
     socket.on('device:heartbeat', (data) => {
       if (socket.deviceId && global.connectedDevices.has(socket.deviceId)) {
         const device = global.connectedDevices.get(socket.deviceId);
@@ -191,7 +190,7 @@ app.prepare().then(() => {
         if (data.isCharging !== undefined) device.isCharging = data.isCharging;
         device.status = 'ONLINE';
         global.connectedDevices.set(socket.deviceId, device);
-        io.to('admin_room').emit('device:update', Array.from(global.connectedDevices.values()));
+        io.emit('device:update', Array.from(global.connectedDevices.values()));
       }
     });
 

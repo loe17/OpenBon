@@ -477,11 +477,11 @@ function WaiterOrderContent() {
           <button
             type="button"
             onClick={() => setShowHistoryModal(true)}
-            className="p-2 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-2xl text-slate-300 hover:text-white flex items-center gap-1 text-xs font-bold transition active:scale-95 shadow"
+            className="px-3 py-1.5 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl text-slate-300 hover:text-white flex items-center gap-1.5 text-xs font-bold transition active:scale-95 shadow"
             title="Bestellverlauf anzeigen"
           >
-            <History className="w-4 h-4 text-blue-400" />
-            <span className="hidden md:inline">Verlauf</span>
+            <History className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden sm:inline">Verlauf</span>
           </button>
 
           <button
@@ -491,24 +491,15 @@ function WaiterOrderContent() {
               setSoundMuted(next);
               setAudioMuted(next);
             }}
-            className={`p-2 rounded-2xl border transition active:scale-95 ${
+            className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-bold transition active:scale-95 ${
               soundMuted
                 ? 'bg-rose-950/50 border-rose-800 text-rose-400'
                 : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
             }`}
             title={soundMuted ? 'Ton stumm' : 'Ton aktiv'}
           >
-            {soundMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => router.push('/chat')}
-            className="p-2 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-2xl text-slate-300 hover:text-white flex items-center gap-1 text-xs font-bold transition active:scale-95 shadow"
-            title="Team-Chat öffnen"
-          >
-            <MessageSquare className="w-4 h-4 text-emerald-400" />
-            <span className="hidden md:inline">Chat</span>
+            {soundMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{soundMuted ? 'Stumm' : 'Ton'}</span>
           </button>
         </div>
       </div>

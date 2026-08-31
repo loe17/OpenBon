@@ -16,10 +16,10 @@ export async function GET() {
     const now = Date.now();
     const devicesMap = global.connectedDevices || new Map();
 
-    // Stale Filter: Geräte entfernen, die länger als 2 Minuten (120s) inaktiv sind
+    // Stale Filter: Geräte entfernen, die länger als 3 Minuten (180s) inaktiv sind
     for (const [id, dev] of devicesMap.entries()) {
-      const lastSeenTime = new Date((dev as any).lastSeen || (dev as any).connectedAt || now).getTime();
-      if (now - lastSeenTime > 120 * 1000) {
+      const lastSeenTime = new Date((dev as any).lastSeenAt || (dev as any).lastSeen || (dev as any).connectedAt || now).getTime();
+      if (now - lastSeenTime > 180 * 1000) {
         devicesMap.delete(id);
       }
     }

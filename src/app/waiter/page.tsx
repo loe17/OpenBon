@@ -30,6 +30,7 @@ import {
   Wallet,
   Coins,
   Printer,
+  Sparkles,
 } from 'lucide-react';
 import { VOID_REASONS, type OrderDTO } from '@/types/domain';
 import { playConfirm, playVoidAlert, playOrderReadyChime } from '@/lib/audio-feedback';
@@ -98,6 +99,18 @@ function WaiterTablesContent() {
   const [showTableKeypadModal, setShowTableKeypadModal] = useState(false);
   const [keypadTableNumber, setKeypadTableNumber] = useState('');
   const [isCreatingTable, setIsCreatingTable] = useState(false);
+  const [autoReopenKeypad, setAutoReopenKeypad] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('openbon_auto_open_table_keypad');
+      const isAuto = saved === null ? true : saved === '1';
+      setAutoReopenKeypad(isAuto);
+      if (isAuto) {
+        setShowTableKeypadModal(true);
+      }
+    }
+  }, []);
 
   // Bestellverlauf & Stummschaltung
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -580,7 +593,7 @@ function WaiterTablesContent() {
       </div>
 
       {/* Tables Grid View */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 pb-28">
         {loading ? (
           <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-400">
             <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
@@ -591,51 +604,48 @@ function WaiterTablesContent() {
             <p className="text-sm font-semibold">Keine Tische gefunden.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
             {filteredTables.map((table) => {
               const isOccupied = table.openItemCount > 0;
               return (
                 <div
                   key={table.id}
                   onClick={() => setSelectedTable(table)}
-                  className={`relative rounded-3xl p-4 cursor-pointer transition-all duration-150 active:scale-95 flex flex-col justify-between min-h-[120px] shadow-lg border ${
+                  className={`relative rounded-2xl p-3 cursor-pointer transition-all duration-150 active:scale-95 flex flex-col justify-between min-h-[92px] sm:min-h-[98px] shadow-md border ${
                     isOccupied
                       ? 'bg-amber-950/40 border-amber-500/60 hover:border-amber-400 shadow-amber-950/30'
-                      : 'bg-slate-900 border-slate-800 hover:border-slate-600'
+                      : 'bg-slate-900 border-slate-800 hover:border-slate-700'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono font-bold text-slate-400">
-                      Nr. {table.tableNumber}
-                    </span>
+                  <div className="flex items-center justify-between gap-1.5">
+                    <h3 className="font-black text-base sm:text-lg text-white truncate leading-tight">
+                      {table.label}
+                    </h3>
                     <span
-                      className={`w-2.5 h-2.5 rounded-full ${
+                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${
                         isOccupied ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'
                       }`}
                     />
                   </div>
 
-                  <div className="my-2">
-                    <h3 className="font-black text-lg text-white truncate">{table.label}</h3>
-                    {table.activeWaiterName && (
-                      <p className="text-[10px] text-slate-400 truncate">
-                        Bedienung: {table.activeWaiterName}
-                      </p>
-                    )}
-                  </div>
+                  {table.activeWaiterName && (
+                    <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                      {table.activeWaiterName}
+                    </p>
+                  )}
 
-                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                  <div className="pt-1.5 border-t border-slate-800/80 flex items-center justify-between mt-auto">
                     {isOccupied ? (
                       <>
                         <span className="text-[11px] font-bold text-amber-300">
                           {table.openItemCount} Pos.
                         </span>
-                        <span className="text-xs font-black text-white">
+                        <span className="text-xs font-black text-white font-mono">
                           {formatCurrency(table.openGrossAmount)}
                         </span>
                       </>
                     ) : (
-                      <span className="text-[11px] font-bold text-emerald-400">Frei</span>
+                      <div className="h-3" />
                     )}
                   </div>
                 </div>
@@ -645,8 +655,8 @@ function WaiterTablesContent() {
         )}
       </div>
 
-      {/* Tischnummern-Schnellwahl (Unten, Zentriert & Breit über fast gesamte Breite) */}
-      <div className="p-2.5 sm:p-3 bg-slate-900/95 border-t border-slate-800 shrink-0 shadow-[0_-8px_20px_rgba(0,0,0,0.5)] flex justify-center">
+      {/* Tischnummern-Schnellwahl (Fest am unteren Bildschirmrand fixiert) */}
+      <div className="fixed bottom-0 left-0 right-0 z-20 p-2.5 sm:p-3 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 shadow-[0_-8px_20px_rgba(0,0,0,0.6)] flex justify-center">
         <button
           type="button"
           onClick={() => {
@@ -1106,13 +1116,32 @@ function WaiterTablesContent() {
                 <Hash className="w-5 h-5 text-blue-400" />
                 <h3 className="font-extrabold text-base text-white">Tischnummer eingeben</h3>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowTableKeypadModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center font-bold"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !autoReopenKeypad;
+                    setAutoReopenKeypad(next);
+                    localStorage.setItem('openbon_auto_open_table_keypad', next ? '1' : '0');
+                  }}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border flex items-center gap-1.5 transition ${
+                    autoReopenKeypad
+                      ? 'bg-blue-600/30 text-blue-300 border-blue-500/80 shadow-sm'
+                      : 'bg-slate-800 text-slate-400 border-slate-700'
+                  }`}
+                  title="Automatisch nach Bestellung/Kassieren wieder öffnen"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Auto-Öffnen: {autoReopenKeypad ? 'AN' : 'AUS'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowTableKeypadModal(false)}
+                  className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center font-bold"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             {/* Display der eingegebenen Tischnummer */}
@@ -1120,30 +1149,6 @@ function WaiterTablesContent() {
               <span className="text-xs text-slate-400 font-bold block mb-1">Ausgewählter Tisch:</span>
               <div className="text-3xl font-black font-mono text-amber-300 min-h-[40px]">
                 {keypadTableNumber ? `Tisch ${keypadTableNumber}` : '—'}
-              </div>
-            </div>
-
-            {/* Schnellauswahl bestehender Tische */}
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-bold text-slate-400">Schnellauswahl:</span>
-              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                {tables.slice(0, 10).map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => {
-                      triggerHapticFeedback();
-                      setKeypadTableNumber(String(t.tableNumber));
-                    }}
-                    className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 touch-manipulation ${
-                      keypadTableNumber === String(t.tableNumber)
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
               </div>
             </div>
 

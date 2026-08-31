@@ -42,6 +42,11 @@ function ChatPageContent() {
   const [broadcastText, setBroadcastText] = useState('');
   const [broadcastSender, setBroadcastSender] = useState('');
   const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
+  const messagesEndRef = React.useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const fetchMessages = async () => {
     try {
@@ -116,7 +121,7 @@ function ChatPageContent() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white max-w-4xl mx-auto w-full">
+    <div className="flex-1 flex flex-col h-[calc(100vh-4rem)] overflow-hidden bg-slate-950 text-white max-w-4xl mx-auto w-full">
       {/* Top Bar */}
       <div className="p-3 sm:p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-3">
@@ -203,6 +208,7 @@ function ChatPageContent() {
             );
           })
         )}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Input Bar */}
