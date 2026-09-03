@@ -10,12 +10,17 @@ jobs:
   test-and-build:
     runs-on: ubuntu-latest
 
+    env:
+      DATABASE_URL: "file:./prisma/test.db"
+      FISCAL_SALT: "ci-fiscal-salt-mindestens-16-zeichen"
+      LICENSE_HMAC_SECRET: "ci-receipt-secret-mindestens-16"
+
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: 'npm'
@@ -25,9 +30,9 @@ jobs:
 
       - name: Generate Prisma Client & Sync SQLite Test DB
         run: |
-          DATABASE_URL="file:./dev.db" npx prisma generate
-          DATABASE_URL="file:./dev.db" npx prisma db push --accept-data-loss --skip-generate
-          DATABASE_URL="file:./dev.db" node prisma/seed.js
+          npx prisma generate
+          npx prisma db push --force-reset --accept-data-loss --skip-generate
+          node prisma/seed.js
 
       - name: TypeScript Typecheck & Unit / Integration Tests
         run: npm test

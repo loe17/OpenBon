@@ -5,9 +5,9 @@ import { parseAndValidateLicense, generateOfflineSignature } from '../lib/licens
 import { verifyStationPin, setAllStationPins } from '../lib/auth-pin';
 import { EscPosBuilder } from '../lib/printer/escpos-builder';
 
-describe('OpenBon v0.4.21: Schema, License, PIN & Print Sanity Tests', () => {
-  it('should verify v0.4.21 version info', () => {
-    expect(APP_VERSION).toBe('0.4.21');
+describe('OpenBon v0.4.22: Schema, License, PIN & Print Sanity Tests', () => {
+  it('should verify v0.4.22 version info', () => {
+    expect(APP_VERSION).toBe('0.4.22');
   });
 
   it('should initialize Prisma DB Client with valid DATABASE_URL fallback', () => {
@@ -66,7 +66,7 @@ describe('OpenBon v0.4.21: Schema, License, PIN & Print Sanity Tests', () => {
       totalTax19Cents: 19966,
       totalCashCents: 95000,
       totalCardCents: 30050,
-      waiters: [{ waiterName: 'Lisa', totalGrossCents: 62000, cashGrossCents: 50000, cardGross: 120.0 }],
+      waiters: [{ waiterName: 'Lisa', totalGrossCents: 62000, cashGrossCents: 50000, cardGrossCents: 12000 }],
     });
 
     expect(zbonTicket.rawBuffer).toBeDefined();

@@ -65,7 +65,7 @@ async function main() {
     require('dotenv').config();
   } catch {}
   if (!process.env.DATABASE_URL) {
-    process.env.DATABASE_URL = 'file:./dev.db';
+    process.env.DATABASE_URL = 'file:./prisma/dev.db';
   }
 
   let prisma = null;

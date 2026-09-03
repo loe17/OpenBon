@@ -45,7 +45,8 @@ describe('v0.4.21 Split-Brain/Rooms/PIN-Fixes', () => {
     ).toBe(true);
   });
 
-  it('resolveDbFile zeigt auf prisma/dev.db (einheitlich mit Backup/Litestream)', () => {
-    expect(resolveDbFile().replace(/\\/g, '/')).toMatch(/prisma\/dev\.db$/);
+  it('resolveDbFile folgt DATABASE_URL (Test: test.db, Prod: dev.db)', () => {
+    const f = resolveDbFile().replace(/\\/g, '/');
+    expect(f).toMatch(/prisma\/(test|dev)\.db$/);
   });
 });

@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.4.21';
+export const APP_VERSION = '0.4.22';
 export const APP_NAME = 'OpenBon';
 export const APP_BUILD_DATE = '2026-09-04';
 export const APP_IS_BETA = false;
@@ -7,9 +7,9 @@ export const APP_LICENSE = 'MIT License';
 export const APP_REPOSITORY = 'https://github.com/loe17/OpenBon';
 export const APP_RELEASE_DATE = '2026-09-04';
 export const APP_DESCRIPTION = 'Modernes, plattformunabhängiges Kassensystem mit Hochverfügbarkeit, ESC/POS-Druck und Echtzeit-Synchronisation für Vereinsfeste und Gastronomie';
-export const APP_DISCLAIMER = 'OpenBon v0.4.21 - Nutzung auf eigene Verantwortung ohne Gewähr.';
+export const APP_DISCLAIMER = 'OpenBon v0.4.22 - Nutzung auf eigene Verantwortung ohne Gewähr.';
 export const GITHUB_REPO_URL = 'https://github.com/loe17/OpenBon';
 export const APP_HOMEPAGE = 'https://openbon.org';
-export const APP_CODENAME = 'OpenBon Release v0.4.21';
+export const APP_CODENAME = 'OpenBon Release v0.4.22';
 export const APP_REPO_URL = 'https://github.com/loe17/OpenBon';
 export const APP_DOCS_URL = 'https://github.com/loe17/OpenBon/wiki';

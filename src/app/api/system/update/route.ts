@@ -405,7 +405,7 @@ export async function POST(req: Request) {
         await execAsync('npx prisma generate', {
           cwd: projectRoot,
           timeout: 45000,
-          env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db' },
+          env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'file:./prisma/dev.db' },
         }).catch(() => {});
 
         // N2.3: Kein stiller Datenverlust im Update-Pfad - gleiche Regel wie
@@ -414,7 +414,7 @@ export async function POST(req: Request) {
         const pushEnv = {
           cwd: projectRoot,
           timeout: 45000,
-          env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db' },
+          env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'file:./prisma/dev.db' },
         };
 
         let dbPushFailed = false;
@@ -477,7 +477,7 @@ export async function POST(req: Request) {
             ...process.env,
             NODE_OPTIONS: '--max-old-space-size=2048',
             NEXT_TELEMETRY_DISABLED: '1',
-            DATABASE_URL: process.env.DATABASE_URL || 'file:./dev.db',
+            DATABASE_URL: process.env.DATABASE_URL || 'file:./prisma/dev.db',
           },
         });
         logs.push(buildOut.trim() || 'Build erfolgreich erstellt.');

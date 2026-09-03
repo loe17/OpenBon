@@ -289,7 +289,7 @@ if [ ! -f "$INSTALL_DIR/.env" ]; then
   echo ""
   echo "  -> Erstelle Standard-Umgebungskonfiguration (.env)..."
   cat <<EOF > "$INSTALL_DIR/.env"
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="file:./prisma/dev.db"
 NODE_ENV="production"
 PORT=3000
 HOST="0.0.0.0"
@@ -308,12 +308,12 @@ sudo -u "$SERVICE_USER" npm install --production=false
 
 echo ""
 echo "[5/7] Führe Prisma Datenbank-Migrationen durch..."
-sudo -u "$SERVICE_USER" DATABASE_URL="file:./dev.db" npx prisma generate
+  sudo -u "$SERVICE_USER" DATABASE_URL="file:./prisma/dev.db" npx prisma generate
 
 # M6.2/M6.4: Kein stiller Datenverlust beim Update - data-loss-Abgleich nur
 # mit ausdruecklicher Freigabe ueber OPENBON_ALLOW_DATA_LOSS=1.
 DBPUSH_RC=0
-DBPUSH_OUTPUT=$(sudo -u "$SERVICE_USER" DATABASE_URL="file:./dev.db" npx prisma db push --skip-generate 2>&1) || DBPUSH_RC=$?
+  DBPUSH_OUTPUT=$(sudo -u "$SERVICE_USER" DATABASE_URL="file:./prisma/dev.db" npx prisma db push --skip-generate 2>&1) || DBPUSH_RC=$?
 
 if [ "$DBPUSH_RC" -eq 0 ]; then
   # Normaler Erfolgsfall: kurze Ausgabe anzeigen
@@ -322,7 +322,7 @@ elif printf '%s' "$DBPUSH_OUTPUT" | grep -qi "data loss"; then
   printf '%s\n' "$DBPUSH_OUTPUT"
   if [ "${OPENBON_ALLOW_DATA_LOSS:-}" = "1" ]; then
     echo "  -> Freigabe aktiv: Migration MIT Datenverlustrisiko wird ausgefuehrt..."
-    sudo -u "$SERVICE_USER" DATABASE_URL="file:./dev.db" npx prisma db push --accept-data-loss --skip-generate
+      sudo -u "$SERVICE_USER" DATABASE_URL="file:./prisma/dev.db" npx prisma db push --accept-data-loss --skip-generate
   else
     echo "  [ABBRUCH] Schema-Migration wuerde Daten verlieren (NICHTS geloescht)."
     echo "            Erst Backup ziehen, dann erneut mit OPENBON_ALLOW_DATA_LOSS=1 starten."
@@ -336,7 +336,7 @@ fi
 
 # Seed nur bei Neuinstallation (wenn noch keine Tabellen/Bestellungen da sind)
 if [ "$IS_UPDATE" -eq 0 ]; then
-  sudo -u "$SERVICE_USER" DATABASE_URL="file:./dev.db" node prisma/seed.js 2>/dev/null || true
+    sudo -u "$SERVICE_USER" DATABASE_URL="file:./prisma/dev.db" node prisma/seed.js 2>/dev/null || true
 fi
 
 # ==============================================================================
@@ -344,7 +344,7 @@ fi
 # ==============================================================================
 echo ""
 echo "[6/7] Kompiliere Next.js Produktions-Build (optimiert)..."
-sudo -u "$SERVICE_USER" DATABASE_URL="file:./dev.db" npm run build
+  sudo -u "$SERVICE_USER" DATABASE_URL="file:./prisma/dev.db" npm run build
 
 # ==============================================================================
 # 10. SYSTEMD-DIENST & RESTART
@@ -365,7 +365,7 @@ Environment=NODE_ENV=production
 Environment=PORT=80
 Environment=HOST=0.0.0.0
 Environment=HA_ROLE=PRIMARY
-Environment=DATABASE_URL="file:./dev.db"
+  Environment=DATABASE_URL="file:./prisma/dev.db"
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 ExecStart=/usr/bin/node server.js
