@@ -15,10 +15,10 @@ model EventConfig {
   taxRateReduced        Float   @default(7.0)
   trainingMode          Boolean @default(false)
   trayMaxItems          Int     @default(6) // Globales Tablett-Limit (Fallback fuer Druckgruppen)
-  adminPin              String  @default("1234")
-  posPin                String  @default("1111")
-  kitchenPin            String  @default("2222")
-  waiterPin             String  @default("3333")
+  adminPin              String  @default("")
+  posPin                String  @default("")
+  kitchenPin            String  @default("")
+  waiterPin             String  @default("")
   enableVirtualPrinters Boolean @default(false)
   enableTax             Boolean @default(false) // Standardmäßig deaktiviert (Vereine/Kleinunternehmer)
 
@@ -112,7 +112,7 @@ model EventConfig {
   licenseKey      String   @default("OPENBON-COMMUNITY-FREE")
   haRole          String   @default("STANDALONE") // STANDALONE, PRIMARY, STANDBY
   haPartnerUrl    String?
-  haAutoFailover  Boolean  @default(true)
+  haAutoFailover  Boolean  @default(false)
   aisles          String?  @default("[]")
   tokenSequence   Int      @default(1)
   invoiceSequence Int      @default(1)
@@ -138,7 +138,7 @@ model WaiterProfile {
   id           String      @id @default(cuid())
   waiterNumber Int?        @unique
   name         String      @unique
-  pin          String      @default("3333")
+  pin          String      @default("")
   isActive     Boolean     @default(true)
   tipProfileId String?
   tipProfile   TipProfile? @relation(fields: [tipProfileId], references: [id], onDelete: SetNull)
@@ -161,8 +161,8 @@ model Product {
   id                    String  @id @default(cuid())
   name                  String
   alternativeTicketName String?
-  price                 Float   @default(0.0)
-  deposit               Float   @default(0.0)
+  priceCents            Int     @default(0)
+  depositCents          Int     @default(0)
   taxRate               Float   @default(19.0)
   buttonColor           String? @default("#3b82f6")
   status                String  @default("ACTIVE") // ACTIVE, INACTIVE, HIDDEN
@@ -183,8 +183,8 @@ model Product {
   allergens String @default("[]") // JSON Array z. B. ["GLUTEN", "MILCH"]
   additives String @default("[]") // JSON Array z. B. ["KOFFEIN", "FARBSTOFF"]
 
-  // Happy Hour & Dynamische Preise
-  happyHourPrice Float?
+  // Happy Hour & Dynamische Preise (Cent, harter Cut)
+  happyHourPriceCents Int?
   happyHourStart String? // z. B. "18:00"
   happyHourEnd   String? // z. B. "19:00"
   happyHourDays  String  @default("[]") // JSON Array [1,2,3,4,5]
@@ -216,7 +216,7 @@ model ProductVariant {
   productId  String
   product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   name       String
-  priceDelta Float   @default(0.0)
+  priceDeltaCents Int @default(0)
   isSoldOut  Boolean @default(false)
   sortIndex  Int     @default(0)
 
@@ -226,7 +226,7 @@ model ProductVariant {
   color                 String?
   printGroupId          String?
   printGroup            PrintGroup? @relation(fields: [printGroupId], references: [id], onDelete: SetNull)
-  deposit               Float?
+  depositCents          Int?
   taxRate               Float?
 
   consumptions StockConsumption[]
@@ -238,8 +238,8 @@ model ProductOption {
   id         String  @id @default(cuid())
   productId  String
   product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name       String
-  priceDelta Float   @default(0.0)
+  name      String
+  priceDeltaCents Int @default(0)
   sortIndex  Int     @default(0)
 
   // Mehrfach waehlbare Optionen: voreingestellte und hoechstens waehlbare Anzahl.
@@ -266,10 +266,14 @@ model DiningTable {
   section          String    @default("Hauptbereich")
   gridX            Int       @default(0)
   gridY            Int       @default(0)
-  status           String    @default("FREE") // FREE, OCCUPIED, BILL_REQUESTED, HIDDEN, INACTIVE
+  status           String    @default("FREE") // FREE, OCCUPIED, BILL_REQUESTED, RESERVED, HIDDEN, INACTIVE
   isActive         Boolean   @default(true)
   activeWaiterName String?
   qrToken          String? // Token fuer Gast-QR-Bestellung
+  guestName        String? // Deckel-/Gastname
+  reservationName  String? // Reservierungsname
+  reservedAt       DateTime?
+  openTabCents     Int       @default(0) // offener Deckel in Cent
   orders           Order[]
   payments         Payment[]
 
@@ -338,8 +342,8 @@ model OrderItem {
   product            Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
   productName        String
   quantity           Int           @default(1)
-  unitPrice          Float
-  deposit            Float         @default(0.0)
+  unitPriceCents     Int
+  depositCents       Int           @default(0)
   taxRate            Float         @default(19.0)
   variantName        String?
   selectedOptions    String? // JSON Array String
@@ -375,25 +379,25 @@ model Payment {
   waiterName         String
   deviceId           String?
   digitalReceiptCode String?         @unique
-  totalGross         Float
-  totalNet           Float
-  totalTax           Float
-  taxBase19          Float           @default(0.0) // Netto-Bemessungsgrundlage 19 %
-  taxAmount19        Float           @default(0.0)
-  taxBase7           Float           @default(0.0) // Netto-Bemessungsgrundlage 7 %
-  taxAmount7         Float           @default(0.0)
-  taxBase0           Float           @default(0.0) // Steuerfrei (z. B. Pfand)
-  totalDeposit       Float           @default(0.0)
-  returnDeposit      Float           @default(0.0)
-  discountAmount     Float           @default(0.0)
-  tipAmount          Float           @default(0.0)
-  tipWaiterShare     Float           @default(0.0)
-  tipPoolShare       Float           @default(0.0)
-  surchargeAmount    Float           @default(0.0)
+  totalGrossCents    Int
+  totalNetCents      Int
+  totalTaxCents      Int
+  taxBase19Cents     Int             @default(0)
+  taxAmount19Cents   Int             @default(0)
+  taxBase7Cents      Int             @default(0)
+  taxAmount7Cents    Int             @default(0)
+  taxBase0Cents      Int             @default(0)
+  totalDepositCents  Int             @default(0)
+  returnDepositCents Int             @default(0)
+  discountAmountCents Int            @default(0)
+  tipAmountCents     Int             @default(0)
+  tipWaiterShareCents Int            @default(0)
+  tipPoolShareCents  Int             @default(0)
+  surchargeAmountCents Int           @default(0)
   surchargePercent   Float           @default(0.0)
   surchargeReason    String?
-  givenAmount        Float           @default(0.0)
-  changeAmount       Float           @default(0.0)
+  givenAmountCents   Int             @default(0)
+  changeAmountCents  Int             @default(0)
   // CASH, CARD_SUMUP, CARD_VRPAY, CARD_SPARKASSE, CARD_TERMINAL, TOKEN,
   // NON_PAID_STAFF, NON_PAID_COMPLAINT, VOID_UNPAID, DISCOUNT
   paymentMethod      String          @default("CASH")
@@ -403,6 +407,18 @@ model Payment {
   isCancelled        Boolean         @default(false)
   cancellationReason String?
   isTraining         Boolean         @default(false)
+  // TSE-Fiskalisierung (NONE=Standard, MOCK ohne Hardware, FISKALY per ENV)
+  tseSerial          String?
+  tseTransactionNo   Int?
+  tseSignature       String?
+  tseSignatureCounter Int?
+  tseLogTime         DateTime?
+  tseProvider        String? // NONE, FISKALY, EFSTA, SWISSBIT
+  // Bar-Erstattung (nur CASH_REFUND, keine Karten-Rückbuchung)
+  isRefund           Boolean         @default(false)
+  refundOfPaymentId  String?
+  refundReason       String?
+  refundedBy         String?
   createdAt          DateTime        @default(now())
   items              PaymentItem[]
 
@@ -420,8 +436,8 @@ model PaymentItem {
   orderItem   OrderItem? @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
   productName String
   quantity    Int
-  unitPrice   Float
-  deposit     Float      @default(0.0)
+  unitPriceCents Int
+  depositCents   Int        @default(0)
   taxRate     Float      @default(19.0)
 }
 
@@ -430,8 +446,8 @@ model TokenTransaction {
   tokenType  String   @default("GENERAL") // DRINK, FOOD, DEPOSIT, GENERAL
   action     String // ISSUE, REDEEM, RETURN
   quantity   Int
-  unitValue  Float
-  totalValue Float
+  unitValueCents  Int
+  totalValueCents Int
   waiterName String   @default("Kasse")
   deviceId   String?
   createdAt  DateTime @default(now())
@@ -544,21 +560,21 @@ model RegisterPeriod {
   closedAt         DateTime?
   status           String         @default("OPEN") // OPEN, CLOSED
   closedBy         String?
-  // Fiskalblock: Snapshot der Kennzahlen zum Abschlusszeitpunkt
-  totalGross       Float          @default(0.0)
-  totalNet         Float          @default(0.0)
-  taxAmount19      Float          @default(0.0)
-  taxAmount7       Float          @default(0.0)
-  taxBase0         Float          @default(0.0)
-  totalCash        Float          @default(0.0)
-  totalCard        Float          @default(0.0)
-  totalTips        Float          @default(0.0)
-  totalDepositOut  Float          @default(0.0)
-  cashIn           Float          @default(0.0)
-  cashOut          Float          @default(0.0)
-  cashExpected     Float          @default(0.0)
-  cashCounted      Float?
-  cashDifference   Float?
+  // Fiskalblock: Snapshot der Kennzahlen zum Abschlusszeitpunkt (Cent, harter Cut)
+  totalGrossCents  Int            @default(0)
+  totalNetCents    Int            @default(0)
+  taxAmount19Cents Int            @default(0)
+  taxAmount7Cents  Int            @default(0)
+  taxBase0Cents    Int            @default(0)
+  totalCashCents   Int            @default(0)
+  totalCardCents   Int            @default(0)
+  totalTipsCents   Int            @default(0)
+  totalDepositOutCents Int        @default(0)
+  cashInCents      Int            @default(0)
+  cashOutCents     Int            @default(0)
+  cashExpectedCents Int           @default(0)
+  cashCountedCents Int?
+  cashDifferenceCents Int?
   transactionCount Int            @default(0)
   fiscalSignature  String? // HMAC-SHA256 ueber den Abschlussblock
   reportJson       String? // Vollstaendiger Z-Bon als JSON-Snapshot
@@ -572,7 +588,7 @@ model CashMovement {
   periodId   String?
   period     RegisterPeriod? @relation(fields: [periodId], references: [id], onDelete: SetNull)
   type       String          @default("CASH_IN") // CASH_IN, CASH_OUT
-  amount     Float
+  amountCents Int
   reason     String
   waiterName String          @default("Kasse")
   deviceId   String?
@@ -639,7 +655,7 @@ model PrintJob {
   printGroupId   String?
   orderId        String?
   title          String?
-  status         String    @default("PENDING") // PENDING, PRINTING, PRINTED, FAILED
+  status         String    @default("PENDING") // PENDING, PRINTING, PRINTED, CONFIRMED, FAILED
   sequenceNumber Int       @default(0)
   attempts       Int       @default(0)
   maxAttempts    Int       @default(3)
@@ -647,6 +663,8 @@ model PrintJob {
   rawPayload     String? // Base64 oder formatierter ESC/POS Text
   createdAt      DateTime  @default(now())
   printedAt      DateTime?
+  confirmedAt    DateTime? // Küchen-Quittung: physisch angekommen (echtes ACK)
+  confirmedBy    String?
 
   @@index([status, createdAt])
   @@index([printerId])
@@ -712,6 +730,15 @@ model AuthAttempt {
   firstAttempt DateTime  @default(now())
   lockUntil    DateTime?
   updatedAt    DateTime  @updatedAt
+}
+
+// Widerrufene JWT-Sessions (Logout/Revoke, überlebt Neustart)
+model RevokedSession {
+  jti       String   @id
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
 }
 
 // Payment-Sessions zur Abwicklung von App-to-App-, Webhook- und Terminal-Kartenzahlungen

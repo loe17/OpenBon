@@ -3,7 +3,8 @@ try {
 } catch {}
 
 if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = 'file:./dev.db';
+  // Einheitlich mit src/lib/db.ts, backup-scheduler.ts und litestream.yml
+  process.env.DATABASE_URL = 'file:./prisma/dev.db';
 }
 
 const { createServer } = require('http');
@@ -103,7 +104,35 @@ app.prepare().then(() => {
   // Ohne diese Zuweisung laufen saemtliche `if (global.io)`-Bloecke still ins Leere.
   global.io = io;
 
-  // Handshake-Authentifizierung für Socket.IO
+  // Zentrale Raum-Trennung: Personal hört alles, Gäste nur Kassen-Anzeige.
+  // Alle Geschäfts-Events (Bestellungen, Zahlungen, Tische, KDS, Druck, Chat,
+  // Bestand, HA, Diagnose) gehen NUR an verifiziertes Personal (staff_room).
+  // Gäste (ohne Session) erhalten nur pos:cart_*-Anzeige-Events fürs Kundendisplay.
+  const STAFF_ONLY_EVENTS = new Set([
+    'order:new', 'order:created', 'order:voided', 'order:ready', 'order:course_released',
+    'table:change', 'table:updated', 'table:status_changed', 'tables:updated_all', 'tables:regenerated',
+    'payment:completed', 'payment:refunded',
+    'kds:item_updated', 'kds:order_updated', 'kds:updated',
+    'print:queued', 'print:acked', 'print:failed', 'print:confirmed',
+    'printer:error', 'printer:fallback_rerouted',
+    'virtual_printer:new_ticket', 'virtual_printer:cleared',
+    'chat:incoming', 'broadcast:alert',
+    'stock:change', 'stock:updated',
+    'product:updated', 'product:deleted', 'inventory:updated',
+    'category:created', 'category:updated', 'category:deleted', 'categories:changed',
+    'tap:updated', 'tap:deleted', 'tap:volume_updated',
+    'cashbook:updated', 'config:updated', 'register:closed',
+    'payment:refunded', 'system:diagnostics', 'system:reset_performed',
+    'ha:role_changed', 'ha:manual_failover_required', 'ha:conflict',
+  ]);
+  const _broadcastEmit = io.emit.bind(io);
+  io.emit = (event, ...args) => {
+    if (STAFF_ONLY_EVENTS.has(event)) return io.to('staff_room').emit(event, ...args);
+    if (event === 'device:update') return io.to('admin_room').emit(event, ...args);
+    return _broadcastEmit(event, ...args);
+  };
+
+  // Handshake-Authentifizierung für Socket.IO (gleiche Prüfung wie API: HS256 + iss/aud)
   io.use(async (socket, next) => {
     try {
       const cookieHeader = socket.handshake.headers.cookie || '';
@@ -115,8 +144,14 @@ app.prepare().then(() => {
       } else if (authHeader) {
         token = authHeader.trim();
       } else {
-        const match = cookieHeader.match(/openbon_session=([^;]+)/);
-        if (match) token = match[1];
+        const match = cookieHeader.match(/(?:__Host-)?openbon_session=([^;]+)/);
+        if (match) {
+          try {
+            token = decodeURIComponent(match[1].trim());
+          } catch {
+            token = match[1].trim();
+          }
+        }
       }
 
       if (token) {
@@ -124,7 +159,11 @@ app.prepare().then(() => {
           const { jwtVerify } = require('jose');
           const secretStr = process.env.SESSION_SECRET || (global.__OPENBON_JWT_SECRET__ || '');
           if (secretStr) {
-            const { payload } = await jwtVerify(token, new TextEncoder().encode(secretStr));
+            const { payload } = await jwtVerify(token, new TextEncoder().encode(secretStr), {
+              algorithms: ['HS256'],
+              issuer: 'openbon',
+              audience: 'station',
+            });
             socket.authenticatedRole = payload.role || 'WAITER';
             socket.authenticatedUser = payload.waiterName || 'Staff';
           }
@@ -167,36 +206,53 @@ app.prepare().then(() => {
         lastSeenAt: new Date().toISOString(),
       };
 
+      const safeName = String(deviceInfo.name || 'Unbenanntes Gerät').slice(0, 80).replace(/[<>"']/g, '');
+      data.name = safeName;
+      data.userAgent = String(deviceInfo.userAgent || '').slice(0, 200);
       global.connectedDevices.set(deviceId, data);
       socket.deviceId = deviceId;
       socket.role = role;
 
-      // In Räume eintragen: Individueller Geräteraum + Rollenraum
+      // In Räume eintragen: Individueller Geräteraum + Rollenräume.
+      // NUR verifiziertes Personal (kein GUEST) hört Geschäfts-Events.
       socket.join(deviceId);
+      if (socket.authenticatedRole && socket.authenticatedRole !== 'GUEST') {
+        socket.join('staff_room');
+      }
       if (role === 'ADMIN') {
         socket.join('admin_room');
       }
+      if (role === 'KITCHEN' || socket.authenticatedRole === 'KITCHEN') {
+        socket.join('kitchen_room');
+      }
 
-      // Geräteliste an alle Admins und Manager senden
-      io.emit('device:update', Array.from(global.connectedDevices.values()));
+      // Geräteliste nur an Admins senden (kein Broadcast an Gäste)
+      io.to('admin_room').emit('device:update', Array.from(global.connectedDevices.values()));
     });
 
-    // Heartbeat & Battery updates
+    // Heartbeat & Battery updates (nur an Admins, gedrosselt)
+    let lastHeartbeatEmit = 0;
     socket.on('device:heartbeat', (data) => {
       if (socket.deviceId && global.connectedDevices.has(socket.deviceId)) {
         const device = global.connectedDevices.get(socket.deviceId);
         device.lastSeenAt = new Date().toISOString();
-        if (data.batteryLevel !== undefined) device.batteryLevel = data.batteryLevel;
-        if (data.isCharging !== undefined) device.isCharging = data.isCharging;
+        if (typeof data?.batteryLevel === 'number' && data.batteryLevel >= 0 && data.batteryLevel <= 100) device.batteryLevel = data.batteryLevel;
+        if (typeof data?.isCharging === 'boolean') device.isCharging = data.isCharging;
         device.status = 'ONLINE';
         global.connectedDevices.set(socket.deviceId, device);
-        io.emit('device:update', Array.from(global.connectedDevices.values()));
+        const now = Date.now();
+        if (now - lastHeartbeatEmit > 60000) {
+          lastHeartbeatEmit = now;
+          io.to('admin_room').emit('device:update', Array.from(global.connectedDevices.values()));
+        }
       }
     });
 
-    // Akustischer Geräte-Ping (Find My Device) gezielt an das Zielgerät
+    // Akustischer Geräte-Ping (Find My Device) – nur Personal, nur an Zielgerät
     socket.on('device:ping_target', ({ targetDeviceId }) => {
-      if (targetDeviceId) {
+      const isStaff = socket.authenticatedRole && socket.authenticatedRole !== 'GUEST';
+      if (!isStaff) return;
+      if (targetDeviceId && typeof targetDeviceId === 'string' && targetDeviceId.length <= 128) {
         io.to(targetDeviceId).emit('device:play_sound', { targetDeviceId });
       }
     });
@@ -224,22 +280,22 @@ app.prepare().then(() => {
 
     socket.on('order:created', (orderData) => {
       if (!isStaffSocket()) return;
-      socket.broadcast.emit('order:new', orderData);
+      socket.to('staff_room').emit('order:new', orderData);
     });
 
     socket.on('table:updated', (tableData) => {
       if (!isStaffSocket()) return;
-      socket.broadcast.emit('table:change', tableData);
+      socket.to('staff_room').emit('table:change', tableData);
     });
 
     socket.on('chat:message', (messageData) => {
       if (!isStaffSocket()) return;
-      io.emit('chat:incoming', messageData);
+      io.to('staff_room').emit('chat:incoming', messageData);
     });
 
     socket.on('stock:updated', (stockData) => {
       if (!isStaffSocket()) return;
-      io.emit('stock:change', stockData);
+      io.to('staff_room').emit('stock:change', stockData);
     });
 
     // Kundendisplay / Customer Facing Screen
@@ -269,7 +325,7 @@ app.prepare().then(() => {
         device.status = 'OFFLINE';
         device.lastSeenAt = new Date().toISOString();
         global.connectedDevices.set(socket.deviceId, device);
-        io.emit('device:update', Array.from(global.connectedDevices.values()));
+        io.to('admin_room').emit('device:update', Array.from(global.connectedDevices.values()));
       }
     });
   });
@@ -306,10 +362,20 @@ app.prepare().then(() => {
         }
       }
 
-      mdnsSocket.on('message', (msg) => {
+      let lastMdnsReply = 0;
+      mdnsSocket.on('message', (msg, rinfo) => {
         try {
+          if (!msg || msg.length < 12 || msg.length > 512) return;
+          // Einfacher DNS-Parse: nur Queries (QR=0) mit mindestens 1 Frage beantworten
+          const flags = msg.readUInt16BE(2);
+          const isQuery = (flags & 0x8000) === 0;
+          const qdCount = msg.readUInt16BE(4);
+          if (!isQuery || qdCount < 1) return;
+          const now = Date.now();
+          if (now - lastMdnsReply < 1000) return; // 1/s Drossel gegen Sturm
           const str = msg.toString('binary');
           if (str.includes('openbon') && str.includes('local')) {
+            lastMdnsReply = now;
             const ipParts = localIp.split('.').map((p) => parseInt(p, 10));
             if (ipParts.length === 4) {
               const resp = Buffer.from([

@@ -126,6 +126,13 @@ async function processCallback(params: Record<string, string>) {
 
 export async function GET(req: Request) {
   try {
+    const { checkSimpleRateLimit, registerSimpleAttempt, getClientKey } = await import('@/lib/rate-limiter');
+    const rlKey = getClientKey(req, 'payments-callback');
+    const rl = checkSimpleRateLimit(rlKey, 60, 60 * 1000, 5 * 60 * 1000);
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Zu viele Callback-Anfragen.' }, { status: 429 });
+    }
+    registerSimpleAttempt(rlKey);
     const { searchParams } = new URL(req.url);
     const params: Record<string, string> = {};
     searchParams.forEach((v, k) => {
@@ -140,7 +147,7 @@ export async function GET(req: Request) {
       requiresCashierConfirmation: result.status === 'REPORTED_SUCCESS',
       result,
       verified,
-      session,
+      sessionId: session?.id || null,
     });
   } catch (error) {
     return NextResponse.json(
@@ -152,6 +159,13 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const { checkSimpleRateLimit, registerSimpleAttempt, getClientKey } = await import('@/lib/rate-limiter');
+    const rlKey = getClientKey(req, 'payments-callback');
+    const rl = checkSimpleRateLimit(rlKey, 60, 60 * 1000, 5 * 60 * 1000);
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Zu viele Callback-Anfragen.' }, { status: 429 });
+    }
+    registerSimpleAttempt(rlKey);
     const body = await req.json();
     const { result, verified, session } = await processCallback(body);
 
@@ -161,7 +175,7 @@ export async function POST(req: Request) {
       requiresCashierConfirmation: result.status === 'REPORTED_SUCCESS',
       result,
       verified,
-      session,
+      sessionId: session?.id || null,
     });
   } catch (error) {
     return NextResponse.json(

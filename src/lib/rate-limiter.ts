@@ -228,8 +228,68 @@ export function resetLayeredRateLimit(ipKey: string, station: string): void {
   // absinkbar sein.
 }
 
+/**
+ * Generischer einfacher Rate-Limit für öffentliche/sensible Endpunkte
+ * (Guest, Receipt, Callback, Setup, Scan, HA-Pull).
+ */
+export function checkSimpleRateLimit(
+  key: string,
+  maxAttempts = 30,
+  windowMs = 60 * 1000,
+  lockMs = 60 * 1000
+): { allowed: boolean; remainingSeconds: number } {
+  hydrateFromDb();
+  const now = Date.now();
+  let record = attemptStore.get(key);
+  if (!record || now - record.firstAttempt > windowMs) {
+    record = { attempts: 0, firstAttempt: now, lockUntil: 0 };
+    attemptStore.set(key, record);
+  }
+  if (record.lockUntil > now) {
+    return { allowed: false, remainingSeconds: Math.ceil((record.lockUntil - now) / 1000) };
+  }
+  if (record.attempts >= maxAttempts) {
+    record.lockUntil = now + lockMs;
+    attemptStore.set(key, record);
+    persistToDb(key, record);
+    return { allowed: false, remainingSeconds: Math.ceil(lockMs / 1000) };
+  }
+  return { allowed: true, remainingSeconds: 0 };
+}
+
+export function registerSimpleAttempt(key: string, windowMs = 60 * 1000): void {
+  hydrateFromDb();
+  const now = Date.now();
+  let record = attemptStore.get(key);
+  if (!record || now - record.firstAttempt > windowMs) {
+    record = { attempts: 1, firstAttempt: now, lockUntil: 0 };
+  } else {
+    record.attempts += 1;
+  }
+  attemptStore.set(key, record);
+  persistToDb(key, record);
+}
+
+export function getClientKey(req: Request, suffix: string): string {
+  const fwd = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  const real = req.headers.get('x-real-ip')?.trim();
+  const base = fwd || real || 'unknown-ip';
+  return `${suffix}:${base.slice(0, 64)}`;
+}
+
 function checkGlobalFlood(): { allowed: boolean; remainingSeconds: number } {
-  return checkRateLimit(GLOBAL_FLOOD_KEY);
+  hydrateFromDb();
+  const now = Date.now();
+  const record = attemptStore.get(GLOBAL_FLOOD_KEY);
+  if (!record) return { allowed: true, remainingSeconds: 0 };
+  if (record.lockUntil > now) {
+    return { allowed: false, remainingSeconds: Math.ceil((record.lockUntil - now) / 1000) };
+  }
+  if (now - record.firstAttempt > GLOBAL_WINDOW_MS) return { allowed: true, remainingSeconds: 0 };
+  if (record.attempts >= GLOBAL_MAX_ATTEMPTS) {
+    return { allowed: false, remainingSeconds: Math.ceil((record.lockUntil > now ? record.lockUntil - now : 60 * 1000) / 1000) };
+  }
+  return { allowed: true, remainingSeconds: 0 };
 }
 
 interface BumpResult {

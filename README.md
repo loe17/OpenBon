@@ -93,7 +93,7 @@ Jedes Smartphone, Tablet, Touchscreen-Terminal oder PC kann direkt im Webbrowser
 ## 👆 Durchgängige Touch-Bedienung & UI
 
 - **Große Touch-Ziele:** Sämtliche Schaltflächen und Schnellauswahlfelder besitzen eine Mindesthöhe von 48px (`min-h-[48px]`) mit haptischem Feedback und `touch-manipulation`.
-- **5 Barrierefreie POS-Themes:** Umschaltbar zwischen *Dunkel (Modern Slate)*, *Hell (Klares Tageslicht)*, *Festzelt High-Contrast (OLED & Signalgelb)*, *Tradition & Verein (Warm Amber)* und *High-Speed Tresen (Kompakt)* – alle mit automatisierter mathematischer WCAG 2.1 Kontrastvalidierung.
+- **4 Barrierefreie POS-Themes:** Umschaltbar zwischen *Dunkel (Modern Slate)*, *Hell (Klares Tageslicht)*, *Tradition & Verein (Warm Amber)* und *High-Speed Tresen (Kompakt)* – alle mit automatisierter mathematischer WCAG 2.1 Kontrastvalidierung.
 - **Vollständiger Bargeld-Ziffernblock & Stückelung:** Einheitlicher Touch-Ziffernblock (`0–9`, `00`, `C`, `,`) plus Direkttasten für alle Euro-Scheine (5€ bis 200€) und Münzen (0,01€ bis 2€) mit automatischer Wechselgeld-Berechnung.
 - **Live-Druckerwarteschlange (Spooler Manager):** Interaktive Überwachung aller offenen, gedruckten und fehlgeschlagenen Druckaufträge mit 1-Klick-Wiederholung (Retry), Drucker-Umleitung (Reroute) und Bon-Vorschau.
 - **Kellner-Zwischenstand (X-Bon) & Auto-Lock:** Schneller 1-Klick Schichteinblick (Bargeld-Soll im Geldbeutel, Umsatz, Trinkgeld) und Inaktivitäts-Schutz auf Smartphones.

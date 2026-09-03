@@ -1,6 +1,6 @@
 import prisma from './db';
 import { signFiscalBlock, verifyFiscalBlock } from './fiscal';
-import { computeTaxBreakdown, round2, type TaxableLine } from './pricing';
+import { computeTaxBreakdown, toEuro, type TaxableLine } from './pricing';
 import type { TaxSplit, WaiterShiftSummary } from '@/types/domain';
 
 // Re-Export, damit bestehende Importpfade weiterhin funktionieren
@@ -9,6 +9,7 @@ export { signFiscalBlock, verifyFiscalBlock };
 /**
  * Spec 6.7: Kassenperiode. Der Z-Bon schließt die laufende Periode ab,
  * schreibt einen signierten Fiskalblock fort und setzt die Zähler zurück.
+ * Harter Cent-Cut: alle Summen sind Int-Cent.
  */
 export async function getOrCreateOpenPeriod() {
   const open = await prisma.registerPeriod.findFirst({
@@ -27,31 +28,73 @@ export async function getOrCreateOpenPeriod() {
 }
 
 export interface PeriodTotals {
-  totalGross: number;
-  totalNet: number;
+  totalGrossCents: number;
+  totalNetCents: number;
   taxSplits: TaxSplit[];
-  taxAmount19: number;
-  taxAmount7: number;
-  taxBase0: number;
-  totalCash: number;
-  totalCard: number;
-  cardSumUp: number;
-  cardVrPay: number;
-  cardSparkasse: number;
-  cardTerminal: number;
-  totalStaff: number;
-  totalVoidUnpaid: number;
-  totalSurcharges: number;
-  totalDiscounts: number;
-  totalTips: number;
-  totalDepositCharged: number;
-  totalDepositReturned: number;
+  taxAmount19Cents: number;
+  taxAmount7Cents: number;
+  taxBase0Cents: number;
+  totalCashCents: number;
+  totalCardCents: number;
+  cardSumUpCents: number;
+  cardVrPayCents: number;
+  cardSparkasseCents: number;
+  cardTerminalCents: number;
+  totalStaffCents: number;
+  totalVoidUnpaidCents: number;
+  totalSurchargesCents: number;
+  totalDiscountsCents: number;
+  totalTipsCents: number;
+  totalDepositChargedCents: number;
+  totalDepositReturnedCents: number;
   transactionCount: number;
-  cashIn: number;
-  cashOut: number;
-  /** Bar-Soll = Bareinnahmen + Einlagen - Entnahmen - ausgezahlter Rückpfand */
-  cashExpected: number;
+  cashInCents: number;
+  cashOutCents: number;
+  /** Bar-Soll in Cent = Bareinnahmen + Einlagen - Entnahmen - ausgezahlter Rückpfand */
+  cashExpectedCents: number;
   waiters: WaiterShiftSummary[];
+  /** @deprecated Anzeige-Euro, abgeleitet aus *Cents */
+  totalGross?: number;
+  /** @deprecated Anzeige-Euro */
+  totalNet?: number;
+  /** @deprecated Anzeige-Euro */
+  taxAmount19?: number;
+  /** @deprecated Anzeige-Euro */
+  taxAmount7?: number;
+  /** @deprecated Anzeige-Euro */
+  taxBase0?: number;
+  /** @deprecated Anzeige-Euro */
+  totalCash?: number;
+  /** @deprecated Anzeige-Euro */
+  totalCard?: number;
+  /** @deprecated Anzeige-Euro */
+  cardSumUp?: number;
+  /** @deprecated Anzeige-Euro */
+  cardVrPay?: number;
+  /** @deprecated Anzeige-Euro */
+  cardSparkasse?: number;
+  /** @deprecated Anzeige-Euro */
+  cardTerminal?: number;
+  /** @deprecated Anzeige-Euro */
+  totalStaff?: number;
+  /** @deprecated Anzeige-Euro */
+  totalVoidUnpaid?: number;
+  /** @deprecated Anzeige-Euro */
+  totalSurcharges?: number;
+  /** @deprecated Anzeige-Euro */
+  totalDiscounts?: number;
+  /** @deprecated Anzeige-Euro */
+  totalTips?: number;
+  /** @deprecated Anzeige-Euro */
+  totalDepositCharged?: number;
+  /** @deprecated Anzeige-Euro */
+  totalDepositReturned?: number;
+  /** @deprecated Anzeige-Euro */
+  cashIn?: number;
+  /** @deprecated Anzeige-Euro */
+  cashOut?: number;
+  /** @deprecated Anzeige-Euro */
+  cashExpected?: number;
 }
 
 interface PeriodFilter {
@@ -63,6 +106,7 @@ interface PeriodFilter {
 
 /**
  * Aggregiert alle Kennzahlen einer Kassenperiode – Grundlage für X-Bon und Z-Bon.
+ * Reine Int-Cent-Arithmetik, kein round2 in der Logik.
  */
 export async function computePeriodTotals(filter: PeriodFilter = {}): Promise<PeriodTotals> {
   const paymentWhere: Record<string, unknown> = {
@@ -97,19 +141,19 @@ export async function computePeriodTotals(filter: PeriodFilter = {}): Promise<Pe
 
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
-  let totalGross = 0;
-  let totalCash = 0;
-  let cardSumUp = 0;
-  let cardVrPay = 0;
-  let cardSparkasse = 0;
-  let cardTerminal = 0;
-  let totalStaff = 0;
-  let totalVoidUnpaid = 0;
-  let totalSurcharges = 0;
-  let totalDiscounts = 0;
-  let totalTips = 0;
-  let totalDepositCharged = 0;
-  let totalDepositReturned = 0;
+  let totalGrossCents = 0;
+  let totalCashCents = 0;
+  let cardSumUpCents = 0;
+  let cardVrPayCents = 0;
+  let cardSparkasseCents = 0;
+  let cardTerminalCents = 0;
+  let totalStaffCents = 0;
+  let totalVoidUnpaidCents = 0;
+  let totalSurchargesCents = 0;
+  let totalDiscountsCents = 0;
+  let totalTipsCents = 0;
+  let totalDepositChargedCents = 0;
+  let totalDepositReturnedCents = 0;
 
   const taxLines: TaxableLine[] = [];
   const waiterMap = new Map<string, WaiterShiftSummary>();
@@ -119,17 +163,17 @@ export async function computePeriodTotals(filter: PeriodFilter = {}): Promise<Pe
     const isRevenue = !method.startsWith('NON_PAID') && method !== 'VOID_UNPAID';
 
     if (isRevenue) {
-      totalGross += payment.totalGross;
-      totalSurcharges += payment.surchargeAmount;
-      totalDiscounts += payment.discountAmount;
-      totalTips += payment.tipAmount;
-      totalDepositCharged += payment.totalDeposit;
-      totalDepositReturned += payment.returnDeposit;
+      totalGrossCents += payment.totalGrossCents;
+      totalSurchargesCents += payment.surchargeAmountCents;
+      totalDiscountsCents += payment.discountAmountCents;
+      totalTipsCents += payment.tipAmountCents;
+      totalDepositChargedCents += payment.totalDepositCents;
+      totalDepositReturnedCents += payment.returnDepositCents;
 
       for (const item of payment.items) {
         taxLines.push({
-          unitPrice: item.unitPrice,
-          deposit: item.deposit,
+          unitPriceCents: item.unitPriceCents,
+          depositCents: item.depositCents,
           quantity: item.quantity,
           taxRate: item.taxRate,
         });
@@ -138,25 +182,25 @@ export async function computePeriodTotals(filter: PeriodFilter = {}): Promise<Pe
 
     switch (method) {
       case 'CASH':
-        totalCash += payment.totalGross;
+        totalCashCents += payment.totalGrossCents;
         break;
       case 'CARD_SUMUP':
-        cardSumUp += payment.totalGross;
+        cardSumUpCents += payment.totalGrossCents;
         break;
       case 'CARD_VRPAY':
-        cardVrPay += payment.totalGross;
+        cardVrPayCents += payment.totalGrossCents;
         break;
       case 'CARD_SPARKASSE':
-        cardSparkasse += payment.totalGross;
+        cardSparkasseCents += payment.totalGrossCents;
         break;
       case 'CARD_TERMINAL':
-        cardTerminal += payment.totalGross;
+        cardTerminalCents += payment.totalGrossCents;
         break;
       case 'VOID_UNPAID':
-        totalVoidUnpaid += payment.totalGross;
+        totalVoidUnpaidCents += payment.totalGrossCents;
         break;
       default:
-        if (method.startsWith('NON_PAID')) totalStaff += payment.totalGross;
+        if (method.startsWith('NON_PAID')) totalStaffCents += payment.totalGrossCents;
         break;
     }
 
@@ -164,82 +208,109 @@ export async function computePeriodTotals(filter: PeriodFilter = {}): Promise<Pe
     if (!waiterMap.has(name)) {
       waiterMap.set(name, {
         waiterName: name,
-        totalGross: 0,
-        cashGross: 0,
-        cardGross: 0,
-        tips: 0,
-        depositReturned: 0,
+        totalGrossCents: 0,
+        cashGrossCents: 0,
+        cardGrossCents: 0,
+        tipsCents: 0,
+        depositReturnedCents: 0,
         transactionCount: 0,
         ordersLastHour: 0,
-        salesLastHour: 0,
+        salesLastHourCents: 0,
       });
     }
     const w = waiterMap.get(name)!;
     if (isRevenue) {
       w.transactionCount++;
-      w.totalGross += payment.totalGross;
-      w.tips += payment.tipAmount;
-      w.depositReturned += payment.returnDeposit;
+      w.totalGrossCents += payment.totalGrossCents;
+      w.tipsCents += payment.tipAmountCents;
+      w.depositReturnedCents += payment.returnDepositCents;
       if (payment.createdAt >= oneHourAgo) {
         w.ordersLastHour++;
-        w.salesLastHour += payment.totalGross;
+        w.salesLastHourCents += payment.totalGrossCents;
       }
-      if (method === 'CASH') w.cashGross += payment.totalGross;
-      else if (method.startsWith('CARD')) w.cardGross += payment.totalGross;
+      if (method === 'CASH') w.cashGrossCents += payment.totalGrossCents;
+      else if (method.startsWith('CARD')) w.cardGrossCents += payment.totalGrossCents;
     }
   }
 
   const breakdown = computeTaxBreakdown(taxLines);
   const findRate = (rate: number) => breakdown.splits.find((s) => s.rate === rate);
 
-  const cashIn = movements
+  const cashInCents = movements
     .filter((m) => m.type === 'CASH_IN')
-    .reduce((s, m) => s + m.amount, 0);
-  const cashOut = movements
+    .reduce((s, m) => s + m.amountCents, 0);
+  const cashOutCents = movements
     .filter((m) => m.type === 'CASH_OUT')
-    .reduce((s, m) => s + m.amount, 0);
+    .reduce((s, m) => s + m.amountCents, 0);
 
-  const totalCard = cardSumUp + cardVrPay + cardSparkasse + cardTerminal;
+  const totalCardCents = cardSumUpCents + cardVrPayCents + cardSparkasseCents + cardTerminalCents;
 
   const waiters = Array.from(waiterMap.values())
     .map((w) => ({
       ...w,
-      totalGross: round2(w.totalGross),
-      cashGross: round2(w.cashGross),
-      cardGross: round2(w.cardGross),
-      tips: round2(w.tips),
-      depositReturned: round2(w.depositReturned),
-      salesLastHour: round2(w.salesLastHour),
+      totalGross: toEuro(w.totalGrossCents),
+      cashGross: toEuro(w.cashGrossCents),
+      cardGross: toEuro(w.cardGrossCents),
+      tips: toEuro(w.tipsCents),
+      depositReturned: toEuro(w.depositReturnedCents),
+      salesLastHour: toEuro(w.salesLastHourCents),
     }))
-    .sort((a, b) => b.totalGross - a.totalGross)
+    .sort((a, b) => b.totalGrossCents - a.totalGrossCents)
     .map((w, idx) => ({ ...w, rank: idx + 1 }));
 
+  const totalNetCents = breakdown.netCents;
+  const taxAmount19Cents = findRate(19)?.taxCents ?? 0;
+  const taxAmount7Cents = findRate(7)?.taxCents ?? 0;
+  const taxBase0Cents = findRate(0)?.baseCents ?? 0;
+  const cashExpectedCents = totalCashCents + cashInCents - cashOutCents - totalDepositReturnedCents;
+
   return {
-    totalGross: round2(totalGross),
-    totalNet: round2(breakdown.netTotal),
+    totalGrossCents,
+    totalNetCents,
     taxSplits: breakdown.splits,
-    taxAmount19: round2(findRate(19)?.tax ?? 0),
-    taxAmount7: round2(findRate(7)?.tax ?? 0),
-    taxBase0: round2(findRate(0)?.base ?? 0),
-    totalCash: round2(totalCash),
-    totalCard: round2(totalCard),
-    cardSumUp: round2(cardSumUp),
-    cardVrPay: round2(cardVrPay),
-    cardSparkasse: round2(cardSparkasse),
-    cardTerminal: round2(cardTerminal),
-    totalStaff: round2(totalStaff),
-    totalVoidUnpaid: round2(totalVoidUnpaid),
-    totalSurcharges: round2(totalSurcharges),
-    totalDiscounts: round2(totalDiscounts),
-    totalTips: round2(totalTips),
-    totalDepositCharged: round2(totalDepositCharged),
-    totalDepositReturned: round2(totalDepositReturned),
+    taxAmount19Cents,
+    taxAmount7Cents,
+    taxBase0Cents,
+    totalCashCents,
+    totalCardCents,
+    cardSumUpCents,
+    cardVrPayCents,
+    cardSparkasseCents,
+    cardTerminalCents,
+    totalStaffCents,
+    totalVoidUnpaidCents,
+    totalSurchargesCents,
+    totalDiscountsCents,
+    totalTipsCents,
+    totalDepositChargedCents,
+    totalDepositReturnedCents,
     transactionCount: payments.filter(
       (p) => !p.paymentMethod.startsWith('NON_PAID') && p.paymentMethod !== 'VOID_UNPAID'
     ).length,
-    cashIn: round2(cashIn),
-    cashOut: round2(cashOut),
-    cashExpected: round2(totalCash + cashIn - cashOut - totalDepositReturned),
+    cashInCents,
+    cashOutCents,
+    cashExpectedCents,
     waiters,
+    totalGross: toEuro(totalGrossCents),
+    totalNet: toEuro(totalNetCents),
+    taxAmount19: toEuro(taxAmount19Cents),
+    taxAmount7: toEuro(taxAmount7Cents),
+    taxBase0: toEuro(taxBase0Cents),
+    totalCash: toEuro(totalCashCents),
+    totalCard: toEuro(totalCardCents),
+    cardSumUp: toEuro(cardSumUpCents),
+    cardVrPay: toEuro(cardVrPayCents),
+    cardSparkasse: toEuro(cardSparkasseCents),
+    cardTerminal: toEuro(cardTerminalCents),
+    totalStaff: toEuro(totalStaffCents),
+    totalVoidUnpaid: toEuro(totalVoidUnpaidCents),
+    totalSurcharges: toEuro(totalSurchargesCents),
+    totalDiscounts: toEuro(totalDiscountsCents),
+    totalTips: toEuro(totalTipsCents),
+    totalDepositCharged: toEuro(totalDepositChargedCents),
+    totalDepositReturned: toEuro(totalDepositReturnedCents),
+    cashIn: toEuro(cashInCents),
+    cashOut: toEuro(cashOutCents),
+    cashExpected: toEuro(cashExpectedCents),
   };
 }

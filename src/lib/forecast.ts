@@ -2,21 +2,25 @@
  * OpenBon Predictive Forecasting & Statistical Analytics Engine
  * Calculates sales velocity, peak rush hour forecasts, EOD revenue projections,
  * and stock depletion alerts based on real-time transaction history.
+ *
+ * Harter Cent-Cut: Alle Geldbetraege sind Int-Cent (*Cents).
  */
 
 export interface HourlySalesData {
   hour: number;
   label: string;
-  grossAmount: number;
+  grossAmountCents: number;
+  /** @deprecated Anzeige-Euro */
+  grossAmount?: number;
   orderCount: number;
   itemCount: number;
 }
 
 export interface ForecastSummary {
-  currentTotalGross: number;
-  projectedEodGross: number;
-  currentVelocityPerHour: number;
-  projectedNextHourGross: number;
+  currentTotalGrossCents: number;
+  projectedEodGrossCents: number;
+  currentVelocityPerHourCents: number;
+  projectedNextHourGrossCents: number;
   peakHourLabel: string;
   peakHourIntensity: 'NORMAL' | 'HIGH' | 'EXTREME';
   confidencePercent: number;
@@ -27,13 +31,30 @@ export interface ForecastSummary {
     estimatedMinutesRemaining: number;
     urgency: 'HIGH' | 'MEDIUM';
   }[];
+  /** @deprecated Anzeige-Euro */
+  currentTotalGross?: number;
+  /** @deprecated Anzeige-Euro */
+  projectedEodGross?: number;
+  /** @deprecated Anzeige-Euro */
+  currentVelocityPerHour?: number;
+  /** @deprecated Anzeige-Euro */
+  projectedNextHourGross?: number;
 }
 
-/** Minimal benötigte Form einer Bestellung für die Auswertung */
+/** Minimal benötigte Form einer Bestellung für die Auswertung (Cent) */
 export interface ForecastOrder {
   status: string;
   createdAt: string | Date;
-  items: { quantity: number; unitPrice: number; deposit?: number | null; isCancelled?: boolean }[];
+  items: {
+    quantity: number;
+    unitPriceCents: number;
+    depositCents?: number | null;
+    isCancelled?: boolean;
+    /** @deprecated Legacy Euro */
+    unitPrice?: number;
+    /** @deprecated Legacy Euro */
+    deposit?: number | null;
+  }[];
 }
 
 /** Minimal benötigte Form eines Artikels für die Bestandsprognose */
@@ -46,6 +67,18 @@ export interface ForecastProduct {
   orderItems?: { quantity: number }[];
 }
 
+function unitCentsOf(item: ForecastOrder['items'][number]): number {
+  if (typeof item.unitPriceCents === 'number') return Math.round(item.unitPriceCents);
+  if (typeof item.unitPrice === 'number') return Math.round((item.unitPrice + Number.EPSILON) * 100);
+  return 0;
+}
+
+function depositCentsOf(item: ForecastOrder['items'][number]): number {
+  if (typeof item.depositCents === 'number') return Math.round(item.depositCents);
+  if (typeof item.deposit === 'number') return Math.round((item.deposit + Number.EPSILON) * 100);
+  return 0;
+}
+
 export function computeHourlySales(orders: ForecastOrder[]): HourlySalesData[] {
   const hoursMap = new Map<number, HourlySalesData>();
 
@@ -53,6 +86,7 @@ export function computeHourlySales(orders: ForecastOrder[]): HourlySalesData[] {
     hoursMap.set(h, {
       hour: h,
       label: `${h.toString().padStart(2, '0')}:00`,
+      grossAmountCents: 0,
       grossAmount: 0,
       orderCount: 0,
       itemCount: 0,
@@ -70,10 +104,11 @@ export function computeHourlySales(orders: ForecastOrder[]): HourlySalesData[] {
 
       for (const itm of ord.items || []) {
         if (itm.isCancelled) continue;
-        const lineTotal = (itm.unitPrice + (itm.deposit || 0)) * itm.quantity;
-        entry.grossAmount += lineTotal;
+        const lineTotalCents = (unitCentsOf(itm) + depositCentsOf(itm)) * itm.quantity;
+        entry.grossAmountCents += lineTotalCents;
         entry.itemCount += itm.quantity;
       }
+      entry.grossAmount = entry.grossAmountCents / 100;
     }
   }
 
@@ -82,37 +117,44 @@ export function computeHourlySales(orders: ForecastOrder[]): HourlySalesData[] {
 
 export function computeForecast(
   hourlyData: HourlySalesData[],
-  totalCurrentSales: number,
+  totalCurrentSalesCents: number,
   stockItems: unknown[] = [],
   products: ForecastProduct[] = []
 ): ForecastSummary {
+  void stockItems;
   const activeHours = hourlyData.filter((h) => h.orderCount > 0);
   const nowHour = new Date().getHours();
 
-  let velocityPerHour = 0;
+  const grossOf = (h: HourlySalesData): number =>
+    typeof h.grossAmountCents === 'number'
+      ? h.grossAmountCents
+      : Math.round(((h.grossAmount ?? 0) + Number.EPSILON) * 100);
+
+  let velocityPerHourCents = 0;
   if (activeHours.length > 0) {
-    const totalActiveSales = activeHours.reduce((s, h) => s + h.grossAmount, 0);
-    velocityPerHour = totalActiveSales / activeHours.length;
+    const totalActiveSalesCents = activeHours.reduce((s, h) => s + grossOf(h), 0);
+    velocityPerHourCents = Math.round(totalActiveSalesCents / activeHours.length);
   }
 
-  // Linear / Trend projection for remaining hours until 23:00
+  // Linear / Trend projection for remaining hours until 23:00 (Cent, ganzzahlig)
   const remainingHours = Math.max(1, 24 - Math.max(8, nowHour));
   const trendMultiplier = nowHour >= 18 && nowHour <= 22 ? 1.4 : 1.1; // Evening rush multiplier
-  const projectedRemaining = velocityPerHour * remainingHours * trendMultiplier;
-  const projectedEodGross = Math.round((totalCurrentSales + projectedRemaining) * 100) / 100;
-  const projectedNextHourGross = Math.round(velocityPerHour * trendMultiplier * 100) / 100;
+  const projectedRemainingCents = Math.round(velocityPerHourCents * remainingHours * trendMultiplier);
+  const projectedEodGrossCents = Math.round(totalCurrentSalesCents) + projectedRemainingCents;
+  const projectedNextHourGrossCents = Math.round(velocityPerHourCents * trendMultiplier);
 
   // Peak Hour detection
   let maxHour = 19;
-  let maxGross = 0;
+  let maxGrossCents = 0;
   for (const h of hourlyData) {
-    if (h.grossAmount > maxGross) {
-      maxGross = h.grossAmount;
+    const g = grossOf(h);
+    if (g > maxGrossCents) {
+      maxGrossCents = g;
       maxHour = h.hour;
     }
   }
 
-  const peakHourIntensity = maxGross > velocityPerHour * 1.8 ? 'EXTREME' : maxGross > velocityPerHour * 1.3 ? 'HIGH' : 'NORMAL';
+  const peakHourIntensity = maxGrossCents > velocityPerHourCents * 1.8 ? 'EXTREME' : maxGrossCents > velocityPerHourCents * 1.3 ? 'HIGH' : 'NORMAL';
 
   // Stock Depletion Analysis
   const criticalStockAlerts: ForecastSummary['criticalStockAlerts'] = [];
@@ -150,13 +192,17 @@ export function computeForecast(
   }
 
   return {
-    currentTotalGross: Math.round(totalCurrentSales * 100) / 100,
-    projectedEodGross,
-    currentVelocityPerHour: Math.round(velocityPerHour * 100) / 100,
-    projectedNextHourGross,
+    currentTotalGrossCents: Math.round(totalCurrentSalesCents),
+    projectedEodGrossCents,
+    currentVelocityPerHourCents: velocityPerHourCents,
+    projectedNextHourGrossCents,
     peakHourLabel: `${maxHour.toString().padStart(2, '0')}:00 - ${(maxHour + 1).toString().padStart(2, '0')}:00`,
     peakHourIntensity,
     confidencePercent: activeHours.length >= 3 ? 88 : activeHours.length > 0 ? 65 : 50,
     criticalStockAlerts,
+    currentTotalGross: Math.round(totalCurrentSalesCents) / 100,
+    projectedEodGross: projectedEodGrossCents / 100,
+    currentVelocityPerHour: velocityPerHourCents / 100,
+    projectedNextHourGross: projectedNextHourGrossCents / 100,
   };
 }

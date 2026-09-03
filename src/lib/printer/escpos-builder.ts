@@ -1,46 +1,125 @@
 import iconv from 'iconv-lite';
 import { TicketData, PrintItem } from './types';
+import type { TaxSplit } from '@/types/domain';
 
 // ESC/POS Command Constants
 const ESC = 0x1b;
 const GS = 0x1d;
 
+/**
+ * Cent-Helfer fuer die Drucker-Schicht: gerechnet wird in Int-Cent,
+ * formatiert wird erst beim Druck (cents/100, de-DE mit EUR-Suffix).
+ */
+function centsOf(cents: number | null | undefined, legacyEuro: number | null | undefined): number {
+  if (typeof cents === 'number') return Math.round(cents);
+  if (typeof legacyEuro === 'number') return Math.round((legacyEuro + Number.EPSILON) * 100);
+  return 0;
+}
+
+function fmtCents(cents: number | null | undefined, legacyEuro?: number | null | undefined): string {
+  return `${(centsOf(cents, legacyEuro) / 100).toFixed(2)} EUR`;
+}
+
+function itemUnitCents(item: PrintItem): number {
+  return centsOf(item.unitPriceCents, item.unitPrice);
+}
+
+function itemDepositCents(item: PrintItem): number {
+  return centsOf(item.depositCents, item.deposit);
+}
+
+function splitBaseCents(s: TaxSplit): number {
+  return Math.round(s.baseCents ?? Math.round(((s.base ?? 0) + Number.EPSILON) * 100));
+}
+
+function splitTaxCents(s: TaxSplit): number {
+  return Math.round(s.taxCents ?? Math.round(((s.tax ?? 0) + Number.EPSILON) * 100));
+}
+
 export interface ZBonWaiterLine {
   waiterName: string;
-  totalGross?: number;
-  cashGross?: number;
-  cardGross?: number;
-  tips?: number;
+  totalGrossCents?: number;
+  cashGrossCents?: number;
+  cardGrossCents?: number;
+  tipsCents?: number;
   transactionCount?: number;
+  /** @deprecated Legacy Euro */
+  totalGross?: number;
+  /** @deprecated Legacy Euro */
+  cashGross?: number;
+  /** @deprecated Legacy Euro */
+  cardGross?: number;
+  /** @deprecated Legacy Euro */
+  tips?: number;
 }
 
 export interface ZBonReport {
   periodNumber?: number;
   openedAt?: string | Date;
   closedAt?: string | Date;
-  totalGross?: number;
-  totalNet?: number;
-  totalTax19?: number;
-  totalTax7?: number;
-  taxBase0?: number;
-  taxSplits?: { rate: number; base: number; tax: number; gross: number }[];
-  totalCash?: number;
-  totalCard?: number;
+  totalGrossCents?: number;
+  totalNetCents?: number;
+  totalTax19Cents?: number;
+  totalTax7Cents?: number;
+  taxBase0Cents?: number;
+  taxSplits?: TaxSplit[];
+  totalCashCents?: number;
+  totalCardCents?: number;
   paymentSplit?: {
+    cardSumUpCents?: number;
+    cardVrPayCents?: number;
+    cardSparkasseCents?: number;
+    cardTerminalCents?: number;
+    /** @deprecated Legacy Euro */
     cardSumUp?: number;
+    /** @deprecated Legacy Euro */
     cardVrPay?: number;
+    /** @deprecated Legacy Euro */
     cardSparkasse?: number;
+    /** @deprecated Legacy Euro */
     cardTerminal?: number;
   };
-  totalStaff?: number;
-  totalSurcharges?: number;
-  totalDepositReturned?: number;
-  totalTips?: number;
+  totalStaffCents?: number;
+  totalSurchargesCents?: number;
+  totalDepositReturnedCents?: number;
+  totalTipsCents?: number;
   transactionCount?: number;
+  cashInCents?: number;
+  cashOutCents?: number;
+  cashExpectedCents?: number;
+  cashCountedCents?: number | null;
+  cashDifferenceCents?: number | null;
+  /** @deprecated Legacy Euro */
+  totalGross?: number;
+  /** @deprecated Legacy Euro */
+  totalNet?: number;
+  /** @deprecated Legacy Euro */
+  totalTax19?: number;
+  /** @deprecated Legacy Euro */
+  totalTax7?: number;
+  /** @deprecated Legacy Euro */
+  taxBase0?: number;
+  /** @deprecated Legacy Euro */
+  totalCash?: number;
+  /** @deprecated Legacy Euro */
+  totalCard?: number;
+  /** @deprecated Legacy Euro */
+  totalStaff?: number;
+  /** @deprecated Legacy Euro */
+  totalSurcharges?: number;
+  /** @deprecated Legacy Euro */
+  totalDepositReturned?: number;
+  /** @deprecated Legacy Euro */
+  totalTips?: number;
+  /** @deprecated Legacy Euro */
   cashIn?: number;
+  /** @deprecated Legacy Euro */
   cashOut?: number;
+  /** @deprecated Legacy Euro */
   cashExpected?: number;
+  /** @deprecated Legacy Euro */
   cashCounted?: number | null;
+  /** @deprecated Legacy Euro */
   cashDifference?: number | null;
   fiscalSignature?: string | null;
   waiters?: ZBonWaiterLine[];
@@ -351,7 +430,8 @@ export class EscPosBuilder {
       }
 
       const displayName = item.alternativeName || item.name;
-      const priceStr = item.unitPrice !== undefined ? `${(item.unitPrice * item.quantity).toFixed(2)} EUR` : '';
+      const unitCents = itemUnitCents(item);
+      const priceStr = `${((unitCents * item.quantity) / 100).toFixed(2)} EUR`;
 
       // Item Size scaling (Stufen 1-10)
       if (itemFs >= 8) {
@@ -396,32 +476,37 @@ export class EscPosBuilder {
         builder.resetCharSize().bold(false);
       }
 
-      if (item.deposit && item.deposit > 0) {
-        builder.textLine(`   inkl. Pfand: ${(item.deposit * item.quantity).toFixed(2)} EUR`);
-        addText(`   inkl. Pfand: ${(item.deposit * item.quantity).toFixed(2)} EUR`);
+      const depCents = itemDepositCents(item);
+      if (depCents > 0) {
+        builder.textLine(`   inkl. Pfand: ${((depCents * item.quantity) / 100).toFixed(2)} EUR`);
+        addText(`   inkl. Pfand: ${((depCents * item.quantity) / 100).toFixed(2)} EUR`);
       }
     }
 
     builder.divider();
     addText('-'.repeat(paperWidth === 58 ? 32 : 42));
 
-    if (data.totalGross !== undefined) {
-      builder.size(true, false).bold(true).twoColumn('GESAMTBETRAG:', `${data.totalGross.toFixed(2)} EUR`).size(false, false).bold(false);
-      addText(`GESAMTBETRAG: ${data.totalGross.toFixed(2)} EUR`);
+    const hasTotal = data.totalGrossCents !== undefined || data.totalGross !== undefined;
+    if (hasTotal) {
+      builder.size(true, false).bold(true).twoColumn('GESAMTBETRAG:', fmtCents(data.totalGrossCents, data.totalGross)).size(false, false).bold(false);
+      addText(`GESAMTBETRAG: ${fmtCents(data.totalGrossCents, data.totalGross)}`);
 
-      if (data.returnDeposit && data.returnDeposit > 0) {
-        builder.twoColumn('abzgl. Rueckpfand:', `-${data.returnDeposit.toFixed(2)} EUR`);
-        addText(`abzgl. Rueckpfand: -${data.returnDeposit.toFixed(2)} EUR`);
+      const returnDepCents = centsOf(data.returnDepositCents, data.returnDeposit);
+      if (returnDepCents > 0) {
+        builder.twoColumn('abzgl. Rueckpfand:', `-${(returnDepCents / 100).toFixed(2)} EUR`);
+        addText(`abzgl. Rueckpfand: -${(returnDepCents / 100).toFixed(2)} EUR`);
       }
 
-      if (data.discountAmount && data.discountAmount > 0) {
-        builder.twoColumn('abzgl. Rabatt:', `-${data.discountAmount.toFixed(2)} EUR`);
-        addText(`abzgl. Rabatt: -${data.discountAmount.toFixed(2)} EUR`);
+      const discountCentsVal = centsOf(data.discountCents, data.discountAmount);
+      if (discountCentsVal > 0) {
+        builder.twoColumn('abzgl. Rabatt:', `-${(discountCentsVal / 100).toFixed(2)} EUR`);
+        addText(`abzgl. Rabatt: -${(discountCentsVal / 100).toFixed(2)} EUR`);
       }
 
-      if (data.surchargeAmount && data.surchargeAmount > 0) {
-        builder.twoColumn(`zzgl. ${data.surchargeReason || 'Aufschlag'}:`, `+${data.surchargeAmount.toFixed(2)} EUR`);
-        addText(`zzgl. ${data.surchargeReason || 'Aufschlag'}: +${data.surchargeAmount.toFixed(2)} EUR`);
+      const surchargeCentsVal = centsOf(data.surchargeAmountCents, data.surchargeAmount);
+      if (surchargeCentsVal > 0) {
+        builder.twoColumn(`zzgl. ${data.surchargeReason || 'Aufschlag'}:`, `+${(surchargeCentsVal / 100).toFixed(2)} EUR`);
+        addText(`zzgl. ${data.surchargeReason || 'Aufschlag'}: +${(surchargeCentsVal / 100).toFixed(2)} EUR`);
       }
 
       if (data.paymentMethod) {
@@ -434,15 +519,18 @@ export class EscPosBuilder {
         addText(`Autorisierung: ${data.cardAuthCode}`);
       }
 
-      if (data.givenAmount && data.givenAmount > 0) {
-        builder.twoColumn('Gegeben:', `${data.givenAmount.toFixed(2)} EUR`);
-        builder.twoColumn('Rueckgeld:', `${(data.changeAmount || 0).toFixed(2)} EUR`);
-        addText(`Gegeben: ${data.givenAmount.toFixed(2)} EUR  |  Rueckgeld: ${(data.changeAmount || 0).toFixed(2)} EUR`);
+      const givenCentsVal = centsOf(data.givenCents, data.givenAmount);
+      if (givenCentsVal > 0) {
+        const changeCentsVal = centsOf(data.changeCents, data.changeAmount);
+        builder.twoColumn('Gegeben:', `${(givenCentsVal / 100).toFixed(2)} EUR`);
+        builder.twoColumn('Rueckgeld:', `${(changeCentsVal / 100).toFixed(2)} EUR`);
+        addText(`Gegeben: ${(givenCentsVal / 100).toFixed(2)} EUR  |  Rueckgeld: ${(changeCentsVal / 100).toFixed(2)} EUR`);
       }
 
-      if (data.tipAmount && data.tipAmount > 0) {
-        builder.twoColumn('davon Trinkgeld:', `${data.tipAmount.toFixed(2)} EUR`);
-        addText(`davon Trinkgeld: ${data.tipAmount.toFixed(2)} EUR`);
+      const tipCentsVal = centsOf(data.tipCents, data.tipAmount);
+      if (tipCentsVal > 0) {
+        builder.twoColumn('davon Trinkgeld:', `${(tipCentsVal / 100).toFixed(2)} EUR`);
+        addText(`davon Trinkgeld: ${(tipCentsVal / 100).toFixed(2)} EUR`);
       }
 
       // Spec 6.7: MwSt-Splits (19 % / 7 % / 0 %) statt pauschaler 19 % (nur wenn enableTax aktiv)
@@ -453,22 +541,24 @@ export class EscPosBuilder {
           builder.bold(true).textLine('MWST-AUFSCHLUESSELUNG').bold(false);
           addText('MWST-AUFSCHLUESSELUNG');
           for (const split of data.taxSplits) {
-            const label = `${split.rate.toFixed(0)}% auf ${split.base.toFixed(2)}`;
-            builder.twoColumn(label, `${split.tax.toFixed(2)} EUR`);
-            addText(`${label}  ${split.tax.toFixed(2)} EUR`);
+            const baseC = splitBaseCents(split);
+            const taxC = splitTaxCents(split);
+            const label = `${split.rate.toFixed(0)}% auf ${(baseC / 100).toFixed(2)}`;
+            builder.twoColumn(label, `${(taxC / 100).toFixed(2)} EUR`);
+            addText(`${label}  ${(taxC / 100).toFixed(2)} EUR`);
           }
-          builder.twoColumn('Netto gesamt:', `${(data.totalNet ?? 0).toFixed(2)} EUR`);
-          addText(`Netto gesamt: ${(data.totalNet ?? 0).toFixed(2)} EUR`);
-        } else if (data.totalNet !== undefined && data.totalTax !== undefined) {
+          builder.twoColumn('Netto gesamt:', fmtCents(data.totalNetCents, data.totalNet));
+          addText(`Netto gesamt: ${fmtCents(data.totalNetCents, data.totalNet)}`);
+        } else if (data.totalNetCents !== undefined || data.totalNet !== undefined || data.totalTaxCents !== undefined || data.totalTax !== undefined) {
           builder.divider('.');
-          builder.twoColumn('Netto:', `${data.totalNet.toFixed(2)} EUR`);
-          builder.twoColumn('MwSt (enthalten):', `${data.totalTax.toFixed(2)} EUR`);
+          builder.twoColumn('Netto:', fmtCents(data.totalNetCents, data.totalNet));
+          builder.twoColumn('MwSt (enthalten):', fmtCents(data.totalTaxCents, data.totalTax));
         }
       }
     }
 
     // M6.6: E-Bon-QR auf dem Papierbon (nur wenn Server den Link mitschickt)
-    if (data.qrUrl && data.showQr !== false && data.totalGross !== undefined) {
+    if (data.qrUrl && data.showQr !== false && hasTotal) {
       builder.lineFeed(1);
       builder.align('center').qrCode(data.qrUrl, paperWidth === 58 ? 5 : 7);
       builder.align('center').bold(true).textLine('E-BON ONLINE ABRUFBAR').bold(false);
@@ -797,21 +887,47 @@ export class EscPosBuilder {
       waiterName?: string;
       periodNumber?: number;
       openedAt?: string | Date;
-      totalGross: number;
-      totalCash: number;
-      totalCard: number;
-      cardSumUp?: number;
-      cardVrPay?: number;
-      cardSparkasse?: number;
-      cardTerminal?: number;
-      totalTips: number;
-      totalDepositReturned?: number;
-      totalStaff?: number;
-      cashIn?: number;
-      cashOut?: number;
-      cashExpected?: number;
+      totalGrossCents?: number;
+      totalCashCents?: number;
+      totalCardCents?: number;
+      cardSumUpCents?: number;
+      cardVrPayCents?: number;
+      cardSparkasseCents?: number;
+      cardTerminalCents?: number;
+      totalTipsCents?: number;
+      totalDepositReturnedCents?: number;
+      totalStaffCents?: number;
+      cashInCents?: number;
+      cashOutCents?: number;
+      cashExpectedCents?: number;
       transactionCount: number;
       isTraining?: boolean;
+      /** @deprecated Legacy Euro */
+      totalGross?: number;
+      /** @deprecated Legacy Euro */
+      totalCash?: number;
+      /** @deprecated Legacy Euro */
+      totalCard?: number;
+      /** @deprecated Legacy Euro */
+      cardSumUp?: number;
+      /** @deprecated Legacy Euro */
+      cardVrPay?: number;
+      /** @deprecated Legacy Euro */
+      cardSparkasse?: number;
+      /** @deprecated Legacy Euro */
+      cardTerminal?: number;
+      /** @deprecated Legacy Euro */
+      totalTips?: number;
+      /** @deprecated Legacy Euro */
+      totalDepositReturned?: number;
+      /** @deprecated Legacy Euro */
+      totalStaff?: number;
+      /** @deprecated Legacy Euro */
+      cashIn?: number;
+      /** @deprecated Legacy Euro */
+      cashOut?: number;
+      /** @deprecated Legacy Euro */
+      cashExpected?: number;
     },
     paperWidth = 80
   ): { rawBuffer: Buffer; textRepresentation: string } {
@@ -840,43 +956,46 @@ export class EscPosBuilder {
     add('='.repeat(paperWidth === 58 ? 32 : 42));
 
     builder.align('left');
-    builder.size(true, false).bold(true).twoColumn('SCHICHT-UMSATZ:', `${report.totalGross.toFixed(2)} EUR`).size(false, false).bold(false);
-    add(`SCHICHT-UMSATZ: ${report.totalGross.toFixed(2)} EUR`);
+    builder.size(true, false).bold(true).twoColumn('SCHICHT-UMSATZ:', fmtCents(report.totalGrossCents, report.totalGross)).size(false, false).bold(false);
+    add(`SCHICHT-UMSATZ: ${fmtCents(report.totalGrossCents, report.totalGross)}`);
     builder.divider();
 
     builder.bold(true).textLine('BAR-SOLL').bold(false);
-    builder.twoColumn('Bareinnahmen:', `${report.totalCash.toFixed(2)} EUR`);
-    add(`Bareinnahmen: ${report.totalCash.toFixed(2)} EUR`);
-    if (report.cashIn !== undefined) {
-      builder.twoColumn('Wechselgeld-Einlage:', `+${report.cashIn.toFixed(2)} EUR`);
-      add(`Wechselgeld-Einlage: +${report.cashIn.toFixed(2)} EUR`);
+    builder.twoColumn('Bareinnahmen:', fmtCents(report.totalCashCents, report.totalCash));
+    add(`Bareinnahmen: ${fmtCents(report.totalCashCents, report.totalCash)}`);
+    if (report.cashInCents !== undefined || report.cashIn !== undefined) {
+      const ci = centsOf(report.cashInCents, report.cashIn);
+      builder.twoColumn('Wechselgeld-Einlage:', `+${(ci / 100).toFixed(2)} EUR`);
+      add(`Wechselgeld-Einlage: +${(ci / 100).toFixed(2)} EUR`);
     }
-    if (report.cashOut !== undefined) {
-      builder.twoColumn('Entnahmen (Tresor):', `-${report.cashOut.toFixed(2)} EUR`);
-      add(`Entnahmen (Tresor): -${report.cashOut.toFixed(2)} EUR`);
+    if (report.cashOutCents !== undefined || report.cashOut !== undefined) {
+      const co = centsOf(report.cashOutCents, report.cashOut);
+      builder.twoColumn('Entnahmen (Tresor):', `-${(co / 100).toFixed(2)} EUR`);
+      add(`Entnahmen (Tresor): -${(co / 100).toFixed(2)} EUR`);
     }
-    if (report.cashExpected !== undefined) {
-      builder.bold(true).twoColumn('BAR-SOLL IN KASSE:', `${report.cashExpected.toFixed(2)} EUR`).bold(false);
-      add(`BAR-SOLL IN KASSE: ${report.cashExpected.toFixed(2)} EUR`);
+    if (report.cashExpectedCents !== undefined || report.cashExpected !== undefined) {
+      builder.bold(true).twoColumn('BAR-SOLL IN KASSE:', fmtCents(report.cashExpectedCents, report.cashExpected)).bold(false);
+      add(`BAR-SOLL IN KASSE: ${fmtCents(report.cashExpectedCents, report.cashExpected)}`);
     }
     builder.divider();
 
     builder.bold(true).textLine('KARTENSPLITS').bold(false);
-    builder.twoColumn('Karte gesamt:', `${report.totalCard.toFixed(2)} EUR`);
-    add(`Karte gesamt: ${report.totalCard.toFixed(2)} EUR`);
-    builder.twoColumn(' - SumUp:', `${(report.cardSumUp || 0).toFixed(2)} EUR`);
-    builder.twoColumn(' - VR-Pay Me:', `${(report.cardVrPay || 0).toFixed(2)} EUR`);
-    builder.twoColumn(' - Sparkasse / S-POS:', `${(report.cardSparkasse || 0).toFixed(2)} EUR`);
-    builder.twoColumn(' - EC-Terminal (ZVT):', `${(report.cardTerminal || 0).toFixed(2)} EUR`);
+    builder.twoColumn('Karte gesamt:', fmtCents(report.totalCardCents, report.totalCard));
+    add(`Karte gesamt: ${fmtCents(report.totalCardCents, report.totalCard)}`);
+    builder.twoColumn(' - SumUp:', fmtCents(report.cardSumUpCents, report.cardSumUp));
+    builder.twoColumn(' - VR-Pay Me:', fmtCents(report.cardVrPayCents, report.cardVrPay));
+    builder.twoColumn(' - Sparkasse / S-POS:', fmtCents(report.cardSparkasseCents, report.cardSparkasse));
+    builder.twoColumn(' - EC-Terminal (ZVT):', fmtCents(report.cardTerminalCents, report.cardTerminal));
     builder.divider();
 
-    builder.bold(true).twoColumn('TRINKGELD:', `${report.totalTips.toFixed(2)} EUR`).bold(false);
-    add(`TRINKGELD: ${report.totalTips.toFixed(2)} EUR`);
-    if (report.totalStaff !== undefined) {
-      builder.twoColumn('Freiverzehr / Personal:', `${report.totalStaff.toFixed(2)} EUR`);
+    builder.bold(true).twoColumn('TRINKGELD:', fmtCents(report.totalTipsCents, report.totalTips)).bold(false);
+    add(`TRINKGELD: ${fmtCents(report.totalTipsCents, report.totalTips)}`);
+    if (report.totalStaffCents !== undefined || report.totalStaff !== undefined) {
+      builder.twoColumn('Freiverzehr / Personal:', fmtCents(report.totalStaffCents, report.totalStaff));
     }
-    if (report.totalDepositReturned !== undefined) {
-      builder.twoColumn('Ausgezahlter Rueckpfand:', `-${report.totalDepositReturned.toFixed(2)} EUR`);
+    if (report.totalDepositReturnedCents !== undefined || report.totalDepositReturned !== undefined) {
+      const dr = centsOf(report.totalDepositReturnedCents, report.totalDepositReturned);
+      builder.twoColumn('Ausgezahlter Rueckpfand:', `-${(dr / 100).toFixed(2)} EUR`);
     }
     builder.twoColumn('Anzahl Belege:', `${report.transactionCount}`);
     add(`Anzahl Belege: ${report.transactionCount}`);
@@ -895,12 +1014,14 @@ export class EscPosBuilder {
   public static buildCashMovementTicket(
     data: {
       type: 'CASH_IN' | 'CASH_OUT';
-      amount: number;
+      amountCents: number;
       reason: string;
       waiterName: string;
       eventName?: string;
       isTraining?: boolean;
       createdAt?: string | Date;
+      /** @deprecated Legacy Euro */
+      amount?: number;
     },
     paperWidth = 80
   ): { rawBuffer: Buffer; textRepresentation: string } {
@@ -926,9 +1047,10 @@ export class EscPosBuilder {
 
     builder.align('left');
     builder.size(true, true).bold(true);
-    builder.twoColumn('', `${data.type === 'CASH_IN' ? '+' : '-'}${data.amount.toFixed(2)} EUR`);
+    const moveCents = centsOf(data.amountCents, data.amount);
+    builder.twoColumn('', `${data.type === 'CASH_IN' ? '+' : '-'}${(moveCents / 100).toFixed(2)} EUR`);
     builder.size(false, false).bold(false);
-    add(`Betrag: ${data.type === 'CASH_IN' ? '+' : '-'}${data.amount.toFixed(2)} EUR`);
+    add(`Betrag: ${data.type === 'CASH_IN' ? '+' : '-'}${(moveCents / 100).toFixed(2)} EUR`);
 
     builder.divider();
     builder.textLine(`Grund: ${data.reason}`);
@@ -960,24 +1082,38 @@ export class EscPosBuilder {
       isTraining?: boolean;
       settledAt?: string | Date;
       settledBy?: string;
-      totalGross: number;
+      totalGrossCents: number;
       transactionCount: number;
-      byMethod: { label: string; amount: number }[];
-      tipsTotal: number;
-      tipWaiterShare: number;
-      tipPoolShare: number;
+      byMethod: { label: string; amountCents: number; amount?: number }[];
+      tipsTotalCents: number;
+      tipWaiterShareCents: number;
+      tipPoolShareCents: number;
       tipProfileName?: string | null;
-      cashExpected: number;
-      cashCounted: number;
-      cashDifference: number;
+      cashExpectedCents: number;
+      cashCountedCents: number;
+      cashDifferenceCents: number;
       notes?: string;
+      /** @deprecated Legacy Euro */
+      totalGross?: number;
+      /** @deprecated Legacy Euro */
+      tipsTotal?: number;
+      /** @deprecated Legacy Euro */
+      tipWaiterShare?: number;
+      /** @deprecated Legacy Euro */
+      tipPoolShare?: number;
+      /** @deprecated Legacy Euro */
+      cashExpected?: number;
+      /** @deprecated Legacy Euro */
+      cashCounted?: number;
+      /** @deprecated Legacy Euro */
+      cashDifference?: number;
     },
     paperWidth = 80
   ): { rawBuffer: Buffer; textRepresentation: string } {
     const builder = new EscPosBuilder(paperWidth);
     const lines: string[] = [];
     const add = (t: string) => lines.push(t);
-    const money = (v: number) => `${v.toFixed(2)} EUR`;
+    const money = (cents: number | undefined, legacy?: number) => fmtCents(cents, legacy);
 
     if (data.isTraining) {
       builder.align('center').bold(true).invert(true).textLine(' *** UEBUNGSBON *** ').invert(false).bold(false);
@@ -1009,14 +1145,14 @@ export class EscPosBuilder {
     builder.bold(true).textLine('UMSATZ NACH ZAHLART').bold(false);
     add('-- Umsatz nach Zahlart --');
     for (const m of data.byMethod) {
-      builder.twoColumn(m.label, money(m.amount));
-      add(`${m.label}: ${money(m.amount)}`);
+      builder.twoColumn(m.label, money(m.amountCents, m.amount));
+      add(`${m.label}: ${money(m.amountCents, m.amount)}`);
     }
     builder.divider();
     builder.bold(true);
-    builder.twoColumn('GESAMTUMSATZ', money(data.totalGross));
+    builder.twoColumn('GESAMTUMSATZ', money(data.totalGrossCents, data.totalGross));
     builder.bold(false);
-    add(`GESAMTUMSATZ: ${money(data.totalGross)}`);
+    add(`GESAMTUMSATZ: ${money(data.totalGrossCents, data.totalGross)}`);
     builder.twoColumn('Vorgaenge', String(data.transactionCount));
     add(`Vorgaenge: ${data.transactionCount}`);
 
@@ -1024,12 +1160,12 @@ export class EscPosBuilder {
     builder.divider();
     builder.bold(true).textLine('TRINKGELD').bold(false);
     add('-- Trinkgeld --');
-    builder.twoColumn('Gesamt', money(data.tipsTotal));
-    add(`Trinkgeld gesamt: ${money(data.tipsTotal)}`);
-    builder.twoColumn('davon Bedienung', money(data.tipWaiterShare));
-    add(`davon Bedienung: ${money(data.tipWaiterShare)}`);
-    builder.twoColumn('davon Team-Pool', money(data.tipPoolShare));
-    add(`davon Team-Pool: ${money(data.tipPoolShare)}`);
+    builder.twoColumn('Gesamt', money(data.tipsTotalCents, data.tipsTotal));
+    add(`Trinkgeld gesamt: ${money(data.tipsTotalCents, data.tipsTotal)}`);
+    builder.twoColumn('davon Bedienung', money(data.tipWaiterShareCents, data.tipWaiterShare));
+    add(`davon Bedienung: ${money(data.tipWaiterShareCents, data.tipWaiterShare)}`);
+    builder.twoColumn('davon Team-Pool', money(data.tipPoolShareCents, data.tipPoolShare));
+    add(`davon Team-Pool: ${money(data.tipPoolShareCents, data.tipPoolShare)}`);
     if (data.tipProfileName) {
       builder.textLine(`Verteilung nach: ${data.tipProfileName}`);
       add(`Verteilung nach: ${data.tipProfileName}`);
@@ -1039,16 +1175,17 @@ export class EscPosBuilder {
     builder.doubleDivider();
     builder.bold(true).textLine('KASSENSTURZ').bold(false);
     add('== Kassensturz ==');
-    builder.twoColumn('Soll-Barbestand', money(data.cashExpected));
-    add(`Soll-Barbestand: ${money(data.cashExpected)}`);
-    builder.twoColumn('Gezaehlt', money(data.cashCounted));
-    add(`Gezaehlt: ${money(data.cashCounted)}`);
+    builder.twoColumn('Soll-Barbestand', money(data.cashExpectedCents, data.cashExpected));
+    add(`Soll-Barbestand: ${money(data.cashExpectedCents, data.cashExpected)}`);
+    builder.twoColumn('Gezaehlt', money(data.cashCountedCents, data.cashCounted));
+    add(`Gezaehlt: ${money(data.cashCountedCents, data.cashCounted)}`);
     builder.size(true, true).bold(true);
-    const diffLabel = data.cashDifference >= 0 ? 'UEBERSCHUSS' : 'FEHLBETRAG';
-    builder.twoColumn('', `${data.cashDifference >= 0 ? '+' : ''}${data.cashDifference.toFixed(2)}`);
+    const diffCents = centsOf(data.cashDifferenceCents, data.cashDifference);
+    const diffLabel = diffCents >= 0 ? 'UEBERSCHUSS' : 'FEHLBETRAG';
+    builder.twoColumn('', `${diffCents >= 0 ? '+' : ''}${(diffCents / 100).toFixed(2)}`);
     builder.size(false, false).bold(false);
     builder.textLine(diffLabel);
-    add(`DIFFERENZ: ${data.cashDifference >= 0 ? '+' : ''}${money(data.cashDifference)} (${diffLabel})`);
+    add(`DIFFERENZ: ${diffCents >= 0 ? '+' : ''}${money(data.cashDifferenceCents, data.cashDifference)} (${diffLabel})`);
 
     if (data.notes) {
       builder.divider();
@@ -1085,55 +1222,69 @@ export class EscPosBuilder {
     builder.doubleDivider();
 
     builder.align('left');
-    builder.size(true, false).bold(true).twoColumn('GESAMTUMSATZ BRUTTO:', `${(report.totalGross || 0).toFixed(2)} EUR`).size(false, false).bold(false);
-    builder.twoColumn('Gesamtumsatz Netto:', `${(report.totalNet || 0).toFixed(2)} EUR`);
+    builder.size(true, false).bold(true).twoColumn('GESAMTUMSATZ BRUTTO:', fmtCents(report.totalGrossCents, report.totalGross)).size(false, false).bold(false);
+    builder.twoColumn('Gesamtumsatz Netto:', fmtCents(report.totalNetCents, report.totalNet));
     builder.divider('.');
     builder.bold(true).textLine('MWST-AUFSCHLUESSELUNG:').bold(false);
     if (Array.isArray(report.taxSplits) && report.taxSplits.length > 0) {
       for (const split of report.taxSplits) {
         builder.twoColumn(
-          `${Number(split.rate).toFixed(0)}% auf ${Number(split.base).toFixed(2)}`,
-          `${Number(split.tax).toFixed(2)} EUR`
+          `${Number(split.rate).toFixed(0)}% auf ${(splitBaseCents(split) / 100).toFixed(2)}`,
+          `${(splitTaxCents(split) / 100).toFixed(2)} EUR`
         );
       }
     } else {
-      builder.twoColumn('MwSt 19%:', `${(report.totalTax19 || 0).toFixed(2)} EUR`);
-      builder.twoColumn('MwSt 7%:', `${(report.totalTax7 || 0).toFixed(2)} EUR`);
-      builder.twoColumn('Steuerfrei (Pfand):', `${(report.taxBase0 || 0).toFixed(2)} EUR`);
+      builder.twoColumn('MwSt 19%:', fmtCents(report.totalTax19Cents, report.totalTax19));
+      builder.twoColumn('MwSt 7%:', fmtCents(report.totalTax7Cents, report.totalTax7));
+      builder.twoColumn('Steuerfrei (Pfand):', fmtCents(report.taxBase0Cents, report.taxBase0));
     }
     builder.divider();
 
     builder.bold(true).textLine('ZAHLUNGSARTEN:').bold(false);
-    builder.twoColumn('Bargeld (Kassenbestand):', `${(report.totalCash || 0).toFixed(2)} EUR`);
-    builder.twoColumn('Kartenzahlung Gesamt:', `${(report.totalCard || 0).toFixed(2)} EUR`);
+    builder.twoColumn('Bargeld (Kassenbestand):', fmtCents(report.totalCashCents, report.totalCash));
+    builder.twoColumn('Kartenzahlung Gesamt:', fmtCents(report.totalCardCents, report.totalCard));
     if (report.paymentSplit) {
-      builder.twoColumn(' - davon SumUp:', `${(report.paymentSplit.cardSumUp || 0).toFixed(2)} EUR`);
-      builder.twoColumn(' - davon VR-Pay Me:', `${(report.paymentSplit.cardVrPay || 0).toFixed(2)} EUR`);
-      builder.twoColumn(' - davon Sparkasse:', `${(report.paymentSplit.cardSparkasse || 0).toFixed(2)} EUR`);
-      builder.twoColumn(' - davon EC-Terminal:', `${(report.paymentSplit.cardTerminal || 0).toFixed(2)} EUR`);
+      builder.twoColumn(' - davon SumUp:', fmtCents(report.paymentSplit.cardSumUpCents, report.paymentSplit.cardSumUp));
+      builder.twoColumn(' - davon VR-Pay Me:', fmtCents(report.paymentSplit.cardVrPayCents, report.paymentSplit.cardVrPay));
+      builder.twoColumn(' - davon Sparkasse:', fmtCents(report.paymentSplit.cardSparkasseCents, report.paymentSplit.cardSparkasse));
+      builder.twoColumn(' - davon EC-Terminal:', fmtCents(report.paymentSplit.cardTerminalCents, report.paymentSplit.cardTerminal));
     }
-    builder.twoColumn('Personal / Bewirtung:', `${(report.totalStaff || 0).toFixed(2)} EUR`);
-    builder.twoColumn('Aufschlaege (Pauschalen):', `${(report.totalSurcharges || 0).toFixed(2)} EUR`);
-    builder.twoColumn('Ausgezahlter Rueckpfand:', `-${(report.totalDepositReturned || 0).toFixed(2)} EUR`);
-    builder.twoColumn('Erhaltenes Trinkgeld:', `+${(report.totalTips || 0).toFixed(2)} EUR`);
+    builder.twoColumn('Personal / Bewirtung:', fmtCents(report.totalStaffCents, report.totalStaff));
+    builder.twoColumn('Aufschlaege (Pauschalen):', fmtCents(report.totalSurchargesCents, report.totalSurcharges));
+    {
+      const depRet = centsOf(report.totalDepositReturnedCents, report.totalDepositReturned);
+      builder.twoColumn('Ausgezahlter Rueckpfand:', `-${(depRet / 100).toFixed(2)} EUR`);
+    }
+    {
+      const tips = centsOf(report.totalTipsCents, report.totalTips);
+      builder.twoColumn('Erhaltenes Trinkgeld:', `+${(tips / 100).toFixed(2)} EUR`);
+    }
     builder.twoColumn('Anzahl Transaktionen:', `${report.transactionCount || 0}`);
     builder.divider();
 
     builder.bold(true).textLine('KELLNER-SCHICHTABRECHNUNG:').bold(false);
     for (const w of report.waiters || []) {
-      builder.bold(true).twoColumn(`${w.waiterName}:`, `${(w.totalGross || 0).toFixed(2)} EUR`).bold(false);
-      builder.textLine(`  Bar: ${(w.cashGross || 0).toFixed(2)} EUR | Karte: ${(w.cardGross || 0).toFixed(2)} EUR | Bons: ${w.transactionCount || 0}`);
+      builder.bold(true).twoColumn(`${w.waiterName}:`, fmtCents(w.totalGrossCents, w.totalGross)).bold(false);
+      builder.textLine(`  Bar: ${fmtCents(w.cashGrossCents, w.cashGross)} | Karte: ${fmtCents(w.cardGrossCents, w.cardGross)} | Bons: ${w.transactionCount || 0}`);
     }
 
     // Spec 6.8: Kassenbuch-Block
     builder.divider();
     builder.bold(true).textLine('KASSENBUCH / GELDBEWEGUNGEN:').bold(false);
-    builder.twoColumn('Wechselgeld-Einlagen:', `+${(report.cashIn || 0).toFixed(2)} EUR`);
-    builder.twoColumn('Entnahmen (Tresor):', `-${(report.cashOut || 0).toFixed(2)} EUR`);
-    builder.bold(true).twoColumn('BAR-SOLL IN KASSE:', `${(report.cashExpected || 0).toFixed(2)} EUR`).bold(false);
-    if (report.cashCounted !== undefined && report.cashCounted !== null) {
-      builder.twoColumn('Gezaehlt (Ist):', `${Number(report.cashCounted).toFixed(2)} EUR`);
-      builder.bold(true).twoColumn('DIFFERENZ:', `${Number(report.cashDifference || 0).toFixed(2)} EUR`).bold(false);
+    {
+      const ci = centsOf(report.cashInCents, report.cashIn);
+      builder.twoColumn('Wechselgeld-Einlagen:', `+${(ci / 100).toFixed(2)} EUR`);
+    }
+    {
+      const co = centsOf(report.cashOutCents, report.cashOut);
+      builder.twoColumn('Entnahmen (Tresor):', `-${(co / 100).toFixed(2)} EUR`);
+    }
+    builder.bold(true).twoColumn('BAR-SOLL IN KASSE:', fmtCents(report.cashExpectedCents, report.cashExpected)).bold(false);
+    if (report.cashCountedCents !== undefined || report.cashCounted !== undefined) {
+      const counted = centsOf(report.cashCountedCents ?? null, report.cashCounted ?? null);
+      const diff = centsOf(report.cashDifferenceCents ?? null, report.cashDifference ?? null);
+      builder.twoColumn('Gezaehlt (Ist):', `${(counted / 100).toFixed(2)} EUR`);
+      builder.bold(true).twoColumn('DIFFERENZ:', `${(diff / 100).toFixed(2)} EUR`).bold(false);
     }
 
     builder.doubleDivider();
@@ -1151,7 +1302,7 @@ export class EscPosBuilder {
 
     return {
       rawBuffer: builder.build(),
-      textRepresentation: `Z-BON TAGESABSCHLUSS - ${(report.totalGross || 0).toFixed(2)} EUR`,
+      textRepresentation: `Z-BON TAGESABSCHLUSS - ${fmtCents(report.totalGrossCents, report.totalGross)}`,
     };
   }
 }

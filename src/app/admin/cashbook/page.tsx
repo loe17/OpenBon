@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { formatCurrency } from '@/lib/utils';
+import { formatCents, formatCurrency } from '@/lib/utils';
 import {
   Wallet,
   ArrowDownCircle,
@@ -49,6 +49,13 @@ export default function CashbookPage() {
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [refundId, setRefundId] = useState('');
+  const [refundAmount, setRefundAmount] = useState('');
+  const [refundReason, setRefundReason] = useState('');
+  const [refundBusy, setRefundBusy] = useState(false);
+  const [archiveQ, setArchiveQ] = useState('');
+  const [archiveItems, setArchiveItems] = useState<Array<{ id: string; invoiceNumber: string; totalGrossCents?: number; paymentMethod: string; createdAt: string }> | null>(null);
+  const [archiveBusy, setArchiveBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -146,7 +153,7 @@ export default function CashbookPage() {
                 {kpi.label}
               </div>
               <div className="font-mono font-black text-2xl mt-1" style={{ color: kpi.color }}>
-                {formatCurrency(kpi.value)}
+                {formatCents((kpi as any).valueCents ?? Math.round(((kpi as any).value ?? 0) * 100))}
               </div>
             </div>
           ))}
@@ -304,13 +311,97 @@ export default function CashbookPage() {
                       }`}
                     >
                       {m.type === 'CASH_IN' ? '+' : '−'}
-                      {formatCurrency(m.amount)}
+                      {formatCents((m as any).amountCents ?? Math.round(((m as any).amount ?? 0) * 100))}
                     </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <div className="p-5 rounded-3xl bg-slate-900 border border-slate-800">
+          <h3 className="font-black text-white text-base">Bar-Erstattung (nur bar, ADMIN)</h3>
+          <p className="text-xs text-slate-400 mt-1">Erstellt eine Gegenbuchung (CASH_REFUND). Karten → bitte Terminal-Rückbuchung separat.</p>
+          <input value={refundId} onChange={(e) => setRefundId(e.target.value)} placeholder="Zahlungs-ID (aus Bericht kopieren)" aria-label="Zahlungs-ID für Erstattung" className="mt-3 w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white min-h-[48px]" />
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <input value={refundAmount} onChange={(e) => setRefundAmount(e.target.value)} placeholder="Betrag € (leer = voll)" inputMode="decimal" aria-label="Erstattungsbetrag" className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white min-h-[48px]" />
+            <input value={refundReason} onChange={(e) => setRefundReason(e.target.value)} placeholder="Grund (Pflicht)" aria-label="Erstattungsgrund" className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white min-h-[48px]" />
+          </div>
+          <button
+            disabled={refundBusy || !refundId.trim() || !refundReason.trim()}
+            onClick={async () => {
+              setRefundBusy(true);
+              try {
+                const body: Record<string, unknown> = { reason: refundReason.trim() };
+                if (refundAmount.trim()) body.amount = Number(refundAmount.replace(',', '.'));
+                const res = await fetch(`/api/payments/${refundId.trim()}/refund`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                const j = await res.json();
+                if (!res.ok) throw new Error(j.error || 'Fehlgeschlagen');
+                setToast({ kind: 'ok', text: `Erstattet: ${j.refund.invoiceNumber}` });
+                setRefundId(''); setRefundAmount(''); setRefundReason('');
+              } catch (e) {
+                setToast({ kind: 'err', text: e instanceof Error ? e.message : 'Fehler' });
+              } finally {
+                setRefundBusy(false);
+              }
+            }}
+            className="mt-3 w-full py-3 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-extrabold rounded-2xl min-h-[48px]"
+          >
+            {refundBusy ? 'Wird erstattet …' : 'Bar erstatten'}
+          </button>
+        </div>
+        <div className="p-5 rounded-3xl bg-slate-900 border border-slate-800">
+          <h3 className="font-black text-white text-base">Belegarchiv (Suche + Neudruck)</h3>
+          <div className="mt-3 flex gap-2">
+            <input value={archiveQ} onChange={(e) => setArchiveQ(e.target.value)} placeholder="Rechnung / E-Bon-Code" aria-label="Belegarchiv suchen" className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white min-h-[48px]" />
+            <button
+              disabled={archiveBusy}
+              onClick={async () => {
+                setArchiveBusy(true);
+                try {
+                  const res = await fetch(`/api/receipt/archive?q=${encodeURIComponent(archiveQ.trim())}&take=20`);
+                  const j = await res.json();
+                  if (!res.ok) throw new Error(j.error || 'Fehlgeschlagen');
+                  setArchiveItems(j.payments || []);
+                } catch (e) {
+                  setToast({ kind: 'err', text: e instanceof Error ? e.message : 'Fehler' });
+                } finally {
+                  setArchiveBusy(false);
+                }
+              }}
+              className="px-4 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl min-h-[48px]"
+            >
+              Suchen
+            </button>
+          </div>
+          {archiveItems && (
+            <div className="mt-3 space-y-2 max-h-[260px] overflow-y-auto">
+              {archiveItems.map((p) => (
+                <div key={p.id} className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-bold text-sm text-white truncate">{p.invoiceNumber}</div>
+                    <div className="text-[11px] text-slate-400">{formatCents(p.totalGrossCents ?? 0)} · {p.paymentMethod} · {new Date(p.createdAt).toLocaleString('de-DE')}</div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const reason = window.prompt('Grund für Neudruck (wird protokolliert):') || '';
+                      if (!reason.trim()) return;
+                      const res = await fetch('/api/receipt/archive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paymentId: p.id, reason: reason.trim() }) });
+                      const j = await res.json();
+                      setToast(res.ok ? { kind: 'ok', text: `Neudruck protokolliert: ${p.invoiceNumber}` } : { kind: 'err', text: j.error || 'Fehlgeschlagen' });
+                    }}
+                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl min-h-[48px]"
+                  >
+                    Neudruck
+                  </button>
+                </div>
+              ))}
+              {archiveItems.length === 0 && <div className="text-xs text-slate-500">Keine Belege gefunden.</div>}
+            </div>
+          )}
         </div>
       </div>
 

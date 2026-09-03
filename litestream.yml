@@ -2,6 +2,8 @@
 # Kontinuierliche Replikation der SQLite-WAL-Transaktionen (RPO < 1s)
 # Doku: https://litestream.io/reference/config/
 
+# WICHTIG: Pfad muss exakt DATABASE_URL entsprechen (file:./prisma/dev.db).
+# Andernfalls repliziert Litestream eine leere/falsche Datei.
 dbs:
   - path: ./prisma/dev.db
     replicas:

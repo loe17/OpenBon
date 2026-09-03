@@ -45,7 +45,7 @@ export default function AdminFiscalPage() {
   const generateExport = async () => {
     setIsExporting(true);
     try {
-      const res = await fetch(`/api/fiscal/dsfinvk?startDate=${startDate}&endDate=${endDate}`);
+      const res = await fetch(`/api/fiscal/dsfinvk?startDate=${startDate}&endDate=${endDate}&format=json`);
       if (res.ok) {
         const data = await res.json();
         setExportData(data);
@@ -58,6 +58,10 @@ export default function AdminFiscalPage() {
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const downloadZip = () => {
+    window.open(`/api/fiscal/dsfinvk?startDate=${startDate}&endDate=${endDate}`, '_blank');
   };
 
   const downloadTable = (content: string, filename: string) => {
@@ -180,7 +184,13 @@ export default function AdminFiscalPage() {
                 </p>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={downloadZip}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-xs font-bold rounded-xl text-white flex items-center gap-1"
+                >
+                  <Download className="w-3.5 h-3.5" /> DSFinV-K ZIP
+                </button>
                 <button
                   onClick={() => downloadTable(exportData.tables.bonkopfCsv, `bonkopf_${startDate}.csv`)}
                   className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-xl text-white flex items-center gap-1"

@@ -4,7 +4,7 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSocket } from '@/components/providers/socket-provider';
 import { triggerHapticFeedback } from '@/lib/socket-client';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatCents } from '@/lib/utils';
 import {
   ArrowLeft,
   Plus,
@@ -268,11 +268,13 @@ function WaiterOrderContent() {
     const optionsDelta = (product.options || [])
       .reduce((sum, o) => {
         const chosen = optionsList.find((x) => x.name === o.name);
-        return chosen ? sum + (o.priceDelta || 0) * chosen.quantity : sum;
+        const d = (o as unknown as { priceDeltaCents?: number }).priceDeltaCents ?? 0;
+        return chosen ? sum + d * chosen.quantity : sum;
       }, 0);
 
-    const { price: effectivePrice } = getEffectiveProductPrice(product as any);
-    const unitPrice = effectivePrice + (variant ? variant.priceDelta : 0) + optionsDelta;
+    const { priceCents: effectivePriceCents } = getEffectiveProductPrice(product as unknown as { priceCents: number });
+    const vDelta = variant ? ((variant as unknown as { priceDeltaCents?: number }).priceDeltaCents ?? 0) : 0;
+    const unitPrice = effectivePriceCents + vDelta + optionsDelta;
     const optionsKey = optionsList
       .map((o) => `${o.name}x${o.quantity}`)
       .sort()
@@ -900,7 +902,7 @@ function WaiterOrderContent() {
                       >
                         <div className="truncate font-black text-sm">{v.name}</div>
                         <div className="text-[11px] opacity-85 mt-0.5 font-mono">
-                          {v.priceDelta > 0 ? `+${formatCurrency(v.priceDelta)}` : 'Standard'}
+                          {((v as unknown as { priceDeltaCents?: number }).priceDeltaCents ?? 0) > 0 ? `+${formatCents((v as unknown as { priceDeltaCents?: number }).priceDeltaCents ?? 0)}` : 'Standard'}
                         </div>
                       </button>
                     );

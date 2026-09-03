@@ -38,10 +38,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
 
     const taxSplits = [
-      { rate: 19, base: payment.taxBase19, tax: payment.taxAmount19, gross: payment.taxBase19 + payment.taxAmount19 },
-      { rate: 7, base: payment.taxBase7, tax: payment.taxAmount7, gross: payment.taxBase7 + payment.taxAmount7 },
-      { rate: 0, base: payment.taxBase0, tax: 0, gross: payment.taxBase0 },
-    ].filter((s) => s.gross > 0);
+      { rate: 19, baseCents: payment.taxBase19Cents, taxCents: payment.taxAmount19Cents, grossCents: payment.taxBase19Cents + payment.taxAmount19Cents },
+      { rate: 7, baseCents: payment.taxBase7Cents, taxCents: payment.taxAmount7Cents, grossCents: payment.taxBase7Cents + payment.taxAmount7Cents },
+      { rate: 0, baseCents: payment.taxBase0Cents, taxCents: 0, grossCents: payment.taxBase0Cents },
+    ].filter((s) => s.grossCents > 0);
 
     const { formatWaiterLabel } = await import('@/lib/waiter-number');
     const ticket: TicketData = {
@@ -58,21 +58,21 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       items: payment.items.map((i) => ({
         name: i.productName,
         quantity: i.quantity,
-        unitPrice: i.unitPrice,
-        deposit: i.deposit,
+        unitPriceCents: i.unitPriceCents,
+        depositCents: i.depositCents,
         taxRate: i.taxRate,
       })),
-      totalGross: payment.totalGross,
-      totalNet: payment.totalNet,
-      totalTax: payment.totalTax,
-      totalDeposit: payment.totalDeposit,
-      returnDeposit: payment.returnDeposit,
-      discountAmount: payment.discountAmount,
-      surchargeAmount: payment.surchargeAmount,
+      totalGrossCents: payment.totalGrossCents,
+      totalNetCents: payment.totalNetCents,
+      totalTaxCents: payment.totalTaxCents,
+      totalDepositCents: payment.totalDepositCents,
+      returnDepositCents: payment.returnDepositCents,
+      discountCents: payment.discountAmountCents,
+      surchargeAmountCents: payment.surchargeAmountCents,
       surchargeReason: payment.surchargeReason,
-      tipAmount: payment.tipAmount,
-      givenAmount: payment.givenAmount,
-      changeAmount: payment.changeAmount,
+      tipCents: payment.tipAmountCents,
+      givenCents: payment.givenAmountCents,
+      changeCents: payment.changeAmountCents,
       paymentMethod: getPaymentLabel(payment.paymentMethod),
       cardAuthCode: payment.cardAuthCode,
       taxSplits,

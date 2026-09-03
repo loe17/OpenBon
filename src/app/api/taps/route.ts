@@ -17,7 +17,7 @@ export async function GET(req: Request) {
           select: {
             id: true,
             name: true,
-            price: true,
+            priceCents: true,
             stockQuantity: true,
           },
         },

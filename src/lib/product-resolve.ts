@@ -1,4 +1,5 @@
 import { parseSelectedOptions, type SelectedOption } from './stock';
+import { toCents, toEuro } from './pricing';
 
 /**
  * Auflösung von Artikel, Untereintrag und Optionen an EINER Stelle.
@@ -18,15 +19,21 @@ import { parseSelectedOptions, type SelectedOption } from './stock';
  * sie nur an. Deshalb liegt diese Logik in einer Bibliothek und nicht in den
  * Routen, damit /api/orders, /api/orders/checkout und /api/guest/orders
  * garantiert dasselbe rechnen.
+ *
+ * Harter Cent-Cut: Alle Geldbetraege sind Int-Cent (*Cents).
  */
 
 export interface ResolvableVariant {
   id: string;
   name: string;
-  priceDelta: number;
+  priceDeltaCents: number;
+  /** @deprecated Legacy Euro-Delta */
+  priceDelta?: number;
   alternativeTicketName?: string | null;
   color?: string | null;
   printGroupId?: string | null;
+  depositCents?: number | null;
+  /** @deprecated Legacy Euro-Pfand */
   deposit?: number | null;
   taxRate?: number | null;
 }
@@ -34,7 +41,9 @@ export interface ResolvableVariant {
 export interface ResolvableOption {
   id: string;
   name: string;
-  priceDelta: number;
+  priceDeltaCents: number;
+  /** @deprecated Legacy Euro-Delta */
+  priceDelta?: number;
   defaultQuantity?: number;
   maxQuantity?: number;
 }
@@ -42,6 +51,8 @@ export interface ResolvableOption {
 export interface ResolvableProduct {
   id: string;
   name: string;
+  depositCents?: number | null;
+  /** @deprecated Legacy Euro-Pfand */
   deposit?: number | null;
   taxRate?: number | null;
   alternativeTicketName?: string | null;
@@ -52,9 +63,9 @@ export interface ResolvableProduct {
 }
 
 export interface ResolvedItem {
-  /** Preis einer Einheit inklusive Untereintrag und aller gewählten Optionen. */
-  unitPrice: number;
-  deposit: number;
+  /** Preis einer Einheit in Cent inklusive Untereintrag und aller gewählten Optionen. */
+  unitPriceCents: number;
+  depositCents: number;
   taxRate: number;
   /** Text, der auf dem Bon steht (Untereintrag hat Vorrang). */
   ticketName: string;
@@ -63,6 +74,10 @@ export interface ResolvedItem {
   variantName: string | null;
   /** Normalisierte Optionen mit Anzahl - so werden sie gespeichert. */
   options: SelectedOption[];
+  /** @deprecated Anzeige-Euro, abgeleitet aus unitPriceCents */
+  unitPrice: number;
+  /** @deprecated Anzeige-Euro, abgeleitet aus depositCents */
+  deposit: number;
 }
 
 /**
@@ -76,23 +91,36 @@ function clampOptionQuantity(chosen: number, option: ResolvableOption): number {
   return Math.min(wanted, Math.floor(max));
 }
 
+function deltaCentsOf(o: { priceDeltaCents?: number | null; priceDelta?: number | null }): number {
+  if (typeof o.priceDeltaCents === 'number') return Math.round(o.priceDeltaCents);
+  if (typeof o.priceDelta === 'number') return toCents(o.priceDelta);
+  return 0;
+}
+
+function depositCentsOf(o: { depositCents?: number | null; deposit?: number | null }): number | null {
+  if (typeof o.depositCents === 'number') return Math.round(o.depositCents);
+  if (typeof o.deposit === 'number') return toCents(o.deposit);
+  return null;
+}
+
 /**
  * Löst eine Bestellposition vollständig auf.
  *
- * @param basePrice Grundpreis des Artikels zum Bestellzeitpunkt (Happy Hour etc.
- *                  wird vorher über getEffectiveProductPrice ermittelt).
+ * @param basePriceCents Grundpreis des Artikels in Cent zum Bestellzeitpunkt
+ *   (Happy Hour etc. wird vorher über getEffectiveProductPrice ermittelt und
+ *   liefert priceCents).
  */
 export function resolveOrderItem(
   product: ResolvableProduct,
-  basePrice: number,
+  basePriceCents: number,
   input: { variantName?: string | null; selectedOptions?: unknown }
 ): ResolvedItem {
   const variant = input.variantName
     ? (product.variants || []).find((v) => v.name === input.variantName) || null
     : null;
 
-  let unitPrice = basePrice;
-  if (variant) unitPrice += variant.priceDelta;
+  let unitPriceCents = Math.round(basePriceCents);
+  if (variant) unitPriceCents += deltaCentsOf(variant);
 
   // Gewählte Optionen normalisieren und mit der Stammdatendefinition abgleichen.
   const requested = parseSelectedOptions(input.selectedOptions);
@@ -106,7 +134,7 @@ export function resolveOrderItem(
       continue;
     }
     const quantity = clampOptionQuantity(req.quantity, def);
-    unitPrice += def.priceDelta * quantity;
+    unitPriceCents += deltaCentsOf(def) * quantity;
     options.push({ name: def.name, quantity });
   }
 
@@ -120,15 +148,19 @@ export function resolveOrderItem(
     pick(variant?.alternativeTicketName, product.alternativeTicketName) ||
     (variant ? `${product.name} ${variant.name}` : product.name);
 
+  const depositCents = Number(pick(depositCentsOf(variant ?? {}), depositCentsOf(product)) ?? 0);
+
   return {
-    unitPrice: Math.round(unitPrice * 100) / 100,
-    deposit: Number(pick(variant?.deposit, product.deposit) ?? 0),
+    unitPriceCents,
+    depositCents,
     taxRate: Number(pick(variant?.taxRate, product.taxRate) ?? 19),
     ticketName,
     color: pick(variant?.color, product.color),
     printGroupId: pick(variant?.printGroupId, product.printGroupId),
     variantName: variant ? variant.name : null,
     options,
+    unitPrice: toEuro(unitPriceCents),
+    deposit: toEuro(depositCents),
   };
 }
 

@@ -27,7 +27,7 @@ import {
   Receipt,
   HeartHandshake,
 } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+import { formatCents, formatCurrency } from '@/lib/utils';
 import { APP_VERSION } from '@/lib/version';
 import type { ReportSummary, EventConfigDTO } from '@/types/domain';
 
@@ -144,12 +144,12 @@ export default function AdminDashboardPage() {
                   Realisierter Umsatz
                 </span>
                 <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono">
-                  {formatCurrency(reportsData?.totalGross || 0)}
+                  {formatCents((reportsData as any).totalGrossCents ?? Math.round(((reportsData as any)?.totalGross ?? 0) * 100))}
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-slate-800 flex justify-between text-xs text-slate-400">
-                <span>Bar: {formatCurrency(reportsData?.totalCash || 0)}</span>
-                <span>Karte: {formatCurrency(reportsData?.totalCard || 0)}</span>
+                <span>Bar: {formatCents((reportsData as any).totalCashCents ?? Math.round(((reportsData as any)?.totalCash ?? 0) * 100))}</span>
+                <span>Karte: {formatCents((reportsData as any).totalCardCents ?? Math.round(((reportsData as any)?.totalCard ?? 0) * 100))}</span>
               </div>
             </div>
 
@@ -160,7 +160,7 @@ export default function AdminDashboardPage() {
                   Offene Tische (Nicht bezahlt)
                 </span>
                 <div className="text-2xl sm:text-3xl font-black text-amber-400 font-mono">
-                  {formatCurrency(openTableGross)}
+                  {formatCents(Math.round((openTableGross) * 100))}
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-slate-800 flex justify-between text-xs text-slate-400">
@@ -214,7 +214,7 @@ export default function AdminDashboardPage() {
                       <span>KI-Umsatzprognose für heute (EOD)</span>
                     </div>
                     <div className="text-3xl sm:text-4xl font-black text-white font-mono">
-                      ca. {formatCurrency(reportsData.forecast.projectedEodGross)}
+                      ca. {formatCents((reportsData as any).forecast.projectedEodGrossCents ?? Math.round(((reportsData as any).forecast.projectedEodGross ?? 0) * 100))}
                     </div>
                     <div className="text-xs text-slate-400 font-medium">
                       Hauptansturm (Peak): <span className="text-amber-400 font-bold">{reportsData.forecast.peakHourLabel}</span> • Konfidenz: {reportsData.forecast.confidencePercent}%
@@ -243,7 +243,7 @@ export default function AdminDashboardPage() {
                     <div key={cat.id}>
                       <div className="flex justify-between text-xs font-bold mb-1">
                         <span>{cat.name} ({cat.count} Positionen)</span>
-                        <span className="font-mono text-emerald-400">{formatCurrency(cat.revenue)} ({cat.percent}%)</span>
+                        <span className="font-mono text-emerald-400">{formatCents((cat as any).revenueCents ?? Math.round(((cat as any).revenue ?? 0) * 100))} ({cat.percent}%)</span>
                       </div>
                       <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700">
                         <div

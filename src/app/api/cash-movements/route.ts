@@ -6,6 +6,7 @@ import { EscPosBuilder } from '@/lib/printer/escpos-builder';
 import haService from '@/lib/ha/ha-service';
 import { getOrCreateOpenPeriod } from '@/lib/register-period';
 import { requireApiAuth } from '@/lib/api-guard';
+import { toCents } from '@/lib/pricing';
 import { verifyPinHash } from '@/lib/auth-pin';
 
 /**
@@ -31,20 +32,16 @@ export async function GET(req: Request) {
       orderBy: { createdAt: 'desc' },
     });
 
-    const cashIn = movements
-      .filter((m) => m.type === 'CASH_IN' && !m.isTraining)
-      .reduce((s, m) => s + m.amount, 0);
-    const cashOut = movements
-      .filter((m) => m.type === 'CASH_OUT' && !m.isTraining)
-      .reduce((s, m) => s + m.amount, 0);
+    const cashInCents = movements.filter((m) => m.type === 'CASH_IN' && !m.isTraining).reduce((s, m) => s + m.amountCents, 0);
+    const cashOutCents = movements.filter((m) => m.type === 'CASH_OUT' && !m.isTraining).reduce((s, m) => s + m.amountCents, 0);
 
     return NextResponse.json({
       periodId: period?.id ?? null,
       periodNumber: period?.periodNumber ?? null,
       movements,
-      cashIn: Math.round(cashIn * 100) / 100,
-      cashOut: Math.round(cashOut * 100) / 100,
-      balance: Math.round((cashIn - cashOut) * 100) / 100,
+      cashInCents,
+      cashOutCents,
+      balanceCents: cashInCents - cashOutCents,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
@@ -55,6 +52,9 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const auth = await requireApiAuth(req);
   if (!auth.ok) return auth.response;
+  const { denyStandbyWrite } = await import('@/lib/ha/ha-guard');
+  const denied = denyStandbyWrite();
+  if (denied) return denied;
 
   try {
     const body = (await req.json()) as {
@@ -82,8 +82,8 @@ export async function POST(req: Request) {
     }
 
     const type = body.type === 'CASH_OUT' ? 'CASH_OUT' : 'CASH_IN';
-    const amount = Math.round(Number(body.amount ?? 0) * 100) / 100;
-    if (!Number.isFinite(amount) || amount <= 0) {
+    const amountCents = toCents(Number((body as any).amount || ((body as any).amountCents || 0) / 100 || 0));
+    if (!Number.isFinite(amountCents) || amountCents <= 0) {
       return NextResponse.json({ error: 'Betrag muss größer als 0 sein.' }, { status: 400 });
     }
     const reason = (body.reason || '').trim();
@@ -97,7 +97,7 @@ export async function POST(req: Request) {
       data: {
         periodId: period.id,
         type,
-        amount,
+        amountCents,
         reason,
         waiterName: body.waiterName || 'Kasse',
         deviceId: body.deviceId || null,
@@ -112,7 +112,7 @@ export async function POST(req: Request) {
         const { rawBuffer, textRepresentation } = EscPosBuilder.buildCashMovementTicket(
           {
             type,
-            amount,
+            amountCents: movement.amountCents,
             reason,
             waiterName: movement.waiterName,
             eventName: config.name,
@@ -140,11 +140,11 @@ export async function POST(req: Request) {
       action: 'CASH_MOVEMENT',
       category: 'CASHBOOK',
       actor: movement.waiterName || auth.session.waiterName || auth.session.role,
-      details: `${movement.type}: ${movement.amount.toFixed(2)} € – ${movement.reason}`,
+      details: `${movement.type}: ${((movement as any).amountCents / 100).toFixed(2)} € – ${movement.reason}`,
       metadata: {
         movementId: movement.id,
         type: movement.type,
-        amount: movement.amount,
+        amountCents: movement.amountCents,
         reason: movement.reason,
       },
     }));

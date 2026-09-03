@@ -24,7 +24,17 @@ export async function GET() {
       }
     }
 
-    const devicesList = Array.from(devicesMap.values());
+    // Nur Name/Rolle/Zeitpunkt (keine IPs, kein User-Agent) – siehe Kommentar oben
+    const devicesList = Array.from(devicesMap.values()).map((d) => {
+      const dev = d as Record<string, unknown>;
+      return {
+        id: dev.id,
+        name: dev.name,
+        role: dev.role,
+        status: dev.status,
+        lastSeenAt: dev.lastSeenAt || dev.lastSeen || dev.connectedAt,
+      };
+    });
     return NextResponse.json(devicesList);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
@@ -44,18 +54,18 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { action, targetDeviceId, newRole, newName } = body;
 
-    // Action: Play Ping Tone on Waiter Smartphone
+    // Action: Play Ping Tone on Waiter Smartphone (gezielt, nicht Broadcast)
     if (action === 'PING') {
       if (global.io) {
-        global.io.emit('device:play_sound', { targetDeviceId });
+        global.io.to(targetDeviceId).emit('device:play_sound', { targetDeviceId });
       }
       return NextResponse.json({ success: true, message: 'Suchton gesendet' });
     }
 
-    // Action: Force Logout / Kick Device
+    // Action: Force Logout / Kick Device (gezielt, nicht Broadcast)
     if (action === 'KICK') {
       if (global.io) {
-        global.io.emit('device:kicked', { targetDeviceId });
+        global.io.to(targetDeviceId).emit('device:kicked', { targetDeviceId });
       }
       if (global.connectedDevices) {
         global.connectedDevices.delete(targetDeviceId);
@@ -74,8 +84,8 @@ export async function POST(req: Request) {
         }
       }
       if (global.io) {
-        global.io.emit('device:name_updated', { targetDeviceId, newName });
-        global.io.emit('device:update', Array.from((global.connectedDevices || new Map()).values()));
+        global.io.to(targetDeviceId).emit('device:name_updated', { targetDeviceId, newName });
+        global.io.to('admin_room').emit('device:update', Array.from((global.connectedDevices || new Map()).values()));
       }
       return NextResponse.json({ success: true, message: 'Bedienungsname live aktualisiert' });
     }
@@ -90,8 +100,8 @@ export async function POST(req: Request) {
         }
       }
       if (global.io) {
-        global.io.emit('device:role_changed', { targetDeviceId, newRole });
-        global.io.emit('device:update', Array.from((global.connectedDevices || new Map()).values()));
+        global.io.to(targetDeviceId).emit('device:role_changed', { targetDeviceId, newRole });
+        global.io.to('admin_room').emit('device:update', Array.from((global.connectedDevices || new Map()).values()));
       }
       await logSystemActionSafe(() => ({
         action: 'DEVICE_ACTION',

@@ -11,6 +11,7 @@ export async function GET(req: Request) {
   return NextResponse.json({
     status: 'HEALTHY',
     role: haService.getRole(),
+    leaseExpiresAt: await haService.getLeaseExpiryIso().catch(() => null),
     timestamp: new Date().toISOString(),
   });
 }

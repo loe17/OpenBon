@@ -2,8 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import prisma from './db';
 
-const BACKUP_DIR = path.join(process.cwd(), 'prisma', 'backups');
+const BACKUP_DIR = process.env.BACKUP_DIR
+  ? path.resolve(process.env.BACKUP_DIR)
+  : path.join(process.cwd(), 'prisma', 'backups');
 const BACKUP_INTERVAL_MS = 5 * 60 * 1000; // 5 Minuten
+const BACKUP_KEEP = Math.max(3, parseInt(process.env.BACKUP_KEEP || '10', 10) || 10);
 
 let timer: NodeJS.Timeout | null = null;
 
@@ -21,13 +24,17 @@ export async function createDatabaseBackup(): Promise<string | null> {
     try {
       await prisma.$queryRawUnsafe(`VACUUM INTO '${timestampBackupPath.replace(/\\/g, '/')}'`);
     } catch {
-      // Fallback: WAL Checkpoint und sichere Dateikopie
+      // Fallback: WAL Checkpoint und sichere Dateikopie (Pfad aus DATABASE_URL)
       try {
         await prisma.$queryRawUnsafe(`PRAGMA wal_checkpoint(PASSIVE)`);
       } catch {}
-      const srcDb = path.join(process.cwd(), 'prisma', 'dev.db');
+      const { resolveDbFile } = await import('./db');
+      const srcDb = resolveDbFile();
       if (fs.existsSync(srcDb)) {
         fs.copyFileSync(srcDb, timestampBackupPath);
+      } else {
+        console.error(`[BACKUP] Fallback fehlgeschlagen: DB-Datei nicht gefunden (${srcDb}).`);
+        return null;
       }
     }
 
@@ -36,15 +43,18 @@ export async function createDatabaseBackup(): Promise<string | null> {
       try {
         fs.copyFileSync(timestampBackupPath, latestBackupPath);
       } catch {}
+    } else {
+      return null;
     }
 
-    // Alte Backups rotieren (maximal die letzten 10 behalten)
+    // Alte Backups rotieren (Standard 10, per BACKUP_KEEP konfigurierbar)
+    // Hinweis: BACKUP_DIR per ENV auf USB/NAS legen (off-device). Siehe docs/AUSFALLSICHERHEIT_LITESTREAM.md
     const files = fs.readdirSync(BACKUP_DIR)
       .filter((f) => f.startsWith('dev-backup-') && f.endsWith('.db'))
       .sort();
 
-    if (files.length > 10) {
-      const toDelete = files.slice(0, files.length - 10);
+    if (files.length > BACKUP_KEEP) {
+      const toDelete = files.slice(0, files.length - BACKUP_KEEP);
       for (const file of toDelete) {
         try {
           fs.unlinkSync(path.join(BACKUP_DIR, file));

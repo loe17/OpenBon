@@ -23,11 +23,14 @@ export async function POST(req: Request) {
   if (!auth.ok) return auth.response;
 
   try {
-    const body = await req.json();
+    const { validateBody, ChatMessageSchema } = await import('@/lib/validations/schemas');
+    const v = await validateBody(req, ChatMessageSchema);
+    if (!v.success) return v.response;
+    const body = v.data;
     const created = await prisma.chatMessage.create({
       data: {
-        senderName: body.senderName || 'Leitung',
-        senderDeviceId: body.senderDeviceId || null,
+        senderName: auth.session.waiterName || body.senderName,
+        senderDeviceId: null,
         targetDeviceId: body.targetDeviceId || null,
         message: body.message,
         isUrgent: body.isUrgent ?? false,
@@ -36,7 +39,7 @@ export async function POST(req: Request) {
 
     if (global.io) {
       global.io.emit('chat:incoming', created);
-      if (body.isUrgent || body.broadcastAlert) {
+      if (body.isUrgent) {
         global.io.emit('broadcast:alert', {
           message: created.message,
           sender: created.senderName,

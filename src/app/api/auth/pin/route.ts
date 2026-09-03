@@ -12,6 +12,7 @@ import {
 import {
   signSessionToken,
   SESSION_COOKIE_NAME,
+  SESSION_LEGACY_COOKIE_NAME,
   SESSION_MAX_AGE_SECONDS,
   UserRole,
 } from '@/lib/auth-session';
@@ -146,14 +147,25 @@ export async function POST(req: Request) {
         req.headers.get('x-forwarded-proto')?.split(',')[0].trim() === 'https' ||
         new URL(req.url).protocol === 'https:';
 
+      // __Host- Prefix verlangt Secure und wird von Browsern über HTTP
+      // verworfen – dort gilt das Legacy-Cookie (LAN-Standardbetrieb).
+      const cookieName = isHttps ? SESSION_COOKIE_NAME : SESSION_LEGACY_COOKIE_NAME;
       res.cookies.set({
-        name: SESSION_COOKIE_NAME,
+        name: cookieName,
         value: token,
         httpOnly: true,
         secure: isHttps,
         sameSite: 'lax',
         path: '/',
         maxAge: SESSION_MAX_AGE_SECONDS,
+      });
+      // Jeweils anderes Cookie sofort löschen (keine doppelten Sessions)
+      res.cookies.set({
+        name: isHttps ? SESSION_LEGACY_COOKIE_NAME : SESSION_COOKIE_NAME,
+        value: '',
+        httpOnly: true,
+        path: '/',
+        maxAge: 0,
       });
 
       return res;
@@ -185,13 +197,27 @@ export async function POST(req: Request) {
         }));
         return NextResponse.json({ success: true, message: 'Admin-PIN erfolgreich geändert.' });
       }
-      return NextResponse.json({ error: 'PIN muss mindestens 4 Stellen haben.' }, { status: 400 });
+      return NextResponse.json({ error: 'PIN muss 6–12 Ziffern lang sein und darf keine triviale Folge sein.' }, { status: 400 });
     }
 
     if (action === 'LOGOUT') {
+      const cookieHeader = req.headers.get('cookie') || '';
+      const m = cookieHeader.match(/__Host-openbon_session=([^;]+)|openbon_session=([^;]+)/);
+      const token = m?.[1] || m?.[2];
+      if (token) {
+        const { revokeSessionToken } = await import('@/lib/auth-session');
+        await revokeSessionToken(decodeURIComponent(token)).catch(() => null);
+      }
       const res = NextResponse.json({ success: true, message: 'Erfolgreich abgemeldet.' });
       res.cookies.set({
         name: SESSION_COOKIE_NAME,
+        value: '',
+        httpOnly: true,
+        path: '/',
+        maxAge: 0,
+      });
+      res.cookies.set({
+        name: SESSION_LEGACY_COOKIE_NAME,
         value: '',
         httpOnly: true,
         path: '/',

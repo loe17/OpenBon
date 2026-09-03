@@ -16,10 +16,10 @@ describe('Station PIN Security & Setup Tests', () => {
   it('should update all station pins and set initialPinSet', async () => {
     // 1. Initial-Setup durchführen
     const success = await setAllStationPins({
-      adminPin: '9482',
-      posPin: '6192',
-      kitchenPin: '3381',
-      waiterPin: '7721',
+      adminPin: '948271',
+      posPin: '619274',
+      kitchenPin: '338159',
+      waiterPin: '772481',
     });
 
     expect(success).toBe(true);
@@ -27,20 +27,20 @@ describe('Station PIN Security & Setup Tests', () => {
     const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
     expect(config?.initialPinSet).toBe(true);
     expect(config?.adminPin.startsWith('$pbkdf2$')).toBe(true);
-    expect(verifyPinHash('9482', config!.adminPin)).toBe(true);
-    expect(verifyPinHash('6192', config!.posPin)).toBe(true);
-    expect(verifyPinHash('3381', config!.kitchenPin)).toBe(true);
-    expect(verifyPinHash('7721', config!.waiterPin)).toBe(true);
+    expect(verifyPinHash('948271', config!.adminPin)).toBe(true);
+    expect(verifyPinHash('619274', config!.posPin)).toBe(true);
+    expect(verifyPinHash('338159', config!.kitchenPin)).toBe(true);
+    expect(verifyPinHash('772481', config!.waiterPin)).toBe(true);
 
     const hasFactory = await hasFactoryPin();
     expect(hasFactory).toBe(false);
 
     // 2. Standard-Zustand für andere parallele Tests wiederherstellen
     await setAllStationPins({
-      adminPin: '1234',
-      posPin: '1111',
-      kitchenPin: '2222',
-      waiterPin: '3333',
+      adminPin: '582914',
+      posPin: '619274',
+      kitchenPin: '338159',
+      waiterPin: '772481',
     });
   });
 });

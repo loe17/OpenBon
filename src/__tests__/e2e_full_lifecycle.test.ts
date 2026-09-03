@@ -19,9 +19,12 @@ describe('OpenBon v0.2.1: Vollständiger E2E-Lebenszyklus- & Systemtest', () => 
   let testWaiterId: string;
 
   beforeAll(async () => {
-    // 0. Alte Testdaten bereinigen
+    // 0. Alte Testdaten bereinigen (inkl. artfremd benannter Items in E2E-Kategorien,
+    // sonst blockiert Restrict-FK das Kategorie-Löschen)
     await prisma.orderItem.deleteMany({ where: { productName: { startsWith: 'E2E ' } } });
+    await prisma.orderItem.deleteMany({ where: { product: { category: { name: { startsWith: 'E2E' } } } } });
     await prisma.paymentItem.deleteMany({ where: { productName: { startsWith: 'E2E ' } } });
+    await prisma.paymentItem.deleteMany({ where: { orderItem: { product: { category: { name: { startsWith: 'E2E' } } } } } });
     await prisma.payment.deleteMany({ where: { waiterName: 'E2E Max Kellner' } });
     await prisma.order.deleteMany({ where: { waiterName: 'E2E Max Kellner' } });
     await prisma.diningTable.deleteMany({ where: { tableNumber: 888 } });
@@ -72,14 +75,14 @@ describe('OpenBon v0.2.1: Vollständiger E2E-Lebenszyklus- & Systemtest', () => 
     const beerProduct = await prisma.product.create({
       data: {
         name: 'E2E Festbier 0,5l',
-        price: 4.5,
-        deposit: 1.0,
+        priceCents: 450,
+        depositCents: 100,
         taxRate: 19.0,
         categoryId: testCategoryId,
         hasAgeRestriction: true,
         minAge: 16,
         allergens: JSON.stringify(['GLUTEN']),
-        happyHourPrice: 3.5,
+        happyHourPriceCents: 350,
         happyHourStart: '17:00',
         happyHourEnd: '19:00',
         happyHourDays: '[1,2,3,4,5,6,0]',
@@ -93,8 +96,8 @@ describe('OpenBon v0.2.1: Vollständiger E2E-Lebenszyklus- & Systemtest', () => 
     const schnapsProduct = await prisma.product.create({
       data: {
         name: 'E2E Obstler 2cl',
-        price: 3.0,
-        deposit: 0.0,
+        priceCents: 300,
+        depositCents: 0,
         taxRate: 19.0,
         categoryId: testCategoryId,
         hasAgeRestriction: true,
@@ -177,13 +180,13 @@ describe('OpenBon v0.2.1: Vollständiger E2E-Lebenszyklus- & Systemtest', () => 
     const activeDate = new Date('2026-08-24T18:00:00');
     const resActive = getEffectiveProductPrice(product!, activeDate);
     expect(resActive.isHappyHour).toBe(true);
-    expect(resActive.price).toBe(3.5);
+    expect(resActive.priceCents).toBe(350);
 
     // 21:00 Uhr -> Standardpreis
     const inactiveDate = new Date('2026-08-24T21:00:00');
     const resInactive = getEffectiveProductPrice(product!, inactiveDate);
     expect(resInactive.isHappyHour).toBe(false);
-    expect(resInactive.price).toBe(4.5);
+    expect(resInactive.priceCents).toBe(450);
   });
 
   // TEST 4: Trinkgeld-Verteilung & Pool-Berechnung
@@ -191,12 +194,12 @@ describe('OpenBon v0.2.1: Vollständiger E2E-Lebenszyklus- & Systemtest', () => 
     const profile = await prisma.tipProfile.findUnique({ where: { id: testTipProfileId } });
     expect(profile).toBeDefined();
 
-    const tipDistribution = calculateTipDistribution(10.0, profile);
-    expect(tipDistribution.totalTip).toBe(10.0);
-    expect(tipDistribution.waiterShare).toBe(7.0);
-    expect(tipDistribution.barShare).toBe(1.5);
-    expect(tipDistribution.kitchenShare).toBe(1.5);
-    expect(tipDistribution.poolShare).toBe(3.0);
+    const tipDistribution = calculateTipDistribution(1000, profile);
+    expect(tipDistribution.totalTipCents).toBe(1000);
+    expect(tipDistribution.waiterShareCents).toBe(700);
+    expect(tipDistribution.barShareCents).toBe(150);
+    expect(tipDistribution.kitchenShareCents).toBe(150);
+    expect(tipDistribution.poolShareCents).toBe(300);
   });
 
   // TEST 5: Bestellungsanlage (Kellner-Tischbestellung) mit Lagerabzug
@@ -215,8 +218,8 @@ describe('OpenBon v0.2.1: Vollständiger E2E-Lebenszyklus- & Systemtest', () => 
               productId: testBeerProductId,
               productName: 'E2E Festbier 0,5l',
               quantity: 2,
-              unitPrice: 4.5,
-              deposit: 1.0,
+              unitPriceCents: 450,
+              depositCents: 100,
               taxRate: 19.0,
               courseNumber: 1,
               kdsStatus: 'PENDING',
@@ -226,8 +229,8 @@ describe('OpenBon v0.2.1: Vollständiger E2E-Lebenszyklus- & Systemtest', () => 
               productId: testSchnapsProductId,
               productName: 'E2E Obstler 2cl',
               quantity: 1,
-              unitPrice: 3.0,
-              deposit: 0.0,
+              unitPriceCents: 300,
+              depositCents: 0,
               taxRate: 19.0,
               courseNumber: 2,
               kdsStatus: 'PENDING',
@@ -274,22 +277,22 @@ describe('OpenBon v0.2.1: Vollständiger E2E-Lebenszyklus- & Systemtest', () => 
         invoiceNumber: 'RE-9991',
         waiterName: 'E2E Max Kellner',
         paymentMethod: 'CASH',
-        totalGross: 14.0, // (2 * 5.50) + 3.00 = 14.00
-        totalNet: 11.76,
-        totalTax: 2.24,
-        totalDeposit: 2.0,
-        tipAmount: 2.0,
-        tipWaiterShare: 1.4,
-        tipPoolShare: 0.6,
-        givenAmount: 20.0,
-        changeAmount: 4.0,
+        totalGrossCents: 1400, // (2 * 5.50) + 3.00 = 14.00
+        totalNetCents: 1176,
+        totalTaxCents: 224,
+        totalDepositCents: 200,
+        tipAmountCents: 200,
+        tipWaiterShareCents: 140,
+        tipPoolShareCents: 60,
+        givenAmountCents: 2000,
+        changeAmountCents: 400,
         digitalReceiptCode: receiptCode,
         items: {
           create: order!.items.map((i) => ({
             productName: i.productName,
             quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            deposit: i.deposit,
+            unitPriceCents: i.unitPriceCents,
+            depositCents: i.depositCents,
             taxRate: i.taxRate,
           })),
         },
@@ -320,9 +323,9 @@ describe('OpenBon v0.2.1: Vollständiger E2E-Lebenszyklus- & Systemtest', () => 
     });
 
     expect(totals).toBeDefined();
-    expect(totals.totalGross).toBeGreaterThanOrEqual(14.0);
-    expect(totals.totalCash).toBeGreaterThanOrEqual(14.0);
-    expect(totals.totalTips).toBeGreaterThanOrEqual(2.0);
+    expect(totals.totalGrossCents).toBeGreaterThanOrEqual(1400);
+    expect(totals.totalCashCents).toBeGreaterThanOrEqual(1400);
+    expect(totals.totalTipsCents).toBeGreaterThanOrEqual(200);
   });
 
   // TEST 8: DATEV & DSFinV-K Export-Erzeugung
@@ -330,7 +333,7 @@ describe('OpenBon v0.2.1: Vollständiger E2E-Lebenszyklus- & Systemtest', () => 
     // DATEV
     const bookingLines: DatevBookingLine[] = [
       {
-        amountGross: 14.0,
+        amountCents: 1400,
         isDebit: true,
         account: '1000',
         contraAccount: '8400',
@@ -367,8 +370,8 @@ describe('OpenBon v0.2.1: Vollständiger E2E-Lebenszyklus- & Systemtest', () => 
           posZeile: 1,
           artikeltext: 'E2E Festbier 0,5l',
           menge: 2,
-          einzelpreisGross: 4.5,
-          gesamtGross: 9.0,
+          einzelpreisGrossCents: 450,
+          gesamtGrossCents: 900,
           ustSatz: 19.0,
         },
       ],
@@ -376,9 +379,9 @@ describe('OpenBon v0.2.1: Vollständiger E2E-Lebenszyklus- & Systemtest', () => 
         {
           bonId: 'e2e-bon-1',
           ustSatz: 19.0,
-          netto: 7.56,
-          ust: 1.44,
-          brutto: 9.0,
+          nettoCents: 756,
+          ustCents: 144,
+          bruttoCents: 900,
         },
       ]
     );

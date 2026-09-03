@@ -5,7 +5,7 @@ import prisma from '@/lib/db';
 import TicketSplitter from '@/lib/printer/ticket-splitter';
 import networkSpooler from '@/lib/printer/network-spooler';
 import haService from '@/lib/ha/ha-service';
-import { getEffectiveProductPrice } from '@/lib/pricing';
+import { getEffectiveProductPrice, toCents } from '@/lib/pricing';
 import { computeCheckout, findSplit, round2 } from '@/lib/pricing';
 import { checkAndTriggerLowStockAlert } from '@/lib/low-stock-notifier';
 import { validateBody, AtomicCheckoutSchema } from '@/lib/validations/schemas';
@@ -27,6 +27,9 @@ import { resolveOrderItem } from '@/lib/product-resolve';
 export async function POST(req: Request) {
   const auth = await requireApiAuth(req);
   if (!auth.ok) return auth.response;
+  const { denyStandbyWrite } = await import('@/lib/ha/ha-guard');
+  const denied = denyStandbyWrite();
+  if (denied) return denied;
 
   try {
     const validation = await validateBody(req, AtomicCheckoutSchema);
@@ -106,22 +109,22 @@ export async function POST(req: Request) {
           throw new Error(`Artikel "${prod.name}" ist leider ausverkauft oder nicht mehr ausreichend verfügbar!`);
         }
 
-        const { price: effectiveBasePrice } = getEffectiveProductPrice(prod, now);
+        const { price: effectiveBasePrice } = getEffectiveProductPrice({ price: prod.priceCents / 100, happyHourPrice: prod.happyHourPriceCents != null ? prod.happyHourPriceCents / 100 : null, happyHourStart: prod.happyHourStart, happyHourEnd: prod.happyHourEnd, happyHourDays: prod.happyHourDays, happyHourRules: prod.happyHourRules } as any, now);
 
         // Untereintrag und Optionen an EINER Stelle aufloesen (src/lib/product-resolve.ts):
         // Vererbung der Untereintrags-Felder, Optionen mit Anzahl, Preis serverseitig.
-        const resolved = resolveOrderItem(prod, effectiveBasePrice, {
+        const resolved = resolveOrderItem({ id: prod.id, name: prod.name, depositCents: prod.depositCents, taxRate: prod.taxRate, alternativeTicketName: (prod as any).alternativeTicketName, color: (prod as any).buttonColor, printGroupId: (prod as any).printGroupId, variants: (prod.variants || []).map((v: any) => ({ id: v.id, name: v.name, priceDelta: v.priceDeltaCents / 100, alternativeTicketName: v.alternativeTicketName, color: v.color, printGroupId: v.printGroupId, deposit: v.depositCents != null ? v.depositCents / 100 : null, taxRate: v.taxRate })), options: (prod.options || []).map((o: any) => ({ id: o.id, name: o.name, priceDelta: o.priceDeltaCents / 100, defaultQuantity: o.defaultQuantity, maxQuantity: o.maxQuantity })) } as any, effectiveBasePrice, {
           variantName: item.variantName,
           selectedOptions: item.selectedOptions,
         });
-        const unitPrice = resolved.unitPrice;
+        const unitPriceCents = toCents(resolved.unitPrice);
 
         orderItemsData.push({
           productId: prod.id,
           productName: prod.name,
           quantity: item.quantity,
-          unitPrice,
-          deposit: resolved.deposit,
+          unitPriceCents,
+          depositCents: toCents(resolved.deposit),
           taxRate: resolved.taxRate,
           variantName: resolved.variantName,
           // Normalisiert als [{name, quantity}] speichern, damit Auswertung,
@@ -181,11 +184,11 @@ export async function POST(req: Request) {
         },
       });
 
-      // Cent-genau auf Basis der autoritativen Positionen abrechnen
+      // Cent-genau auf Basis der autoritativen Positionen abrechnen (Lib in Euro -> /100 Brücke)
       const checkout = computeCheckout({
         lines: createdOrder.items.map((i) => ({
-          unitPrice: i.unitPrice,
-          deposit: i.deposit,
+          unitPriceCents: i.unitPriceCents,
+          depositCents: i.depositCents,
           quantity: i.quantity,
           taxRate: i.taxRate,
         })),
@@ -224,22 +227,22 @@ export async function POST(req: Request) {
           waiterName: body.waiterName || 'Bonkasse',
           deviceId: body.deviceId || null,
           digitalReceiptCode,
-          totalGross: checkout.amountDue,
-          totalNet: checkout.netTotal,
-          totalTax: checkout.taxTotal,
-          taxBase19: findSplit(checkout.splits, 19).base,
-          taxAmount19: findSplit(checkout.splits, 19).tax,
-          taxBase7: findSplit(checkout.splits, 7).base,
-          taxAmount7: findSplit(checkout.splits, 7).tax,
-          taxBase0: findSplit(checkout.splits, 0).base,
-          totalDeposit: checkout.depositTotal,
-          returnDeposit: 0,
-          discountAmount: checkout.discountAmount,
-          tipAmount: checkout.tipAmount,
-          tipWaiterShare: tipDist.waiterShare,
-          tipPoolShare: tipDist.poolShare,
-          givenAmount: checkout.givenAmount,
-          changeAmount: checkout.changeAmount,
+          totalGrossCents: checkout.amountDueCents ?? toCents(checkout.amountDue ?? 0),
+          totalNetCents: checkout.netCents ?? toCents(checkout.netTotal ?? 0),
+          totalTaxCents: checkout.taxCents ?? toCents(checkout.taxTotal ?? 0),
+          taxBase19Cents: findSplit(checkout.splits, 19).baseCents ?? toCents(findSplit(checkout.splits, 19).base ?? 0),
+          taxAmount19Cents: findSplit(checkout.splits, 19).taxCents ?? toCents(findSplit(checkout.splits, 19).tax ?? 0),
+          taxBase7Cents: findSplit(checkout.splits, 7).baseCents ?? toCents(findSplit(checkout.splits, 7).base ?? 0),
+          taxAmount7Cents: findSplit(checkout.splits, 7).taxCents ?? toCents(findSplit(checkout.splits, 7).tax ?? 0),
+          taxBase0Cents: findSplit(checkout.splits, 0).baseCents ?? toCents(findSplit(checkout.splits, 0).base ?? 0),
+          totalDepositCents: checkout.depositCents ?? toCents(checkout.depositTotal ?? 0),
+          returnDepositCents: 0,
+          discountAmountCents: checkout.discountCents ?? toCents(checkout.discountAmount ?? 0),
+          tipAmountCents: checkout.tipCents ?? toCents(checkout.tipAmount ?? 0),
+          tipWaiterShareCents: toCents(tipDist.waiterShare ?? 0),
+          tipPoolShareCents: toCents(tipDist.poolShare ?? 0),
+          givenAmountCents: checkout.givenCents ?? toCents(checkout.givenAmount ?? 0),
+          changeAmountCents: checkout.changeCents ?? toCents(checkout.changeAmount ?? 0),
           paymentMethod: body.paymentMethod,
           isTraining: config.trainingMode,
           items: {
@@ -247,8 +250,8 @@ export async function POST(req: Request) {
               orderItemId: i.id,
               productName: i.productName,
               quantity: i.quantity,
-              unitPrice: i.unitPrice,
-              deposit: i.deposit,
+              unitPriceCents: i.unitPriceCents,
+              depositCents: i.depositCents,
               taxRate: i.taxRate,
             })),
           },
@@ -298,9 +301,9 @@ export async function POST(req: Request) {
       }
     }
 
-    // Kuechen-/Schankbons drucken (nicht bei reinem Direktverkauf ohne Gaenge)
+    // Kuechen-/Schankbons drucken (async ACK: PENDING bis Spooler-ACK via print:acked)
     try {
-      await TicketSplitter.routeAndPrintOrder({
+      const { jobIds } = await TicketSplitter.routeAndPrintOrder({
         id: order.id,
         orderNumber: order.orderNumber,
         tableLabel: order.table?.label || (order.tokenNumber ? `Abholmarke #${order.tokenNumber}` : 'Theke'),
@@ -314,8 +317,8 @@ export async function POST(req: Request) {
           productName: i.productName,
           alternativeName: i.product?.alternativeTicketName,
           quantity: i.quantity,
-          unitPrice: i.unitPrice,
-          deposit: i.deposit,
+          unitPriceCents: i.unitPriceCents,
+          depositCents: i.depositCents ?? 0,
           variantName: i.variantName,
           selectedOptions: i.selectedOptions,
           customizationText: i.customizationText,
@@ -323,18 +326,8 @@ export async function POST(req: Request) {
           isHold: i.isHold,
         })),
       });
-      // WICHTIG: Positionen als gedruckt kennzeichnen - genau wie in /api/orders.
-      // Fehlte das hier, blieb jede Thekenbestellung dauerhaft auf PENDING
-      // stehen. Die Selbstdiagnose hielt sie fuer haengende Druckauftraege und
-      // startete den (leeren) Spooler im Minutentakt neu.
-      const printableIds = order.items
-        .filter((i: any) => !i.isHold)
-        .map((i: any) => i.id);
-      if (printableIds.length > 0) {
-        await prisma.orderItem.updateMany({
-          where: { id: { in: printableIds } },
-          data: { printStatus: 'PRINTED' },
-        });
+      if (global.io && jobIds.length > 0) {
+        global.io.emit('print:queued', { orderId: order.id, jobIds });
       }
     } catch (printErr) {
       console.error('[CHECKOUT] Fehler beim Bon-Druck:', printErr);
@@ -364,22 +357,22 @@ export async function POST(req: Request) {
           items: payment.items.map((i: any) => ({
             name: i.productName,
             quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            deposit: i.deposit,
+            unitPriceCents: i.unitPriceCents,
+            depositCents: i.depositCents,
             taxRate: i.taxRate,
           })),
-          totalGross: payment.totalGross,
-          totalNet: payment.totalNet,
-          totalTax: payment.totalTax,
-          totalDeposit: payment.totalDeposit,
-          returnDeposit: payment.returnDeposit,
-          discountAmount: payment.discountAmount,
-          tipAmount: payment.tipAmount,
-          givenAmount: payment.givenAmount,
-          changeAmount: payment.changeAmount,
+          totalGrossCents: payment.totalGrossCents,
+          totalNetCents: payment.totalNetCents,
+          totalTaxCents: payment.totalTaxCents,
+          totalDepositCents: payment.totalDepositCents,
+          returnDepositCents: payment.returnDepositCents,
+          discountCents: payment.discountAmountCents,
+          tipCents: payment.tipAmountCents,
+          givenCents: payment.givenAmountCents,
+          changeCents: payment.changeAmountCents,
           paymentMethod: getPaymentLabel(payment.paymentMethod),
           cardAuthCode: payment.cardAuthCode,
-          taxSplits: checkout.splits.filter((s: any) => s.gross > 0),
+          taxSplits: checkout.splits.filter((s: any) => (s.grossCents ?? s.gross ?? 0) > 0),
           isTraining: payment.isTraining,
           eventName: config.name,
           subHeader: config.receiptSubHeader || undefined,
@@ -430,15 +423,15 @@ export async function POST(req: Request) {
       action: 'CHECKOUT_COMPLETED',
       category: 'SALES',
       actor: order.waiterName || auth.session.waiterName || auth.session.role,
-      // Feldnamen laut Datenmodell: totalGross / paymentMethod (siehe /api/payments).
-      details: `Direktverkauf #${order.orderNumber} über ${Number(payment.totalGross ?? 0).toFixed(2)} € (${getPaymentLabel(payment.paymentMethod)}) abgeschlossen.`,
+      // Feldnamen laut Datenmodell: totalGrossCents / paymentMethod (siehe /api/payments).
+      details: `Direktverkauf #${order.orderNumber} über ${((payment.totalGrossCents ?? 0) / 100).toFixed(2)} € (${getPaymentLabel(payment.paymentMethod)}) abgeschlossen.`,
       metadata: {
         orderId: order.id,
         orderNumber: order.orderNumber,
         paymentId: payment.id,
         invoiceNumber: payment.invoiceNumber,
         paymentMethod: payment.paymentMethod,
-        totalGross: payment.totalGross,
+        totalGrossCents: payment.totalGrossCents,
       },
     }));
 
@@ -447,7 +440,7 @@ export async function POST(req: Request) {
       orderId: order.id,
       orderNumber: order.orderNumber,
       tokenNumber: order.tokenNumber,
-      changeAmount: round2(checkout.changeAmount),
+      changeAmount: checkout.changeAmount,
       digitalReceiptUrl: receiptUrl,
       tipDistribution: tipDist,
     });

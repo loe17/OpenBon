@@ -12,7 +12,9 @@ interface RoutableItem {
   productName: string;
   alternativeName?: string | null;
   quantity: number;
-  unitPrice: number;
+  unitPriceCents: number;
+  unitPrice?: number;
+  depositCents?: number;
   deposit?: number;
   variantName?: string | null;
   selectedOptions?: string | null;
@@ -46,6 +48,7 @@ interface PrintGroupBucket {
     paperWidth: number;
   };
   items: PrintItem[];
+  itemIds: string[];
 }
 
 export class TicketSplitter {
@@ -57,7 +60,7 @@ export class TicketSplitter {
   public static async routeAndPrintOrder(
     order: OrderToRoute,
     options: { onlyItemIds?: string[]; includeHold?: boolean } = {}
-  ): Promise<{ ticketsGenerated: number; printedItemIds: string[] }> {
+  ): Promise<{ ticketsGenerated: number; printedItemIds: string[]; ticketsQueued: number; jobIds: string[]; queuedItemIds: string[] }> {
     const candidates = order.items.filter((item) => {
       if (options.onlyItemIds && !options.onlyItemIds.includes(item.id)) return false;
       if (item.isHold && !options.includeHold) return false;
@@ -65,7 +68,7 @@ export class TicketSplitter {
     });
 
     if (candidates.length === 0) {
-      return { ticketsGenerated: 0, printedItemIds: [] };
+      return { ticketsGenerated: 0, printedItemIds: [], ticketsQueued: 0, jobIds: [], queuedItemIds: [] };
     }
 
     const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
@@ -97,7 +100,28 @@ export class TicketSplitter {
       // Der Untereintrag gewinnt, wenn er eine eigene Druckgruppe hat.
       const printGroup = variant?.printGroup || prod?.printGroup;
       const printer = printGroup?.printer;
-      if (!printGroup || !printer || !printer.isActive) continue;
+      if (!printGroup || !printer || !printer.isActive) {
+        // Laut statt still: fehlendes Routing als FAILED-Job + Event, damit nichts spurlos verloren geht
+        try {
+          const failed = await prisma.printJob.create({
+            data: {
+              printerId: printer?.id || null,
+              printGroupId: printGroup?.id || null,
+              orderId: order.id,
+              title: `FEHLT ROUTING: ${item.productName}`,
+              status: 'FAILED',
+              attempts: 0,
+              lastError: !printGroup ? 'Keine Druckgruppe am Artikel' : !printer ? 'Kein Drucker in Gruppe' : 'Drucker inaktiv',
+              rawPayload: JSON.stringify({ orderId: order.id, itemId: item.id, productName: item.productName }),
+            },
+          });
+          if (global.io) {
+            global.io.emit('printer:error', { jobId: failed.id, printerId: failed.printerId, printerName: printGroup?.name || 'unbekannt', error: failed.lastError });
+            global.io.emit('print:failed', { jobId: failed.id, dbJobId: failed.id, orderId: order.id, error: failed.lastError });
+          }
+        } catch {}
+        continue;
+      }
 
       const groupNameLower = printGroup.name.toLowerCase();
       const catNameLower = (prod?.category?.name || '').toLowerCase();
@@ -131,6 +155,7 @@ export class TicketSplitter {
             paperWidth: printer.paperWidth,
           },
           items: [],
+          itemIds: [],
         });
       }
 
@@ -146,17 +171,19 @@ export class TicketSplitter {
         alternativeName:
           variant?.alternativeTicketName || item.alternativeName || prod?.alternativeTicketName,
         quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        deposit: item.deposit,
+        unitPriceCents: item.unitPriceCents,
+        depositCents: (item.depositCents ?? 0),
         variantName: item.variantName,
         selectedOptions: options_,
         customizationText: item.customizationText,
         courseNumber: item.courseNumber ?? 1,
       });
+      buckets.get(printGroup.id)!.itemIds.push(item.id);
       printedItemIds.push(item.id);
     }
 
     let ticketsCount = 0;
+    const jobIds: string[] = [];
 
     const foodTableFontSize = config?.receiptFoodTableFontSize ?? config?.receiptTableFontSize ?? 4;
     const drinkTableFontSize = config?.receiptDrinkTableFontSize ?? config?.receiptTableFontSize ?? 4;
@@ -180,9 +207,14 @@ export class TicketSplitter {
       const chosenTemplate = isFoodBucket ? foodTemplate : drinkTemplate;
 
       const chunks = splitItemsIntoChunks(bucket.items, bucket.maxItemsPerTicket);
+      // Item-IDs synchron zu Items chunken (gleiche maxItemsPerTicket-Stückelung)
+      const idChunks: string[][] = [];
+      const per = bucket.maxItemsPerTicket > 0 ? bucket.maxItemsPerTicket : bucket.itemIds.length || 1;
+      for (let i = 0; i < bucket.itemIds.length; i += per) idChunks.push(bucket.itemIds.slice(i, i + per));
 
       for (let idx = 0; idx < chunks.length; idx++) {
         const chunk = chunks[idx];
+        const chunkIds = idChunks[idx] || [];
         // Kopfzeile nur, wenn tatsaechlich gesplittet wurde
         const traySplit: TraySplitInfo | undefined =
           chunks.length > 1
@@ -215,12 +247,17 @@ export class TicketSplitter {
           traySplit,
         };
 
-        await networkSpooler.printTicket(bucket.printer, ticketData);
+        const res = await networkSpooler.printTicket(bucket.printer, ticketData, {
+          orderId: order.id,
+          printGroupId: bucket.printGroupId,
+          itemIds: chunkIds,
+        });
+        if (res.jobId) jobIds.push(res.jobId);
         ticketsCount++;
       }
     }
 
-    return { ticketsGenerated: ticketsCount, printedItemIds };
+    return { ticketsGenerated: ticketsCount, printedItemIds, ticketsQueued: ticketsCount, jobIds, queuedItemIds: printedItemIds };
   }
 
   /**
@@ -234,8 +271,9 @@ export class TicketSplitter {
     cancelledBy: string;
     reason: string;
     isTraining: boolean;
+    orderId?: string | null;
     items: { productId: string; productName: string; quantity: number; variantName?: string | null }[];
-  }): Promise<{ ticketsGenerated: number }> {
+  }): Promise<{ ticketsGenerated: number; ticketsQueued: number; jobIds: string[] }> {
     const products = await prisma.product.findMany({
       where: { id: { in: params.items.map((i) => i.productId) } },
       include: { printGroup: { include: { printer: true } } },
@@ -263,35 +301,34 @@ export class TicketSplitter {
         name: item.productName,
         alternativeName: prod.alternativeTicketName,
         quantity: item.quantity,
-        unitPrice: 0,
+        unitPriceCents: 0,
         variantName: item.variantName ?? null,
       });
     }
 
-    const { EscPosBuilder } = await import('./escpos-builder');
     let count = 0;
+    const jobIds: string[] = [];
 
     for (const bucket of Array.from(buckets.values())) {
       if (!bucket.printer) continue;
-      const { rawBuffer, textRepresentation } = EscPosBuilder.buildVoidTicket(
+      // ACK-fähiger Pfad: TicketData über printTicket (mit PrintJob/Retry/Fallback)
+      const res = await networkSpooler.printTicket(
+        bucket.printer,
         {
-          title: bucket.groupName.toUpperCase(),
-          tableLabel: params.tableLabel,
+          title: `STORNO ${bucket.groupName.toUpperCase()}`,
           orderNumber: params.orderNumber,
+          tableLabel: params.tableLabel,
           waiterName: params.waiterName,
-          cancelledBy: params.cancelledBy,
-          reason: params.reason,
           items: bucket.items,
           isTraining: params.isTraining,
         },
-        bucket.printer.paperWidth
+        { orderId: params.orderId || undefined }
       );
-
-      await networkSpooler.sendRawBuffer(bucket.printer, rawBuffer, textRepresentation);
+      if (res.jobId) jobIds.push(res.jobId);
       count++;
     }
 
-    return { ticketsGenerated: count };
+    return { ticketsGenerated: count, ticketsQueued: count, jobIds };
   }
 }
 

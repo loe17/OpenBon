@@ -4,6 +4,7 @@ import {
   decodeSessionToken,
   verifySessionToken,
   SESSION_COOKIE_NAME,
+  SESSION_LEGACY_COOKIE_NAME,
   UserRole,
 } from '@/lib/auth-session';
 
@@ -105,14 +106,24 @@ function withSecurityHeaders(res: NextResponse): NextResponse {
   res.headers.set('X-Frame-Options', 'SAMEORIGIN');
   res.headers.set('X-Content-Type-Options', 'nosniff');
   res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+  res.headers.set(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'self'"
+  );
   return res;
+}
+
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
 }
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // 1. Öffentliche Pfade und statische Dateien direkt durchlassen
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
+  // 1. Öffentliche Pfade und statische Dateien direkt durchlassen (exakt, kein Prefix-Overmatch)
+  if (isPublicPath(pathname)) {
     return withSecurityHeaders(NextResponse.next());
   }
 
@@ -122,14 +133,10 @@ export async function middleware(req: NextRequest) {
     return csrfRejection;
   }
 
-  // 2. Session aus Cookie oder Bearer Header pruefen.
-  //    Liegt SESSION_SECRET als echte Umgebungsvariable vor (wird beim ersten
-  //    Start in die .env geschrieben), prueft die Middleware die Signatur voll.
-  //    Falls kein Secret bekannt ist (Degradationsfenster, z. B. fehlgeschlagene
-  //    Erst-Initialisierung), faellt die Middleware auf das reine Dekodieren als
-  //    Vorfilter zurueck. Die verbindliche Signaturpruefung findet dann wie immer
-  //    node-seitig in jeder API-Route ueber requireApiAuth() bzw. im
-  //    Admin-Layout statt (siehe src/app/admin/layout.tsx).
+  // 2. Session aus Cookie oder Bearer Header pruefen (fail-closed).
+  //    Ohne bekanntes SESSION_SECRET wird NICHT auf unsigniertes Dekodieren
+  //    zurückgefallen – der Request wird abgewiesen. Die verbindliche
+  //    Signaturprüfung findet node-seitig in jeder API-Route statt.
   const secretKnown = (() => {
     const envSecret = process.env.SESSION_SECRET?.trim();
     if (envSecret && envSecret.length >= 16) return true;
@@ -141,11 +148,18 @@ export async function middleware(req: NextRequest) {
     }
   })();
 
-  const readToken = async (token: string) =>
-    secretKnown ? await verifySessionToken(token) : decodeSessionToken(token);
+  if (!secretKnown && pathname.startsWith('/api/')) {
+    return withSecurityHeaders(
+      NextResponse.json({ error: 'Server-Session-Secret fehlt. Bitte Server neu starten.' }, { status: 500 })
+    );
+  }
+
+  const readToken = async (token: string) => await verifySessionToken(token);
 
   let session = null;
-  const cookieVal = req.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const cookieVal =
+    req.cookies.get(SESSION_COOKIE_NAME)?.value ||
+    req.cookies.get(SESSION_LEGACY_COOKIE_NAME)?.value;
   if (cookieVal) {
     session = await readToken(cookieVal);
   }
@@ -169,8 +183,8 @@ export async function middleware(req: NextRequest) {
     return withSecurityHeaders(NextResponse.next());
   }
 
-  // 4. Admin API-Endpunkte
-  if (ADMIN_API_PREFIXES.some((p) => pathname.startsWith(p))) {
+  // 4. Admin API-Endpunkte (exakt, kein Overmatch)
+  if (ADMIN_API_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
     if (!session || session.role !== 'ADMIN') {
       return NextResponse.json(
         { error: 'Nicht autorisiert. Administrator-Berechtigung erforderlich.' },

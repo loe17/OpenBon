@@ -6,7 +6,7 @@ describe('Fiscal Export Engines (DATEV & DSFinV-K - Spec V2 §7.1, §7.2)', () =
   it('should generate valid DATEV format EXTF 700 CSV header and lines', () => {
     const bookingLines: DatevBookingLine[] = [
       {
-        amountGross: 119.0,
+        amountCents: 11900,
         isDebit: true,
         account: '1000',
         contraAccount: '8400',
@@ -52,8 +52,8 @@ describe('Fiscal Export Engines (DATEV & DSFinV-K - Spec V2 §7.1, §7.2)', () =
         posZeile: 1,
         artikeltext: 'Helles Bier 0,5l',
         menge: 2,
-        einzelpreisGross: 4.5,
-        gesamtGross: 9.0,
+        einzelpreisGrossCents: 450,
+        gesamtGrossCents: 900,
         ustSatz: 19.0,
       },
     ];
@@ -62,9 +62,9 @@ describe('Fiscal Export Engines (DATEV & DSFinV-K - Spec V2 §7.1, §7.2)', () =
       {
         bonId: 'bon-123',
         ustSatz: 19.0,
-        netto: 7.56,
-        ust: 1.44,
-        brutto: 9.0,
+        nettoCents: 756,
+        ustCents: 144,
+        bruttoCents: 900,
       },
     ];
 

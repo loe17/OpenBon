@@ -1,6 +1,6 @@
 {
   "name": "openbon",
-  "version": "0.4.17",
+  "version": "0.4.21",
   "private": true,
   "description": "OpenBon - Modernes, plattformunabhängiges Kassensystem mit Hochverfügbarkeit, ESC/POS-Druck und Echtzeit-Synchronisation für Vereinsfeste und Gastronomie",
   "author": "OpenBon Community",
@@ -42,8 +42,10 @@
     "clsx": "^2.1.1",
     "iconv-lite": "^0.6.3",
     "jose": "^6.2.10",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.439.0",
     "next": "^14.2.10",
+    "pdf-lib": "^1.17.1",
     "postcss": "^8.4.45",
     "prisma": "^5.19.1",
     "qrcode": "^1.5.4",

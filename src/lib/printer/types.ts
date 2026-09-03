@@ -1,10 +1,16 @@
+import type { TaxSplit } from '@/types/domain';
+
 export interface PrintItem {
   name: string;
   alternativeName?: string | null;
   quantity: number;
-  unitPrice: number;
-  deposit?: number;
+  unitPriceCents: number;
+  depositCents?: number;
   taxRate?: number;
+  /** @deprecated Legacy Euro, wird via Math.round(x*100) normalisiert */
+  unitPrice?: number;
+  /** @deprecated Legacy Euro */
+  deposit?: number;
   variantName?: string | null;
   selectedOptions?: string[] | null;
   customizationText?: string | null;
@@ -28,15 +34,36 @@ export interface TicketData {
   waiterName?: string;
   createdAt?: string | Date;
   items: PrintItem[];
+  totalGrossCents?: number;
+  totalNetCents?: number;
+  totalTaxCents?: number;
+  totalDepositCents?: number;
+  returnDepositCents?: number;
+  discountCents?: number;
+  tipCents?: number;
+  givenCents?: number;
+  changeCents?: number;
+  surchargeAmountCents?: number;
+  /** @deprecated Legacy Euro-Aliase (Migration Gruppen 2/3) */
   totalGross?: number;
+  /** @deprecated Legacy Euro */
   totalNet?: number;
+  /** @deprecated Legacy Euro */
   totalTax?: number;
+  /** @deprecated Legacy Euro */
   totalDeposit?: number;
+  /** @deprecated Legacy Euro */
   returnDeposit?: number;
+  /** @deprecated Legacy Euro */
   discountAmount?: number;
+  /** @deprecated Legacy Euro */
   tipAmount?: number;
+  /** @deprecated Legacy Euro */
   givenAmount?: number;
+  /** @deprecated Legacy Euro */
   changeAmount?: number;
+  /** @deprecated Legacy Euro */
+  surchargeAmount?: number;
   paymentMethod?: string;
   isTraining?: boolean;
   invoiceNumber?: string;
@@ -46,9 +73,8 @@ export interface TicketData {
   traySplit?: TraySplitInfo;
   /** Spec 6.10: Zwischenrechnung ist kein Kassenbeleg */
   isPreliminary?: boolean;
-  /** Aufschluesselung je Steuersatz fuer den Kassenbeleg */
-  taxSplits?: { rate: number; base: number; tax: number; gross: number }[];
-  surchargeAmount?: number;
+  /** Aufschluesselung je Steuersatz fuer den Kassenbeleg (Cent) */
+  taxSplits?: TaxSplit[];
   surchargeReason?: string | null;
   cardAuthCode?: string | null;
   tableFontSize?: 'NORMAL' | 'LARGE' | 'EXTRA_LARGE' | number | string;

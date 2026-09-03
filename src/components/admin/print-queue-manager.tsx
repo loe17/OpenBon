@@ -17,7 +17,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
-import { formatCurrency } from '@/lib/utils';
+import { formatCents, formatCurrency } from '@/lib/utils';
 
 interface PrintJobItem {
   id: string;
@@ -48,7 +48,7 @@ export function PrintQueueManager({ printers }: { printers: Array<{ id: string; 
   const [items, setItems] = useState<PrintJobItem[]>([]);
   const [counts, setCounts] = useState<QueueCounts>({ total: 0, pending: 0, failed: 0, printed: 0 });
   const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState<'ALL' | 'PENDING' | 'FAILED' | 'PRINTED'>('ALL');
+  const [activeFilter, setActiveFilter] = useState<'ALL' | 'PENDING' | 'FAILED' | 'PRINTED' | 'CONFIRMED'>('ALL');
   const [selectedJobForPreview, setSelectedJobForPreview] = useState<PrintJobItem | null>(null);
   const [selectedJobForReroute, setSelectedJobForReroute] = useState<PrintJobItem | null>(null);
   const [rerouteTargetPrinterId, setRerouteTargetPrinterId] = useState('');
@@ -70,8 +70,20 @@ export function PrintQueueManager({ printers }: { printers: Array<{ id: string; 
 
   useEffect(() => {
     fetchQueue();
-    const interval = setInterval(fetchQueue, 4000);
-    return () => clearInterval(interval);
+    // Socket-Echtzeit statt nur Polling (Fallback-Polling 15s)
+    const onAck = () => fetchQueue();
+    window.addEventListener('openbon:print-acked', onAck);
+    window.addEventListener('openbon:print-failed', onAck);
+    window.addEventListener('openbon:print-queued', onAck);
+    window.addEventListener('openbon:print-confirmed', onAck);
+    const interval = setInterval(fetchQueue, 15000);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('openbon:print-acked', onAck);
+      window.removeEventListener('openbon:print-failed', onAck);
+      window.removeEventListener('openbon:print-queued', onAck);
+      window.removeEventListener('openbon:print-confirmed', onAck);
+    };
   }, [activeFilter]);
 
   const handleRetry = async (job: PrintJobItem) => {
@@ -495,7 +507,7 @@ export function PrintQueueManager({ printers }: { printers: Array<{ id: string; 
                   {selectedJobForPreview.payload.items.map((item: any, idx: number) => (
                     <div key={idx} className="flex justify-between">
                       <span>{item.quantity}x {item.productName || item.name}</span>
-                      {item.price !== undefined && <span>{formatCurrency(item.price * item.quantity)}</span>}
+                      {item.price !== undefined && <span>{formatCents(Math.round((item.price * item.quantity) * 100))}</span>}
                     </div>
                   ))}
                 </div>
@@ -504,7 +516,7 @@ export function PrintQueueManager({ printers }: { printers: Array<{ id: string; 
               {selectedJobForPreview.payload?.totalGross !== undefined && (
                 <div className="flex justify-between font-bold text-sm pt-1">
                   <span>GESAMT:</span>
-                  <span>{formatCurrency(selectedJobForPreview.payload.totalGross)}</span>
+                  <span>{formatCents((selectedJobForPreview as any).payload.totalGrossCents ?? Math.round(((selectedJobForPreview as any).payload.totalGross ?? 0) * 100))}</span>
                 </div>
               )}
 

@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   Filter,
   Check,
+  Printer,
 } from 'lucide-react';
 
 import StationGate from '@/components/auth/station-gate';
@@ -166,6 +167,25 @@ function KitchenMonitorContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderStatus: 'COMPLETED' }),
       });
+      fetchKdsOrders();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const undoItem = async (itemId: string) => {
+    triggerHapticFeedback();
+    try {
+      const res = await fetch('/api/kds/undo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderItemId: itemId }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        alert(j.error || 'Rückgängig nicht möglich (nur 10 Minuten).');
+        return;
+      }
       fetchKdsOrders();
     } catch (e) {
       console.error(e);
@@ -492,6 +512,16 @@ function KitchenMonitorContent() {
                                   Zurückgehalten
                                 </span>
                               )}
+                              {!isVoided && (item as { printStatus?: string }).printStatus === 'PENDING' && (
+                                <span className="text-[10px] font-black uppercase tracking-wider bg-sky-600 text-white px-1.5 py-0.5 rounded">
+                                  Druck wartet
+                                </span>
+                              )}
+                              {!isVoided && ((item as { printStatus?: string }).printStatus === 'ERROR' || (item as { printStatus?: string }).printStatus === 'FAILED') && (
+                                <span className="text-[10px] font-black uppercase tracking-wider bg-red-600 text-white px-1.5 py-0.5 rounded">
+                                  Druck fehlgeschlagen – erneut prüfen
+                                </span>
+                              )}
                             </div>
 
                             {item.variantName && (
@@ -507,14 +537,25 @@ function KitchenMonitorContent() {
                             )}
                           </div>
 
-                          <div
-                            className={`w-6 h-6 rounded-lg flex items-center justify-center mt-0.5 border ${
-                              isDone
-                                ? 'bg-emerald-600 border-emerald-500 text-white'
-                                : 'border-slate-700 bg-slate-800 text-transparent'
-                            }`}
-                          >
-                            <CheckCircle2 className="w-4 h-4" />
+                          <div className="flex flex-col items-end gap-1.5 shrink-0">
+                            <div
+                              className={`w-6 h-6 rounded-lg flex items-center justify-center mt-0.5 border ${
+                                isDone
+                                  ? 'bg-emerald-600 border-emerald-500 text-white'
+                                  : 'border-slate-700 bg-slate-800 text-transparent'
+                              }`}
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                            </div>
+                            {isDone && !isVoided && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); void undoItem(item.id); }}
+                                className="text-[10px] font-bold text-slate-400 hover:text-white underline px-2 py-1 min-h-[32px]"
+                                title="Versehentlich abgehakt? 10 Minuten rückgängig"
+                              >
+                                Rückgängig
+                              </button>
+                            )}
                           </div>
                         </div>
                         </React.Fragment>
@@ -522,8 +563,31 @@ function KitchenMonitorContent() {
                     })}
                   </div>
 
-                  {/* Card Footer: Complete Button */}
-                  <div className="p-3.5 border-t border-slate-800">
+                  {/* Card Footer: Druck-Quittung + Complete Button */}
+                  <div className="p-3.5 border-t border-slate-800 space-y-2">
+                    <button
+                      onClick={async () => {
+                        triggerHapticFeedback();
+                        try {
+                          const res = await fetch('/api/printers/confirm', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ orderId: order.id }),
+                          });
+                          if (!res.ok) {
+                            const j = await res.json().catch(() => ({}));
+                            alert(j.error || 'Kein offener Druckauftrag für diese Bestellung.');
+                          }
+                        } catch (e) {
+                          console.error(e);
+                        }
+                      }}
+                      className="pos-touch-btn w-full h-12 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2"
+                      title="Erst wenn der Bon wirklich aus dem Drucker kam (Papier prüfen)"
+                    >
+                      <Printer className="w-5 h-5" />
+                      <span>Bon erhalten (Druck ok)</span>
+                    </button>
                     <button
                       onClick={() => completeOrder(order.id)}
                       className="pos-touch-btn w-full h-14 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-xl shadow-emerald-950/50"

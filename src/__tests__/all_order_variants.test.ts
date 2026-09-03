@@ -35,8 +35,8 @@ describe('OpenBon: All Order Variants & Lifecycle Integration Tests', () => {
     const bratwurst = await prisma.product.create({
       data: {
         name: 'TEST-VAR Bratwurst',
-        price: 4.5,
-        deposit: 0.0,
+        priceCents: 450,
+        depositCents: 0,
         taxRate: 7.0,
         categoryId: catId,
         hasAgeRestriction: false,
@@ -47,8 +47,8 @@ describe('OpenBon: All Order Variants & Lifecycle Integration Tests', () => {
     const beer = await prisma.product.create({
       data: {
         name: 'TEST-VAR Festbier 0,5l',
-        price: 5.0,
-        deposit: 1.0,
+        priceCents: 500,
+        depositCents: 100,
         taxRate: 19.0,
         categoryId: catId,
         hasAgeRestriction: true,
@@ -60,8 +60,8 @@ describe('OpenBon: All Order Variants & Lifecycle Integration Tests', () => {
     const coffee = await prisma.product.create({
       data: {
         name: 'TEST-VAR Kaffee',
-        price: 2.5,
-        deposit: 0.0,
+        priceCents: 250,
+        depositCents: 0,
         taxRate: 19.0,
         categoryId: catId,
       },
@@ -102,7 +102,7 @@ describe('OpenBon: All Order Variants & Lifecycle Integration Tests', () => {
               productId: prodBratwurstId,
               productName: 'TEST-VAR Bratwurst',
               quantity: 2,
-              unitPrice: 4.5,
+              unitPriceCents: 450,
               taxRate: 7.0,
               customizationText: 'extra Senf, ohne Brot',
             },
@@ -110,7 +110,7 @@ describe('OpenBon: All Order Variants & Lifecycle Integration Tests', () => {
               productId: prodCoffeeId,
               productName: 'TEST-VAR Kaffee',
               quantity: 1,
-              unitPrice: 2.5,
+              unitPriceCents: 250,
               taxRate: 19.0,
               customizationText: 'mit Hafermilch',
             },
@@ -124,8 +124,8 @@ describe('OpenBon: All Order Variants & Lifecycle Integration Tests', () => {
     expect(createdOrder.orderType).toBe('WAITER_TABLE');
     expect(createdOrder.items.length).toBe(2);
     expect(createdOrder.items[0].customizationText).toContain('extra Senf');
-    const totalGross = createdOrder.items.reduce((s: number, itm: { unitPrice: number; quantity: number }) => s + itm.unitPrice * itm.quantity, 0);
-    expect(totalGross).toBe(11.5);
+    const totalGrossCents = createdOrder.items.reduce((s: number, itm: { unitPriceCents: number; quantity: number }) => s + itm.unitPriceCents * itm.quantity, 0);
+    expect(totalGrossCents).toBe(1150);
   });
 
   // Variant 2: POS Counter Direct Sale (COUNTER_DIRECT)
@@ -139,25 +139,25 @@ describe('OpenBon: All Order Variants & Lifecycle Integration Tests', () => {
         digitalReceiptCode: digitalCode,
         paymentMethod: 'CASH',
         waiterName: 'TEST-WAITER Theke 1',
-        totalGross: 6.0,
-        totalNet: 5.04,
-        totalTax: 0.96,
-        taxBase19: 5.04,
-        taxAmount19: 0.96,
-        taxBase7: 0.0,
-        taxAmount7: 0.0,
-        taxBase0: 0.0,
-        totalDeposit: 1.0,
-        givenAmount: 10.0,
-        changeAmount: 4.0,
-        tipAmount: 0.0,
+        totalGrossCents: 600,
+        totalNetCents: 504,
+        totalTaxCents: 96,
+        taxBase19Cents: 504,
+        taxAmount19Cents: 96,
+        taxBase7Cents: 0,
+        taxAmount7Cents: 0,
+        taxBase0Cents: 0,
+        totalDepositCents: 100,
+        givenAmountCents: 1000,
+        changeAmountCents: 400,
+        tipAmountCents: 0,
         items: {
           create: [
             {
               productName: 'TEST-VAR Festbier 0,5l',
               quantity: 1,
-              unitPrice: 5.0,
-              deposit: 1.0,
+              unitPriceCents: 500,
+              depositCents: 100,
               taxRate: 19.0,
             },
           ],
@@ -167,7 +167,7 @@ describe('OpenBon: All Order Variants & Lifecycle Integration Tests', () => {
     });
 
     expect(payment.invoiceNumber).toBe(invoiceNumber);
-    expect(payment.changeAmount).toBe(4.0);
+    expect(payment.changeAmountCents).toBe(400);
     expect(payment.digitalReceiptCode).toBe(digitalCode);
   });
 
@@ -178,14 +178,14 @@ describe('OpenBon: All Order Variants & Lifecycle Integration Tests', () => {
         tokenType: 'GENERAL',
         action: 'ISSUE',
         quantity: 5,
-        unitValue: 2.0,
-        totalValue: 10.0,
+        unitValueCents: 200,
+        totalValueCents: 1000,
         waiterName: 'TEST-WAITER Wertmarkenkasse',
       },
     });
 
     expect(token.quantity).toBe(5);
-    expect(token.totalValue).toBe(10.0);
+    expect(token.totalValueCents).toBe(1000);
     expect(token.action).toBe('ISSUE');
   });
 
@@ -203,7 +203,7 @@ describe('OpenBon: All Order Variants & Lifecycle Integration Tests', () => {
               productId: prodBratwurstId,
               productName: 'TEST-VAR Bratwurst',
               quantity: 1,
-              unitPrice: 4.5,
+              unitPriceCents: 450,
               taxRate: 7.0,
             },
           ],
@@ -229,7 +229,7 @@ describe('OpenBon: All Order Variants & Lifecycle Integration Tests', () => {
               productId: prodBeerId,
               productName: 'TEST-VAR Festbier 0,5l',
               quantity: 1,
-              unitPrice: 5.0,
+              unitPriceCents: 500,
               taxRate: 19.0,
             },
           ],
@@ -239,7 +239,7 @@ describe('OpenBon: All Order Variants & Lifecycle Integration Tests', () => {
     });
 
     expect(kioskOrder.orderType).toBe('KIOSK');
-    expect(kioskOrder.items[0].unitPrice).toBe(5.0);
+    expect(kioskOrder.items[0].unitPriceCents).toBe(500);
   });
 
   // Variant 6: Table Split Payment (Tray Split)
@@ -256,7 +256,7 @@ describe('OpenBon: All Order Variants & Lifecycle Integration Tests', () => {
               productId: prodBratwurstId,
               productName: 'TEST-VAR Bratwurst',
               quantity: 3,
-              unitPrice: 4.5,
+              unitPriceCents: 450,
               taxRate: 7.0,
             },
           ],
@@ -271,18 +271,18 @@ describe('OpenBon: All Order Variants & Lifecycle Integration Tests', () => {
         invoiceNumber: 'RE-2026-SPLIT-1',
         paymentMethod: 'CASH',
         waiterName: 'TEST-WAITER Anna',
-        totalGross: 4.5,
-        totalNet: 4.21,
-        totalTax: 0.29,
-        taxBase7: 4.21,
-        taxAmount7: 0.29,
+        totalGrossCents: 450,
+        totalNetCents: 421,
+        totalTaxCents: 29,
+        taxBase7Cents: 421,
+        taxAmount7Cents: 29,
         items: {
           create: [
             {
               orderItemId: splitOrder.items[0].id,
               productName: 'TEST-VAR Bratwurst',
               quantity: 1,
-              unitPrice: 4.5,
+              unitPriceCents: 450,
               taxRate: 7.0,
             },
           ],
@@ -292,7 +292,7 @@ describe('OpenBon: All Order Variants & Lifecycle Integration Tests', () => {
     });
 
     expect(splitPayment1.items[0].quantity).toBe(1);
-    expect(splitPayment1.totalGross).toBe(4.5);
+    expect(splitPayment1.totalGrossCents).toBe(450);
   });
 
   // Variant 7: Table Transfer & Table Merge
@@ -329,7 +329,7 @@ describe('OpenBon: All Order Variants & Lifecycle Integration Tests', () => {
               productId: prodBratwurstId,
               productName: 'TEST-VAR Bratwurst',
               quantity: 1,
-              unitPrice: 4.5,
+              unitPriceCents: 450,
               taxRate: 7.0,
               isCancelled: true,
               cancellationReason: 'Falschbonierung',

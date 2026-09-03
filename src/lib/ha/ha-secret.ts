@@ -169,24 +169,20 @@ export async function verifyHaSecret(req: Request): Promise<boolean> {
   const expected = (await getHaSyncSecret()) || '';
 
   if (WEAK_HA_SECRETS.has(expected)) {
-    // N1-Fix: Partner kann in der ENV ODER (wie vom Admin-UI geschrieben)
-    // ausschliesslich in der Datenbank konfiguriert sein.
+    // Gehärtet: schwaches/fehlendes Secret lehnt immer ab, außer explizit
+    // HA_ALLOW_LEGACY=1 für das Upgrade-Fenster alter Doppelinstallationen.
     const partnerUrl = await getConfiguredPartnerUrl();
-    if (partnerUrl) {
-      if (!loggedLegacyBypass) {
-        loggedLegacyBypass = true;
-        console.warn(
-          '[HA] Schwaches/oefentliches HA-Sync-Secret aktiv (Partner: ' +
-            `${partnerUrl}). Bitte einmalig ueber den In-App-HA-Assistenten pairen.` +
-            ' Mit HA_ENFORCE_SECRET=1 wird der Zugriff ohne starkes Secret hart abgelehnt.'
-        );
-      }
-      if (process.env.HA_ENFORCE_SECRET !== '1') {
-        return true; // Upgrade-Fenster: laufende Doppelinstallation nicht brechen
-      }
-      return false;
+    if (!loggedLegacyBypass) {
+      loggedLegacyBypass = true;
+      console.warn(
+        '[HA] Schwaches/fehlendes HA-Sync-Secret – Sync abgelehnt' +
+          (partnerUrl ? ` (Partner: ${partnerUrl})` : '') +
+          '. Bitte über den HA-Assistenten pairen.'
+      );
     }
-    // Kein Partner konfiguriert: Endpunkte bleiben bewusst geschlossen.
+    if (process.env.HA_ALLOW_LEGACY === '1' && partnerUrl && process.env.HA_ENFORCE_SECRET !== '1') {
+      return true;
+    }
     return false;
   }
 

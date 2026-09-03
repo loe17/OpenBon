@@ -78,52 +78,85 @@ export async function GET(req: NextRequest) {
           posZeile: posZeile++,
           artikeltext: item.productName,
           menge: item.quantity,
-          einzelpreisGross: item.unitPrice,
-          gesamtGross: item.unitPrice * item.quantity,
+          einzelpreisGrossCents: item.unitPriceCents,
+          gesamtGrossCents: item.unitPriceCents * item.quantity,
           ustSatz: item.taxRate,
         });
       }
 
-      if (p.taxAmount19 > 0 || p.taxBase19 > 0) {
+      if (p.taxAmount19Cents > 0 || p.taxBase19Cents > 0) {
         bonposPreise.push({
           bonId: p.id,
           ustSatz: 19.0,
-          netto: p.taxBase19,
-          ust: p.taxAmount19,
-          brutto: p.taxBase19 + p.taxAmount19,
+          nettoCents: p.taxBase19Cents,
+          ustCents: p.taxAmount19Cents,
+          bruttoCents: p.taxBase19Cents + p.taxAmount19Cents,
         });
       }
 
-      if (p.taxAmount7 > 0 || p.taxBase7 > 0) {
+      if (p.taxAmount7Cents > 0 || p.taxBase7Cents > 0) {
         bonposPreise.push({
           bonId: p.id,
           ustSatz: 7.0,
-          netto: p.taxBase7,
-          ust: p.taxAmount7,
-          brutto: p.taxBase7 + p.taxAmount7,
+          nettoCents: p.taxBase7Cents,
+          ustCents: p.taxAmount7Cents,
+          bruttoCents: p.taxBase7Cents + p.taxAmount7Cents,
         });
       }
     }
 
-    const result = generateDsfinvkTables(bonkoepfe, bonpos, bonposPreise);
+    const totalGrossCents = payments.reduce((s, p) => s + (p.totalGrossCents ?? 0), 0);
+    const result = generateDsfinvkTables(bonkoepfe, bonpos, bonposPreise, {
+      kassenId: config?.id || 'POS-01',
+      totalGrossCents: totalGrossCents,
+      transactionCount: payments.length,
+    });
 
-    return NextResponse.json({
-      success: true,
-      periodStart: startDate.toISOString(),
-      periodEnd: endDate.toISOString(),
-      checksumSha256: result.checksumSha256,
-      // M6.5: Transparenz fuer den Operator - der Export wurde ohne echte
-      // TSE-Kennzeichnung erzeugt.
-      tseState: hasRealTse ? 'CONFIGURED' : 'NO_TSE',
-      tseNotice:
-        hasRealTse
-          ? null
-          : 'Keine echte TSE konfiguriert/angeschlossen. TSE-Felder im Export sind absichtlich leer (DSFinV-K NO_TSE).',
-      tables: {
-        bonkopfCsv: result.bonkopfCsv,
-        bonposCsv: result.bonposCsv,
-        bonposPreiseCsv: result.bonposPreiseCsv,
-        tseTransaktionenCsv: result.tseTransaktionenCsv,
+    const tseState = hasRealTse ? 'CONFIGURED' : 'NO_TSE';
+    const tseNotice = hasRealTse
+      ? null
+      : 'Keine echte TSE konfiguriert/angeschlossen (TSE_PROVIDER=NONE). TSE-Felder sind absichtlich leer (DSFinV-K NO_TSE).';
+
+    const { searchParams: sp } = new URL(req.url);
+    if (sp.get('format') === 'json') {
+      return NextResponse.json({
+        success: true,
+        periodStart: startDate.toISOString(),
+        periodEnd: endDate.toISOString(),
+        checksumSha256: result.checksumSha256,
+        tseState,
+        tseNotice,
+        tables: {
+          bonkopfCsv: result.bonkopfCsv,
+          bonposCsv: result.bonposCsv,
+          bonposPreiseCsv: result.bonposPreiseCsv,
+          tseTransaktionenCsv: result.tseTransaktionenCsv,
+          cashPointClosingCsv: result.cashPointClosingCsv,
+          indexXml: result.indexXml,
+        },
+      });
+    }
+
+    const { buildDsfinvkZip } = await import('@/lib/dsfinvk-archive');
+    const label = `${startDate.toISOString().slice(0, 10)}_${endDate.toISOString().slice(0, 10)}`;
+    const zip = await buildDsfinvkZip(result, label);
+    const filename = `DSFinVK_${label}.zip`;
+    await prisma.fiscalExport
+      .create({
+        data: {
+          exportType: 'DSFINVK_ZIP',
+          periodStart: startDate,
+          periodEnd: endDate,
+          filename,
+          checksumSha256: result.checksumSha256,
+          status: 'COMPLETED',
+        },
+      })
+      .catch(() => null);
+    return new Response(zip as unknown as BodyInit, {
+      headers: {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': `attachment; filename="${filename}"`,
       },
     });
   } catch (error) {

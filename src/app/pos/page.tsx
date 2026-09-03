@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSocket } from '@/components/providers/socket-provider';
 import QRCode from 'qrcode';
-import { formatCurrency, generateIdempotencyKey } from '@/lib/utils';
+import { formatCents, formatCurrency, generateIdempotencyKey } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import {
   Ticket,
@@ -241,10 +241,10 @@ function PosCounterContent() {
     triggerHapticFeedback();
     const optionsDelta = (product.options || [])
       .filter((o) => optionsList.includes(o.name))
-      .reduce((sum, o) => sum + (o.priceDelta || 0), 0);
+      .reduce((sum, o) => sum + (((o as any).priceDeltaCents ?? Math.round(((o as any).priceDelta ?? 0) * 100)) / 100), 0);
 
     const { price: effectivePrice } = getEffectiveProductPrice(product as any);
-    const unitPrice = effectivePrice + (variant ? variant.priceDelta : 0) + optionsDelta;
+    const unitPrice = effectivePrice + (variant ? (((variant as any).priceDeltaCents ?? Math.round(((variant as any).priceDelta ?? 0) * 100)) / 100) : 0) + optionsDelta;
     const optionsKey = optionsList.slice().sort().join('|');
     const lineId = `${product.id}_${variant ? variant.name : 'def'}_${optionsKey}`;
 
@@ -270,7 +270,7 @@ function PosCounterContent() {
           productId: product.id,
           name: product.name,
           price: unitPrice,
-          deposit: product.deposit || 0,
+          deposit: ((product as any).depositCents ?? Math.round(((product as any).deposit ?? 0) * 100)) / 100,
           quantity: 1,
           variantName: variant ? variant.name : undefined,
           selectedOptions: optionsList,
@@ -346,6 +346,7 @@ function PosCounterContent() {
           variantName: item.variantName || undefined,
         })),
         paymentMethod: activeMethod,
+        givenAmountCents: activeMethod === 'CASH' ? Math.round(givenAmount * 100) : undefined,
         givenAmount: activeMethod === 'CASH' ? givenAmount : undefined,
         openDrawer: false,
         printReceipt: printReceipt,
@@ -457,9 +458,14 @@ function PosCounterContent() {
     }
   };
 
+  const [productSearch, setProductSearch] = useState('');
   const currentCategory = categories.find((c) => c.id === selectedCatId);
   const rawProducts = currentCategory?.products?.filter((p) => {
     if (selectedSubCat !== 'ALL' && p.subCategory !== selectedSubCat) return false;
+    if (productSearch.trim()) {
+      const q = productSearch.trim().toLowerCase();
+      if (!p.name.toLowerCase().includes(q)) return false;
+    }
     return true;
   }) || [];
 
@@ -619,6 +625,26 @@ function PosCounterContent() {
         </div>
       )}
 
+      {/* Suche */}
+      <div className="bg-slate-900 px-3 py-2 border-b border-slate-800 flex items-center gap-2">
+        <input
+          value={productSearch}
+          onChange={(e) => setProductSearch(e.target.value)}
+          placeholder="Artikel suchen …"
+          aria-label="Artikel suchen"
+          className="w-full max-w-xs bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 min-h-[48px]"
+        />
+        {productSearch && (
+          <button
+            onClick={() => setProductSearch('')}
+            className="text-xs text-slate-400 hover:text-white px-2 py-2 min-h-[48px]"
+            aria-label="Suche löschen"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
       {/* Categories */}
       <div className="bg-slate-900 px-3 py-2 border-b border-slate-800 flex items-center gap-2 overflow-x-auto">
         {categories.map((cat) => (
@@ -699,7 +725,7 @@ function PosCounterContent() {
 
                   <div className="flex items-center justify-between w-full mt-2">
                     <span className="text-base sm:text-lg font-black font-mono text-emerald-400">
-                      {formatCurrency(effectivePrice)}
+                      {formatCents(Math.round((effectivePrice) * 100))}
                     </span>
                     {!isOut && (
                       <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200">
@@ -762,7 +788,7 @@ function PosCounterContent() {
                         <div className="text-[10px] font-semibold text-emerald-400">{item.variantName}</div>
                       )}
                       <div className="text-[11px] text-slate-400 font-mono font-bold">
-                        {formatCurrency((item.price + item.deposit) * item.quantity)}
+                        {formatCents(Math.round(((item.price + item.deposit) * item.quantity) * 100))}
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
@@ -792,7 +818,7 @@ function PosCounterContent() {
             <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-baseline justify-between shadow-inner">
               <span className="text-xs font-bold text-slate-400">Gesamtbetrag:</span>
               <span className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono">
-                {formatCurrency(totalAmount)}
+                {formatCents(Math.round((totalAmount) * 100))}
               </span>
             </div>
 
@@ -812,7 +838,7 @@ function PosCounterContent() {
               }`}
             >
               <Banknote className="w-5 h-5" />
-              <span>Kassieren ({formatCurrency(totalAmount)})</span>
+              <span>Kassieren ({formatCents(Math.round((totalAmount) * 100))})</span>
             </button>
           </div>
         </div>
@@ -847,7 +873,7 @@ function PosCounterContent() {
                   <div className="text-right">
                     <span className="text-[10px] uppercase font-bold text-slate-400 block">Zu zahlen:</span>
                     <span className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono leading-none">
-                      {formatCurrency(payableTotal)}
+                      {formatCents(Math.round((payableTotal) * 100))}
                     </span>
                   </div>
                   <button
@@ -924,8 +950,8 @@ function PosCounterContent() {
                   {/* Bargeld-Rückgeldrechner (Scheine 5-200€, Münzen 1ct-2€, Numpad ohne 00) */}
                   <div>
                     <ChangeCalculator
-                      amountDue={payableTotal}
-                      givenAmount={givenAmount}
+                      amountDueCents={Math.round(payableTotal * 100)} amountDue={payableTotal}
+                      givenCents={Math.round(givenAmount * 100)} givenAmount={givenAmount}
                       onGivenChange={(val) => setGivenAmount(val)}
                       defaultExpanded={true}
                     />
@@ -992,7 +1018,7 @@ function PosCounterContent() {
                               </div>
                             </div>
                             <span className="font-mono font-bold text-emerald-400 whitespace-nowrap">
-                              {formatCurrency((item.price + item.deposit) * item.quantity)}
+                              {formatCents(Math.round(((item.price + item.deposit) * item.quantity) * 100))}
                             </span>
                           </div>
                         );
@@ -1006,7 +1032,7 @@ function PosCounterContent() {
                       <div className="bg-amber-950/60 border border-amber-800/80 text-amber-300 p-2.5 rounded-2xl text-[11px] font-bold">
                         <span>Teilzahlung aktiv: {payableItems.length} Positionen gewählt.</span>
                         <div className="text-[10px] text-amber-400 font-normal mt-0.5">
-                          Verbleibender Rest ({formatCurrency(totalAmount - payableTotal)}) bleibt im Warenkorb.
+                          Verbleibender Rest ({formatCents(Math.round((totalAmount - payableTotal) * 100))}) bleibt im Warenkorb.
                         </div>
                       </div>
                     )}
@@ -1014,7 +1040,7 @@ function PosCounterContent() {
                     <div className="flex justify-between items-baseline">
                       <span className="text-xs text-slate-400 font-bold">Zu zahlen:</span>
                       <span className="text-2xl font-black text-emerald-400 font-mono">
-                        {formatCurrency(payableTotal)}
+                        {formatCents(Math.round((payableTotal) * 100))}
                       </span>
                     </div>
 
@@ -1027,7 +1053,7 @@ function PosCounterContent() {
                       <span>
                         {isProcessing
                           ? 'Wird gebucht & gedruckt...'
-                          : `Jetzt kassieren (${formatCurrency(payableTotal)})`}
+                          : `Jetzt kassieren (${formatCents(Math.round((payableTotal) * 100))})`}
                       </span>
                     </button>
                   </div>
@@ -1250,7 +1276,7 @@ function PosCounterContent() {
                       >
                         <div className="truncate font-black">{v.name}</div>
                         <div className="text-[11px] opacity-80 mt-0.5 font-mono">
-                          {v.priceDelta > 0 ? `+${formatCurrency(v.priceDelta)}` : 'Standard'}
+                          {((v as any).priceDeltaCents ?? Math.round(((v as any).priceDelta ?? 0) * 100)) > 0 ? `+${formatCents((v as any).priceDeltaCents ?? Math.round(((v as any).priceDelta ?? 0) * 100))}` : 'Standard'}
                         </div>
                       </button>
                     );
@@ -1295,8 +1321,8 @@ function PosCounterContent() {
                           </span>
                           <span>{opt.name}</span>
                         </div>
-                        {opt.priceDelta && opt.priceDelta > 0 ? (
-                          <span className="font-mono text-emerald-400">+{formatCurrency(opt.priceDelta)}</span>
+                        {((opt as any).priceDeltaCents ?? Math.round(((opt as any).priceDelta ?? 0) * 100)) > 0 ? (
+                          <span className="font-mono text-emerald-400">+{formatCents((opt as any).priceDeltaCents ?? Math.round(((opt as any).priceDelta ?? 0) * 100))}</span>
                         ) : (
                           <span className="text-slate-500 text-[10px]">Inklusive</span>
                         )}

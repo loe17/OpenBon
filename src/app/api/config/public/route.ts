@@ -89,12 +89,7 @@ export async function GET() {
       receiptDrinkShowWaiter: config.receiptDrinkShowWaiter,
       receiptDrinkShowTimestamp: config.receiptDrinkShowTimestamp,
       receiptDrinkShowOptions: config.receiptDrinkShowOptions,
-      sumupAppId: config.sumupAppId,
-      sumupMerchantCode: config.sumupMerchantCode,
-      vrPayTerminalId: config.vrPayTerminalId,
-      sparkasseMerchantId: config.sparkasseMerchantId,
       activeCardProvider: config.activeCardProvider || 'SUMUP',
-      baseUrl: config.baseUrl,
       tseProvider: config.tseProvider,
       initialPinSet: config.initialPinSet,
       // N3.3: Versionskennung fuer den "Update verfuegbar"-Hinweis der Clients

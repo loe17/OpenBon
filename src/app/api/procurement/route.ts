@@ -47,7 +47,7 @@ export async function GET(req: Request) {
         targetStock,
         suggestedQty: neededQty,
         isUrgent,
-        unitPrice: prod.price,
+        unitPriceCents: prod.priceCents,
       };
     });
 

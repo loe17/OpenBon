@@ -163,6 +163,9 @@ export async function POST(req: Request) {
           invoiceSequence: 1,
           orderSequence: 1,
           aisles: '[]',
+          // Werks-PINs sind nur Übergang: Setup-Assistent erzwingt danach
+          // neue 6-stellige PINs (kein Dauerbetrieb mit 0000/1111/…).
+          initialPinSet: false,
         },
         create: {
           id: 'default',
@@ -179,9 +182,10 @@ export async function POST(req: Request) {
           receiptSubHeader: '',
           receiptFooterText: '',
           aisles: '[]',
+          initialPinSet: false,
         },
       });
-      summary.push('System-Konfiguration & PINs auf Werkszustand zurückgesetzt');
+      summary.push('System-Konfiguration & PINs auf Werkszustand zurückgesetzt – bitte sofort neue PINs im Setup-Assistenten vergeben');
     }
 
     if (global.io) {

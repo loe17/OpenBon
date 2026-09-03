@@ -13,9 +13,10 @@ OpenBon verfügt über eine integrierte **Echtzeit-Transaktionsreplikation** zwi
 2. **PC 2 (Hot-Standby)**:
    - Pollt im Sekundentakt (`/api/sync/heartbeat`) den Zustand von PC 1.
    - Spiegelt kontinuierlich alle neuen Journal-Einträge in seine lokale SQLite-Datenbank.
-3. **Automatischer Failover (<3s)**:
-   - Antwortet PC 1 dreimal hintereinander nicht (3x 1 Sekunde Timeout), befördert sich PC 2 automatisch zum **PRIMARY MASTER**.
-   - Alle Kellner-Smartphones können sofort nahtlos auf PC 2 weiterarbeiten. Kein Datenverlust!
+3. **Failover (Standard: Kalt-Standby, manuell)**:
+    - Standard ist **kein Auto-Promote** (`HA_AUTO_FAILOVER=0`, Schema-Default `false`). Antwortet PC 1 dreimal nicht, meldet PC 2 `ha:manual_failover_required` – Übernahme nur per Admin-Knopf (verhindert Split-Brain bei kurzer Funkstille).
+    - Nur mit explizitem Opt-in (`HA_AUTO_FAILOVER=1` + DB `haAutoFailover=true`) erfolgt automatisches Promote nach Lease-Prüfung.
+    - Hinweis: Beide Knoten haben getrennte SQLite-Dateien; die Journal-Replikation deckt nur ORDER/PAYMENT-Header ab (keine Positionen) – für Volllast-Stände Kalt-Standby + Litestream-USB + Restore-Drill nutzen (siehe `AUSFALLSICHERHEIT_LITESTREAM.md`, `NOTFALL_RUNBOOK.md`).
 
 ---
 

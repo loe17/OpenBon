@@ -5,9 +5,9 @@ import { parseAndValidateLicense, generateOfflineSignature } from '../lib/licens
 import { verifyStationPin, setAllStationPins } from '../lib/auth-pin';
 import { EscPosBuilder } from '../lib/printer/escpos-builder';
 
-describe('OpenBon v0.4.17: Schema, License, PIN & Print Sanity Tests', () => {
-  it('should verify v0.4.17 version info', () => {
-    expect(APP_VERSION).toBe('0.4.17');
+describe('OpenBon v0.4.21: Schema, License, PIN & Print Sanity Tests', () => {
+  it('should verify v0.4.21 version info', () => {
+    expect(APP_VERSION).toBe('0.4.21');
   });
 
   it('should initialize Prisma DB Client with valid DATABASE_URL fallback', () => {
@@ -35,15 +35,15 @@ describe('OpenBon v0.4.17: Schema, License, PIN & Print Sanity Tests', () => {
 
   it('should verify station PIN verification defaults', async () => {
     await setAllStationPins({
-      adminPin: '1234',
-      posPin: '1111',
-      kitchenPin: '2222',
-      waiterPin: '3333',
+      adminPin: '582914',
+      posPin: '619274',
+      kitchenPin: '338159',
+      waiterPin: '772481',
     });
-    expect(await verifyStationPin('1234', 'ADMIN')).toBe(true);
-    expect(await verifyStationPin('1111', 'POS')).toBe(true);
-    expect(await verifyStationPin('2222', 'KITCHEN')).toBe(true);
-    expect(await verifyStationPin('3333', 'WAITER')).toBe(true);
+    expect(await verifyStationPin('582914', 'ADMIN')).toBe(true);
+    expect(await verifyStationPin('619274', 'POS')).toBe(true);
+    expect(await verifyStationPin('338159', 'KITCHEN')).toBe(true);
+    expect(await verifyStationPin('772481', 'WAITER')).toBe(true);
     expect(await verifyStationPin('9999', 'ADMIN')).toBe(false);
   });
 
@@ -61,12 +61,12 @@ describe('OpenBon v0.4.17: Schema, License, PIN & Print Sanity Tests', () => {
     expect(stationTicket.textRepresentation).toContain('http://openbon.local/waiter');
 
     const zbonTicket = EscPosBuilder.buildZBonTicket({
-      totalGross: 1250.5,
-      totalNet: 1050.84,
-      totalTax19: 199.66,
-      totalCash: 950.0,
-      totalCard: 300.5,
-      waiters: [{ waiterName: 'Lisa', totalGross: 620.0, cashGross: 500.0, cardGross: 120.0 }],
+      totalGrossCents: 125050,
+      totalNetCents: 105084,
+      totalTax19Cents: 19966,
+      totalCashCents: 95000,
+      totalCardCents: 30050,
+      waiters: [{ waiterName: 'Lisa', totalGrossCents: 62000, cashGrossCents: 50000, cardGross: 120.0 }],
     });
 
     expect(zbonTicket.rawBuffer).toBeDefined();

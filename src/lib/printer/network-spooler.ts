@@ -34,9 +34,11 @@ class NetworkSpooler {
   public async printTicket(
     printer: { id: string; name: string; ipAddress: string; port: number; isVirtual: boolean; paperWidth: number },
     ticketData: TicketData,
-    options?: { orderId?: string; printGroupId?: string }
+    options?: { orderId?: string; printGroupId?: string; itemIds?: string[] }
   ): Promise<{ success: boolean; isVirtual: boolean; jobId?: string; error?: string }> {
     // 1. In Datenbank persistieren (Resilienz gegen Abstürze)
+    // rawPayload enthält zusätzlich itemIds für pro-Item-ACK (nur dieses Ticket, nicht ganze Order)
+    const payloadWithIds = { ...ticketData, __itemIds: options?.itemIds || [] };
     let dbJob = null;
     try {
       dbJob = await prisma.printJob.create({
@@ -45,14 +47,14 @@ class NetworkSpooler {
           printGroupId: options?.printGroupId || null,
           orderId: options?.orderId || null,
           title: ticketData.title || 'Bon',
-          rawPayload: JSON.stringify(ticketData),
+          rawPayload: JSON.stringify(payloadWithIds),
           status: printer.isVirtual ? 'PRINTED' : 'PENDING',
           attempts: 0,
           printedAt: printer.isVirtual ? new Date() : null,
         },
       });
-    } catch {
-      // Falls DB kurz blockiert ist, mit Memory-Fallback weiterarbeiten
+    } catch (err) {
+      console.error('[SPOOLER] PrintJob-DB-Write fehlgeschlagen, Memory-Fallback (geht bei Crash verloren):', err instanceof Error ? err.message : err);
     }
 
     const job: SpoolJob = {
@@ -73,10 +75,11 @@ class NetworkSpooler {
       const res = await this.processVirtualPrint(job);
       return { success: res.success, isVirtual: true, jobId: job.id };
     } else {
-      // In Spool-Queue einreihen (processQueue spiegelt nach Abarbeitung den Auftrag in den Monitor)
+      // Ehrlich: PENDING einreihen, erst nach Socket-ACK als PRINTED melden.
+      // Aufrufer dürfen printStatus erst nach Erfolg auf PRINTED setzen.
       this.queue.push(job);
       this.processQueue();
-      return { success: true, isVirtual: false, jobId: job.id };
+      return { success: false, isVirtual: false, jobId: job.id, error: 'PENDING' };
     }
   }
 
@@ -209,12 +212,40 @@ class NetworkSpooler {
         await this.processVirtualPrint(job);
       }
 
-      // In DB als gedruckt markieren
+      // In DB als gedruckt markieren + async ACK (OrderItems + Socket)
+      let orderId: string | null = null;
+      let printGroupId: string | null = null;
+      let updatedRaw: string | null = null;
       if (job.dbJobId) {
-        await prisma.printJob.update({
-          where: { id: job.dbJobId },
-          data: { status: 'PRINTED', printedAt: new Date() },
-        }).catch(() => {});
+        const updated = await prisma.printJob
+          .update({
+            where: { id: job.dbJobId },
+            data: { status: 'PRINTED', printedAt: new Date() },
+          })
+          .catch(() => null);
+        orderId = (updated as { orderId?: string | null } | null)?.orderId ?? null;
+        printGroupId = (updated as { printGroupId?: string | null } | null)?.printGroupId ?? null;
+        updatedRaw = (updated as { rawPayload?: string | null } | null)?.rawPayload ?? null;
+      }
+      // Pro-Item-ACK: nur Items dieses Tickets, nicht ganze Order
+      try {
+        const parsed = JSON.parse(updatedRaw || '{}') as { __itemIds?: string[] };
+        const ids = Array.isArray(parsed.__itemIds) ? parsed.__itemIds.filter((x) => typeof x === 'string') : [];
+        if (ids.length > 0) {
+          await prisma.orderItem.updateMany({ where: { id: { in: ids }, printStatus: 'PENDING' }, data: { printStatus: 'PRINTED' } }).catch(() => null);
+        } else if (orderId) {
+          await prisma.orderItem.updateMany({ where: { orderId, printStatus: 'PENDING' }, data: { printStatus: 'PRINTED' } }).catch(() => null);
+        }
+      } catch {}
+      if (global.io) {
+        global.io.emit('print:acked', {
+          jobId: job.id,
+          dbJobId: job.dbJobId || null,
+          printerId: job.printerId,
+          printerName: job.printerName,
+          orderId,
+          printGroupId,
+        });
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -265,23 +296,46 @@ class NetworkSpooler {
         } catch {}
 
         if (!fallbackHandled) {
-          // Als FAILED markieren
+          // Als FAILED markieren + async NACK (OrderItems + Socket)
+          let failedOrderId: string | null = null;
+          let failedRaw: string | null = null;
           if (job.dbJobId) {
-            await prisma.printJob.update({
-              where: { id: job.dbJobId },
-              data: {
-                status: 'FAILED',
-                attempts: job.retries + 1,
-                lastError: errMsg,
-              },
-            }).catch(() => {});
+            const updated = await prisma.printJob
+              .update({
+                where: { id: job.dbJobId },
+                data: {
+                  status: 'FAILED',
+                  attempts: job.retries + 1,
+                  lastError: errMsg,
+                },
+              })
+              .catch(() => null);
+            failedOrderId = (updated as { orderId?: string | null } | null)?.orderId ?? null;
+            failedRaw = (updated as { rawPayload?: string | null } | null)?.rawPayload ?? null;
           }
+          try {
+            const parsed = JSON.parse(failedRaw || '{}') as { __itemIds?: string[] };
+            const ids = Array.isArray(parsed.__itemIds) ? parsed.__itemIds.filter((x) => typeof x === 'string') : [];
+            if (ids.length > 0) {
+              await prisma.orderItem.updateMany({ where: { id: { in: ids }, printStatus: 'PENDING' }, data: { printStatus: 'ERROR' } }).catch(() => null);
+            } else if (failedOrderId) {
+              await prisma.orderItem.updateMany({ where: { orderId: failedOrderId, printStatus: 'PENDING' }, data: { printStatus: 'ERROR' } }).catch(() => null);
+            }
+          } catch {}
 
           if (global.io) {
             global.io.emit('printer:error', {
               jobId: job.id,
               printerId: job.printerId,
               printerName: job.printerName,
+              error: errMsg,
+            });
+            global.io.emit('print:failed', {
+              jobId: job.id,
+              dbJobId: job.dbJobId || null,
+              printerId: job.printerId,
+              printerName: job.printerName,
+              orderId: failedOrderId,
               error: errMsg,
             });
           }
@@ -350,43 +404,27 @@ class NetworkSpooler {
     if (this.recoveryRunning) return;
     this.recoveryRunning = true;
     try {
-      const pending = await prisma.printJob.findMany({
-        where: { status: 'PENDING' },
-        orderBy: { createdAt: 'asc' },
-        take: 50,
-      });
-
-      if (pending.length > 0) {
-        console.log(`[SPOOLER] ${pending.length} noch ausstehende Druckaufträge aus der Datenbank geladen.`);
-        const printers = await prisma.printer.findMany();
-        const printerMap = new Map(printers.map((pr) => [pr.id, pr]));
-
-        for (const p of pending) {
-          if (!p.printerId || !p.rawPayload) continue;
-          // Bereits eingereihte Jobs nicht ein zweites Mal aufnehmen.
-          if (this.queue.some((q) => q.dbJobId === p.id)) continue;
-          const printer = printerMap.get(p.printerId);
-          if (!printer) continue;
-
-          try {
-            const ticketData: TicketData = JSON.parse(p.rawPayload);
-            this.queue.push({
-              id: p.id,
-              dbJobId: p.id,
-              printerId: printer.id,
-              printerName: printer.name,
-              printerIp: printer.ipAddress,
-              printerPort: printer.port || 9100,
-              isVirtual: printer.isVirtual,
-              paperWidth: printer.paperWidth || 80,
-              ticketData,
-              retries: p.attempts || 0,
-              createdAt: p.createdAt,
-            });
-          } catch {}
-        }
+      // Cursor-Schleife statt take:50-Deckel (nach Crash darf nichts ewig PENDING bleiben)
+      let cursor: string | undefined;
+      let total = 0;
+      for (let round = 0; round < 20; round++) {
+        const pending = await prisma.printJob.findMany({
+          where: { status: 'PENDING' },
+          orderBy: { createdAt: 'asc' },
+          take: 100,
+          ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+        });
+        if (pending.length === 0) break;
+        total += pending.length;
+        cursor = pending[pending.length - 1].id;
+        await this.enqueueRecovered(pending);
+        if (pending.length < 100) break;
+      }
+      if (total > 0) {
+        console.log(`[SPOOLER] ${total} noch ausstehende Druckaufträge aus der Datenbank geladen.`);
         this.processQueue();
       }
+      return;
     } catch {
       // Ignorieren bei Initialisierung / DB-Setup
     } finally {
@@ -394,10 +432,83 @@ class NetworkSpooler {
     }
   }
 
-  public restartSpooler(): void {
+  private async enqueueRecovered(pending: Array<{ id: string; printerId: string | null; rawPayload: string | null; attempts: number; createdAt: Date }>): Promise<void> {
+    const printers = await prisma.printer.findMany();
+    const printerMap = new Map(printers.map((pr) => [pr.id, pr]));
+    for (const p of pending) {
+      if (!p.printerId || !p.rawPayload) continue;
+      // Bereits eingereihte Jobs nicht ein zweites Mal aufnehmen.
+      if (this.queue.some((q) => q.dbJobId === p.id)) continue;
+      const printer = printerMap.get(p.printerId);
+      if (!printer) continue;
+      try {
+        const ticketData: TicketData = JSON.parse(p.rawPayload);
+        this.queue.push({
+          id: p.id,
+          dbJobId: p.id,
+          printerId: printer.id,
+          printerName: printer.name,
+          printerIp: printer.ipAddress,
+          printerPort: printer.port || 9100,
+          isVirtual: printer.isVirtual,
+          paperWidth: printer.paperWidth || 80,
+          ticketData,
+          retries: p.attempts || 0,
+          createdAt: p.createdAt,
+        });
+      } catch {}
+    }
+  }
+
+  /** Requeue ohne Duplikat-PrintJob: nutzt bestehende DB-ID (Retry/Reroute). */
+  public async requeueExistingJob(
+    dbJob: { id: string; printerId: string | null; rawPayload: string | null; attempts?: number; createdAt?: Date },
+    printer: { id: string; name: string; ipAddress: string; port: number; isVirtual: boolean; paperWidth: number }
+  ): Promise<boolean> {
+    if (!dbJob.rawPayload) return false;
+    if (this.queue.some((q) => q.dbJobId === dbJob.id)) return true;
+    try {
+      const ticketData: TicketData = JSON.parse(dbJob.rawPayload);
+      this.queue.push({
+        id: dbJob.id,
+        dbJobId: dbJob.id,
+        printerId: printer.id,
+        printerName: printer.name,
+        printerIp: printer.ipAddress,
+        printerPort: printer.port || 9100,
+        isVirtual: printer.isVirtual,
+        paperWidth: printer.paperWidth || 80,
+        ticketData,
+        retries: dbJob.attempts || 0,
+        createdAt: dbJob.createdAt || new Date(),
+      });
+      this.processQueue();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  public async restartSpooler(): Promise<void> {
     this.isProcessing = false;
+    // Nicht still verwerfen: ausgeschöpfte Jobs als FAILED in DB persistieren
+    const dropped = this.queue.filter((job) => job.retries >= 3);
     this.queue = this.queue.filter((job) => job.retries < 3);
-    console.warn(`[SPOOLER] Neustart – ${this.queue.length} Auftrag/Aufträge in der Warteschlange.`);
+    for (const job of dropped) {
+      try {
+        if (job.dbJobId) {
+          await prisma.printJob.update({
+            where: { id: job.dbJobId },
+            data: { status: 'FAILED', lastError: 'Max. Versuche erreicht – manuelles Retry/Reroute nötig.' },
+          });
+        }
+      } catch {}
+    }
+    if (dropped.length > 0) {
+      console.warn(`[SPOOLER] Neustart – ${dropped.length} Auftrag/Aufträge als FAILED persistiert, ${this.queue.length} weiter in Warteschlange.`);
+    } else {
+      console.warn(`[SPOOLER] Neustart – ${this.queue.length} Auftrag/Aufträge in der Warteschlange.`);
+    }
     setTimeout(() => this.processQueue(), 50);
   }
 

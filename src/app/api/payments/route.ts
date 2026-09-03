@@ -3,7 +3,7 @@ import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
 import haService from '@/lib/ha/ha-service';
-import { computeCheckout, findSplit, round2 } from '@/lib/pricing';
+import { computeCheckout, findSplit, round2, toCents } from '@/lib/pricing';
 import { getOrCreateOpenPeriod } from '@/lib/register-period';
 import { getPaymentLabel } from '@/lib/payment/methods';
 import { generateDigitalReceiptCode, buildReceiptUrl } from '@/lib/digital-receipt';
@@ -46,7 +46,7 @@ interface PayableItemInput {
   orderItemId?: string | null;
   productName: string;
   quantityToPay: number;
-  unitPrice: number;
+  unitPriceCents: number;
   deposit?: number;
   taxRate?: number;
 }
@@ -54,6 +54,9 @@ interface PayableItemInput {
 export async function POST(req: Request) {
   const auth = await requireApiAuth(req);
   if (!auth.ok) return auth.response;
+  const { denyStandbyWrite } = await import('@/lib/ha/ha-guard');
+  const denied = denyStandbyWrite();
+  if (denied) return denied;
 
   try {
     // Zod-Validierung: verhindert stillschweigend falsche Betraege durch Type-Cast + Number()-Zwangsumwandlung
@@ -89,23 +92,23 @@ export async function POST(req: Request) {
     // Verknuepfte Positionen, die in der DB fehlen, fuehren zu 409 statt zum
     // bisherigen stillen Ueberspringen. Abweichung > 1 Cent = Manipulationsversuch.
     const PRICE_TOLERANCE_CENTS = 1;
-    const toleranceOk = (clientValue: number, dbValue: number) =>
-      Math.abs(Number(clientValue || 0) - Number(dbValue || 0)) * 100 <= PRICE_TOLERANCE_CENTS + 1e-9;
+    const toleranceOk = (clientEuro: number, dbCents: number) =>
+      Math.abs(toCents(Number(clientEuro || 0)) - Number(dbCents || 0)) <= PRICE_TOLERANCE_CENTS;
 
     const linkedIds = Array.from(
       new Set(itemsToPay.map((i) => i.orderItemId).filter(Boolean) as string[])
     );
-    const orderItemMap = new Map<string, { productName: string; unitPrice: number; deposit: number; taxRate: number }>();
+    const orderItemMap = new Map<string, { productName: string; unitPriceCents: number; depositCents: number; taxRate: number }>();
     if (linkedIds.length > 0) {
       const rows = await prisma.orderItem.findMany({
         where: { id: { in: linkedIds } },
-        select: { id: true, productName: true, unitPrice: true, deposit: true, taxRate: true },
+        select: { id: true, productName: true, unitPriceCents: true, depositCents: true, taxRate: true },
       });
       for (const row of rows) {
         orderItemMap.set(row.id, {
           productName: row.productName,
-          unitPrice: row.unitPrice,
-          deposit: row.deposit,
+          unitPriceCents: row.unitPriceCents,
+          depositCents: row.depositCents,
           taxRate: row.taxRate,
         });
       }
@@ -115,8 +118,8 @@ export async function POST(req: Request) {
       orderItemId: string | null;
       productName: string;
       quantity: number;
-      unitPrice: number;
-      deposit: number;
+      unitPriceCents: number;
+      depositCents: number;
       taxRate: number;
     }> = [];
 
@@ -136,29 +139,29 @@ export async function POST(req: Request) {
           orderItemId: item.orderItemId ?? null,
           productName: item.productName,
           quantity,
-          unitPrice: round2(Number(item.unitPrice)),
-          deposit: round2(Number(item.deposit ?? 0)),
+          unitPriceCents: toCents(Number((item as any).unitPrice ?? (item as any).unitPriceCents ?? 0)),
+          depositCents: toCents(Number((item as any).deposit ?? (item as any).depositCents ?? 0)),
           taxRate: Number(item.taxRate ?? config.taxRateNormal),
         });
         continue;
       }
 
-      const clientUnitPrice = Number(item.unitPrice);
+      const clientUnitPrice = Number((item as any).unitPrice ?? ((item as any).unitPriceCents ?? 0) / 100);
       if (
-        !toleranceOk(clientUnitPrice, linkedRow.unitPrice) ||
-        !toleranceOk(Number(item.deposit ?? 0), linkedRow.deposit)
+        !toleranceOk(clientUnitPrice, linkedRow.unitPriceCents) ||
+        !toleranceOk(Number((item as any).deposit ?? ((item as any).depositCents ?? 0) / 100), linkedRow.depositCents)
       ) {
         await logSystemActionSafe(() => ({
           action: 'PAYMENT_PRICE_MISMATCH',
           category: 'SALES',
           actor: auth.session.waiterName || auth.session.role || 'unbekannt',
-          details: `Preisabweichung bei "${linkedRow.productName}" abgewiesen: Client sendete ${round2(clientUnitPrice).toFixed(2)} € / ${Number(item.deposit ?? 0).toFixed(2)} € Pfand, Server erwartet ${round2(linkedRow.unitPrice).toFixed(2)} € / ${linkedRow.deposit.toFixed(2)} € Pfand.`,
+          details: `Preisabweichung bei "${linkedRow.productName}" abgewiesen: Client sendete ${(clientUnitPrice).toFixed(2)} € / ${Number((item as any).deposit ?? 0).toFixed(2)} € Pfand, Server erwartet ${(linkedRow.unitPriceCents / 100).toFixed(2)} € / ${(linkedRow.depositCents / 100).toFixed(2)} € Pfand.`,
           metadata: {
             orderItemId: item.orderItemId,
             clientUnitPrice: clientUnitPrice,
-            clientDeposit: Number(item.deposit ?? 0),
-            serverUnitPrice: linkedRow.unitPrice,
-            serverDeposit: linkedRow.deposit,
+            clientDeposit: Number((item as any).deposit ?? 0),
+            serverUnitPriceCents: linkedRow.unitPriceCents,
+            serverDepositCents: linkedRow.depositCents,
             waiterName: body.waiterName || null,
             deviceId: body.deviceId || null,
           },
@@ -175,26 +178,26 @@ export async function POST(req: Request) {
         orderItemId: item.orderItemId ?? null,
         productName: linkedRow.productName,
         quantity,
-        unitPrice: round2(linkedRow.unitPrice),
-        deposit: round2(linkedRow.deposit),
+        unitPriceCents: linkedRow.unitPriceCents,
+        depositCents: linkedRow.depositCents,
         taxRate: linkedRow.taxRate,
       });
     }
 
-    // 1. Cent-genaue Berechnung (mit Server-Preisen)
+    // 1. Cent-genaue Berechnung (mit Server-Preisen). Pricing-Lib arbeitet in Euro -> Cents/100 als Brücke.
     const checkout = computeCheckout({
       lines: pricedLines.map((i) => ({
-        unitPrice: i.unitPrice,
-        deposit: i.deposit,
+        unitPriceCents: i.unitPriceCents,
+        depositCents: i.depositCents,
         quantity: i.quantity,
         taxRate: i.taxRate,
       })),
-      returnDepositAmount,
-      discountAmount: Number(body.discountAmount ?? 0),
-      surchargeFixed: Number(body.surchargeAmount ?? 0),
-      surchargePercent: Number(body.surchargePercent ?? 0),
-      tipAmount: Number(body.tipAmount ?? 0),
-      givenAmount: Number(body.givenAmount ?? 0),
+      returnDepositCents: toCents(Number(returnDepositAmount || 0)),
+      discountCents: toCents(Number((body as any).discountAmount || 0)),
+      surchargeFixedCents: toCents(Number((body as any).surchargeAmount || 0)),
+      surchargePercent: Number((body as any).surchargePercent || 0),
+      tipCents: toCents(Number((body as any).tipAmount || 0)),
+      givenCents: toCents(Number((body as any).givenAmount || 0)),
     });
 
     // Finde oder ermittle Kellner-Profil fuer Trinkgeld-Aufteilung
@@ -270,25 +273,25 @@ export async function POST(req: Request) {
           waiterName: body.waiterName || 'Bedienung',
           deviceId: body.deviceId || null,
           digitalReceiptCode,
-          totalGross: checkout.amountDue,
-          totalNet: checkout.netTotal,
-          totalTax: checkout.taxTotal,
-          taxBase19: findSplit(checkout.splits, 19).base,
-          taxAmount19: findSplit(checkout.splits, 19).tax,
-          taxBase7: findSplit(checkout.splits, 7).base,
-          taxAmount7: findSplit(checkout.splits, 7).tax,
-          taxBase0: findSplit(checkout.splits, 0).base,
-          totalDeposit: checkout.depositTotal,
-          returnDeposit: checkout.returnDeposit,
-          discountAmount: checkout.discountAmount,
-          tipAmount: checkout.tipAmount,
-          tipWaiterShare: tipDist.waiterShare,
-          tipPoolShare: tipDist.poolShare,
-          surchargeAmount: checkout.surchargeTotal,
+          totalGrossCents: checkout.amountDueCents ?? toCents(checkout.amountDue ?? 0),
+          totalNetCents: checkout.netCents ?? toCents(checkout.netTotal ?? 0),
+          totalTaxCents: checkout.taxCents ?? toCents(checkout.taxTotal ?? 0),
+          givenAmountCents: checkout.givenCents ?? toCents(checkout.givenAmount ?? 0),
+          changeAmountCents: checkout.changeCents ?? toCents(checkout.changeAmount ?? 0),
+          taxBase19Cents: findSplit(checkout.splits, 19).baseCents ?? toCents(findSplit(checkout.splits, 19).base ?? 0),
+          taxAmount19Cents: findSplit(checkout.splits, 19).taxCents ?? toCents(findSplit(checkout.splits, 19).tax ?? 0),
+          taxBase7Cents: findSplit(checkout.splits, 7).baseCents ?? toCents(findSplit(checkout.splits, 7).base ?? 0),
+          taxAmount7Cents: findSplit(checkout.splits, 7).taxCents ?? toCents(findSplit(checkout.splits, 7).tax ?? 0),
+          taxBase0Cents: findSplit(checkout.splits, 0).baseCents ?? toCents(findSplit(checkout.splits, 0).base ?? 0),
+          totalDepositCents: checkout.depositCents ?? toCents(checkout.depositTotal ?? 0),
+          returnDepositCents: checkout.returnDepositCents ?? toCents(checkout.returnDeposit ?? 0),
+          discountAmountCents: checkout.discountCents ?? toCents(checkout.discountAmount ?? 0),
+          tipAmountCents: checkout.tipCents ?? toCents(checkout.tipAmount ?? 0),
+          tipWaiterShareCents: toCents(tipDist.waiterShare ?? 0),
+          tipPoolShareCents: toCents(tipDist.poolShare ?? 0),
+          surchargeAmountCents: checkout.surchargeCents ?? toCents(checkout.surchargeTotal ?? 0),
           surchargePercent: Number(body.surchargePercent ?? 0),
           surchargeReason: body.surchargeReason || null,
-          givenAmount: checkout.givenAmount,
-          changeAmount: checkout.changeAmount,
           paymentMethod,
           cardAuthCode: body.cardAuthCode || null,
           cardTerminalId: body.cardTerminalId || null,
@@ -299,8 +302,8 @@ export async function POST(req: Request) {
               orderItemId: i.orderItemId || null,
               productName: i.productName,
               quantity: i.quantity,
-              unitPrice: i.unitPrice,
-              deposit: i.deposit,
+              unitPriceCents: i.unitPriceCents,
+              depositCents: i.depositCents,
               taxRate: i.taxRate,
             })),
           },
@@ -389,24 +392,24 @@ export async function POST(req: Request) {
           items: payment.items.map((i: any) => ({
             name: i.productName,
             quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            deposit: i.deposit,
+            unitPriceCents: i.unitPriceCents,
+            depositCents: i.depositCents,
             taxRate: i.taxRate,
           })),
-          totalGross: payment.totalGross,
-          totalNet: payment.totalNet,
-          totalTax: payment.totalTax,
-          totalDeposit: payment.totalDeposit,
-          returnDeposit: payment.returnDeposit,
-          discountAmount: payment.discountAmount,
-          surchargeAmount: payment.surchargeAmount,
+          totalGrossCents: payment.totalGrossCents,
+          totalNetCents: payment.totalNetCents,
+          totalTaxCents: payment.totalTaxCents,
+          totalDepositCents: payment.totalDepositCents,
+          returnDepositCents: payment.returnDepositCents,
+          discountCents: payment.discountAmountCents,
+          surchargeAmountCents: payment.surchargeAmountCents,
           surchargeReason: payment.surchargeReason,
-          tipAmount: payment.tipAmount,
-          givenAmount: payment.givenAmount,
-          changeAmount: payment.changeAmount,
+          tipCents: payment.tipAmountCents,
+          givenCents: payment.givenAmountCents,
+          changeCents: payment.changeAmountCents,
           paymentMethod: getPaymentLabel(payment.paymentMethod),
           cardAuthCode: payment.cardAuthCode,
-          taxSplits: checkout.splits.filter((s) => s.gross > 0),
+          taxSplits: checkout.splits.filter((s: any) => (s.grossCents ?? s.gross ?? 0) > 0),
           isTraining: payment.isTraining,
           eventName: config.name,
           subHeader: config.receiptSubHeader || undefined,
@@ -451,9 +454,9 @@ export async function POST(req: Request) {
 
     await logSystemActionSafe(() => {
       const methodLabel = getPaymentLabel(payment.paymentMethod);
-      const tipText = Number(payment.tipAmount ?? 0) > 0 ? `, Trinkgeld: ${Number(payment.tipAmount).toFixed(2)} €` : '';
-      const cashText = payment.paymentMethod === 'CASH' && Number(payment.givenAmount ?? 0) > 0
-        ? ` | Gegeben: ${Number(payment.givenAmount).toFixed(2)} €, Rückgeld: ${Number(payment.changeAmount ?? 0).toFixed(2)} €`
+      const tipText = Number(payment.tipAmountCents ?? 0) > 0 ? `, Trinkgeld: ${((payment.tipAmountCents ?? 0) / 100).toFixed(2)} €` : '';
+      const cashText = payment.paymentMethod === 'CASH' && Number(payment.givenAmountCents ?? 0) > 0
+        ? ` | Gegeben: ${((payment.givenAmountCents ?? 0) / 100).toFixed(2)} €, Rückgeld: ${((payment.changeAmountCents ?? 0) / 100).toFixed(2)} €`
         : '';
       const tableText = payment.table?.label ? ` (Tisch ${payment.table.label})` : '';
 
@@ -466,7 +469,7 @@ export async function POST(req: Request) {
           payment.waiterName ||
           auth.session.role ||
           'unbekannt',
-        details: `Zahlung ${payment.invoiceNumber || payment.id}${tableText}: ${Number(payment.totalGross ?? 0).toFixed(2)} € [${methodLabel}${cashText}${tipText}] gebucht.`,
+        details: `Zahlung ${payment.invoiceNumber || payment.id}${tableText}: ${((payment.totalGrossCents ?? 0) / 100).toFixed(2)} € [${methodLabel}${cashText}${tipText}] gebucht.`,
         metadata: {
           paymentId: payment.id,
           invoiceNumber: payment.invoiceNumber,
@@ -474,17 +477,17 @@ export async function POST(req: Request) {
           tableId: payment.tableId,
           tableLabel: payment.table?.label,
           paymentMethod: payment.paymentMethod,
-          totalGross: payment.totalGross,
-          givenAmount: payment.givenAmount,
-          changeAmount: payment.changeAmount,
-          tipAmount: payment.tipAmount,
+          totalGrossCents: payment.totalGrossCents,
+          givenAmountCents: payment.givenAmountCents,
+          changeAmountCents: payment.changeAmountCents,
+          tipAmountCents: payment.tipAmountCents,
         },
       };
     });
 
     return NextResponse.json({
       ...payment,
-      changeAmount: round2(checkout.changeAmount),
+      changeCents: checkout.changeCents ?? toCents(checkout.changeAmount ?? 0),
       digitalReceiptUrl: receiptUrl,
       tipDistribution: tipDist,
     });

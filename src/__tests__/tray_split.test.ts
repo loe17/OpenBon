@@ -7,7 +7,7 @@ const beer = (qty: number): PrintItem => ({
   name: 'Helles Bier 0,5l',
   alternativeName: 'Helles 0,5',
   quantity: qty,
-  unitPrice: 4.5,
+  unitPriceCents: 450,
 });
 
 /** Spec 6.1: Tablett-Limitierung & automatisches Bon-Splitting */
@@ -32,7 +32,7 @@ describe('Tray capacity splitting (Spec 6.1)', () => {
 
   it('should produce single-unit tickets when the limit is 1', () => {
     const chunks = splitItemsIntoChunks(
-      [{ name: 'Schnitzel', quantity: 3, unitPrice: 12.5 }],
+      [{ name: 'Schnitzel', quantity: 3, unitPriceCents: 1250 }],
       1
     );
     expect(chunks).toHaveLength(3);
@@ -41,7 +41,7 @@ describe('Tray capacity splitting (Spec 6.1)', () => {
 
   it('should pack mixed items up to the limit without losing quantity', () => {
     const chunks = splitItemsIntoChunks(
-      [beer(4), { name: 'Radler 0,5l', quantity: 5, unitPrice: 4.2 }],
+      [beer(4), { name: 'Radler 0,5l', quantity: 5, unitPriceCents: 420 }],
       6
     );
 
@@ -58,7 +58,7 @@ describe('Tray capacity splitting (Spec 6.1)', () => {
   it('should build the tray summary in the specified wording', () => {
     expect(buildTraySummary('Tisch 14', [beer(6)])).toBe('Tisch 14 - 6x Helles 0,5');
     expect(buildTraySummary(null, [beer(2)])).toBe('Theke - 2x Helles 0,5');
-    expect(buildTraySummary('Tisch 3', [beer(4), { name: 'Cola', quantity: 2, unitPrice: 3 }])).toBe(
+    expect(buildTraySummary('Tisch 3', [beer(4), { name: 'Cola', quantity: 2, unitPriceCents: 300 }])).toBe(
       'Tisch 3 - 6 Pos. / 2 Artikel'
     );
   });
@@ -97,7 +97,7 @@ describe('Alternative ticket name (Spec 6.2)', () => {
             name: 'Bratwurstsemmel mit Senf',
             alternativeName: 'Bratw. Senf',
             quantity: 2,
-            unitPrice: 4.0,
+            unitPriceCents: 400,
           },
         ],
       },
@@ -116,9 +116,9 @@ describe('Course grouping on tickets (Spec 6.5)', () => {
       {
         title: 'KUECHE',
         items: [
-          { name: 'Tiramisu', quantity: 1, unitPrice: 4, courseNumber: 3 },
-          { name: 'Suppe', quantity: 2, unitPrice: 3.5, courseNumber: 1 },
-          { name: 'Schnitzel', quantity: 2, unitPrice: 12.5, courseNumber: 2 },
+          { name: 'Tiramisu', quantity: 1, unitPriceCents: 400, courseNumber: 3 },
+          { name: 'Suppe', quantity: 2, unitPriceCents: 350, courseNumber: 1 },
+          { name: 'Schnitzel', quantity: 2, unitPriceCents: 1250, courseNumber: 2 },
         ],
       },
       80
@@ -155,7 +155,7 @@ describe('Void ticket (Spec 6.4)', () => {
         waiterName: 'Lisa',
         cancelledBy: 'Leitung',
         reason: 'Bruch/Verschüttet',
-        items: [{ name: 'Schnitzel', quantity: 1, unitPrice: 12.5 }],
+        items: [{ name: 'Schnitzel', quantity: 1, unitPriceCents: 1250 }],
       },
       80
     );
@@ -196,15 +196,15 @@ describe('X-Bon and cash movement receipts (Spec 6.7 / 6.8)', () => {
     const { textRepresentation } = EscPosBuilder.buildXBonTicket({
       waiterName: 'Lisa',
       periodNumber: 3,
-      totalGross: 412.5,
-      totalCash: 300,
-      totalCard: 112.5,
-      cardSumUp: 60,
-      cardVrPay: 20,
-      cardSparkasse: 12.5,
-      cardTerminal: 20,
-      totalTips: 14.5,
-      cashExpected: 300,
+      totalGrossCents: 41250,
+      totalCashCents: 30000,
+      totalCardCents: 11250,
+      cardSumUpCents: 6000,
+      cardVrPayCents: 2000,
+      cardSparkasseCents: 1250,
+      cardTerminalCents: 2000,
+      totalTipsCents: 1450,
+      cashExpectedCents: 30000,
       transactionCount: 37,
     });
 
@@ -217,7 +217,7 @@ describe('X-Bon and cash movement receipts (Spec 6.7 / 6.8)', () => {
   it('should print a signed receipt for cash movements', () => {
     const { textRepresentation } = EscPosBuilder.buildCashMovementTicket({
       type: 'CASH_OUT',
-      amount: 250,
+      amountCents: 25000,
       reason: 'Abgabe an Tresor',
       waiterName: 'Max',
     });

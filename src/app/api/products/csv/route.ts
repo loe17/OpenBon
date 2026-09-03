@@ -3,6 +3,7 @@ import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-guard';
 import { requireApiAuth } from '@/lib/api-guard';
+import { toCents } from '@/lib/pricing';
 
 export async function GET(req: Request) {
   const auth = await requireApiAuth(req, ['ADMIN']);
@@ -31,8 +32,8 @@ export async function GET(req: Request) {
           `"${p.category?.name || 'Allgemein'}"`,
           `"${p.name}"`,
           `"${p.alternativeTicketName || ''}"`,
-          p.price.toFixed(2),
-          p.deposit.toFixed(2),
+          (p.priceCents / 100).toFixed(2),
+          (p.depositCents / 100).toFixed(2),
           p.taxRate.toFixed(1),
           p.subCategory || 'ALL',
           `"${p.printGroup?.name || ''}"`,
@@ -99,8 +100,8 @@ export async function POST(req: Request) {
 
       if (!productName || !categoryName) continue;
 
-      const price = parseFloat(priceStr.replace(',', '.')) || 0;
-      const deposit = parseFloat((depositStr || '0').replace(',', '.')) || 0;
+      const priceCents = toCents(parseFloat(priceStr.replace(',', '.')) || 0);
+      const depositCents = toCents(parseFloat((depositStr || '0').replace(',', '.')) || 0);
       const taxRate = parseFloat((taxRateStr || '19').replace(',', '.')) || 19;
       const trackStock = (trackStockStr || '').toUpperCase() === 'JA' || trackStockStr === '1' || trackStockStr === 'true';
       const stockQuantity = parseInt(stockStr || '100', 10) || 100;
@@ -132,8 +133,8 @@ export async function POST(req: Request) {
           where: { id: existingProduct.id },
           data: {
             alternativeTicketName: bonName || existingProduct.alternativeTicketName,
-            price,
-            deposit,
+            priceCents,
+            depositCents,
             taxRate,
             subCategory: subCategory || existingProduct.subCategory,
             printGroupId: printGroupId || existingProduct.printGroupId,
@@ -155,8 +156,8 @@ export async function POST(req: Request) {
             name: productName,
             alternativeTicketName: bonName || null,
             categoryId: category.id,
-            price,
-            deposit,
+            priceCents,
+            depositCents,
             taxRate,
             subCategory: subCategory || 'SPEISE',
             printGroupId,

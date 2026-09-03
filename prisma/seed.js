@@ -135,7 +135,7 @@ async function main() {
     },
   });
 
-  // 5. Kategorien & Produkte
+  // 5. Kategorien & Produkte (Geldbetraege in Int-Cent, harter Cut)
   const catDrinks = await prisma.productCategory.create({
     data: {
       name: 'Getränke',
@@ -178,8 +178,8 @@ async function main() {
     data: {
       name: 'Festbier / Helles',
       alternativeTicketName: 'Bier 0,5',
-      price: 4.50,
-      deposit: 1.00, // 1€ Glaspfand
+      priceCents: 450,
+      depositCents: 100, // 1€ Glaspfand
       taxRate: 19.0,
       buttonColor: '#3b82f6',
       sortIndex: 0,
@@ -187,8 +187,8 @@ async function main() {
       printGroupId: drinksPrintGroup.id,
       variants: {
         create: [
-          { name: '0,5 l (Halbe)', priceDelta: 0.0, sortIndex: 0 },
-          { name: '1,0 l (Maß)', priceDelta: 4.50, sortIndex: 1 },
+          { name: '0,5 l (Halbe)', priceDeltaCents: 0, sortIndex: 0 },
+          { name: '1,0 l (Maß)', priceDeltaCents: 450, sortIndex: 1 },
         ],
       },
     },
@@ -198,8 +198,8 @@ async function main() {
     data: {
       name: 'Radler naturtrüb',
       alternativeTicketName: 'Radler 0,5',
-      price: 4.50,
-      deposit: 1.00,
+      priceCents: 450,
+      depositCents: 100,
       taxRate: 19.0,
       buttonColor: '#60a5fa',
       sortIndex: 1,
@@ -212,8 +212,8 @@ async function main() {
     data: {
       name: 'Weizen / Weißbier',
       alternativeTicketName: 'Weizen 0,5',
-      price: 4.80,
-      deposit: 1.00,
+      priceCents: 480,
+      depositCents: 100,
       taxRate: 19.0,
       buttonColor: '#93c5fd',
       sortIndex: 2,
@@ -227,8 +227,8 @@ async function main() {
     data: {
       name: 'Cola / Spezi',
       alternativeTicketName: 'Cola 0,4',
-      price: 3.50,
-      deposit: 1.00,
+      priceCents: 350,
+      depositCents: 100,
       taxRate: 19.0,
       buttonColor: '#06b6d4',
       sortIndex: 0,
@@ -241,8 +241,8 @@ async function main() {
     data: {
       name: 'Mineralwasser',
       alternativeTicketName: 'Wasser 0,5',
-      price: 2.80,
-      deposit: 1.00,
+      priceCents: 280,
+      depositCents: 100,
       taxRate: 19.0,
       buttonColor: '#67e8f9',
       sortIndex: 1,
@@ -255,8 +255,8 @@ async function main() {
     data: {
       name: 'Apfelschorle',
       alternativeTicketName: 'Scho 0,4',
-      price: 3.50,
-      deposit: 1.00,
+      priceCents: 350,
+      depositCents: 100,
       taxRate: 19.0,
       buttonColor: '#22d3ee',
       sortIndex: 2,
@@ -270,8 +270,8 @@ async function main() {
     data: {
       name: 'Paniertes Schnitzel mit Pommes',
       alternativeTicketName: 'SchniPo',
-      price: 11.50,
-      deposit: 0.0,
+      priceCents: 1150,
+      depositCents: 0,
       taxRate: 7.0, // 7% Speisen außer Haus / Verzehr im Zelt ermäßigt
       buttonColor: '#f97316',
       sortIndex: 0,
@@ -279,9 +279,9 @@ async function main() {
       printGroupId: kitchenPrintGroup.id,
       options: {
         create: [
-          { name: 'mit Zitrone', priceDelta: 0.0, sortIndex: 0 },
-          { name: 'extra Portion Pommes', priceDelta: 2.50, sortIndex: 1 },
-          { name: 'mit Bratensauce', priceDelta: 1.00, sortIndex: 2 },
+          { name: 'mit Zitrone', priceDeltaCents: 0, sortIndex: 0 },
+          { name: 'extra Portion Pommes', priceDeltaCents: 250, sortIndex: 1 },
+          { name: 'mit Bratensauce', priceDeltaCents: 100, sortIndex: 2 },
         ],
       },
     },
@@ -291,8 +291,8 @@ async function main() {
     data: {
       name: 'Rote Grillwurst im Brötchen',
       alternativeTicketName: 'Rote Wurst',
-      price: 4.50,
-      deposit: 0.0,
+      priceCents: 450,
+      depositCents: 0,
       taxRate: 7.0,
       buttonColor: '#fb923c',
       sortIndex: 1,
@@ -305,8 +305,8 @@ async function main() {
     data: {
       name: 'Portion Pommes frites',
       alternativeTicketName: 'Pommes',
-      price: 4.00,
-      deposit: 0.0,
+      priceCents: 400,
+      depositCents: 0,
       taxRate: 7.0,
       buttonColor: '#fdba74',
       sortIndex: 2,
@@ -314,9 +314,9 @@ async function main() {
       printGroupId: kitchenPrintGroup.id,
       options: {
         create: [
-          { name: 'mit Ketchup', priceDelta: 0.0, sortIndex: 0 },
-          { name: 'mit Mayo', priceDelta: 0.0, sortIndex: 1 },
-          { name: 'Ketchup & Mayo (Rot-Weiß)', priceDelta: 0.50, sortIndex: 2 },
+          { name: 'mit Ketchup', priceDeltaCents: 0, sortIndex: 0 },
+          { name: 'mit Mayo', priceDeltaCents: 0, sortIndex: 1 },
+          { name: 'Ketchup & Mayo (Rot-Weiß)', priceDeltaCents: 50, sortIndex: 2 },
         ],
       },
     },
@@ -326,8 +326,8 @@ async function main() {
     data: {
       name: 'Kaffee Crema',
       alternativeTicketName: 'Kaffee',
-      price: 2.50,
-      deposit: 1.00,
+      priceCents: 250,
+      depositCents: 100,
       taxRate: 19.0,
       buttonColor: '#eab308',
       sortIndex: 0,
@@ -339,8 +339,8 @@ async function main() {
     data: {
       name: 'Stück Kuchen / Torte',
       alternativeTicketName: 'Kuchen',
-      price: 3.00,
-      deposit: 0.0,
+      priceCents: 300,
+      depositCents: 0,
       taxRate: 7.0,
       buttonColor: '#fde047',
       sortIndex: 1,

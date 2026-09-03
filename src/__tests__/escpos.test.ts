@@ -30,13 +30,13 @@ describe('ESC/POS Builder & Encoding', () => {
         {
           name: 'Schnitzel Wiener Art',
           quantity: 2,
-          unitPrice: 12.5,
+          unitPriceCents: 1250,
           customizationText: 'ohne Zwiebeln',
         },
         {
           name: 'Portion Pommes',
           quantity: 1,
-          unitPrice: 4.0,
+          unitPriceCents: 400,
         },
       ],
     };

@@ -31,10 +31,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     const toRelease = order.items.filter((item) => {
       if (item.isCancelled) return false;
-      if (item.printStatus === 'PRINTED') return false;
+      if (item.printStatus === 'PRINTED' && !item.isHold) return false;
       if (body.itemIds && body.itemIds.length > 0) return body.itemIds.includes(item.id);
       if (body.courseNumber !== undefined) return item.courseNumber === body.courseNumber;
-      return item.isHold;
+      return item.isHold || item.printStatus === 'ERROR' || (item as { printStatus?: string }).printStatus === 'FAILED';
     });
 
     if (toRelease.length === 0) {
@@ -44,7 +44,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       );
     }
 
-    const { ticketsGenerated, printedItemIds } = await TicketSplitter.routeAndPrintOrder(
+    const { ticketsGenerated, jobIds } = await TicketSplitter.routeAndPrintOrder(
       {
         id: order.id,
         orderNumber: order.orderNumber,
@@ -60,8 +60,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           productName: i.productName,
           alternativeName: i.product.alternativeTicketName,
           quantity: i.quantity,
-          unitPrice: i.unitPrice,
-          deposit: i.deposit,
+          unitPriceCents: i.unitPriceCents,
+          depositCents: i.depositCents,
           variantName: i.variantName,
           selectedOptions: i.selectedOptions,
           customizationText: i.customizationText,
@@ -72,9 +72,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       { onlyItemIds: toRelease.map((i) => i.id), includeHold: true }
     );
 
+    // Async ACK: HOLD lösen, Druckstatus bleibt PENDING bis Spooler-ACK (print:acked).
+    // Re-Release nach ERROR/FAILED bleibt möglich (Guard prüft nur PENDING-Sperre).
     await prisma.orderItem.updateMany({
-      where: { id: { in: printedItemIds.length > 0 ? printedItemIds : toRelease.map((i) => i.id) } },
-      data: { isHold: false, printStatus: 'PRINTED' },
+      where: { id: { in: toRelease.map((i) => i.id) } },
+      data: { isHold: false },
     });
 
     if (global.io) {
@@ -83,6 +85,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         itemIds: toRelease.map((i) => i.id),
         courseNumber: body.courseNumber ?? null,
       });
+      if (jobIds.length > 0) {
+        global.io.emit('print:queued', { orderId: order.id, jobIds });
+      }
     }
 
     await logSystemActionSafe(() => ({
@@ -96,6 +101,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       success: true,
       releasedItems: toRelease.length,
       ticketsGenerated,
+      jobIds,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unbekannter Fehler';

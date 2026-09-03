@@ -7,6 +7,9 @@ export interface SessionPayload {
   role: UserRole;
   deviceId?: string;
   waiterName?: string;
+  jti?: string;
+  iss?: string;
+  aud?: string;
   iat?: number;
   exp?: number;
 }
@@ -44,8 +47,21 @@ export function getJwtSecretKey(): Uint8Array {
   );
 }
 
-export const SESSION_COOKIE_NAME = 'openbon_session';
-export const SESSION_MAX_AGE_SECONDS = 12 * 60 * 60; // 12 Stunden
+export const SESSION_COOKIE_NAME = '__Host-openbon_session';
+export const SESSION_LEGACY_COOKIE_NAME = 'openbon_session';
+export const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60; // 8 Stunden (gehärtet, vorher 12h)
+export const SESSION_ISSUER = 'openbon';
+export const SESSION_AUDIENCE = 'station';
+
+function newJti(): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const c = require('crypto') as typeof import('crypto');
+    return c.randomBytes(12).toString('hex');
+  } catch {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+  }
+}
 
 /**
  * Signiert ein Session-Token mit jose (Edge & Node.js kompatibel).
@@ -54,10 +70,12 @@ export async function signSessionToken(payload: SessionPayload): Promise<string>
   const iat = Math.floor(Date.now() / 1000);
   const exp = iat + SESSION_MAX_AGE_SECONDS;
 
-  return new SignJWT({ ...payload })
+  return new SignJWT({ ...payload, jti: payload.jti || newJti() })
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .setIssuedAt(iat)
     .setExpirationTime(exp)
+    .setIssuer(SESSION_ISSUER)
+    .setAudience(SESSION_AUDIENCE)
     .sign(getJwtSecretKey());
 }
 
@@ -70,10 +88,38 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
   try {
     const { payload } = await jwtVerify(token, getJwtSecretKey(), {
       algorithms: ['HS256'],
+      issuer: SESSION_ISSUER,
+      audience: SESSION_AUDIENCE,
     });
-    return payload as unknown as SessionPayload;
+    const p = payload as unknown as SessionPayload;
+    // Revoke-Check (best-effort, DB-Tabelle RevokedSession)
+    try {
+      const { default: prisma } = await import('./db');
+      if (p.jti) {
+        const revoked = await prisma.revokedSession.findUnique({ where: { jti: p.jti } }).catch(() => null);
+        if (revoked) return null;
+      }
+    } catch {}
+    return p;
   } catch {
     return null;
+  }
+}
+
+export async function revokeSessionToken(token: string): Promise<boolean> {
+  try {
+    const { decodeJwt } = await import('jose');
+    const p = decodeJwt(token) as unknown as SessionPayload;
+    if (!p?.jti || !p?.exp) return false;
+    const { default: prisma } = await import('./db');
+    await prisma.revokedSession.upsert({
+      where: { jti: p.jti },
+      update: { expiresAt: new Date(p.exp * 1000) },
+      create: { jti: p.jti, expiresAt: new Date(p.exp * 1000) },
+    }).catch(() => null);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -103,9 +149,11 @@ export function decodeSessionToken(token: string): SessionPayload | null {
  */
 export async function getVerifiedSessionFromRequest(req: Request): Promise<SessionPayload | null> {
   const cookieHeader = req.headers.get('cookie') || '';
-  const match = cookieHeader.match(new RegExp(`${SESSION_COOKIE_NAME}=([^;]+)`));
-  if (match?.[1]) {
-    const session = await verifySessionToken(decodeURIComponent(match[1]));
+  const matchNew = cookieHeader.match(new RegExp(`${SESSION_COOKIE_NAME}=([^;]+)`));
+  const matchLegacy = cookieHeader.match(new RegExp(`${SESSION_LEGACY_COOKIE_NAME}=([^;]+)`));
+  const cookieVal = matchNew?.[1] || matchLegacy?.[1];
+  if (cookieVal) {
+    const session = await verifySessionToken(decodeURIComponent(cookieVal));
     if (session) return session;
   }
 

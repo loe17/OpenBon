@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { formatCurrency } from '@/lib/utils';
+import { formatCents, formatCurrency } from '@/lib/utils';
 import {
   Utensils,
   Plus,
@@ -243,8 +243,8 @@ export default function AdminProductsPage() {
     setFormData({
       name: prod.name,
       alternativeTicketName: prod.alternativeTicketName || '',
-      price: prod.price,
-      deposit: prod.deposit || 0.0,
+      price: ((prod as any).priceCents ?? Math.round(((prod as any).price ?? 0) * 100)) / 100,
+      deposit: (((prod as any).depositCents ?? Math.round(((prod as any).deposit ?? 0) * 100)) / 100) || 0.0,
       taxRate: prod.taxRate || 19.0,
       buttonColor: prod.buttonColor || '#3b82f6',
       categoryId: prod.categoryId,
@@ -258,7 +258,7 @@ export default function AdminProductsPage() {
       minAge: prod.minAge || 16,
       allergens: Array.isArray(parsedAllergens) ? parsedAllergens : [],
       additives: Array.isArray(parsedAdditives) ? parsedAdditives : [],
-      happyHourPrice: prod.happyHourPrice !== null && prod.happyHourPrice !== undefined ? prod.happyHourPrice : '',
+      happyHourPrice: (prod as any).happyHourPriceCents !== null && (prod as any).happyHourPriceCents !== undefined ? (prod as any).happyHourPriceCents / 100 : ((prod as any).happyHourPrice ?? ''),
       happyHourStart: prod.happyHourStart || '',
       happyHourEnd: prod.happyHourEnd || '',
       happyHourDays: Array.isArray(parsedDays) ? parsedDays : [1, 2, 3, 4, 5],
@@ -269,7 +269,7 @@ export default function AdminProductsPage() {
       variants: prod.variants
         ? prod.variants.map((v: any) => ({
             name: v.name,
-            priceDelta: v.priceDelta,
+            priceDelta: (((v as any).priceDeltaCents ?? Math.round(((v as any).priceDelta ?? 0) * 100)) / 100),
             isSoldOut: v.isSoldOut,
             alternativeTicketName: v.alternativeTicketName || '',
             printGroupId: v.printGroupId || '',
@@ -278,7 +278,7 @@ export default function AdminProductsPage() {
       options: prod.options
         ? prod.options.map((o: any) => ({
             name: o.name,
-            priceDelta: o.priceDelta,
+            priceDelta: (((o as any).priceDeltaCents ?? Math.round(((o as any).priceDelta ?? 0) * 100)) / 100),
             defaultQuantity: o.defaultQuantity ?? 0,
             maxQuantity: o.maxQuantity ?? 1,
           }))
@@ -317,12 +317,17 @@ export default function AdminProductsPage() {
     try {
       const payload = {
         ...formData,
+        priceCents: Math.round(Number((formData as any).price) * 100),
+        depositCents: Math.round(Number((formData as any).deposit) * 100),
+        variants: (formData.variants || []).map((v: any) => ({ ...v, priceDeltaCents: Math.round(Number(v.priceDelta) * 100) })),
+        options: (formData.options || []).map((o: any) => ({ ...o, priceDeltaCents: Math.round(Number(o.priceDelta) * 100) })),
+        happyHourRules: JSON.stringify((formData.happyHourRules || []).map((r: any) => ({ ...r, priceCents: Math.round(Number(r.price) * 100) }))),
         allergens: JSON.stringify(formData.allergens),
         additives: JSON.stringify(formData.additives),
         happyHourDays: JSON.stringify(formData.happyHourDays),
+        happyHourPriceCents: formData.happyHourPrice === '' ? null : Math.round(parseFloat(String(formData.happyHourPrice)) * 100),
         happyHourPrice: formData.happyHourPrice === '' ? null : parseFloat(String(formData.happyHourPrice)),
-        happyHourRules: JSON.stringify(formData.happyHourRules),
-        minStockAlert: formData.trackStock ? (formData.minStockAlert !== null ? Number(formData.minStockAlert) : null) : null,
+                minStockAlert: formData.trackStock ? (formData.minStockAlert !== null ? Number(formData.minStockAlert) : null) : null,
         minAge: formData.hasAgeRestriction ? Number(formData.minAge) : null,
       };
 
@@ -542,10 +547,8 @@ export default function AdminProductsPage() {
               </h3>
 
               <div className="flex items-baseline gap-2 mb-2">
-                <span className="text-xl font-black text-white">{formatCurrency(p.price)}</span>
-                {p.deposit > 0 && (
-                  <span className="text-xs text-slate-400 font-semibold">
-                    +{formatCurrency(p.deposit)} Pfand
+                <span className="text-xl font-black text-white">{formatCents((p as any).priceCents ?? Math.round(((p as any).price ?? 0) * 100))}</span>
+                {((p as any).depositCents ?? 0) > 0 && (<span className="text-xs text-slate-400 font-semibold">+{formatCents((p as any).depositCents ?? 0)} Pfand
                   </span>
                 )}
               </div>
@@ -1496,7 +1499,7 @@ export default function AdminProductsPage() {
                                 </div>
                                 <div className="text-right shrink-0">
                                   <span className="font-mono font-black text-slate-950 bg-slate-200 px-2.5 py-1 rounded-xl text-sm inline-block">
-                                    {formatCurrency(p.price)}
+                                    {formatCents((p as any).priceCents ?? Math.round(((p as any).price ?? 0) * 100))}
                                   </span>
                                   {p.deposit > 0 && (
                                     <span className="text-[10px] block text-slate-500 font-medium mt-0.5">
@@ -1524,7 +1527,7 @@ export default function AdminProductsPage() {
                                 </div>
                                 <div className="text-right shrink-0">
                                   <span className="font-mono font-black text-slate-950 text-2xl sm:text-3xl">
-                                    {formatCurrency(p.price)}
+                                    {formatCents((p as any).priceCents ?? Math.round(((p as any).price ?? 0) * 100))}
                                   </span>
                                   {p.deposit > 0 && (
                                     <span className="text-xs block text-slate-600 font-bold">
@@ -1559,7 +1562,7 @@ export default function AdminProductsPage() {
                               </div>
 
                               <div className="text-right font-mono font-bold text-slate-950 shrink-0">
-                                {formatCurrency(p.price)}
+                                {formatCents((p as any).priceCents ?? Math.round(((p as any).price ?? 0) * 100))}
                                 {p.deposit > 0 && (
                                   <span className="text-[10px] block font-sans text-slate-500 font-normal">
                                     +{formatCurrency(p.deposit)} Pfand

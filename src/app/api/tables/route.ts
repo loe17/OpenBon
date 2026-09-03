@@ -45,7 +45,7 @@ export async function GET(req: Request) {
         for (const item of order.items) {
           const unpaidQty = item.quantity - item.paidQuantity;
           if (unpaidQty > 0) {
-            openGrossAmount += (item.unitPrice + (item.deposit || 0)) * unpaidQty;
+            openGrossAmount += (item.unitPriceCents + (item.depositCents || 0)) * unpaidQty;
             openItemCount += unpaidQty;
           }
         }

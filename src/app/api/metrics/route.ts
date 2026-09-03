@@ -25,7 +25,7 @@ export async function GET(req: Request) {
       prisma.payment.count({ where: { createdAt: { gte: todayStart }, isCancelled: false } }),
       prisma.payment.aggregate({
         where: { createdAt: { gte: todayStart }, isCancelled: false },
-        _sum: { totalGross: true },
+        _sum: { totalGrossCents: true },
       }),
       prisma.printJob.count({ where: { status: 'FAILED' } }),
     ]);
@@ -44,7 +44,7 @@ export async function GET(req: Request) {
       },
       salesToday: {
         transactionCount: todayPayments,
-        grossRevenue: todayRevenue._sum.totalGross || 0,
+        grossRevenue: (todayRevenue._sum.totalGrossCents ?? 0) / 100,
       },
       printer: {
         spoolerQueue: networkSpooler.getQueueLength(),
