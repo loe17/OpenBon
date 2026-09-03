@@ -7,24 +7,32 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const format = searchParams.get('format'); // 'json' or 'csv'
   const waiterFilter = searchParams.get('waiterName');
+  // Performance: optional ?days=N begrenzt die Auswertung (Default 30 Tage)
+  const daysParam = parseInt(searchParams.get('days') || '30', 10);
+  const days = Number.isFinite(daysParam) ? Math.min(365, Math.max(1, daysParam)) : 30;
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-  // Der Gesamtbericht ist Chefsache. Fragt eine Station dagegen gezielt die
-  // Zahlen einer einzelnen Bedienung ab (Schichtabrechnung), genuegt eine
-  // gueltige Stations-Session – sonst koennte niemand seine eigene Schicht
-  // abrechnen, ohne Admin zu sein.
-  const auth = await requireApiAuth(req, waiterFilter ? undefined : ['ADMIN']);
+  // Der Gesamtbericht ist Chefsache (ADMIN-only). Eigene Schichtzahlen gibt es
+  // schlank über /api/reports/mine (nur eigene waiterName == Session).
+  const auth = await requireApiAuth(req, ['ADMIN']);
   if (!auth.ok) return auth.response;
+  if (waiterFilter) {
+    return NextResponse.json(
+      { error: 'Bitte /api/reports/mine für die eigene Schichtabrechnung nutzen.' },
+      { status: 403 }
+    );
+  }
 
   try {
 
-    // 1. Fetch real (non-training) completed payments, orders, products & categories schlank
+    // 1. Fetch real (non-training) completed payments, orders, products & categories schlank (zeitbegrenzt)
     const [payments, orders, products, categories] = await Promise.all([
       prisma.payment.findMany({
-        where: { isCancelled: false, isTraining: false },
+        where: { isCancelled: false, isTraining: false, createdAt: { gte: since } },
         include: { table: true },
       }),
       prisma.order.findMany({
-        where: { status: { not: 'CANCELLED' }, isTraining: false },
+        where: { status: { not: 'CANCELLED' }, isTraining: false, createdAt: { gte: since } },
         include: { items: true },
       }),
       prisma.product.findMany({
@@ -68,29 +76,29 @@ export async function GET(req: Request) {
     >();
 
     for (const p of payments) {
-      totalGross += p.totalGross;
-      totalNet += p.totalNet;
-      totalTax19 += p.totalTax || 0;
-      totalDepositCharged += p.totalDeposit;
-      totalDepositReturned += p.returnDeposit;
-      totalTips += p.tipAmount;
-      totalDiscounts += p.discountAmount;
-      totalSurcharges += p.surchargeAmount || 0;
+      totalGross += p.totalGrossCents;
+      totalNet += p.totalNetCents;
+      totalTax19 += p.totalTaxCents || 0;
+      totalDepositCharged += p.totalDepositCents;
+      totalDepositReturned += p.returnDepositCents;
+      totalTips += p.tipAmountCents;
+      totalDiscounts += p.discountAmountCents;
+      totalSurcharges += p.surchargeAmountCents || 0;
 
       const method = p.paymentMethod || 'CASH';
       if (method === 'CASH') {
-        totalCash += p.totalGross;
+        totalCash += p.totalGrossCents;
       } else if (method === 'CARD_SUMUP') {
-        totalCardSumUp += p.totalGross;
-        totalCardAll += p.totalGross;
+        totalCardSumUp += p.totalGrossCents;
+        totalCardAll += p.totalGrossCents;
       } else if (method === 'CARD_VRPAY') {
-        totalCardVrPay += p.totalGross;
-        totalCardAll += p.totalGross;
+        totalCardVrPay += p.totalGrossCents;
+        totalCardAll += p.totalGrossCents;
       } else if (method === 'CARD_TERMINAL' || method.startsWith('CARD')) {
-        totalCardTerminal += p.totalGross;
-        totalCardAll += p.totalGross;
+        totalCardTerminal += p.totalGrossCents;
+        totalCardAll += p.totalGrossCents;
       } else if (method.startsWith('NON_PAID')) {
-        totalStaff += p.totalGross;
+        totalStaff += p.totalGrossCents;
       }
 
       // Waiter breakdown
@@ -111,19 +119,19 @@ export async function GET(req: Request) {
 
       const w = waiterMap.get(wName)!;
       w.transactionCount++;
-      w.totalGross += p.totalGross;
-      w.tips += p.tipAmount;
-      w.depositReturned += p.returnDeposit;
+      w.totalGross += p.totalGrossCents;
+      w.tips += p.tipAmountCents;
+      w.depositReturned += p.returnDepositCents;
 
       if (new Date(p.createdAt) >= oneHourAgo) {
         w.ordersLastHour++;
-        w.salesLastHour += p.totalGross;
+        w.salesLastHour += p.totalGrossCents;
       }
 
       if (method === 'CASH') {
-        w.cashGross += p.totalGross;
+        w.cashGross += p.totalGrossCents;
       } else if (method.startsWith('CARD')) {
-        w.cardGross += p.totalGross;
+        w.cardGross += p.totalGrossCents;
       }
     }
 
@@ -163,12 +171,21 @@ export async function GET(req: Request) {
       }
     } catch {}
 
-    // Rank waiters by total gross
-    const rankedWaiters = Array.from(waiterMap.values())
+    // Rank waiters by total gross (Cents intern, Display /100)
+    const rankedWaitersCents = Array.from(waiterMap.values())
       .sort((a, b) => b.totalGross - a.totalGross)
       .map((w, idx) => ({ ...w, rank: idx + 1 }));
+    const rankedWaiters = rankedWaitersCents.map((w) => ({
+      ...w,
+      totalGross: w.totalGross / 100,
+      cashGross: w.cashGross / 100,
+      cardGross: w.cardGross / 100,
+      tips: w.tips / 100,
+      depositReturned: w.depositReturned / 100,
+      salesLastHour: w.salesLastHour / 100,
+    }));
 
-    // Top selling items
+    // Top selling items (Cents intern -> Euro für Display)
     const productStats = new Map<string, { name: string; quantity: number; revenue: number }>();
     for (const ord of orders) {
       for (const item of ord.items) {
@@ -178,15 +195,19 @@ export async function GET(req: Request) {
         }
         const s = productStats.get(item.productName)!;
         s.quantity += item.quantity;
-        s.revenue += (item.unitPrice + (item.deposit || 0)) * item.quantity;
+        s.revenue += ((item.unitPriceCents + (item.depositCents || 0)) * item.quantity) / 100;
       }
     }
 
     const topProducts = Array.from(productStats.values()).sort((a, b) => b.quantity - a.quantity);
 
-    // Hourly Sales & Forecast Analysis
-    const hourlySales = computeHourlySales(orders);
-    const forecast = computeForecast(hourlySales, totalGross, [], products);
+    // Hourly Sales & Forecast Analysis (Lib in Euro -> /100 Brücke)
+    const forecastOrders = orders.map((o: any) => ({
+      ...o,
+      items: (o.items || []).map((i: any) => ({ ...i, unitPriceCents: i.unitPriceCents, deposit: (i.depositCents ?? 0) / 100 })),
+    }));
+    const hourlySales = computeHourlySales(forecastOrders as any);
+    const forecast = computeForecast(hourlySales, totalGross / 100, [], products);
 
     // Category Breakdown (Linear in O(N) aus OrderItems)
     const productCategoryMap = new Map<string, string>();
@@ -203,11 +224,12 @@ export async function GET(req: Request) {
           catRevenueMap.set(catId, { revenue: 0, count: 0 });
         }
         const st = catRevenueMap.get(catId)!;
-        st.revenue += (item.unitPrice + (item.deposit || 0)) * item.quantity;
+        st.revenue += ((item.unitPriceCents + (item.depositCents || 0)) * item.quantity) / 100;
         st.count += item.quantity;
       }
     }
 
+    const totalGrossEuro = totalGross / 100;
     const categoryBreakdown = categories.map((c) => {
       const stats = catRevenueMap.get(c.id) || { revenue: 0, count: 0 };
       return {
@@ -216,36 +238,36 @@ export async function GET(req: Request) {
         color: c.color || '#3b82f6',
         revenue: Math.round(stats.revenue * 100) / 100,
         count: stats.count,
-        percent: totalGross > 0 ? Math.round((stats.revenue / totalGross) * 1000) / 10 : 0,
+        percent: totalGrossEuro > 0 ? Math.round((stats.revenue / totalGrossEuro) * 1000) / 10 : 0,
       };
     });
 
     const paymentSplit = {
-      cash: { amount: totalCash, percent: totalGross > 0 ? Math.round((totalCash / totalGross) * 100) : 0 },
-      cardAll: { amount: totalCardAll, percent: totalGross > 0 ? Math.round((totalCardAll / totalGross) * 100) : 0 },
-      cardSumUp: totalCardSumUp,
-      cardVrPay: totalCardVrPay,
-      cardTerminal: totalCardTerminal,
-      staff: totalStaff,
-      discounts: totalDiscounts,
-      surcharges: totalSurcharges,
+      cash: { amount: totalCash / 100, percent: totalGross > 0 ? Math.round((totalCash / totalGross) * 100) : 0 },
+      cardAll: { amount: totalCardAll / 100, percent: totalGross > 0 ? Math.round((totalCardAll / totalGross) * 100) : 0 },
+      cardSumUp: totalCardSumUp / 100,
+      cardVrPay: totalCardVrPay / 100,
+      cardTerminal: totalCardTerminal / 100,
+      staff: totalStaff / 100,
+      discounts: totalDiscounts / 100,
+      surcharges: totalSurcharges / 100,
     };
 
     const summary = {
-      totalGross,
-      totalNet,
-      totalTax19,
-      totalTax7,
-      totalCash,
-      totalCard: totalCardAll,
+      totalGross: totalGross / 100,
+      totalNet: totalNet / 100,
+      totalTax19: totalTax19 / 100,
+      totalTax7: totalTax7 / 100,
+      totalCash: totalCash / 100,
+      totalCard: totalCardAll / 100,
       paymentSplit,
-      totalStaff,
-      totalDepositCharged,
-      totalDepositReturned,
-      netDepositBalance: totalDepositCharged - totalDepositReturned,
-      totalTips,
-      totalDiscounts,
-      totalSurcharges,
+      totalStaff: totalStaff / 100,
+      totalDepositCharged: totalDepositCharged / 100,
+      totalDepositReturned: totalDepositReturned / 100,
+      netDepositBalance: (totalDepositCharged - totalDepositReturned) / 100,
+      totalTips: totalTips / 100,
+      totalDiscounts: totalDiscounts / 100,
+      totalSurcharges: totalSurcharges / 100,
       transactionCount: payments.length,
       ordersCount: orders.length,
       waiters: rankedWaiters,
@@ -262,18 +284,18 @@ export async function GET(req: Request) {
       csvLines.push(`Export-Datum;${new Date().toLocaleString('de-DE')}`);
       csvLines.push('');
       csvLines.push('KENNZAHL;WERT');
-      csvLines.push(`Gesamtumsatz Brutto;${totalGross.toFixed(2)} EUR`);
-      csvLines.push(`Gesamtumsatz Netto;${totalNet.toFixed(2)} EUR`);
-      csvLines.push(`MwSt 19%;${totalTax19.toFixed(2)} EUR`);
-      csvLines.push(`Bargeld (Ist);${totalCash.toFixed(2)} EUR`);
-      csvLines.push(`Kartenzahlung (Gesamt);${totalCardAll.toFixed(2)} EUR`);
-      csvLines.push(`- davon SumUp;${totalCardSumUp.toFixed(2)} EUR`);
-      csvLines.push(`- davon VR-Pay Me;${totalCardVrPay.toFixed(2)} EUR`);
-      csvLines.push(`- davon EC-Terminal;${totalCardTerminal.toFixed(2)} EUR`);
-      csvLines.push(`Aufschlaege (Pauschalen / %);${totalSurcharges.toFixed(2)} EUR`);
-      csvLines.push(`Personal / Bewirtung;${totalStaff.toFixed(2)} EUR`);
-      csvLines.push(`Ausgezahlter Rueckpfand;${totalDepositReturned.toFixed(2)} EUR`);
-      csvLines.push(`Erhaltenes Kellner-Trinkgeld;${totalTips.toFixed(2)} EUR`);
+      csvLines.push(`Gesamtumsatz Brutto;${(totalGross / 100).toFixed(2)} EUR`);
+      csvLines.push(`Gesamtumsatz Netto;${(totalNet / 100).toFixed(2)} EUR`);
+      csvLines.push(`MwSt 19%;${(totalTax19 / 100).toFixed(2)} EUR`);
+      csvLines.push(`Bargeld (Ist);${(totalCash / 100).toFixed(2)} EUR`);
+      csvLines.push(`Kartenzahlung (Gesamt);${(totalCardAll / 100).toFixed(2)} EUR`);
+      csvLines.push(`- davon SumUp;${(totalCardSumUp / 100).toFixed(2)} EUR`);
+      csvLines.push(`- davon VR-Pay Me;${(totalCardVrPay / 100).toFixed(2)} EUR`);
+      csvLines.push(`- davon EC-Terminal;${(totalCardTerminal / 100).toFixed(2)} EUR`);
+      csvLines.push(`Aufschlaege (Pauschalen / %);${(totalSurcharges / 100).toFixed(2)} EUR`);
+      csvLines.push(`Personal / Bewirtung;${(totalStaff / 100).toFixed(2)} EUR`);
+      csvLines.push(`Ausgezahlter Rueckpfand;${(totalDepositReturned / 100).toFixed(2)} EUR`);
+      csvLines.push(`Erhaltenes Kellner-Trinkgeld;${(totalTips / 100).toFixed(2)} EUR`);
       csvLines.push(`Anzahl Belege;${payments.length}`);
       csvLines.push('');
       csvLines.push('RANG;KELLNER;GESAMT-UMSATZ;LETZTE STUNDE;BAR-UMSATZ;KARTEN-UMSATZ;TRINKGELD;BELEGE');

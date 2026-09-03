@@ -6,7 +6,9 @@
  */
 
 export interface DatevBookingLine {
-  amountGross: number;
+  amountCents: number;
+  /** @deprecated Legacy Euro, wird via Math.round(x*100) normalisiert */
+  amountGross?: number;
   isDebit: boolean; // true = Soll (S), false = Haben (H)
   account: string;      // z. B. "1000" (Kasse)
   contraAccount: string;// z. B. "8400" (Erlöse 19%), "8300" (Erlöse 7%), "1360" (Geldtransit)
@@ -26,6 +28,28 @@ export interface DatevExportConfig {
   transitAccount?: string;          // Default: "1360" (Geldtransit fuer Kartenzahlungen)
 }
 
+export const DATEV_DEFAULTS = {
+  cashAccount: '1000',
+  revenueAccount19: '8400',
+  revenueAccount7: '8300',
+  revenueAccount0: '8200',
+  transitAccount: '1360',
+} as const;
+
+export function resolveDatevAccounts(config: DatevExportConfig = {}): Required<Omit<DatevExportConfig, 'consultantNumber' | 'clientNumber'>> {
+  return {
+    cashAccount: config.cashAccount || process.env.DATEV_CASH_ACCOUNT || DATEV_DEFAULTS.cashAccount,
+    revenueAccount19: config.revenueAccount19 || DATEV_DEFAULTS.revenueAccount19,
+    revenueAccount7: config.revenueAccount7 || DATEV_DEFAULTS.revenueAccount7,
+    revenueAccount0: config.revenueAccount0 || DATEV_DEFAULTS.revenueAccount0,
+    transitAccount: config.transitAccount || DATEV_DEFAULTS.transitAccount,
+  };
+}
+
+export function generateDatevZipManifest(csvName: string, pdfNames: string[]): string {
+  return [`DATEV-Export ${new Date().toISOString()}`, `Stapel: ${csvName}`, ...pdfNames.map((p) => `Beleg: ${p}`)].join('\n');
+}
+
 export function generateDatevCsv(lines: DatevBookingLine[], config: DatevExportConfig = {}): string {
   const consultant = config.consultantNumber || '10000';
   const client = config.clientNumber || '10001';
@@ -42,8 +66,12 @@ export function generateDatevCsv(lines: DatevBookingLine[], config: DatevExportC
   const header2 = `"Umsatz (ohne Soll/Haben-Kz)";"Soll/Haben-Kennzeichen";"WKZ Umsatz";"Kurs";"Basis-Umsatz";"WKZ Basis-Umsatz";"Konto";"Gegenkonto (ohne BU-Schlüssel)";"BU-Schlüssel";"Belegdatum";"Belegfeld 1";"Belegfeld 2";"Skonto";"Buchungstext"`;
 
   const dataRows = lines.map((line) => {
-    // Betrag formatiert mit Komma als Dezimaltrenner gemaess DATEV-Norm
-    const amountStr = line.amountGross.toFixed(2).replace('.', ',');
+    // Betrag formatiert mit Komma als Dezimaltrenner gemaess DATEV-Norm.
+    // Formatierung erst im CSV: Int-Cent -> Euro-String.
+    const cents = typeof line.amountCents === 'number'
+      ? Math.round(line.amountCents)
+      : Math.round(((line.amountGross ?? 0) + Number.EPSILON) * 100);
+    const amountStr = (cents / 100).toFixed(2).replace('.', ',');
     const shKz = line.isDebit ? 'S' : 'H';
     
     const day = line.bookingDate.getDate().toString().padStart(2, '0');

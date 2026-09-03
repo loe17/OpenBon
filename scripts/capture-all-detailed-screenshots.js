@@ -10,8 +10,12 @@ const ARTIFACT_DIR = path.resolve('C:/Users/Lukas/.gemini/antigravity/brain/b34e
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const SCREENSHOT_ADMIN_PIN = process.env.SCREENSHOT_ADMIN_PIN || '582914';
+
 async function setDarkThemeAndAuth(page, token) {
   if (token) {
+    // Hinweis: __Host-Cookie kann per CDP über HTTP nicht gesetzt werden
+    // (Prefix verlangt Secure). Server akzeptiert Legacy-Cookie als Fallback.
     await page.setCookie({
       name: 'openbon_session',
       value: token,
@@ -22,17 +26,17 @@ async function setDarkThemeAndAuth(page, token) {
     });
   }
 
-  await page.evaluate(() => {
+  await page.evaluate((pin) => {
     localStorage.setItem('openbon_theme', 'dark');
     sessionStorage.setItem('openbon_waiter_name', 'Johannes');
-    sessionStorage.setItem('openbon_station_pin_ADMIN', '1234');
-    sessionStorage.setItem('openbon_station_pin_POS', '1234');
-    sessionStorage.setItem('openbon_station_pin_POS_CASHIER', '1234');
-    sessionStorage.setItem('openbon_station_pin_WAITER', '1234');
-    sessionStorage.setItem('openbon_station_pin_KITCHEN', '1234');
+    sessionStorage.setItem('openbon_station_pin_ADMIN', pin);
+    sessionStorage.setItem('openbon_station_pin_POS', pin);
+    sessionStorage.setItem('openbon_station_pin_POS_CASHIER', pin);
+    sessionStorage.setItem('openbon_station_pin_WAITER', pin);
+    sessionStorage.setItem('openbon_station_pin_KITCHEN', pin);
     document.documentElement.setAttribute('data-theme', 'dark');
     document.documentElement.className = 'dark h-full font-sans';
-  });
+  }, SCREENSHOT_ADMIN_PIN);
 }
 
 async function captureScreen(page, filename, width = 1280, height = 800) {
@@ -58,7 +62,29 @@ async function run() {
     fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
   }
 
-  // 0. Seed Database Data
+  // 0a. Screenshot-Admin-PIN setzen (v0.4.18+: 6-stellig, PBKDF2-Hash, Dev-DB)
+  console.log(`[AUTH-SETUP] Setze Screenshot-Admin-PIN (SCREENSHOT_ADMIN_PIN=${SCREENSHOT_ADMIN_PIN})...`);
+  try {
+    const crypto = require('crypto');
+    const salt = crypto.randomBytes(16);
+    const derived = crypto.pbkdf2Sync(SCREENSHOT_ADMIN_PIN, salt, 100000, 32, 'sha512');
+    const hashed = `$pbkdf2$${salt.toString('hex')}$${derived.toString('hex')}`;
+    await prisma.eventConfig.upsert({
+      where: { id: 'default' },
+      update: { adminPin: hashed },
+      create: { id: 'default', adminPin: hashed },
+    });
+    await prisma.staff.upsert({
+      where: { name: 'Administrator' },
+      create: { name: 'Administrator', role: 'ADMIN', pinHash: hashed, isActive: true },
+      update: { pinHash: hashed, isActive: true },
+    });
+    console.log('[AUTH-SETUP] Admin-PIN gesetzt.');
+  } catch (err) {
+    console.warn('[AUTH-SETUP WARN]', err.message);
+  }
+
+  // 0. Seed Database Data (v0.4.19+: Cent-Int-Felder)
   console.log('[SEED] Bereite Beispieldaten in Datenbank vor...');
   let sampleTable = null;
   try {
@@ -74,27 +100,27 @@ async function run() {
 
     const prods = await prisma.product.findMany({ take: 6 });
 
-    // Seed Sample Payment for E-Bon
+    // Seed Sample Payment for E-Bon (Cent-Int, v0.4.19+)
     const existingSample = await prisma.payment.findFirst({ where: { digitalReceiptCode: 'SAMPLE-EBON-1234' } });
     if (!existingSample && prods.length > 0) {
       await prisma.payment.create({
         data: {
           invoiceNumber: 'RE-2026-9999',
           digitalReceiptCode: 'SAMPLE-EBON-1234',
-          totalGross: 24.50,
-          totalNet: 20.59,
-          totalTax: 3.91,
-          taxBase19: 20.59,
-          taxAmount19: 3.91,
-          taxBase7: 0,
-          taxAmount7: 0,
-          taxBase0: 0,
-          totalDeposit: 2.00,
-          returnDeposit: 0,
-          discountAmount: 0,
-          tipAmount: 2.00,
-          givenAmount: 30.00,
-          changeAmount: 3.50,
+          totalGrossCents: 2450,
+          totalNetCents: 2059,
+          totalTaxCents: 391,
+          taxBase19Cents: 2059,
+          taxAmount19Cents: 391,
+          taxBase7Cents: 0,
+          taxAmount7Cents: 0,
+          taxBase0Cents: 0,
+          totalDepositCents: 200,
+          returnDepositCents: 0,
+          discountAmountCents: 0,
+          tipAmountCents: 200,
+          givenAmountCents: 3000,
+          changeAmountCents: 350,
           paymentMethod: 'CASH',
           waiterName: 'Johannes',
           tableId: sampleTable ? sampleTable.id : null,
@@ -102,8 +128,8 @@ async function run() {
             create: prods.slice(0, 3).map((p) => ({
               productName: p.name,
               quantity: 2,
-              unitPrice: p.price,
-              deposit: p.deposit || 0,
+              unitPriceCents: p.priceCents,
+              depositCents: p.depositCents || 0,
               taxRate: p.taxRate || 19,
             })),
           },
@@ -111,7 +137,7 @@ async function run() {
       });
     }
 
-    // Seed Open Order for Waiter on sampleTable
+    // Seed Open Order for Waiter on sampleTable (Cent-Int, kein totalGross auf Order)
     if (sampleTable && prods.length > 0) {
       await prisma.order.deleteMany({ where: { tableId: sampleTable.id } });
       await prisma.order.create({
@@ -119,12 +145,11 @@ async function run() {
           tableId: sampleTable.id,
           waiterName: 'Johannes',
           status: 'OPEN',
-          totalGross: 23.50,
           items: {
             create: [
-              { productId: prods[0].id, productName: prods[0].name, quantity: 2, unitPrice: prods[0].price, deposit: prods[0].deposit || 0, status: 'OPEN' },
-              { productId: prods[1].id, productName: prods[1].name, quantity: 2, unitPrice: prods[1].price, deposit: prods[1].deposit || 0, status: 'OPEN' },
-              { productId: prods[2].id, productName: prods[2].name, quantity: 1, unitPrice: prods[2].price, deposit: prods[2].deposit || 0, status: 'OPEN' },
+              { productId: prods[0].id, productName: prods[0].name, quantity: 2, unitPriceCents: prods[0].priceCents, depositCents: prods[0].depositCents || 0, taxRate: prods[0].taxRate || 19 },
+              { productId: prods[1].id, productName: prods[1].name, quantity: 2, unitPriceCents: prods[1].priceCents, depositCents: prods[1].depositCents || 0, taxRate: prods[1].taxRate || 19 },
+              { productId: prods[2].id, productName: prods[2].name, quantity: 1, unitPriceCents: prods[2].priceCents, depositCents: prods[2].depositCents || 0, taxRate: prods[2].taxRate || 19 },
             ],
           },
         },
@@ -134,17 +159,18 @@ async function run() {
     console.warn('[SEED WARN]', err.message);
   }
 
-  // Get Admin JWT Token
+  // Get Admin JWT Token (v0.4.18+: 6-stellige PIN, siehe AUTH-SETUP oben)
   console.log('[AUTH] Hole Admin JWT Session Token...');
   let authToken = '';
   try {
     const authRes = await fetch(`${BASE_URL}/api/auth/pin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'VERIFY', stationType: 'ADMIN', pin: '1234' }),
+      body: JSON.stringify({ action: 'VERIFY', stationType: 'ADMIN', pin: SCREENSHOT_ADMIN_PIN }),
     });
     const authData = await authRes.json();
     authToken = authData.token || '';
+    console.log(authToken ? '[AUTH] Admin-Token erhalten.' : '[AUTH] Kein Token (Login fehlgeschlagen).');
   } catch (e) {
     console.warn('[AUTH WARN]', e.message);
   }
@@ -425,6 +451,8 @@ async function run() {
         await page.setViewport({ width: sc.width, height: sc.height, deviceScaleFactor: 2 });
         await page.goto(`${BASE_URL}${sc.path}`, { waitUntil: 'networkidle2', timeout: 12000 });
         await setDarkThemeAndAuth(page, authToken);
+        // Cookie erst nach erstem Seitenkontakt wirksam -> neu laden
+        await page.goto(`${BASE_URL}${sc.path}`, { waitUntil: 'networkidle2', timeout: 12000 });
         await captureScreen(page, sc.name, sc.width, sc.height);
       } catch (err) {
         console.warn(`[WARN] Fehler bei ${sc.name}:`, err.message);
@@ -467,6 +495,8 @@ async function run() {
         await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: 2 });
         await page.goto(`${BASE_URL}${sc.path}`, { waitUntil: 'networkidle2', timeout: 12000 });
         await setDarkThemeAndAuth(page, authToken);
+        // Cookie erst nach erstem Seitenkontakt wirksam -> neu laden
+        await page.goto(`${BASE_URL}${sc.path}`, { waitUntil: 'networkidle2', timeout: 12000 });
         await captureScreen(page, sc.name, 1280, 800);
       } catch (err) {
         console.warn(`[WARN] Fehler bei ${sc.name}:`, err.message);

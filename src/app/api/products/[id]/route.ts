@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
+import { toCents } from '@/lib/pricing';
 
 interface VariantInput {
   name: string;
@@ -74,8 +75,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         data: {
           name: body.name,
           alternativeTicketName: body.alternativeTicketName !== undefined ? body.alternativeTicketName : undefined,
-          price: body.price !== undefined ? parseFloat(body.price) : undefined,
-          deposit: body.deposit !== undefined ? parseFloat(body.deposit) : undefined,
+          priceCents: body.price !== undefined ? toCents(Number(body.price)) : body.priceCents !== undefined ? Number(body.priceCents) : undefined,
+          depositCents: body.deposit !== undefined ? toCents(Number(body.deposit)) : body.depositCents !== undefined ? Number(body.depositCents) : undefined,
           taxRate: body.taxRate !== undefined ? parseFloat(body.taxRate) : undefined,
           buttonColor: body.buttonColor,
           status: body.status,
@@ -109,11 +110,15 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
                 ? body.additives
                 : JSON.stringify(body.additives)
               : undefined,
-          happyHourPrice:
+          happyHourPriceCents:
             body.happyHourPrice !== undefined
               ? body.happyHourPrice === null || body.happyHourPrice === ''
                 ? null
-                : parseFloat(body.happyHourPrice)
+                : toCents(Number(body.happyHourPrice))
+              : body.happyHourPriceCents !== undefined
+              ? body.happyHourPriceCents === null || body.happyHourPriceCents === ''
+                ? null
+                : Number(body.happyHourPriceCents)
               : undefined,
           happyHourStart: body.happyHourStart !== undefined ? body.happyHourStart : undefined,
           happyHourEnd: body.happyHourEnd !== undefined ? body.happyHourEnd : undefined,
@@ -141,13 +146,13 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
             ? {
                 create: (body.variants as VariantInput[]).map((v, idx: number) => ({
                   name: v.name,
-                  priceDelta: Number(v.priceDelta ?? 0),
+                  priceDeltaCents: toCents(Number((v as any).priceDelta ?? (v as any).priceDeltaCents ?? 0)),
                   isSoldOut: v.isSoldOut ?? false,
                   sortIndex: idx,
                   alternativeTicketName: v.alternativeTicketName?.trim() || null,
                   color: v.color?.trim() || null,
                   printGroupId: v.printGroupId || null,
-                  deposit: v.deposit === undefined || v.deposit === null ? null : Number(v.deposit),
+                  depositCents: (v as any).deposit === undefined || (v as any).deposit === null ? ((v as any).depositCents === undefined || (v as any).depositCents === null ? null : Number((v as any).depositCents)) : toCents(Number((v as any).deposit)),
                   taxRate: v.taxRate === undefined || v.taxRate === null ? null : Number(v.taxRate),
                 })),
               }
@@ -156,7 +161,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
             ? {
                 create: (body.options as OptionInput[]).map((o, idx: number) => ({
                   name: o.name,
-                  priceDelta: Number(o.priceDelta ?? 0),
+                  priceDeltaCents: toCents(Number((o as any).priceDelta ?? (o as any).priceDeltaCents ?? 0)),
                   sortIndex: idx,
                   defaultQuantity: Math.max(0, Number(o.defaultQuantity ?? 0)),
                   maxQuantity: Math.max(1, Number(o.maxQuantity ?? 1)),

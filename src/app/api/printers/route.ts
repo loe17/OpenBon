@@ -79,8 +79,8 @@ export async function POST(req: Request) {
         tableLabel: 'TEST-STATION',
         waiterName: 'Administrator',
         items: [
-          { name: 'Druckertest erfolgreich', quantity: 1, unitPrice: 0.0 },
-          { name: 'Umlaute-Test: ä ö ü Ä Ö Ü ß €', quantity: 1, unitPrice: 0.0 },
+          { name: 'Druckertest erfolgreich', quantity: 1, unitPriceCents: 0 },
+          { name: 'Umlaute-Test: ä ö ü Ä Ö Ü ß €', quantity: 1, unitPriceCents: 0 },
         ],
         footerText: `${printer.ipAddress.startsWith('/dev/') ? 'USB-Port: ' : 'IP: '}${printer.ipAddress}${printer.port ? `:${printer.port}` : ''} | Breite: ${printer.paperWidth}mm`,
       };

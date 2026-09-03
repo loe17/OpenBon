@@ -213,30 +213,19 @@ export async function POST(req: Request) {
       }
 
       const trimmed = customCommand.trim();
-      const ALLOWED_COMMANDS = [
-        'git status',
-        'git log',
-        'git log -n 5',
-        'git log -n 10',
-        'git pull',
-        'git pull origin master',
-        'git fetch origin master',
-        'git reset --hard origin/master',
-        'git reset --hard HEAD',
-        'git checkout -f master',
-        'git stash',
-        'git stash drop',
-        'npm install --production=false',
-        'npm install',
-        'npx prisma db push --accept-data-loss',
-        'npx prisma generate',
-        'npm run build',
-        'restart',
-        'systemctl status openbon',
-      ];
+      // Gehärtet: nur exakte Allowlist, kein Regex mit diff/upload-pack, kein Shell-Exec
+      const ALLOWED_COMMANDS: Record<string, string[]> = {
+        'git status': ['status'],
+        'git log': ['log', '-n', '10'],
+        'git log -n 5': ['log', '-n', '5'],
+        'git log -n 10': ['log', '-n', '10'],
+        'git fetch origin master': ['fetch', 'origin', 'master'],
+        'git stash': ['stash'],
+        'df -h': [],
+        'free -m': [],
+      };
 
-      // Keine Shell-Meta-Zeichen erlauben (Command Injection Schutz)
-      if (/[;&|`$\n\r><]/.test(trimmed)) {
+      if (/[;&|`$()\n\r><]/.test(trimmed) || trimmed.includes('upload-pack') || trimmed.includes('protocol.ext')) {
         return NextResponse.json(
           {
             success: false,
@@ -249,21 +238,14 @@ export async function POST(req: Request) {
         );
       }
 
-      const isAllowed =
-        ALLOWED_COMMANDS.includes(trimmed) ||
-        /^git (status|log|pull|fetch|checkout|reset|tag|stash|diff)/.test(trimmed) ||
-        /^npm (install|run build|cache clean)/.test(trimmed) ||
-        /^npx prisma (db push|generate|studio)/.test(trimmed) ||
-        trimmed === 'df -h' ||
-        trimmed === 'free -m';
-
-      if (!isAllowed) {
+      const gitArgs = ALLOWED_COMMANDS[trimmed];
+      if (gitArgs === undefined) {
         return NextResponse.json(
           {
             success: false,
             command: trimmed,
             stdout: '',
-            stderr: `[SICHERHEITSHINWEIS] Der Befehl "${trimmed}" ist nicht in der System-Allowlist erlaubt.`,
+            stderr: `[SICHERHEITSHINWEIS] Der Befehl "${trimmed}" ist nicht erlaubt. Mutierende Befehle (pull/reset/checkout/install/build) nur über INSTALL_UPDATE mit Admin-TAN.`,
             error: 'Befehl nicht erlaubt',
           },
           { status: 403 }
@@ -272,11 +254,22 @@ export async function POST(req: Request) {
 
       const startTime = Date.now();
       try {
-        const { stdout, stderr } = await execAsync(trimmed, {
-          cwd: projectRoot,
-          timeout: 30000,
-          maxBuffer: 1024 * 1024 * 5,
-        });
+        let stdout = '';
+        let stderr = '';
+        if (trimmed.startsWith('git ')) {
+          const r = await runGit(gitArgs);
+          stdout = r.stdout;
+          stderr = r.stderr;
+        } else {
+          const { execFile: execFileAsync } = await import('child_process');
+          const { promisify: p } = await import('util');
+          const ef = p(execFileAsync);
+          const bin = trimmed === 'df -h' ? 'df' : 'free';
+          const args = trimmed === 'df -h' ? ['-h'] : ['-m'];
+          const r = (await ef(bin, args, { cwd: projectRoot, timeout: 10000 })) as { stdout: string; stderr: string };
+          stdout = String(r.stdout || '');
+          stderr = String(r.stderr || '');
+        }
 
         const duration = Date.now() - startTime;
         return NextResponse.json({

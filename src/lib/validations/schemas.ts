@@ -30,13 +30,18 @@ export const PaymentItemInputSchema = z.object({
   orderItemId: z.string().nullable().optional(),
   productName: z.string().min(1),
   quantityToPay: z.number().int().positive(),
-  unitPrice: z.number().nonnegative(),
-  deposit: z.number().default(0),
+  unitPriceCents: z.number().int().nonnegative(),
+  depositCents: z.number().int().default(0),
   taxRate: z.number().default(19),
+  /** @deprecated Legacy Euro-Aliase (Migration Gruppen 2/3) */
+  unitPrice: z.number().nonnegative().optional(),
+  /** @deprecated Legacy Euro-Alias */
+  deposit: z.number().optional(),
 });
 
 export const PaymentMethodEnum = z.enum([
   'CASH',
+  'CASH_REFUND',
   'CARD_SUMUP',
   'CARD_VRPAY',
   'CARD_SPARKASSE',
@@ -48,6 +53,38 @@ export const PaymentMethodEnum = z.enum([
   'DISCOUNT',
 ]);
 
+export const ChatMessageSchema = z.object({
+  message: z.string().min(1).max(500),
+  senderName: z.string().min(1).max(60),
+  targetDeviceId: z.string().max(128).nullable().optional(),
+  isUrgent: z.boolean().default(false),
+});
+
+export const KdsUndoSchema = z.object({
+  orderItemId: z.string().min(1),
+});
+
+export const TableGuestSchema = z.object({
+  guestName: z.string().max(80).nullable().optional(),
+  reservationName: z.string().max(80).nullable().optional(),
+  status: z.enum(['FREE', 'OCCUPIED', 'BILL_REQUESTED', 'RESERVED']).optional(),
+});
+
+export const StockCountSchema = z.object({
+  stockUnitId: z.string().min(1).optional(),
+  productId: z.string().min(1).optional(),
+  countedQuantity: z.number().nonnegative(),
+  note: z.string().max(200).nullable().optional(),
+});
+
+export const AmountSplitSchema = z.object({
+  orderId: z.string().min(1).optional(),
+  tableId: z.string().min(1).optional(),
+  amountCents: z.number().int().positive().max(10000000),
+  paymentMethod: PaymentMethodEnum.default('CASH'),
+  waiterName: z.string().default('Bedienung'),
+});
+
 export const CreatePaymentSchema = z.object({
   tableId: z.string().nullable().optional(),
   orderId: z.string().nullable().optional(),
@@ -55,10 +92,10 @@ export const CreatePaymentSchema = z.object({
   waiterName: z.string().default('Bedienung'),
   deviceId: z.string().nullable().optional(),
   paymentMethod: PaymentMethodEnum.default('CASH'),
-  givenAmount: z.number().nonnegative().optional(),
-  tipAmount: z.number().nonnegative().default(0),
-  discountAmount: z.number().nonnegative().default(0),
-  surchargeAmount: z.number().nonnegative().default(0),
+  givenAmountCents: z.number().int().nonnegative().optional(),
+  tipAmountCents: z.number().int().nonnegative().default(0),
+  discountAmountCents: z.number().int().nonnegative().default(0),
+  surchargeAmountCents: z.number().int().nonnegative().default(0),
   surchargePercent: z.number().nonnegative().default(0),
   surchargeReason: z.string().nullable().optional(),
   cardAuthCode: z.string().nullable().optional(),
@@ -68,9 +105,19 @@ export const CreatePaymentSchema = z.object({
   nonPaidReason: z.string().nullable().optional(),
   requestId: z.string().optional(),
   returnDepositCount: z.number().int().nonnegative().optional(),
-  returnDepositAmount: z.number().nonnegative().optional(),
+  returnDepositAmountCents: z.number().int().nonnegative().optional(),
   idempotencyKey: z.string().optional(),
   itemsToPay: z.array(PaymentItemInputSchema).default([]),
+  /** @deprecated Legacy Euro-Aliase (Migration Gruppen 2/3) */
+  givenAmount: z.number().nonnegative().optional(),
+  /** @deprecated Legacy Euro-Alias */
+  tipAmount: z.number().nonnegative().optional(),
+  /** @deprecated Legacy Euro-Alias */
+  discountAmount: z.number().nonnegative().optional(),
+  /** @deprecated Legacy Euro-Alias */
+  surchargeAmount: z.number().nonnegative().optional(),
+  /** @deprecated Legacy Euro-Alias */
+  returnDepositAmount: z.number().nonnegative().optional(),
 });
 
 /**
@@ -88,12 +135,18 @@ export const AtomicCheckoutSchema = z.object({
   deviceId: z.string().nullable().optional(),
   items: z.array(OrderItemInputSchema).min(1, 'Bestellung muss mindestens einen Artikel enthalten'),
   paymentMethod: PaymentMethodEnum.default('CASH'),
-  givenAmount: z.number().nonnegative().optional(),
-  tipAmount: z.number().nonnegative().default(0),
-  discountAmount: z.number().nonnegative().default(0),
+  givenAmountCents: z.number().int().nonnegative().optional(),
+  tipAmountCents: z.number().int().nonnegative().default(0),
+  discountAmountCents: z.number().int().nonnegative().default(0),
   openDrawer: z.boolean().default(true),
   printReceipt: z.boolean().default(false),
   idempotencyKey: z.string().optional(),
+  /** @deprecated Legacy Euro-Aliase (Migration Gruppen 2/3) */
+  givenAmount: z.number().nonnegative().optional(),
+  /** @deprecated Legacy Euro-Alias */
+  tipAmount: z.number().nonnegative().optional(),
+  /** @deprecated Legacy Euro-Alias */
+  discountAmount: z.number().nonnegative().optional(),
 });
 
 export const GuestOrderItemSchema = z.object({

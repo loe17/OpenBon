@@ -57,6 +57,7 @@ export default function KioskPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [kioskSearch, setKioskSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [inactivitySeconds, setInactivitySeconds] = useState(60);
   const [step, setStep] = useState<'SELECT' | 'UPSELL' | 'PAYMENT' | 'SUCCESS'>('SELECT');
@@ -367,11 +368,19 @@ export default function KioskPage() {
             </aside>
 
             {/* Produkt Raster Mitte */}
-            <main className="flex-1 p-6 overflow-y-auto grid grid-cols-2 md:grid-cols-3 gap-4">
+            <main className="flex-1 p-6 overflow-y-auto">
+              <input
+                value={kioskSearch}
+                onChange={(e) => { setKioskSearch(e.target.value); resetTimer(); }}
+                placeholder="Artikel suchen …"
+                aria-label="Artikel suchen"
+                className="w-full max-w-sm bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-base text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 min-h-[48px] mb-4"
+              />
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {(selectedCategory === 'ALL'
                 ? products
                 : products.filter((p) => p.categoryId === selectedCategory)
-              ).map((product) => {
+              ).filter((p) => !kioskSearch.trim() || p.name.toLowerCase().includes(kioskSearch.trim().toLowerCase())).map((product) => {
                 const { price, isHappyHour } = getEffectiveProductPrice(product);
                 return (
                   <button
@@ -414,6 +423,7 @@ export default function KioskPage() {
                   </button>
                 );
               })}
+              </div>
             </main>
 
             {/* Warenkorb Rechts */}

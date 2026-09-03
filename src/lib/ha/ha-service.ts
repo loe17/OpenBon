@@ -172,6 +172,16 @@ export class HighAvailabilityService {
     return false;
   }
 
+  /** ISO-Ablauf der lokalen PRIMARY-Lease (für Partner-Check via /api/sync/heartbeat). */
+  public async getLeaseExpiryIso(): Promise<string | null> {
+    try {
+      const lease = await prisma.haLease.findUnique({ where: { id: 'primary' } });
+      return lease ? new Date(lease.expiresAt).toISOString() : null;
+    } catch {
+      return null;
+    }
+  }
+
   private async getLeaseHolder(): Promise<string> {
     try {
       const lease = await prisma.haLease.findUnique({ where: { id: 'primary' } });
@@ -240,6 +250,23 @@ export class HighAvailabilityService {
     console.warn(`[HA STANDBY] Primary (${this.partnerUrl}) nicht erreichbar! Fehlversuche: ${this.missedHeartbeats}/3`);
 
     if (this.missedHeartbeats >= 3) {
+      // Kalt-Standby als Standard: kein Auto-Promote ohne explizites Opt-in.
+      // ENV hat Vorrang vor DB (Compose HA_AUTO_FAILOVER=0 wird nicht mehr von DB=true überstimmt).
+      const envSet = process.env.HA_AUTO_FAILOVER;
+      let autoFailover = envSet === '1';
+      if (envSet === undefined || envSet === '') {
+        try {
+          const cfg = await prisma.eventConfig.findUnique({ where: { id: 'default' }, select: { haAutoFailover: true } });
+          if (cfg) autoFailover = cfg.haAutoFailover === true;
+        } catch {}
+      }
+      if (!autoFailover) {
+        console.error('[HA FAILOVER] Auto-Promote deaktiviert (Kalt-Standby). Bitte manuell über Admin → HA übernehmen.');
+        if (global.io) {
+          global.io.emit('ha:manual_failover_required', { missed: this.missedHeartbeats });
+        }
+        return;
+      }
       console.error(`[HA FAILOVER] Primaerserver ausgefallen! Befoerdere STANDBY zum PRIMARY MASTER!`);
       const promoted = await this.promoteToPrimary();
       if (!promoted) {
@@ -249,9 +276,38 @@ export class HighAvailabilityService {
   }
 
   /**
-   * Befoerdert diese Instanz zum PRIMARY – nur mit erfolgreicher Lease-Übernahme.
+   * Prüft beim Partner, ob dort noch ein lebender PRIMARY arbeitet.
+   * Verhindert Split-Brain bei bloßer Langsamkeit statt Ausfall.
+   */
+  private async isPartnerStillPrimary(): Promise<boolean> {
+    if (!this.partnerUrl) return false;
+    try {
+      const res = await fetch(`${this.partnerUrl}/api/sync/heartbeat`, {
+        method: 'GET',
+        headers: { 'X-HA-Secret': await getHaSyncSecret() },
+        signal: AbortSignal.timeout(2000),
+      });
+      if (!res.ok) return false;
+      const j = (await res.json()) as { role?: string; leaseExpiresAt?: string | null };
+      if (String(j.role || '').toUpperCase() !== 'PRIMARY') return false;
+      if (!j.leaseExpiresAt) return true; // meldet PRIMARY ohne Ablauf → vorsichtig bleiben
+      return new Date(j.leaseExpiresAt).getTime() > Date.now();
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Befoerdert diese Instanz zum PRIMARY – nur mit erfolgreicher Lease-Übernahme
+   * UND wenn der Partner nicht mehr als lebender PRIMARY meldet.
    */
   public async promoteToPrimary(): Promise<boolean> {
+    try {
+      if (await this.isPartnerStillPrimary()) {
+        console.error('[HA] Promote verweigert: Partner meldet sich noch als lebender PRIMARY.');
+        return false;
+      }
+    } catch {}
     let acquired = false;
     try {
       acquired = await this.acquireOrRenewLease();
@@ -283,25 +339,29 @@ export class HighAvailabilityService {
     return true;
   }
 
-  // Pull latest SyncJournal entries from Primary
+  // Pull latest SyncJournal entries from Primary (paginiert bis kein Rückstand)
   private async pullAndApplySyncDelta() {
     try {
-      const lastLocalEntry = await prisma.syncJournal.findFirst({
-        orderBy: { id: 'desc' },
-      });
-      const lastSeq = lastLocalEntry ? lastLocalEntry.id : 0;
+      for (let page = 0; page < 20; page++) {
+        const lastLocalEntry = await prisma.syncJournal.findFirst({
+          orderBy: { id: 'desc' },
+        });
+        const lastSeq = lastLocalEntry ? lastLocalEntry.id : 0;
 
-      const res = await fetch(`${this.partnerUrl}/api/sync/pull?sinceSequence=${lastSeq}`, {
-        headers: { 'X-HA-Secret': await getHaSyncSecret() },
-      });
-      if (!res.ok) return;
+        const res = await fetch(`${this.partnerUrl}/api/sync/pull?sinceSequence=${lastSeq}`, {
+          headers: { 'X-HA-Secret': await getHaSyncSecret() },
+        });
+        if (!res.ok) return;
 
-      const data = await res.json();
-      const newEntries = data.entries || [];
+        const data = await res.json();
+        const newEntries = data.entries || [];
+        if (newEntries.length === 0) return;
 
-      for (const entry of newEntries) {
-        // Apply journal entry to local DB
-        await this.applyJournalEntry(entry);
+        for (const entry of newEntries) {
+          // Apply journal entry to local DB
+          await this.applyJournalEntry(entry);
+        }
+        if (newEntries.length < 100) return; // letzte Seite (Server-take:100)
       }
     } catch (err) {
       // Sync error
@@ -313,11 +373,33 @@ export class HighAvailabilityService {
       // M5.2 Sequenz-Fencing: Bereits vorhandene Journal-Einträge werden
       // NICHT erneut angewendet - das schützt vor Replays aelterer Deltas
       // und Doppel-Anwendung bei (seltenem) Pull-Overlap.
+      // Divergenz (gleiche ID, anderer Inhalt = beide Seiten schrieben) wird
+      // als Konflikt protokolliert statt still verworfen.
       const journalExists = await prisma.syncJournal.findUnique({
         where: { id: entry.id },
-        select: { id: true },
       });
-      if (journalExists) return;
+      if (journalExists) {
+        if (journalExists.payload !== entry.payload || journalExists.entityId !== entry.entityId) {
+          console.error(
+            `[HA-KONFLIKT] Journal-ID ${entry.id} existiert lokal mit anderem Inhalt (${journalExists.entityType}/${journalExists.entityId} vs. ${entry.entityType}/${entry.entityId}). Eigene Zeile behalten, Partner-Eintrag NICHT angewendet – bitte manuell prüfen.`
+          );
+          try {
+            if (global.io) {
+              global.io.emit('ha:conflict', { journalId: entry.id, entityType: entry.entityType, entityId: entry.entityId });
+            }
+          } catch {}
+          try {
+            const { logSystemActionSafe } = await import('../action-logger');
+            await logSystemActionSafe(() => ({
+              action: 'HA_CONFLICT',
+              category: 'SYSTEM',
+              actor: 'HA-Sync',
+              details: `Journal-Konflikt ID ${entry.id}: lokal ${journalExists.entityType}/${journalExists.entityId}, Partner ${entry.entityType}/${entry.entityId}. Manuell prüfen!`,
+            }));
+          } catch {}
+        }
+        return;
+      }
 
       const payload = JSON.parse(entry.payload);
 
@@ -335,8 +417,9 @@ export class HighAvailabilityService {
         },
       });
 
-      // Synchronize entity state
+      // Synchronize entity state (inkl. Positionen, sonst leere Bons am Standby)
       if (entry.entityType === 'ORDER' && entry.operation === 'INSERT') {
+        const items = Array.isArray(payload.items) ? payload.items : [];
         await prisma.order.upsert({
           where: { id: payload.id },
           update: { status: payload.status },
@@ -350,6 +433,23 @@ export class HighAvailabilityService {
             tokenNumber: payload.tokenNumber,
             isTraining: payload.isTraining,
             createdAt: new Date(payload.createdAt),
+            items: items.length
+              ? {
+                  create: items.map((i: Record<string, unknown>) => ({
+                    id: typeof i.id === 'string' ? (i.id as string) : undefined,
+                    productId: String(i.productId || ''),
+                    productName: String(i.productName || ''),
+                    quantity: Number(i.quantity || 1),
+                    unitPriceCents: Number((i as { unitPriceCents?: unknown }).unitPriceCents ?? 0),
+                    depositCents: Number((i as { depositCents?: unknown }).depositCents ?? 0),
+                    taxRate: Number(i.taxRate ?? 19),
+                    variantName: (i.variantName as string) ?? null,
+                    selectedOptions: typeof i.selectedOptions === 'string' ? (i.selectedOptions as string) : JSON.stringify(i.selectedOptions ?? []),
+                    customizationText: (i.customizationText as string) ?? null,
+                    courseNumber: Number(i.courseNumber ?? 1),
+                  })),
+                }
+              : undefined,
           },
         });
       } else if (entry.entityType === 'PAYMENT' && entry.operation === 'INSERT') {
@@ -361,15 +461,15 @@ export class HighAvailabilityService {
             invoiceNumber: payload.invoiceNumber,
             tableId: payload.tableId,
             waiterName: payload.waiterName,
-            totalGross: payload.totalGross,
-            totalNet: payload.totalNet,
-            totalTax: payload.totalTax,
-            totalDeposit: payload.totalDeposit,
-            returnDeposit: payload.returnDeposit,
-            discountAmount: payload.discountAmount,
-            tipAmount: payload.tipAmount,
-            givenAmount: payload.givenAmount,
-            changeAmount: payload.changeAmount,
+            totalGrossCents: payload.totalGrossCents ?? payload.totalGross ?? 0,
+            totalNetCents: payload.totalNetCents ?? payload.totalNet ?? 0,
+            totalTaxCents: payload.totalTaxCents ?? payload.totalTax ?? 0,
+            totalDepositCents: payload.totalDepositCents ?? payload.totalDeposit ?? 0,
+            returnDepositCents: payload.returnDepositCents ?? payload.returnDeposit ?? 0,
+            discountAmountCents: payload.discountAmountCents ?? payload.discountAmount ?? 0,
+            tipAmountCents: payload.tipAmountCents ?? payload.tipAmount ?? 0,
+            givenAmountCents: payload.givenAmountCents ?? payload.givenAmount ?? 0,
+            changeAmountCents: payload.changeAmountCents ?? payload.changeAmount ?? 0,
             paymentMethod: payload.paymentMethod,
             isCancelled: payload.isCancelled,
             isTraining: payload.isTraining,

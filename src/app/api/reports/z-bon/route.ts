@@ -99,18 +99,19 @@ export async function POST(req: Request) {
     });
 
     const closedAt = new Date();
-    const cashCounted =
+    const cashCountedCents =
       body.cashCounted !== undefined && body.cashCounted !== null
-        ? Math.round(Number(body.cashCounted) * 100) / 100
+        ? Math.round(Number(body.cashCounted) * 100)
         : null;
-    const cashDifference =
-      cashCounted !== null ? Math.round((cashCounted - totals.cashExpected) * 100) / 100 : null;
+    const cashExpectedCents = totals.cashExpectedCents ?? 0;
+    const cashDifferenceCents =
+      cashCountedCents !== null ? cashCountedCents - cashExpectedCents : null;
 
     const fiscalSignature = signFiscalBlock({
       periodNumber: period.periodNumber,
       closedAt: closedAt.toISOString(),
-      totalGross: totals.totalGross,
-      totalNet: totals.totalNet,
+      totalGrossCents: totals.totalGrossCents ?? 0,
+      totalNetCents: totals.totalNetCents ?? 0,
       transactionCount: totals.transactionCount,
       previousSignature: previous?.fiscalSignature ?? null,
     });
@@ -120,8 +121,8 @@ export async function POST(req: Request) {
       openedAt: period.openedAt,
       closedAt,
       ...totals,
-      cashCounted,
-      cashDifference,
+      cashCountedCents,
+      cashDifferenceCents,
       fiscalSignature,
     };
 
@@ -142,20 +143,20 @@ export async function POST(req: Request) {
           status: 'CLOSED',
           closedAt,
           closedBy: body.closedBy || 'Admin',
-          totalGross: totals.totalGross,
-          totalNet: totals.totalNet,
-          taxAmount19: totals.taxAmount19,
-          taxAmount7: totals.taxAmount7,
-          taxBase0: totals.taxBase0,
-          totalCash: totals.totalCash,
-          totalCard: totals.totalCard,
-          totalTips: totals.totalTips,
-          totalDepositOut: totals.totalDepositReturned,
-          cashIn: totals.cashIn,
-          cashOut: totals.cashOut,
-          cashExpected: totals.cashExpected,
-          cashCounted,
-          cashDifference,
+          totalGrossCents: totals.totalGrossCents ?? 0,
+          totalNetCents: totals.totalNetCents ?? 0,
+          taxAmount19Cents: totals.taxAmount19Cents ?? 0,
+          taxAmount7Cents: totals.taxAmount7Cents ?? 0,
+          taxBase0Cents: totals.taxBase0Cents ?? 0,
+          totalCashCents: totals.totalCashCents ?? 0,
+          totalCardCents: totals.totalCardCents ?? 0,
+          totalTipsCents: totals.totalTipsCents ?? 0,
+          totalDepositOutCents: totals.totalDepositReturnedCents ?? 0,
+          cashInCents: totals.cashInCents ?? 0,
+          cashOutCents: totals.cashOutCents ?? 0,
+          cashExpectedCents: totals.cashExpectedCents ?? 0,
+          cashCountedCents,
+          cashDifferenceCents,
           transactionCount: totals.transactionCount,
           fiscalSignature,
           reportJson: JSON.stringify(reportSnapshot),
@@ -186,30 +187,30 @@ export async function POST(req: Request) {
           periodNumber: period.periodNumber,
           openedAt: period.openedAt,
           closedAt,
-          totalGross: totals.totalGross,
-          totalNet: totals.totalNet,
-          totalTax19: totals.taxAmount19,
-          totalTax7: totals.taxAmount7,
-          taxBase0: totals.taxBase0,
+          totalGrossCents: totals.totalGrossCents ?? 0,
+          totalNetCents: totals.totalNetCents ?? 0,
+          totalTax19Cents: totals.taxAmount19Cents ?? 0,
+          totalTax7Cents: totals.taxAmount7Cents ?? 0,
+          taxBase0Cents: totals.taxBase0Cents ?? 0,
           taxSplits: totals.taxSplits,
-          totalCash: totals.totalCash,
-          totalCard: totals.totalCard,
+          totalCashCents: totals.totalCashCents ?? 0,
+          totalCardCents: totals.totalCardCents ?? 0,
           paymentSplit: {
-            cardSumUp: totals.cardSumUp,
-            cardVrPay: totals.cardVrPay,
-            cardSparkasse: totals.cardSparkasse,
-            cardTerminal: totals.cardTerminal,
+            cardSumUpCents: totals.cardSumUpCents ?? 0,
+            cardVrPayCents: totals.cardVrPayCents ?? 0,
+            cardSparkasseCents: totals.cardSparkasseCents ?? 0,
+            cardTerminalCents: totals.cardTerminalCents ?? 0,
           },
-          totalStaff: totals.totalStaff,
-          totalSurcharges: totals.totalSurcharges,
-          totalDepositReturned: totals.totalDepositReturned,
-          totalTips: totals.totalTips,
+          totalStaffCents: totals.totalStaffCents ?? 0,
+          totalSurchargesCents: totals.totalSurchargesCents ?? 0,
+          totalDepositReturnedCents: totals.totalDepositReturnedCents ?? 0,
+          totalTipsCents: totals.totalTipsCents ?? 0,
           transactionCount: totals.transactionCount,
-          cashIn: totals.cashIn,
-          cashOut: totals.cashOut,
-          cashExpected: totals.cashExpected,
-          cashCounted,
-          cashDifference,
+          cashInCents: totals.cashInCents ?? 0,
+          cashOutCents: totals.cashOutCents ?? 0,
+          cashExpectedCents: totals.cashExpectedCents ?? 0,
+          cashCountedCents,
+          cashDifferenceCents,
           fiscalSignature,
           waiters: totals.waiters,
         };
@@ -228,7 +229,7 @@ export async function POST(req: Request) {
     if (global.io) {
       global.io.emit('register:closed', {
         periodNumber: closedPeriod.periodNumber,
-        totalGross: closedPeriod.totalGross,
+        totalGrossCents: closedPeriod.totalGrossCents,
       });
     }
 
@@ -236,11 +237,11 @@ export async function POST(req: Request) {
       action: 'Z_BON_CREATED',
       category: 'CASHBOOK',
       actor: auth.session.waiterName || auth.session.role,
-      details: `Kassenabschluss Z-${closedPeriod.periodNumber} über ${Number(closedPeriod.totalGross ?? 0).toFixed(2)} € erstellt${printed ? ' und gedruckt' : ' (nicht gedruckt)'}.`,
+      details: `Kassenabschluss Z-${closedPeriod.periodNumber} über ${((closedPeriod.totalGrossCents ?? 0) / 100).toFixed(2)} € erstellt${printed ? ' und gedruckt' : ' (nicht gedruckt)'}.`,
       metadata: {
         periodId: closedPeriod.id,
         periodNumber: closedPeriod.periodNumber,
-        totalGross: closedPeriod.totalGross,
+        totalGrossCents: closedPeriod.totalGrossCents,
         printed,
       },
     }));

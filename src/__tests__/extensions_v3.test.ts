@@ -45,8 +45,8 @@ describe('OpenBon Erweiterungs-Paket: Neue Systemfunktionen', () => {
     const product = await prisma.product.create({
       data: {
         name: 'Test Festbier 0,5l',
-        price: 4.5,
-        deposit: 1.0,
+        priceCents: 450,
+        depositCents: 100,
         taxRate: 19.0,
         categoryId: cat.id,
         trackStock: true,
@@ -69,8 +69,8 @@ describe('OpenBon Erweiterungs-Paket: Neue Systemfunktionen', () => {
               productId: testProductId,
               productName: 'Test Festbier 0,5l',
               quantity: 2,
-              unitPrice: 4.5,
-              deposit: 1.0,
+              unitPriceCents: 450,
+              depositCents: 100,
               taxRate: 19.0,
             },
           ],
@@ -90,8 +90,8 @@ describe('OpenBon Erweiterungs-Paket: Neue Systemfunktionen', () => {
               productId: testProductId,
               productName: 'Test Festbier 0,5l',
               quantity: 1,
-              unitPrice: 4.5,
-              deposit: 1.0,
+              unitPriceCents: 450,
+              depositCents: 100,
               taxRate: 19.0,
             },
           ],
@@ -217,7 +217,7 @@ describe('OpenBon Erweiterungs-Paket: Neue Systemfunktionen', () => {
       title: 'KÜCHENBON',
       tableLabel: '42',
       tableFontSize: 1,
-      items: [{ name: 'Schnitzel', quantity: 1, unitPrice: 10.0 }],
+      items: [{ name: 'Schnitzel', quantity: 1, unitPriceCents: 1000 }],
     });
     expect(res1.textRepresentation).toContain('Tisch: 42');
 
@@ -226,7 +226,7 @@ describe('OpenBon Erweiterungs-Paket: Neue Systemfunktionen', () => {
       title: 'KÜCHENBON',
       tableLabel: '42',
       tableFontSize: 5,
-      items: [{ name: 'Schnitzel', quantity: 1, unitPrice: 10.0 }],
+      items: [{ name: 'Schnitzel', quantity: 1, unitPriceCents: 1000 }],
     });
     expect(res5.textRepresentation).toContain('Tisch: 42');
     expect(res5.rawBuffer.length).toBeGreaterThan(0);
@@ -237,11 +237,11 @@ describe('OpenBon Erweiterungs-Paket: Neue Systemfunktionen', () => {
     // Mit MwSt
     const resTax = EscPosBuilder.buildTicket({
       title: 'BELEG',
-      totalGross: 11.90,
-      totalNet: 10.00,
-      totalTax: 1.90,
-      taxSplits: [{ rate: 19, base: 10.00, tax: 1.90, gross: 11.90 }],
-      items: [{ name: 'Bier', quantity: 1, unitPrice: 11.90 }],
+      totalGrossCents: 1190,
+      totalNetCents: 1000,
+      totalTaxCents: 190,
+      taxSplits: [{ rate: 19, baseCents: 1000, taxCents: 190, grossCents: 1190, base: 10.00, tax: 1.90, gross: 11.90 }],
+      items: [{ name: 'Bier', quantity: 1, unitPriceCents: 1190 }],
       enableTax: true,
     });
     expect(resTax.textRepresentation).toContain('MWST-AUFSCHLUESSELUNG');
@@ -249,11 +249,11 @@ describe('OpenBon Erweiterungs-Paket: Neue Systemfunktionen', () => {
     // Ohne MwSt (Kleinunternehmer / Verein)
     const resNoTax = EscPosBuilder.buildTicket({
       title: 'BELEG',
-      totalGross: 11.90,
-      totalNet: 10.00,
-      totalTax: 1.90,
-      taxSplits: [{ rate: 19, base: 10.00, tax: 1.90, gross: 11.90 }],
-      items: [{ name: 'Bier', quantity: 1, unitPrice: 11.90 }],
+      totalGrossCents: 1190,
+      totalNetCents: 1000,
+      totalTaxCents: 190,
+      taxSplits: [{ rate: 19, baseCents: 1000, taxCents: 190, grossCents: 1190, base: 10.00, tax: 1.90, gross: 11.90 }],
+      items: [{ name: 'Bier', quantity: 1, unitPriceCents: 1190 }],
       enableTax: false,
     });
     expect(resNoTax.textRepresentation).not.toContain('MWST-AUFSCHLUESSELUNG');

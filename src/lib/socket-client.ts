@@ -52,7 +52,7 @@ export function getSocket(): Socket {
       });
     });
 
-    // Start periodic device & battery heartbeat (every 15s)
+    // Start periodic device & battery heartbeat (every 60s, gedrosselt für Festbetrieb)
     setInterval(async () => {
       if (!socket?.connected) return;
       let batteryLevel = 100;
@@ -68,7 +68,7 @@ export function getSocket(): Socket {
         batteryLevel,
         isCharging,
       });
-    }, 15000);
+    }, 60000);
 
     // Handle "Find My Device" Acoustic Ping
     socket.on('device:play_sound', ({ targetDeviceId }) => {
@@ -78,14 +78,28 @@ export function getSocket(): Socket {
       }
     });
 
-    // Handle Force Logout
+    // Handle Force Logout (kein blockierendes alert(), sondern Toast-Event + Confirm-Dialog)
     socket.on('device:kicked', ({ targetDeviceId }) => {
       const myId = localStorage.getItem('pos_device_id');
       if (myId === targetDeviceId) {
-        alert('Ihre Sitzung wurde durch den Administrator beendet.');
         localStorage.removeItem('pos_user_role');
-        window.location.href = '/';
+        window.dispatchEvent(new CustomEvent('openbon:force-logout', { detail: { targetDeviceId } }));
+        window.location.href = '/?kicked=1';
       }
+    });
+
+    // Async Druck-ACK (statt Polling): print:queued/acked/failed
+    socket.on('print:acked', (payload) => {
+      window.dispatchEvent(new CustomEvent('openbon:print-acked', { detail: payload }));
+    });
+    socket.on('print:failed', (payload) => {
+      window.dispatchEvent(new CustomEvent('openbon:print-failed', { detail: payload }));
+    });
+    socket.on('print:queued', (payload) => {
+      window.dispatchEvent(new CustomEvent('openbon:print-queued', { detail: payload }));
+    });
+    socket.on('print:confirmed', (payload) => {
+      window.dispatchEvent(new CustomEvent('openbon:print-confirmed', { detail: payload }));
     });
   }
 
@@ -164,4 +178,16 @@ export function triggerHapticFeedback() {
       navigator.vibrate(30);
     } catch {}
   }
+}
+
+export function onPrintAck(cb: (payload: { jobId: string; orderId: string | null }) => void): () => void {
+  const handler = (e: Event) => cb((e as CustomEvent).detail);
+  window.addEventListener('openbon:print-acked', handler);
+  return () => window.removeEventListener('openbon:print-acked', handler);
+}
+
+export function onPrintFailed(cb: (payload: { jobId: string; orderId: string | null; error?: string }) => void): () => void {
+  const handler = (e: Event) => cb((e as CustomEvent).detail);
+  window.addEventListener('openbon:print-failed', handler);
+  return () => window.removeEventListener('openbon:print-failed', handler);
 }

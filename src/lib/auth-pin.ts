@@ -13,14 +13,25 @@ export function hashPin(pin: string, saltHex?: string): string {
   return `$pbkdf2$${salt.toString('hex')}$${derivedKey.toString('hex')}`;
 }
 
+export const WEAK_PINS = new Set(['0000', '1111', '2222', '3333', '1234', '4321', '000000', '111111', '123456', '654321']);
+
+export function isWeakPin(pin: string): boolean {
+  const c = (pin || '').trim();
+  if (!/^\d{6,12}$/.test(c)) return true;
+  if (WEAK_PINS.has(c)) return true;
+  // aufsteigend/absteigend oder gleiche Ziffer
+  if (/^(\d)\1+$/.test(c)) return true;
+  return false;
+}
+
 /**
  * Prüft eine Klartext-PIN gegen einen gespeicherten PBKDF2-Hash.
+ * Klartext-Fallback entfernt: nur $pbkdf2$-Hashes werden akzeptiert.
  */
 export function verifyPinHash(pin: string, storedHash: string): boolean {
   if (!pin || !storedHash) return false;
   if (!storedHash.startsWith('$pbkdf2$')) {
-    // Legacy Klartext-Vergleich mit Constant-Time
-    return secureCompare(pin, storedHash);
+    return false;
   }
 
   const parts = storedHash.split('$');
@@ -41,9 +52,10 @@ export function verifyPinHash(pin: string, storedHash: string): boolean {
  */
 export function secureCompare(a: string, b: string): boolean {
   if (!a || !b) return false;
-  const bufA = Buffer.from(a.padEnd(32, ' '));
-  const bufB = Buffer.from(b.padEnd(32, ' '));
-  return crypto.timingSafeEqual(bufA, bufB) && a.length === b.length;
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
 }
 
 /**
@@ -70,22 +82,18 @@ export async function verifyStationPin(
       }
     }
 
-    // 2. EventConfig Fallback prüfen
+    // 2. EventConfig prüfen (keine Werks-PINs mehr: ohne Config kein Login)
     const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
     if (!config) {
-      let defPin = '1234';
-      if (station === 'POS') defPin = '1111';
-      else if (station === 'KITCHEN') defPin = '2222';
-      else if (station === 'WAITER') defPin = '3333';
-      return secureCompare(cleanPin, defPin);
+      return false;
     }
 
-    let expectedPin = '1234';
-    if (station === 'ADMIN') expectedPin = config.adminPin || '1234';
-    else if (station === 'POS') expectedPin = config.posPin || '1111';
-    else if (station === 'KITCHEN') expectedPin = config.kitchenPin || '2222';
+    let expectedPin = '';
+    if (station === 'ADMIN') expectedPin = config.adminPin || '';
+    else if (station === 'POS') expectedPin = config.posPin || '';
+    else if (station === 'KITCHEN') expectedPin = config.kitchenPin || '';
     else if (station === 'WAITER') {
-      expectedPin = config.waiterPin || '3333';
+      expectedPin = config.waiterPin || '';
       if (verifyPinHash(cleanPin, expectedPin)) return true;
 
       // Auch WaiterProfile prüfen
@@ -115,7 +123,8 @@ export async function verifyAdminPin(pin: string): Promise<boolean> {
 
 export async function setAdminPin(newPin: string): Promise<boolean> {
   const clean = (newPin || '').trim();
-  if (!clean || clean.length < 4) return false;
+  // Durchgehend 6–12 Ziffern, keine schwachen PINs (gilt für API- UND Lib-Aufrufe)
+  if (!/^\d{6,12}$/.test(clean) || isWeakPin(clean)) return false;
   try {
     const hashed = hashPin(clean);
     await prisma.eventConfig.upsert({
@@ -153,9 +162,10 @@ export async function setAllStationPins(pins: StationPinsInput): Promise<boolean
   const kitchen = (pins.kitchenPin || '').trim();
   const waiter = (pins.waiterPin || '').trim();
 
-  if (admin.length < 4 || pos.length < 4 || kitchen.length < 4 || waiter.length < 4) {
-    return false;
+  for (const p of [admin, pos, kitchen, waiter]) {
+    if (!/^\d{6,12}$/.test(p) || isWeakPin(p)) return false;
   }
+  if (new Set([admin, pos, kitchen, waiter]).size < 2) return false;
 
   try {
     const hashedAdmin = hashPin(admin);
@@ -224,8 +234,7 @@ export async function migratePlaintextWaiterPins(): Promise<number> {
     }
     return migrated;
   } catch (err) {
-    // Migration ist best-effort: verifyPinHash akzeptiert weiterhin Klartext,
-    // der naechste Start versucht es erneut.
+    // Migration ist best-effort: der naechste Start versucht es erneut.
     console.warn('[AUTH] Waiter-PIN-Migration uebersprungen:', err instanceof Error ? err.message : err);
     return 0;
   }
@@ -240,11 +249,18 @@ export async function hasFactoryPin(): Promise<boolean> {
     if (!config) return true;
     if (!config.initialPinSet) return true;
 
-    // Prüfen, ob Standard-PINs 1234/1111/2222/3333 noch matchen
-    if (verifyPinHash('1234', config.adminPin)) return true;
-    if (verifyPinHash('1111', config.posPin)) return true;
-    if (verifyPinHash('2222', config.kitchenPin)) return true;
-    if (verifyPinHash('3333', config.waiterPin)) return true;
+    // Prüfen, ob Standard-PINs noch matchen (Hash oder historischer Klartext)
+    const pairs: Array<[string, string]> = [
+      ['1234', config.adminPin],
+      ['1111', config.posPin],
+      ['2222', config.kitchenPin],
+      ['3333', config.waiterPin],
+    ];
+    for (const [plain, stored] of pairs) {
+      if (!stored) return true;
+      if (stored === plain) return true;
+      if (verifyPinHash(plain, stored)) return true;
+    }
 
     return false;
   } catch {

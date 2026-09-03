@@ -1,37 +1,34 @@
 import { describe, it, expect } from 'vitest';
 import { EscPosBuilder } from '../lib/printer/escpos-builder';
-import { formatCurrency } from '../lib/utils';
+import { formatCents } from '../lib/utils';
 import { HighAvailabilityService } from '../lib/ha/ha-service';
 
-describe('Praxisnahe End-to-End Workflow Tests', () => {
+describe('Praxisnahe End-to-End Workflow Tests (Cent-hart)', () => {
   it('Workflow 1: Tischbestellung mit Sonderwünschen, Pfand und Bon-Druck', () => {
-    // 1. Artikel & Sonderwünsche definieren
     const orderItems = [
       {
         name: 'Festbier 0,5l',
         quantity: 3,
-        unitPrice: 4.5,
-        deposit: 1.0,
+        unitPriceCents: 450,
+        depositCents: 100,
         variantName: 'Gezapft',
       },
       {
         name: 'Bratwurst im Brötchen',
         quantity: 2,
-        unitPrice: 4.0,
-        deposit: 0.0,
+        unitPriceCents: 400,
+        depositCents: 0,
         customizationText: 'extra Senf',
       },
     ];
 
-    // 2. Gesamtpreis & Pfand berechnen
-    const grossTotal = orderItems.reduce(
-      (sum, i) => sum + (i.unitPrice + i.deposit) * i.quantity,
+    const grossCents = orderItems.reduce(
+      (sum, i) => sum + (i.unitPriceCents + i.depositCents) * i.quantity,
       0
     );
-    // (4.5 + 1.0)*3 = 16.50 + 4.0*2 = 8.00 -> 24.50 €
-    expect(grossTotal).toBe(24.5);
+    // (450 + 100)*3 = 1650 + 400*2 = 800 -> 2450 Cent
+    expect(grossCents).toBe(2450);
 
-    // 3. Ticket generieren
     const ticketData = {
       title: 'TISCHBESTELLUNG',
       orderNumber: 101,
@@ -51,29 +48,24 @@ describe('Praxisnahe End-to-End Workflow Tests', () => {
   });
 
   it('Workflow 2: Rechnungs-Splitting (Teilzahlung) mit Leergut-Rückpfand und Wechselgeld', () => {
-    // Gast 1 zahlt 1x Bier (5.50€ inkl. 1€ Pfand) und gibt 2x Leergut zurück (-2€)
-    const itemGross = 4.5 + 1.0; // 5.50 €
-    const returnDeposit = 2 * 1.0; // 2.00 €
-    const tip = 0.5; // 0.50 €
-    const givenCash = 10.0; // 10.00 €
+    const itemGrossCents = 450 + 100; // 550
+    const returnDepositCents = 2 * 100; // 200
+    const tipCents = 50;
+    const givenCents = 1000;
 
-    const toPay = itemGross - returnDeposit; // 3.50 €
-    const change = givenCash - toPay - tip; // 10.00 - 3.50 - 0.50 = 6.00 €
+    const toPayCents = itemGrossCents - returnDepositCents; // 350
+    const changeCents = givenCents - toPayCents - tipCents; // 600
 
-    expect(toPay).toBe(3.5);
-    expect(change).toBe(6.0);
-    expect(formatCurrency(change)).toContain('6,00');
+    expect(toPayCents).toBe(350);
+    expect(changeCents).toBe(600);
+    expect(formatCents(changeCents)).toContain('6,00');
   });
 
   it('Workflow 3: KDS Küchenmonitor Statuszyklus', () => {
     let kdsStatus = 'PENDING';
     expect(kdsStatus).toBe('PENDING');
-
-    // Koch startet Zubereitung
     kdsStatus = 'IN_PROGRESS';
     expect(kdsStatus).toBe('IN_PROGRESS');
-
-    // Koch hakt Artikel ab
     kdsStatus = 'COMPLETED';
     expect(kdsStatus).toBe('COMPLETED');
   });
@@ -84,7 +76,6 @@ describe('Praxisnahe End-to-End Workflow Tests', () => {
     await haService.setRole('STANDBY');
     expect(haService.getRole()).toBe('STANDBY');
 
-    // Simulierter Ausfall des Primärservers -> Promote (Lease vorher freigeben)
     const prisma = (await import('../lib/db')).default;
     await prisma.haLease.deleteMany().catch(() => {});
     const promoted = await haService.promoteToPrimary();
@@ -95,27 +86,27 @@ describe('Praxisnahe End-to-End Workflow Tests', () => {
   });
 
   it('Workflow 5: VR-Pay Me & Kartenzahlung mit prozentualem und festem Aufschlag', () => {
-    const grossTotal = 50.0;
-    const surchargePercent = 10.0; // 10%
-    const surchargeFixed = 2.0; // 2€ Festpauschale
+    const grossCents = 5000;
+    const surchargePercent = 10.0;
+    const surchargeFixedCents = 200;
 
-    const percentValue = grossTotal * (surchargePercent / 100); // 5.00 €
-    const totalSurcharges = surchargeFixed + percentValue; // 7.00 €
-    const finalGrossToPay = grossTotal + totalSurcharges; // 57.00 €
+    const percentCents = Math.round(grossCents * (surchargePercent / 100)); // 500
+    const totalSurchargesCents = surchargeFixedCents + percentCents; // 700
+    const finalGrossCents = grossCents + totalSurchargesCents; // 5700
 
-    expect(percentValue).toBe(5.0);
-    expect(totalSurcharges).toBe(7.0);
-    expect(finalGrossToPay).toBe(57.0);
+    expect(percentCents).toBe(500);
+    expect(totalSurchargesCents).toBe(700);
+    expect(finalGrossCents).toBe(5700);
 
     const payment = {
       paymentMethod: 'CARD_VRPAY',
-      totalGross: finalGrossToPay,
-      surchargeAmount: totalSurcharges,
+      totalGrossCents: finalGrossCents,
+      surchargeAmountCents: totalSurchargesCents,
       surchargePercent: 10.0,
       surchargeReason: '10% Nachtzuschlag + 2€ Pauschale',
     };
 
     expect(payment.paymentMethod).toBe('CARD_VRPAY');
-    expect(payment.surchargeAmount).toBe(7.0);
+    expect(payment.surchargeAmountCents).toBe(700);
   });
 });

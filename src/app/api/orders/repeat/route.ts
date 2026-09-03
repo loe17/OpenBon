@@ -53,8 +53,8 @@ export async function GET(req: Request) {
         productName: string;
         alternativeTicketName: string | null;
         quantity: number;
-        unitPrice: number;
-        deposit: number;
+        unitPriceCents: number;
+        depositCents: number;
         taxRate: number;
         variantName: string | null;
         selectedOptions: string[];
@@ -77,8 +77,8 @@ export async function GET(req: Request) {
           productName: item.productName,
           alternativeTicketName: item.product.alternativeTicketName,
           quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          deposit: item.deposit,
+          unitPriceCents: item.unitPriceCents,
+          depositCents: item.depositCents,
           taxRate: item.taxRate,
           variantName: item.variantName,
           // Gespeicherte Optionen koennen als Namen oder mit Anzahl vorliegen.

@@ -3,8 +3,15 @@ import prisma from '@/lib/db';
 
 export async function GET(req: NextRequest, { params }: { params: { code: string } }) {
   try {
+    const { checkSimpleRateLimit, registerSimpleAttempt, getClientKey } = await import('@/lib/rate-limiter');
+    const rlKey = getClientKey(req, 'receipt');
+    const rl = checkSimpleRateLimit(rlKey, 60, 60 * 60 * 1000, 10 * 60 * 1000);
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Zu viele Belegabfragen.' }, { status: 429 });
+    }
+    registerSimpleAttempt(rlKey, 60 * 60 * 1000);
     const { code } = params;
-    if (!code || code.length < 8) {
+    if (!code || code.length < 12 || !/^[A-Za-z0-9-]+$/.test(code)) {
       return NextResponse.json({ error: 'Ungültiger Belegcode' }, { status: 400 });
     }
 
@@ -18,21 +25,21 @@ export async function GET(req: NextRequest, { params }: { params: { code: string
         invoiceNumber: true,
         digitalReceiptCode: true,
         createdAt: true,
-        totalGross: true,
-        totalNet: true,
-        totalTax: true,
-        taxBase19: true,
-        taxAmount19: true,
-        taxBase7: true,
-        taxAmount7: true,
-        taxBase0: true,
-        totalDeposit: true,
-        returnDeposit: true,
-        discountAmount: true,
-        tipAmount: true,
+        totalGrossCents: true,
+        totalNetCents: true,
+        totalTaxCents: true,
+        taxBase19Cents: true,
+        taxAmount19Cents: true,
+        taxBase7Cents: true,
+        taxAmount7Cents: true,
+        taxBase0Cents: true,
+        totalDepositCents: true,
+        returnDepositCents: true,
+        discountAmountCents: true,
+        tipAmountCents: true,
         paymentMethod: true,
-        givenAmount: true,
-        changeAmount: true,
+        givenAmountCents: true,
+        changeAmountCents: true,
         table: {
           select: {
             tableNumber: true,
@@ -44,8 +51,8 @@ export async function GET(req: NextRequest, { params }: { params: { code: string
             id: true,
             productName: true,
             quantity: true,
-            unitPrice: true,
-            deposit: true,
+            unitPriceCents: true,
+            depositCents: true,
             taxRate: true,
           },
         },

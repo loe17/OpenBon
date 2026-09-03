@@ -1,6 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { formatCents } from '@/lib/utils';
+
+const centsOfItem = (it: any) =>
+  typeof it?.unitPriceCents === 'number' ? it.unitPriceCents : Math.round((it?.unitPrice ?? 0) * 100);
 import {
   History,
   X,
@@ -16,6 +20,7 @@ interface OrderItemDetail {
   id: string;
   productName: string;
   quantity: number;
+  unitPriceCents?: number;
   unitPrice: number;
   notes?: string | null;
   status: string;
@@ -169,7 +174,8 @@ export function WaiterOrderHistoryModal({
               orders.map((ord) => {
                 const isSelected = selectedOrderId === ord.id;
                 const itemsCount = ord.items.reduce((sum, it) => sum + it.quantity, 0);
-                const orderTotal = ord.items.reduce((sum, it) => sum + it.unitPrice * it.quantity, 0);
+                  const orderTotalCents = ord.items.reduce((sum, it) => sum + centsOfItem(it) * it.quantity, 0);
+  const orderTotal = orderTotalCents / 100;
                 const timeStr = new Date(ord.createdAt).toLocaleTimeString('de-DE', {
                   hour: '2-digit',
                   minute: '2-digit',
@@ -202,7 +208,7 @@ export function WaiterOrderHistoryModal({
                         {itemsCount} {itemsCount === 1 ? 'Artikel' : 'Artikel'}
                       </span>
                       <span className="font-mono font-black text-white">
-                        {orderTotal.toFixed(2).replace('.', ',')} €
+                        {formatCents(orderTotalCents)}
                       </span>
                     </div>
 
@@ -278,11 +284,11 @@ export function WaiterOrderHistoryModal({
 
                         <div className="text-right shrink-0">
                           <div className="font-mono font-black text-sm text-white">
-                            {(item.unitPrice * item.quantity).toFixed(2).replace('.', ',')} €
+                            {formatCents(centsOfItem(item) * item.quantity)}
                           </div>
                           {item.quantity > 1 && (
                             <div className="text-[10px] font-mono text-slate-500">
-                              je {item.unitPrice.toFixed(2).replace('.', ',')} €
+                              je {formatCents(centsOfItem(item))}
                             </div>
                           )}
                         </div>
@@ -295,7 +301,7 @@ export function WaiterOrderHistoryModal({
                 <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl flex items-center justify-between">
                   <span className="font-bold text-sm text-slate-300">Gesamtsumme Bestellung:</span>
                   <span className="text-xl font-black font-mono text-white">
-                    {selectedOrder.items.reduce((sum, it) => sum + it.unitPrice * it.quantity, 0).toFixed(2).replace('.', ',')} €
+                    {formatCents(selectedOrder.items.reduce((sum, it) => sum + centsOfItem(it as any) * (it as any).quantity, 0))}
                   </span>
                 </div>
               </div>

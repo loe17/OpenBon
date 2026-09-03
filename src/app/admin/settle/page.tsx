@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   User,
 } from 'lucide-react';
+import { formatCents } from '@/lib/utils';
 import { useToast } from '@/components/ui/toast';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 
@@ -38,6 +39,7 @@ interface SettlementReport {
   periodNumber: number;
   periodOpenedAt: string;
   generatedAt: string;
+  totalGrossCents?: number;
   totalGross: number;
   transactionCount: number;
   byMethod: { method: string; label: string; amount: number; count: number }[];
@@ -61,7 +63,7 @@ const STEPS: { id: Step; label: string; icon: typeof Users }[] = [
   { id: 5, label: 'Beleg', icon: FileText },
 ];
 
-const money = (v: number) => `${v.toFixed(2).replace('.', ',')} €`;
+const money = (v: number, centsMaybe?: number) => formatCents(typeof centsMaybe === 'number' ? centsMaybe : Math.round((v ?? 0) * 100));
 
 function AdminSettleContent() {
   const params = useSearchParams();

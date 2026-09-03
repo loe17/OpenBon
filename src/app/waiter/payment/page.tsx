@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { formatCurrency, generateIdempotencyKey } from '@/lib/utils';
+import { formatCents, formatCurrency, generateIdempotencyKey } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import { computeCheckout } from '@/lib/pricing';
 import { PAYMENT_METHODS, isPaymentMethodAvailable, getActiveCardPaymentMethod } from '@/lib/payment/methods';
@@ -569,7 +569,7 @@ function WaiterPaymentContent() {
                   FÜR DEN GAST • ZU ZAHLENDER BETRAG
                 </span>
                 <span className="text-5xl sm:text-6xl font-mono font-black text-white tracking-tight drop-shadow-md">
-                  {formatCurrency(checkout.amountDueWithTip)}
+                  {formatCents((checkout as any).amountDueWithTipCents ?? Math.round(((checkout as any).amountDueWithTip ?? 0) * 100))}
                 </span>
               </div>
             </div>
@@ -614,7 +614,7 @@ function WaiterPaymentContent() {
             </button>
           ) : (
             <span className="text-xs text-slate-400 font-mono font-bold">
-              Auswahl: {formatCurrency(checkout.amountDueWithTip)}
+              Auswahl: {formatCents((checkout as any).amountDueWithTipCents ?? Math.round(((checkout as any).amountDueWithTip ?? 0) * 100))}
             </span>
           )}
         </div>
@@ -757,9 +757,9 @@ function WaiterPaymentContent() {
                         ) : null}
                       </div>
                       <div className="text-xs text-slate-400 font-semibold mt-0.5">
-                        <span className="font-mono">{formatCurrency(item.unitPrice + item.deposit)}</span>
+                        <span className="font-mono">{formatCents(Math.round((item.unitPrice + item.deposit) * 100))}</span>
                         {item.deposit > 0 && (
-                          <span className="text-blue-400"> (inkl. {formatCurrency(item.deposit)} Pfand)</span>
+                          <span className="text-blue-400"> (inkl. {formatCents((item as any).depositCents ?? Math.round(((item as any).deposit ?? 0) * 100))} Pfand)</span>
                         )}
                         {' · offen: '}
                         <span className="font-mono">{item.totalUnpaidQty}</span>
@@ -796,7 +796,7 @@ function WaiterPaymentContent() {
                   <span>Rückpfand (Leergut-Gutschrift)</span>
                 </div>
                 <div className="text-base font-mono font-black text-amber-400">
-                  {totalReturnDeposit > 0 ? `−${formatCurrency(totalReturnDeposit)}` : '0,00 €'}
+                  {totalReturnDeposit > 0 ? `−${formatCents(Math.round((totalReturnDeposit) * 100))}` : '0,00 €'}
                 </div>
               </div>
 
@@ -854,7 +854,7 @@ function WaiterPaymentContent() {
                 className="font-mono font-extrabold text-emerald-400 leading-none"
                 style={{ fontSize: '32px' }}
               >
-                {formatCurrency(checkout.amountDue)}
+                {formatCents((checkout as any).amountDueCents ?? Math.round(((checkout as any).amountDue ?? 0) * 100))}
               </span>
             </div>
             <div className="grid grid-cols-2 gap-2.5">
@@ -896,7 +896,7 @@ function WaiterPaymentContent() {
               Zu zahlen
             </div>
             <div className="font-mono font-black text-emerald-400 text-5xl leading-tight mt-1">
-              {formatCurrency(checkout.amountDueWithTip)}
+              {formatCents((checkout as any).amountDueWithTipCents ?? Math.round(((checkout as any).amountDueWithTip ?? 0) * 100))}
             </div>
           </div>
 
@@ -944,6 +944,29 @@ function WaiterPaymentContent() {
               );
             })}
           </div>
+
+          <div className="max-w-3xl w-full mx-auto mt-4 p-4 rounded-3xl bg-slate-900 border border-slate-800">
+            <div className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Betragssplit („50 € jetzt, Rest später“)</div>
+            <div className="mt-2 flex gap-2">
+              <input id="split-amount" placeholder="Betrag €, z. B. 50,00" inputMode="decimal" aria-label="Teilbetrag" className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white min-h-[48px]" />
+              <button
+                onClick={async () => {
+                  const el = document.getElementById('split-amount') as HTMLInputElement | null;
+                  const v = Number((el?.value || '').replace(',', '.'));
+                  if (!Number.isFinite(v) || v <= 0) { setError('Bitte gültigen Teilbetrag eingeben.'); return; }
+                  const params = new URLSearchParams(window.location.search);
+                  const res = await fetch('/api/payments/amount-split', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: params.get('orderId') || undefined, tableId: params.get('tableId') || undefined, amountCents: Math.round(v * 100), paymentMethod: 'CASH', waiterName: waiterName || 'Bedienung' }) });
+                  const j = await res.json().catch(() => ({}));
+                  if (!res.ok) { setError(j.error || 'Split fehlgeschlagen.'); return; }
+                  setError(null);
+                  alert(`Teilbetrag ${(v).toFixed(2)} € als ${j.payment.invoiceNumber} gebucht.`);
+                }}
+                className="px-4 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl min-h-[48px]"
+              >
+                Teilbetrag buchen
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -967,7 +990,7 @@ function WaiterPaymentContent() {
               <div className="flex justify-between text-sm font-bold text-slate-300">
                 <span>Zu buchender Betrag</span>
                 <span className="font-mono text-amber-400 text-2xl">
-                  {formatCurrency(checkout.amountDueWithTip)}
+                  {formatCents((checkout as any).amountDueWithTipCents ?? Math.round(((checkout as any).amountDueWithTip ?? 0) * 100))}
                 </span>
               </div>
               <div>
@@ -999,7 +1022,7 @@ function WaiterPaymentContent() {
             ) : (
               <Check className="w-7 h-7" />
             )}
-            <span>Kassieren {formatCurrency(checkout.amountDueWithTip)}</span>
+            <span>Kassieren {formatCents((checkout as any).amountDueWithTipCents ?? Math.round(((checkout as any).amountDueWithTip ?? 0) * 100))}</span>
           </button>
         </div>
       )}
@@ -1035,7 +1058,7 @@ function WaiterPaymentContent() {
 
           <div className="text-center">
             <div className="font-mono font-black text-4xl text-white">
-              {formatCurrency(checkout.amountDueWithTip)}
+              {formatCents((checkout as any).amountDueWithTipCents ?? Math.round(((checkout as any).amountDueWithTip ?? 0) * 100))}
             </div>
             <div className="text-base font-bold text-slate-300 mt-2 max-w-md">{cardMessage}</div>
             {cardAuthCode && (
@@ -1096,7 +1119,7 @@ function WaiterPaymentContent() {
                   className="font-mono font-extrabold leading-none"
                   style={{ fontSize: '48px', color: '#F59E0B' }}
                 >
-                  {formatCurrency(checkout.changeAmount)}
+                  {formatCents((checkout as any).changeAmountCents ?? Math.round(((checkout as any).changeAmount ?? 0) * 100))}
                 </div>
               </div>
             )}

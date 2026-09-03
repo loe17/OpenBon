@@ -53,8 +53,8 @@ export async function POST(req: Request) {
 
     const breakdown = computeTaxBreakdown(
       openItems.map((i) => ({
-        unitPrice: i.unitPrice,
-        deposit: i.deposit,
+        unitPriceCents: i.unitPriceCents,
+        depositCents: i.depositCents,
         quantity: i.openQty,
         taxRate: i.taxRate,
       }))
@@ -86,16 +86,16 @@ export async function POST(req: Request) {
       items: openItems.map((i) => ({
         name: i.productName,
         quantity: i.openQty,
-        unitPrice: i.unitPrice,
-        deposit: i.deposit,
+        unitPriceCents: i.unitPriceCents,
+        depositCents: i.depositCents,
         taxRate: i.taxRate,
         variantName: i.variantName,
         courseNumber: i.courseNumber,
       })),
-      totalGross: breakdown.grossTotal,
-      totalNet: breakdown.netTotal,
-      totalTax: breakdown.taxTotal,
-      totalDeposit: breakdown.depositTotal,
+      totalGrossCents: breakdown.grossCents,
+      totalNetCents: breakdown.netCents,
+      totalTaxCents: breakdown.taxCents,
+      totalDepositCents: breakdown.depositCents,
       taxSplits: breakdown.splits,
       isTraining: config?.trainingMode ?? false,
       footerText: 'Dies ist eine Zwischenrechnung und ersetzt keinen Kassenbeleg.',
@@ -113,7 +113,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: result.success,
       isVirtual: result.isVirtual,
-      totalGross: breakdown.grossTotal,
+      totalGrossCents: breakdown.grossTotal,
       itemCount: openItems.length,
     });
   } catch (error) {

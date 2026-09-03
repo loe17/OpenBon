@@ -6,7 +6,9 @@ export interface PendingPaymentState {
   tableId?: string;
   waiterName?: string;
   provider: string;
-  amount: number;
+  amountCents: number;
+  /** @deprecated Legacy Euro */
+  amount?: number;
   initiatedAt: number;
 }
 
@@ -58,7 +60,9 @@ export class PaymentService {
    */
   public static async initiate(options: {
     provider: string;
-    amount: number;
+    amountCents?: number;
+    /** @deprecated Legacy Euro, wird via Math.round(x*100) normalisiert */
+    amount?: number;
     orderId?: string;
     tableId?: string;
     waiterName?: string;
@@ -71,7 +75,9 @@ export class PaymentService {
     clientSecret?: string;
     result?: Record<string, unknown>;
   }> {
-    const amountCents = Math.round(options.amount * 100);
+    const amountCents = typeof options.amountCents === 'number'
+      ? Math.round(options.amountCents)
+      : Math.round(((options.amount ?? 0) + Number.EPSILON) * 100);
 
     const res = await fetch('/api/payments/session', {
       method: 'POST',
@@ -103,7 +109,8 @@ export class PaymentService {
       tableId: options.tableId,
       waiterName: options.waiterName,
       provider: options.provider,
-      amount: options.amount,
+      amountCents,
+      amount: amountCents / 100,
       initiatedAt: Date.now(),
     });
 

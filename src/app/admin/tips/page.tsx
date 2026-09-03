@@ -24,7 +24,7 @@ import {
   X,
   Sparkles,
 } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+import { formatCents, formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/toast';
 
 interface TipProfile {
@@ -377,7 +377,7 @@ export default function AdminTipsPage() {
                   <TrendingUp className="w-4 h-4 text-blue-400" />
                 </div>
                 <div className="text-2xl sm:text-3xl font-black font-mono text-white">
-                  {formatCurrency(totalWaiterSales)}
+                  {formatCents(Math.round((totalWaiterSales) * 100))}
                 </div>
                 <div className="text-[10px] text-slate-500 mt-1">Alle erfassten Bedienungen</div>
               </div>
@@ -388,7 +388,7 @@ export default function AdminTipsPage() {
                   <Banknote className="w-4 h-4 text-emerald-400" />
                 </div>
                 <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400">
-                  {formatCurrency(totalCashCollected)}
+                  {formatCents(Math.round((totalCashCollected) * 100))}
                 </div>
                 <div className="text-[10px] text-slate-500 mt-1">In Kellner-Portemonnaies</div>
               </div>
@@ -399,7 +399,7 @@ export default function AdminTipsPage() {
                   <CreditCard className="w-4 h-4 text-purple-400" />
                 </div>
                 <div className="text-2xl sm:text-3xl font-black font-mono text-purple-300">
-                  {formatCurrency(totalCardCollected)}
+                  {formatCents(Math.round((totalCardCollected) * 100))}
                 </div>
                 <div className="text-[10px] text-slate-500 mt-1">Terminals & SumUp/VR Pay</div>
               </div>
@@ -410,7 +410,7 @@ export default function AdminTipsPage() {
                   <Coins className="w-4 h-4 text-amber-400" />
                 </div>
                 <div className="text-2xl sm:text-3xl font-black font-mono text-amber-400">
-                  {formatCurrency(totalTips)}
+                  {formatCents(Math.round((totalTips) * 100))}
                 </div>
                 <div className="text-[10px] text-slate-500 mt-1">Über Kasse verbucht</div>
               </div>
@@ -478,29 +478,29 @@ export default function AdminTipsPage() {
                               </span>
                             </td>
                             <td className="py-3.5 text-right font-bold text-white">
-                              {formatCurrency(w.totalGross)}
+                              {formatCents((w as any).totalGrossCents ?? Math.round(((w as any).totalGross ?? 0) * 100))}
                             </td>
                             <td className="py-3.5 text-right text-emerald-400">
-                              {formatCurrency(w.cashGross)}
+                              {formatCents((w as any).cashGrossCents ?? Math.round(((w as any).cashGross ?? 0) * 100))}
                             </td>
                             <td className="py-3.5 text-right text-purple-300">
-                              {formatCurrency(w.cardGross)}
+                              {formatCents((w as any).cardGrossCents ?? Math.round(((w as any).cardGross ?? 0) * 100))}
                             </td>
                             <td className="py-3.5 text-right text-amber-400">
-                              {formatCurrency(w.tips)}
+                              {formatCents((w as any).tipsCents ?? Math.round(((w as any).tips ?? 0) * 100))}
                             </td>
                             <td className="py-3.5 text-right text-xs">
                               <span className="text-emerald-400 font-bold">
-                                {formatCurrency(waiterTipShare)}
+                                {formatCents(Math.round((waiterTipShare) * 100))}
                               </span>
                               {poolTipShare > 0 && (
                                 <span className="block text-[10px] text-blue-400">
-                                  +{formatCurrency(poolTipShare)} Pool
+                                  +{formatCents(Math.round((poolTipShare) * 100))} Pool
                                 </span>
                               )}
                             </td>
                             <td className="py-3.5 text-right font-black text-base text-amber-400">
-                              {formatCurrency(cashToHandOver)}
+                              {formatCents(Math.round((cashToHandOver) * 100))}
                             </td>
                             <td className="py-3.5 text-center font-sans">
                               <div className="flex items-center justify-center gap-1.5 flex-wrap">
@@ -905,7 +905,7 @@ export default function AdminTipsPage() {
                       className="w-20 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-center font-mono font-bold text-sm text-white"
                     />
                     <span className="font-mono text-xs text-slate-400 w-16 text-right">
-                      {formatCurrency(denom * (cashCounts[denom] || 0))}
+                      {formatCents(Math.round((denom * (cashCounts[denom] || 0)) * 100))}
                     </span>
                   </div>
                 ))}
@@ -923,11 +923,11 @@ export default function AdminTipsPage() {
                 <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-2 font-mono text-xs">
                   <div className="flex justify-between text-slate-400">
                     <span>Soll-Abgabe Hauptkasse:</span>
-                    <span className="font-bold text-amber-400">{formatCurrency(sollBar)}</span>
+                    <span className="font-bold text-amber-400">{formatCents(Math.round((sollBar) * 100))}</span>
                   </div>
                   <div className="flex justify-between text-slate-300">
                     <span>Gezählter Ist-Bestand:</span>
-                    <span className="font-black text-sm text-white">{formatCurrency(countedCashTotal)}</span>
+                    <span className="font-black text-sm text-white">{formatCents(Math.round((countedCashTotal) * 100))}</span>
                   </div>
                   <div className="flex justify-between pt-2 border-t border-slate-800 font-bold text-sm">
                     <span>Differenz:</span>
@@ -940,7 +940,7 @@ export default function AdminTipsPage() {
                           : 'text-rose-400'
                       }
                     >
-                      {diff >= 0 ? `+${formatCurrency(diff)}` : formatCurrency(diff)}
+                      {diff >= 0 ? `+${formatCents(Math.round((diff) * 100))}` : formatCents(Math.round((diff) * 100))}
                     </span>
                   </div>
                 </div>

@@ -23,11 +23,12 @@ export async function GET(req: Request) {
       whereClause.status = statusFilter;
     }
 
-    const [total, pending, failed, printed, items, allPrinters] = await Promise.all([
+    const [total, pending, failed, printed, confirmed, items, allPrinters] = await Promise.all([
       prisma.printJob.count(),
       prisma.printJob.count({ where: { status: 'PENDING' } }),
       prisma.printJob.count({ where: { status: 'FAILED' } }),
       prisma.printJob.count({ where: { status: 'PRINTED' } }),
+      prisma.printJob.count({ where: { status: 'CONFIRMED' } }),
       prisma.printJob.findMany({
         where: whereClause,
         orderBy: { createdAt: 'desc' },
@@ -66,6 +67,8 @@ export async function GET(req: Request) {
         lastError: job.lastError,
         createdAt: job.createdAt,
         printedAt: job.printedAt,
+        confirmedAt: (job as { confirmedAt?: Date | null }).confirmedAt ?? null,
+        confirmedBy: (job as { confirmedBy?: string | null }).confirmedBy ?? null,
         payload: parsedPayload,
       };
     });
@@ -76,6 +79,7 @@ export async function GET(req: Request) {
         pending,
         failed,
         printed,
+        confirmed,
       },
       items: enrichedItems,
     });
@@ -168,8 +172,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Ungültiger Bon-Payload' }, { status: 400 });
       }
 
-      // Status in DB aktualisieren
-      await prisma.printJob.update({
+      // Status in DB aktualisieren (kein Duplikat-Job: gleiche ID wieder einreihen)
+      const updated = await prisma.printJob.update({
         where: { id: jobId },
         data: {
           printerId: targetPrinter.id,
@@ -179,8 +183,9 @@ export async function POST(req: Request) {
         },
       });
 
-      // Erneut durch den Spooler jagen
-      void networkSpooler.printTicket(
+      // Erneut durch den Spooler jagen (gleiche DB-ID, kein neuer PrintJob)
+      await networkSpooler.requeueExistingJob(
+        { id: updated.id, printerId: updated.printerId, rawPayload: updated.rawPayload, attempts: updated.attempts, createdAt: updated.createdAt },
         {
           id: targetPrinter.id,
           name: targetPrinter.name,
@@ -188,9 +193,7 @@ export async function POST(req: Request) {
           port: targetPrinter.port,
           isVirtual: targetPrinter.isVirtual,
           paperWidth: targetPrinter.paperWidth,
-        },
-        ticketData,
-        { orderId: job.orderId ?? undefined, printGroupId: job.printGroupId ?? undefined }
+        }
       );
 
       await logSystemActionSafe(() => ({

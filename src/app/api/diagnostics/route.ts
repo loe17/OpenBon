@@ -210,10 +210,10 @@ export async function POST(req: Request) {
           waiterName: 'Diagnose-Tool',
           tableLabel: 'TEST-99',
           items: [
-            { name: 'Hardware-Prüfposition 1 (Küche)', quantity: 1, unitPrice: 0.0, deposit: 0 },
-            { name: 'Hardware-Prüfposition 2 (Ausschank)', quantity: 2, unitPrice: 0.0, deposit: 0 },
+            { name: 'Hardware-Prüfposition 1 (Küche)', quantity: 1, unitPriceCents: 0.0, depositCents: 0 },
+            { name: 'Hardware-Prüfposition 2 (Ausschank)', quantity: 2, unitPriceCents: 0.0, depositCents: 0 },
           ],
-          totalGross: 0.0,
+          totalGrossCents: 0.0,
           footerText: 'Druckertest erfolgreich abgeschlossen.',
           isTraining: true,
           tableFontSize: config?.receiptTableFontSize || 2,
@@ -255,14 +255,14 @@ export async function POST(req: Request) {
         testProduct = await prisma.product.create({
           data: {
             name: 'TEST-ARTIKEL (Diagnose)',
-            price: 1.0,
-            deposit: 0.0,
+            priceCents: 1.0,
+            depositCents: 0.0,
             categoryId: testCat.id,
             taxRate: 19.0,
           },
         });
       }
-      steps.push({ name: 'Test-Artikel generieren', success: true, details: `Artikel: ${testProduct.name} (${testProduct.price.toFixed(2)} EUR)` });
+      steps.push({ name: 'Test-Artikel generieren', success: true, details: `Artikel: ${testProduct.name} (${testProduct.priceCents.toFixed(2)} EUR)` });
 
       // Schritt 2: Testtisch prüfen / anlegen
       let testTable = await prisma.diningTable.findFirst({ where: { tableNumber: 999 } });
@@ -287,7 +287,7 @@ export async function POST(req: Request) {
                 productId: testProduct.id,
                 productName: testProduct.name,
                 quantity: 1,
-                unitPrice: 1.0,
+                unitPriceCents: 1.0,
                 taxRate: 19.0,
                 printStatus: 'PRINTED',
                 kdsStatus: 'COMPLETED',
@@ -306,8 +306,8 @@ export async function POST(req: Request) {
           tableLabel: '999',
           orderNumber: order.orderNumber,
           waiterName: 'Test-Bot',
-          items: [{ name: testProduct.name, quantity: 1, unitPrice: 1.0 }],
-          totalGross: 1.0,
+          items: [{ name: testProduct.name, quantity: 1, unitPriceCents: 1.0 }],
+          totalGrossCents: 1.0,
           isTraining: true,
           enableTax: config?.enableTax ?? true,
         },
@@ -387,8 +387,8 @@ export async function POST(req: Request) {
           tableLabel: 'SELBSTCHECK',
           waiterName: auth.session.waiterName || 'Administrator',
           items: [
-            { name: 'Hardware-Selbsttest OK', quantity: 1, unitPrice: 0.0 },
-            { name: 'Papierschneider / Cutter OK', quantity: 1, unitPrice: 0.0 },
+            { name: 'Hardware-Selbsttest OK', quantity: 1, unitPriceCents: 0.0 },
+            { name: 'Papierschneider / Cutter OK', quantity: 1, unitPriceCents: 0.0 },
           ],
           footerText: `${printer.name} | ${printer.ipAddress} | Breite: ${printer.paperWidth}mm`,
         };

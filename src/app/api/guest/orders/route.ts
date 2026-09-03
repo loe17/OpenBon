@@ -4,11 +4,21 @@ import prisma from '@/lib/db';
 import { checkAndTriggerLowStockAlert } from '@/lib/low-stock-notifier';
 import TicketSplitter from '@/lib/printer/ticket-splitter';
 import networkSpooler from '@/lib/printer/network-spooler';
-import { getEffectiveProductPrice } from '@/lib/pricing';
+import { getEffectiveProductPrice, toCents } from '@/lib/pricing';
 
 import { assertStockUnitsAvailable, applyStockConsumption } from '@/lib/stock';
 export async function POST(req: NextRequest) {
   try {
+    const { checkSimpleRateLimit, registerSimpleAttempt, getClientKey } = await import('@/lib/rate-limiter');
+    const rlKey = getClientKey(req, 'guest-orders');
+    const rl = checkSimpleRateLimit(rlKey, 20, 60 * 1000, 5 * 60 * 1000);
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Zu viele Gastbestellungen. Bitte kurz warten.' }, { status: 429 });
+    }
+    registerSimpleAttempt(rlKey);
+    const { denyStandbyWrite } = await import('@/lib/ha/ha-guard');
+    const denied = denyStandbyWrite();
+    if (denied) return denied;
     const body = await req.json();
     const { tableNumber, qrToken, items, guestNote } = body;
 
@@ -23,6 +33,7 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    const cleanGuestNote = typeof guestNote === 'string' ? guestNote.slice(0, 280).replace(/[<>"']/g, '') : null;
 
     const table = await prisma.diningTable.findUnique({
       where: { tableNumber: parseInt(tableNumber, 10) },
@@ -32,13 +43,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Tisch nicht gefunden oder inaktiv' }, { status: 404 });
     }
 
-    // Wenn ein QR-Token am Tisch hinterlegt ist, MUSS er zwingend übergeben werden und übereinstimmen
+    // Wenn ein QR-Token am Tisch hinterlegt ist, MUSS er zwingend übergeben werden und übereinstimmen.
+    // Ohne hinterlegtes Token ist die Gastbestellung nur bei aktiviertem Kiosk-/Gastmodus möglich.
     if (table.qrToken) {
       if (!qrToken || table.qrToken !== qrToken) {
         return NextResponse.json(
           { error: 'Ungültiger, fehlender oder abgelaufener QR-Code. Bitte scannen Sie den QR-Code am Tisch erneut.' },
           { status: 403 }
         );
+      }
+    } else {
+      const cfg = await prisma.eventConfig.findUnique({ where: { id: 'default' } }).catch(() => null);
+      if (!cfg?.enableGuestSelfOrder && !cfg?.enableKioskMode) {
+        return NextResponse.json({ error: 'Gäste-Selbstbestellung ist derzeit deaktiviert' }, { status: 403 });
       }
     }
 
@@ -74,7 +91,7 @@ export async function POST(req: NextRequest) {
         if (!product || product.status === 'HIDDEN') continue;
 
         const qty = Math.max(1, Math.min(10, parseInt(item.quantity, 10) || 1));
-        const { price: effectivePrice } = getEffectiveProductPrice(product, now);
+        const { price: effectivePrice } = getEffectiveProductPrice({ price: product.priceCents / 100, happyHourPrice: (product as any).happyHourPriceCents != null ? (product as any).happyHourPriceCents / 100 : null, happyHourStart: (product as any).happyHourStart, happyHourEnd: (product as any).happyHourEnd, happyHourDays: (product as any).happyHourDays, happyHourRules: (product as any).happyHourRules } as any, now);
 
         // Bestandsabzug atomar auf StockItem
         if (product.trackStock) {
@@ -105,8 +122,8 @@ export async function POST(req: NextRequest) {
           productId: product.id,
           productName: product.name,
           quantity: qty,
-          unitPrice: effectivePrice,
-          deposit: product.deposit,
+          unitPriceCents: toCents(effectivePrice),
+          depositCents: product.depositCents,
           taxRate: product.taxRate,
           variantName: item.variantName || null,
           selectedOptions: item.selectedOptions
@@ -114,7 +131,7 @@ export async function POST(req: NextRequest) {
               ? item.selectedOptions
               : JSON.stringify(item.selectedOptions)
             : '[]',
-          customizationText: item.customizationText || guestNote || null,
+          customizationText: (typeof item.customizationText === 'string' ? item.customizationText.slice(0, 200).replace(/[<>"']/g, '') : null) || cleanGuestNote || null,
           courseNumber: item.courseNumber || 1,
           isHold: false,
           status: 'PENDING',
@@ -145,8 +162,8 @@ export async function POST(req: NextRequest) {
               productId: i.productId,
               productName: i.productName,
               quantity: i.quantity,
-              unitPrice: i.unitPrice,
-              deposit: i.deposit,
+              unitPriceCents: i.unitPriceCents,
+              depositCents: i.depositCents,
               taxRate: i.taxRate,
               variantName: i.variantName,
               selectedOptions: i.selectedOptions,
@@ -173,21 +190,21 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    // Nach erfolgreicher Transaktion Drucker ansteuern
+    // Nach erfolgreicher Transaktion Drucker ansteuern (async ACK: PENDING bis print:acked)
     try {
-      await TicketSplitter.routeAndPrintOrder({
+      const { jobIds } = await TicketSplitter.routeAndPrintOrder({
         id: order.id,
         orderNumber: order.orderNumber,
         tableLabel: table.label || `Tisch ${table.tableNumber}`,
         waiterName: order.waiterName,
         isTraining: order.isTraining,
         createdAt: order.createdAt,
-        items: order.items.map((i) => ({
+        items: order.items.map((i: any) => ({
           id: i.id,
           productName: i.productName,
           quantity: i.quantity,
-          unitPrice: i.unitPrice,
-          deposit: i.deposit,
+          unitPriceCents: i.unitPriceCents,
+          depositCents: i.depositCents ?? 0,
           variantName: i.variantName,
           selectedOptions: i.selectedOptions,
           customizationText: i.customizationText,
@@ -196,15 +213,8 @@ export async function POST(req: NextRequest) {
           isHold: i.isHold,
         })),
       });
-
-      // Positionen als gedruckt kennzeichnen (siehe /api/orders und
-      // /api/orders/checkout) - sonst gelten sie dauerhaft als haengend.
-      const printableIds = order.items.filter((i) => !i.isHold).map((i) => i.id);
-      if (printableIds.length > 0) {
-        await prisma.orderItem.updateMany({
-          where: { id: { in: printableIds } },
-          data: { printStatus: 'PRINTED' },
-        });
+      if (global.io && jobIds.length > 0) {
+        global.io.emit('print:queued', { orderId: order.id, jobIds });
       }
     } catch {}
 

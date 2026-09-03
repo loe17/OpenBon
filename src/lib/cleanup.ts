@@ -1,11 +1,13 @@
 import prisma from './db';
 
 const RETENTION = {
-  syncJournalDays: 7,
+  // SyncJournal lange genug für Standby-Aufholung nach Urlaub/Wochenende (Sequenzbruch vermeiden)
+  syncJournalDays: 30,
   chatMessageDays: 7,
   actionLogDays: 90,
   diagnosticRunDays: 30,
-  idempotencyKeyHours: 24,
+  // Idempotenz über Fest-Dauer + Puffer (sonst Doppelbuchung bei Spät-Replay)
+  idempotencyKeyHours: 24 * 14,
 } as const;
 
 let timer: NodeJS.Timeout | null = null;

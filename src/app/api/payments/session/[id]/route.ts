@@ -7,6 +7,8 @@ import type { ProviderConfiguration } from '@/lib/payment/types';
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
+    const auth = await requireApiAuth(req);
+    if (!auth.ok) return auth.response;
     const session = await prisma.paymentSession.findUnique({
       where: { id: params.id },
     });
@@ -14,6 +16,15 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     if (!session) {
       return NextResponse.json({ error: 'Session nicht gefunden' }, { status: 404 });
     }
+    const toMinimal = (s: typeof session) => ({
+      id: s.id,
+      status: s.status,
+      amountCents: s.amountCents,
+      currency: s.currency,
+      provider: s.provider,
+      resolvedAt: s.resolvedAt,
+      expiresAt: s.expiresAt,
+    });
 
     // Lazy Timeout Prüfung
     if (session.status === 'PENDING' && new Date() > session.expiresAt) {
@@ -21,7 +32,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         where: { id: session.id },
         data: { status: 'TIMEOUT', resolvedAt: new Date() },
       });
-      return NextResponse.json(updated);
+      return NextResponse.json(toMinimal(updated));
     }
 
     // Falls Provider einen aktiven Status-Check anbietet (z. B. Stripe)
@@ -40,13 +51,13 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
               where: { id: session.id },
               data: { status: liveStatus, resolvedAt: new Date() },
             });
-            return NextResponse.json(updated);
+            return NextResponse.json(toMinimal(updated));
           }
         }
       }
     }
 
-    return NextResponse.json(session);
+    return NextResponse.json(toMinimal(session));
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : String(error) },

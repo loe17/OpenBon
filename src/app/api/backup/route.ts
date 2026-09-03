@@ -23,8 +23,9 @@ export async function GET(req: Request) {
     const incTables = searchParams.get('incTables') !== '0';
     const incPrinters = searchParams.get('incPrinters') !== '0';
     const incStock = searchParams.get('incStock') !== '0';
-    const incOrders = searchParams.get('incOrders') === '1'; // Default off unless requested
-    const incPayments = searchParams.get('incPayments') === '1';
+    // Umsatz gehört zur Standard-Sicherung (sonst Datenverlust per Design)
+    const incOrders = searchParams.get('incOrders') !== '0';
+    const incPayments = searchParams.get('incPayments') !== '0';
 
     const config = incConfig ? await prisma.eventConfig.findUnique({ where: { id: 'default' } }) : null;
     const categories = incProducts
@@ -49,11 +50,12 @@ export async function GET(req: Request) {
     const orders = incOrders ? await prisma.order.findMany({ include: { items: true } }) : null;
     const payments = incPayments ? await prisma.payment.findMany({ include: { items: true } }) : null;
 
+    const { sessionSecret, haSyncSecret, stripeSecretKey, vrPayApiKey, zvtPassword, adminPin, posPin, kitchenPin, waiterPin, ...safeConfig } = (config as Record<string, unknown>) || {};
     const backupData = {
       system: 'OpenBon',
       version: APP_VERSION,
       exportedAt: new Date().toISOString(),
-      eventName: config?.name || 'Veranstaltung',
+      eventName: (config as { name?: string })?.name || 'Veranstaltung',
       scopes: {
         config: incConfig,
         products: incProducts,
@@ -64,7 +66,7 @@ export async function GET(req: Request) {
         orders: incOrders,
         payments: incPayments,
       },
-      config,
+      config: safeConfig,
       categories,
       wordGroups,
       tables,
@@ -75,7 +77,7 @@ export async function GET(req: Request) {
       payments,
     };
 
-    const fileName = `OpenBon_Backup_${(config?.name || 'Veranstaltung').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.json`;
+    const fileName = `OpenBon_Backup_${(((config as { name?: string })?.name) || 'Veranstaltung').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.json`;
 
     return new Response(JSON.stringify(backupData, null, 2), {
       headers: {
@@ -104,8 +106,8 @@ export async function POST(req: Request) {
       tables: true,
       printers: true,
       stock: true,
-      orders: false,
-      payments: false,
+      orders: true,
+      payments: true,
     };
 
     if (!backupData.categories && !backupData.tables && !backupData.config) {
@@ -178,8 +180,8 @@ export async function POST(req: Request) {
               update: {
                 name: prod.name,
                 alternativeTicketName: prod.alternativeTicketName,
-                price: prod.price,
-                deposit: prod.deposit,
+                priceCents: prod.priceCents ?? Math.round((prod.price ?? 0) * 100),
+                depositCents: prod.depositCents ?? Math.round((prod.deposit ?? 0) * 100),
                 taxRate: prod.taxRate,
                 buttonColor: prod.buttonColor,
                 status: prod.status,
@@ -191,8 +193,8 @@ export async function POST(req: Request) {
                 id: prod.id,
                 name: prod.name,
                 alternativeTicketName: prod.alternativeTicketName,
-                price: prod.price,
-                deposit: prod.deposit,
+                priceCents: prod.priceCents ?? Math.round((prod.price ?? 0) * 100),
+                depositCents: prod.depositCents ?? Math.round((prod.deposit ?? 0) * 100),
                 taxRate: prod.taxRate,
                 buttonColor: prod.buttonColor,
                 status: prod.status,
@@ -217,10 +219,13 @@ export async function POST(req: Request) {
       }
     }
 
-    // 6. Restore Orders & Payments if selected
+    // 6. Restore Orders (mit Positionen) & Payments (mit Positionen)
+    let restoredOrders = 0;
+    let restoredPayments = 0;
+    let skippedPayments = 0;
     if (restoreOptions.orders && backupData.orders) {
       for (const ord of backupData.orders) {
-        await prisma.order.upsert({
+        const res = await prisma.order.upsert({
           where: { id: ord.id },
           update: { status: ord.status },
           create: {
@@ -234,8 +239,60 @@ export async function POST(req: Request) {
             tokenNumber: ord.tokenNumber,
             isTraining: ord.isTraining,
             createdAt: new Date(ord.createdAt),
+            items: ord.items
+              ? {
+                  create: ord.items.map((i: Record<string, unknown>) => ({
+                    productId: String(i.productId || ''),
+                    productName: String(i.productName || ''),
+                    quantity: Number(i.quantity || 1),
+                    unitPriceCents: Number((i as { unitPriceCents?: unknown }).unitPriceCents ?? 0),
+                    depositCents: Number((i as { depositCents?: unknown }).depositCents ?? 0),
+                    taxRate: Number(i.taxRate ?? 19),
+                  })),
+                }
+              : undefined,
           },
         });
+        void res;
+        restoredOrders++;
+      }
+    }
+    if (restoreOptions.payments && backupData.payments) {
+      for (const pay of backupData.payments) {
+        try {
+          await prisma.payment.upsert({
+            where: { id: pay.id },
+            update: {},
+            create: {
+              id: pay.id,
+              invoiceNumber: pay.invoiceNumber,
+              tableId: pay.tableId,
+              orderId: pay.orderId,
+              waiterName: pay.waiterName,
+              totalGrossCents: Number(pay.totalGrossCents ?? 0),
+              totalNetCents: Number(pay.totalNetCents ?? 0),
+              totalTaxCents: Number(pay.totalTaxCents ?? 0),
+              paymentMethod: pay.paymentMethod || 'CASH',
+              isTraining: Boolean(pay.isTraining),
+              createdAt: new Date(pay.createdAt),
+              items: pay.items
+                ? {
+                    create: pay.items.map((i: Record<string, unknown>) => ({
+                      productName: String(i.productName || ''),
+                      quantity: Number(i.quantity || 1),
+                      unitPriceCents: Number((i as { unitPriceCents?: unknown }).unitPriceCents ?? 0),
+                      depositCents: Number((i as { depositCents?: unknown }).depositCents ?? 0),
+                      taxRate: Number(i.taxRate ?? 19),
+                    })),
+                  }
+                : undefined,
+            },
+          });
+          restoredPayments++;
+        } catch {
+          // Belegnummer bereits vergeben → überspringen statt Restore abbrechen
+          skippedPayments++;
+        }
       }
     }
 
@@ -243,10 +300,16 @@ export async function POST(req: Request) {
       action: 'BACKUP_CREATED',
       category: 'SYSTEM',
       actor: auth.session.waiterName || auth.session.role,
-      details: 'Datensicherung angelegt.',
+      details: `Datensicherung wiederhergestellt (Orders: ${restoredOrders}, Payments: ${restoredPayments}, übersprungen: ${skippedPayments}).`,
     }));
 
-    return NextResponse.json({ success: true, message: 'Ausgewählte Backup-Bereiche erfolgreich wiederhergestellt!' });
+    return NextResponse.json({
+      success: true,
+      message: `Ausgewählte Backup-Bereiche erfolgreich wiederhergestellt! (Orders: ${restoredOrders}, Payments: ${restoredPayments}, übersprungen: ${skippedPayments})`,
+      restoredOrders,
+      restoredPayments,
+      skippedPayments,
+    });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }

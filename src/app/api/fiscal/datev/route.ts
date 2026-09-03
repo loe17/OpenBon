@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { generateDatevCsv, DatevBookingLine } from '@/lib/datev-exporter';
+import { generateDatevCsv, generateDatevZipManifest, resolveDatevAccounts, DatevBookingLine } from '@/lib/datev-exporter';
 import { requireAdmin } from '@/lib/admin-guard';
 import { requireApiAuth } from '@/lib/api-guard';
 
@@ -40,12 +40,12 @@ export async function GET(req: NextRequest) {
     const bookingLines: DatevBookingLine[] = [];
 
     for (const p of periods) {
-      // 1. Umsatzerlöse 19% USt
-      if (p.taxAmount19 > 0 || p.totalGross > 0) {
-        const gross19 = p.taxAmount19 > 0 ? (p.totalGross - (p.taxAmount7 ? p.taxAmount7 / 0.07 * 1.07 : 0)) : p.totalGross;
-        if (gross19 > 0) {
+      // 1. Umsatzerlöse 19% USt (Cent, harter Cut)
+      if (p.taxAmount19Cents > 0 || p.totalGrossCents > 0) {
+        const gross19Cents = p.taxAmount19Cents > 0 ? Math.round(p.totalGrossCents - (p.taxAmount7Cents ? (p.taxAmount7Cents / 7) * 107 : 0)) : p.totalGrossCents;
+        if (gross19Cents > 0) {
           bookingLines.push({
-            amountGross: gross19,
+            amountCents: gross19Cents,
             isDebit: true,
             account: config?.datevCashAccount || '1000',
             contraAccount: '8400', // Erlöse 19% USt
@@ -57,10 +57,10 @@ export async function GET(req: NextRequest) {
       }
 
       // 2. Umsatzerlöse 7% USt
-      if (p.taxAmount7 > 0) {
-        const gross7 = (p.taxAmount7 / 0.07) * 1.07;
+      if (p.taxAmount7Cents > 0) {
+        const gross7Cents = Math.round((p.taxAmount7Cents / 7) * 107);
         bookingLines.push({
-          amountGross: gross7,
+          amountCents: gross7Cents,
           isDebit: true,
           account: config?.datevCashAccount || '1000',
           contraAccount: '8300', // Erlöse 7% USt
@@ -71,9 +71,9 @@ export async function GET(req: NextRequest) {
       }
 
       // 3. Unbare Kartenzahlungen (Umbuchung Kasse an Geldtransit)
-      if (p.totalCard > 0) {
+      if (p.totalCardCents > 0) {
         bookingLines.push({
-          amountGross: p.totalCard,
+          amountCents: p.totalCardCents,
           isDebit: true,
           account: '1360', // Geldtransit / Kartenzahlungen
           contraAccount: config?.datevCashAccount || '1000',
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
       for (const cm of p.cashMovements) {
         if (cm.type === 'CASH_IN') {
           bookingLines.push({
-            amountGross: cm.amount,
+            amountCents: cm.amountCents,
             isDebit: true,
             account: config?.datevCashAccount || '1000',
             contraAccount: '1360', // Einlage aus Geldtransit / Tresor
@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
           });
         } else if (cm.type === 'CASH_OUT') {
           bookingLines.push({
-            amountGross: cm.amount,
+            amountCents: cm.amountCents,
             isDebit: false,
             account: config?.datevCashAccount || '1000',
             contraAccount: '1360', // Entnahme an Tresor
@@ -109,19 +109,68 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const csvContent = generateDatevCsv(bookingLines, {
+    const accounts = resolveDatevAccounts({
       consultantNumber: config?.datevConsultantNumber,
       clientNumber: config?.datevClientNumber,
       cashAccount: config?.datevCashAccount,
     });
+    const csvContent = generateDatevCsv(bookingLines, {
+      consultantNumber: config?.datevConsultantNumber,
+      clientNumber: config?.datevClientNumber,
+      cashAccount: accounts.cashAccount,
+    });
 
     const dateStr = startDate.toISOString().split('T')[0];
-    const filename = `DATEV_Kassenbuch_${dateStr}.csv`;
+    if (new URL(req.url).searchParams.get('format') === 'csv') {
+      const filename = `DATEV_Kassenbuch_${dateStr}.csv`;
+      return new NextResponse(csvContent, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${filename}"`,
+        },
+      });
+    }
 
-    return new NextResponse(csvContent, {
-      status: 200,
+    const { buildZBonPdf } = await import('@/lib/zbon-pdf');
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    const csvName = `DATEV_Kassenbuch_${dateStr}.csv`;
+    zip.file(csvName, csvContent);
+    const pdfNames: string[] = [];
+    for (const p of periods.slice(0, 50)) {
+      const pdf = await buildZBonPdf({
+        title: `Z-Bon #${p.periodNumber}`,
+        lines: [
+          { label: 'Zeitraum', value: `${p.openedAt.toISOString()} - ${(p.closedAt || new Date()).toISOString()}` },
+          { label: 'Brutto', value: `${((p.totalGrossCents ?? Math.round(p.totalGrossCents * 100)) / 100).toFixed(2)} EUR` },
+          { label: 'Transaktionen', value: String(p.transactionCount) },
+        ],
+        footer: 'OpenBon DATEV-Beleg (ohne Gewähr, TSE siehe DSFinV-K)',
+      });
+      const pdfName = `ZBON_${String(p.periodNumber).padStart(4, '0')}.pdf`;
+      zip.file(pdfName, pdf);
+      pdfNames.push(pdfName);
+    }
+    zip.file('MANIFEST.txt', generateDatevZipManifest(csvName, pdfNames));
+    const buf = Buffer.from(await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }));
+    const filename = `DATEV_Kassenbuch_${dateStr}.zip`;
+    const checksum = (await import('crypto')).createHash('sha256').update(buf).digest('hex');
+    await prisma.fiscalExport
+      .create({
+        data: {
+          exportType: 'DATEV_ZIP',
+          periodStart: startDate,
+          periodEnd: endDate,
+          filename,
+          checksumSha256: checksum,
+          status: 'COMPLETED',
+        },
+      })
+      .catch(() => null);
+    return new Response(buf as unknown as BodyInit, {
       headers: {
-        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="${filename}"`,
       },
     });

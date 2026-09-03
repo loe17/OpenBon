@@ -23,15 +23,15 @@ export interface SettlementReport {
   periodNumber: number;
   periodOpenedAt: string;
   generatedAt: string;
-  totalGross: number;
+  totalGrossCents: number;
   transactionCount: number;
-  byMethod: { method: string; label: string; amount: number; count: number }[];
-  cashGross: number;
+  byMethod: { method: string; label: string; amountCents: number; count: number }[];
+  cashGrossCents: number;
   /** Soll-Barbestand: Barumsatz abzueglich der Trinkgelder, die die Bedienung behaelt. */
-  cashExpected: number;
-  tipsTotal: number;
-  tipWaiterShare: number;
-  tipPoolShare: number;
+  cashExpectedCents: number;
+  tipsTotalCents: number;
+  tipWaiterShareCents: number;
+  tipPoolShareCents: number;
   tipProfileName: string | null;
   isTraining: boolean;
   eventName: string;
@@ -61,10 +61,10 @@ export async function GET(req: Request) {
         createdAt: { gte: period.openedAt },
       },
       select: {
-        totalGross: true,
-        tipAmount: true,
-        tipWaiterShare: true,
-        tipPoolShare: true,
+        totalGrossCents: true,
+        tipAmountCents: true,
+        tipWaiterShareCents: true,
+        tipPoolShareCents: true,
         paymentMethod: true,
       },
     });
@@ -77,16 +77,16 @@ export async function GET(req: Request) {
     const methodMap = new Map<string, { amount: number; count: number }>();
 
     for (const p of payments) {
-      totalGross += p.totalGross;
-      tipsTotal += p.tipAmount;
-      tipWaiterShare += p.tipWaiterShare;
-      tipPoolShare += p.tipPoolShare;
+      totalGross += p.totalGrossCents;
+      tipsTotal += p.tipAmountCents;
+      tipWaiterShare += p.tipWaiterShareCents;
+      tipPoolShare += p.tipPoolShareCents;
 
       const method = p.paymentMethod || 'CASH';
-      if (method === 'CASH') cashGross += p.totalGross;
+      if (method === 'CASH') cashGross += p.totalGrossCents;
 
       const entry = methodMap.get(method) || { amount: 0, count: 0 };
-      entry.amount += p.totalGross;
+      entry.amount += p.totalGrossCents;
       entry.count += 1;
       methodMap.set(method, entry);
     }
@@ -97,32 +97,28 @@ export async function GET(req: Request) {
       select: { tipProfile: { select: { name: true } } },
     });
 
-    const round2 = (v: number) => Math.round(v * 100) / 100;
-
-    // Soll-Barbestand: Was die Bedienung abgeben muss. Der Anteil am
-    // Trinkgeld, den sie behaelt, wird abgezogen; der Pool-Anteil bleibt drin.
-    const cashExpected = round2(cashGross - tipWaiterShare);
+    const cashExpectedCents = Math.round(cashGross - tipWaiterShare);
 
     const report: SettlementReport = {
       waiterName,
       periodNumber: period.periodNumber,
       periodOpenedAt: period.openedAt.toISOString(),
       generatedAt: new Date().toISOString(),
-      totalGross: round2(totalGross),
+      totalGrossCents: Math.round(totalGross),
       transactionCount: payments.length,
       byMethod: Array.from(methodMap.entries())
         .map(([method, v]) => ({
           method,
           label: getPaymentLabel(method),
-          amount: round2(v.amount),
+          amountCents: Math.round(v.amount),
           count: v.count,
         }))
-        .sort((a, b) => b.amount - a.amount),
-      cashGross: round2(cashGross),
-      cashExpected,
-      tipsTotal: round2(tipsTotal),
-      tipWaiterShare: round2(tipWaiterShare),
-      tipPoolShare: round2(tipPoolShare),
+        .sort((a, b) => b.amountCents - a.amountCents),
+      cashGrossCents: Math.round(cashGross),
+      cashExpectedCents,
+      tipsTotalCents: Math.round(tipsTotal),
+      tipWaiterShareCents: Math.round(tipWaiterShare),
+      tipPoolShareCents: Math.round(tipPoolShare),
       tipProfileName: profile?.tipProfile?.name ?? null,
       isTraining: config?.trainingMode ?? false,
       eventName: config?.name || 'OpenBon',

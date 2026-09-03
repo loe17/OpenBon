@@ -2,7 +2,7 @@ import path from 'path';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: false, // Prevents duplicate socket connections in dev mode
+  reactStrictMode: true,
   swcMinify: true,
   allowedDevOrigins: [
     "openbon.local",

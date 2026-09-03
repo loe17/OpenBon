@@ -15,6 +15,9 @@ import { EscPosBuilder } from '@/lib/printer/escpos-builder';
 export async function POST(req: Request) {
   const auth = await requireApiAuth(req, ['ADMIN']);
   if (!auth.ok) return auth.response;
+  const { denyStandbyWrite } = await import('@/lib/ha/ha-guard');
+  const denied = denyStandbyWrite();
+  if (denied) return denied;
 
   try {
     const body = await req.json();
@@ -134,21 +137,21 @@ export async function POST(req: Request) {
               isTraining: config?.trainingMode ?? false,
               settledAt: new Date(),
               settledBy: auth.session.waiterName || auth.session.role,
-              totalGross: Number(totalGross || 0),
+              totalGrossCents: Math.round(Number(totalGross || 0)),
               transactionCount: Number(transactionCount || 0),
               byMethod: Array.isArray(byMethod)
-                ? byMethod.map((m: { label?: string; method?: string; amount?: number }) => ({
+                ? byMethod.map((m: any) => ({
                     label: String(m.label || m.method || 'Zahlart'),
-                    amount: Number(m.amount || 0),
+                    amountCents: Math.round(Number(m.amountCents ?? m.amount ?? 0)),
                   }))
                 : [],
-              tipsTotal: Number(tips || 0),
-              tipWaiterShare: Number(tipWaiterShare || 0),
-              tipPoolShare: Number(tipPoolShare || 0),
+              tipsTotalCents: Math.round(Number((tips as any)?.totalCents ?? tips ?? 0)),
+              tipWaiterShareCents: Math.round(Number(tipWaiterShare || 0)),
+              tipPoolShareCents: Math.round(Number(tipPoolShare || 0)),
               tipProfileName: tipProfileName || null,
-              cashExpected: expected,
-              cashCounted: counted,
-              cashDifference: Math.round((counted - expected) * 100) / 100,
+              cashExpectedCents: Math.round(expected),
+              cashCountedCents: Math.round(counted),
+              cashDifferenceCents: Math.round(counted - expected),
               notes: notes || undefined,
             },
             printer.paperWidth

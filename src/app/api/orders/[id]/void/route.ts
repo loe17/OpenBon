@@ -3,7 +3,7 @@ import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import TicketSplitter from '@/lib/printer/ticket-splitter';
 import haService from '@/lib/ha/ha-service';
-import { round2 } from '@/lib/pricing';
+import { round2, toCents } from '@/lib/pricing';
 import { VOID_REASONS } from '@/types/domain';
 import { requireApiAuth } from '@/lib/api-guard';
 import { verifyPinHash } from '@/lib/auth-pin';
@@ -17,12 +17,24 @@ import { verifyPinHash } from '@/lib/auth-pin';
  * - Optionale Kennzeichnung als "Nicht bezahlt" (Freiverzehr / Schwund)
  */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const auth = await requireApiAuth(req);
+  // Storno ist Admin-Sache (kein Body-PIN mehr – Session entscheidet).
+  const auth = await requireApiAuth(req, ['ADMIN']);
   if (!auth.ok) return auth.response;
+  const { checkSimpleRateLimit, registerSimpleAttempt, getClientKey } = await import('@/lib/rate-limiter');
+  const rlKey = getClientKey(req, `void:${auth.session.waiterName || auth.session.role}`);
+  const rl = checkSimpleRateLimit(rlKey, 10, 10 * 60 * 1000, 10 * 60 * 1000);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: `Zu viele Storno-Versuche. Bitte in ${rl.remainingSeconds}s erneut versuchen.` },
+      { status: 429 }
+    );
+  }
+  const { denyStandbyWrite } = await import('@/lib/ha/ha-guard');
+  const denied = denyStandbyWrite();
+  if (denied) return denied;
 
   try {
     const body = (await req.json()) as {
-      pin?: string;
       reason?: string;
       cancelledBy?: string;
       itemIds?: string[];
@@ -32,19 +44,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
     if (!config) {
       return NextResponse.json({ error: 'Keine Konfiguration gefunden' }, { status: 500 });
-    }
-
-    // 1. PIN-Absicherung (Admin oder Kassenleitung)
-    // M3.2: verifyPinHash unterstuetzt PBKDF2-Hashes UND historische Klartexte -
-    // der vorherige direkte String-Vergleich scheiterte an gehashten PINs.
-    const pin = (body.pin || '').trim();
-    const adminPinOk = verifyPinHash(pin, config.adminPin);
-    const posPinOk = verifyPinHash(pin, config.posPin);
-    if (!adminPinOk && !posPinOk) {
-      return NextResponse.json(
-        { error: 'Storno nur mit Admin- oder Kassen-PIN möglich.' },
-        { status: 403 }
-      );
     }
 
     // 2. Pflicht-Stornogrund
@@ -159,6 +158,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     try {
       const result = await TicketSplitter.printVoidTickets({
         orderNumber: order.orderNumber,
+        orderId: order.id,
         tableLabel: order.table?.label ?? (order.tokenNumber ? `Abholmarke #${order.tokenNumber}` : 'Theke'),
         waiterName: order.waiterName,
         cancelledBy,
@@ -179,10 +179,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // 5. Optional als "Nicht bezahlt" fuer Buchhaltung / Schwundstatistik buchen
     let unpaidPaymentId: string | null = null;
     if (body.markAsUnpaid) {
-      const grossValue = targetItems.reduce(
-        (sum, i) => sum + round2((Number(i.unitPrice) + Number(i.deposit || 0)) * Number(i.quantity)),
-        0
-      );
+      const grossValueCents = targetItems.reduce((sum, i) => sum + (Number(i.unitPriceCents) + Number(i.depositCents || 0)) * Number(i.quantity), 0);
       const openPeriod = await prisma.registerPeriod.findFirst({ where: { status: 'OPEN' } });
 
       const unpaid = await prisma.$transaction(async (tx) => {
@@ -200,9 +197,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
             orderId: order.id,
             periodId: openPeriod?.id || null,
             waiterName: order.waiterName,
-            totalGross: round2(grossValue),
-            totalNet: round2(grossValue / 1.19),
-            totalTax: round2(grossValue - grossValue / 1.19),
+            totalGrossCents: grossValueCents,
+            totalNetCents: Math.round(grossValueCents / 1.19),
+            totalTaxCents: grossValueCents - Math.round(grossValueCents / 1.19),
             paymentMethod: 'NON_PAID_COMPLAINT',
             nonPaidReason: `Storno: ${reason}`,
             isCancelled: true,
@@ -212,8 +209,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
                 orderItemId: i.id,
                 productName: i.productName,
                 quantity: i.quantity,
-                unitPrice: i.unitPrice,
-                deposit: i.deposit,
+                unitPriceCents: i.unitPriceCents,
+                depositCents: i.depositCents,
               })),
             },
           },

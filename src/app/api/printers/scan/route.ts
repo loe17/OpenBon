@@ -62,6 +62,11 @@ function getLocalSubnetPrefix(): string {
 export async function GET(req: Request) {
   const auth = await requireApiAuth(req, ['ADMIN']);
   if (!auth.ok) return auth.response;
+  const { checkSimpleRateLimit, getClientKey } = await import('@/lib/rate-limiter');
+  const rl = checkSimpleRateLimit(getClientKey(req, 'printer-scan'), 3, 60 * 1000, 60 * 1000);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Drucker-Scan ist begrenzt. Bitte kurz warten.' }, { status: 429 });
+  }
 
   try {
     const { searchParams } = new URL(req.url);

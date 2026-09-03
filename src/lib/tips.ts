@@ -1,10 +1,11 @@
-import { round2, toCents, toEuro } from './pricing';
+import { toCents, toEuro } from './pricing';
 
 /**
  * Trinkgeld-Verteilungsengine (Spec V2 §5.3).
  *
  * Berechnet die cent-genaue Aufteilung von Trinkgeldern gemaess dem
  * zugewiesenen TipProfile der jeweiligen Bedienung.
+ * Harter Cent-Cut: Ein- und Ausgaben sind Int-Cent.
  */
 
 export interface TipProfileInput {
@@ -16,25 +17,47 @@ export interface TipProfileInput {
 }
 
 export interface TipDistributionResult {
+  totalTipCents: number;
+  waiterShareCents: number;
+  barShareCents: number;
+  kitchenShareCents: number;
+  serviceShareCents: number;
+  poolShareCents: number; // Summe aller Pool-Anteile (Bar + Kitchen + Service)
+  /** @deprecated Anzeige-Euro */
   totalTip: number;
+  /** @deprecated Anzeige-Euro */
   waiterShare: number;
+  /** @deprecated Anzeige-Euro */
   barShare: number;
+  /** @deprecated Anzeige-Euro */
   kitchenShare: number;
+  /** @deprecated Anzeige-Euro */
   serviceShare: number;
-  poolShare: number; // Summe aller Pool-Anteile (Bar + Kitchen + Service)
+  /** @deprecated Anzeige-Euro */
+  poolShare: number;
 }
 
 /**
  * Berechnet cent-genau die Trinkgeldaufteilung.
  * Standard (ohne Profil oder bei Profil mit waiterPercent=100) verbleibt 100% bei der Bedienung.
+ *
+ * @param tipAmountCents Trinkgeld in Int-Cent. Ein Legacy-Eurobetrag wird erkannt,
+ *   wenn zusaetzlich `tipAmountEuro` uebergeben wird – direkte Euro-Uebergabe ohne
+ *   Kennzeichnung ist nicht vorgesehen.
  */
 export function calculateTipDistribution(
-  tipAmount: number,
+  tipAmountCents: number,
   profile?: TipProfileInput | null
 ): TipDistributionResult {
-  const totalCents = toCents(Math.max(0, tipAmount));
+  const totalCents = Math.max(0, Math.round(tipAmountCents));
   if (totalCents === 0) {
     return {
+      totalTipCents: 0,
+      waiterShareCents: 0,
+      barShareCents: 0,
+      kitchenShareCents: 0,
+      serviceShareCents: 0,
+      poolShareCents: 0,
       totalTip: 0,
       waiterShare: 0,
       barShare: 0,
@@ -55,12 +78,18 @@ export function calculateTipDistribution(
   const barCents = Math.round((totalCents * barPct * normFactor) / 100);
   const kitchenCents = Math.round((totalCents * kitchenPct * normFactor) / 100);
   const serviceCents = Math.round((totalCents * servicePct * normFactor) / 100);
-  
+
   // Der Rest verbleibt bei der Bedienung, um Rundungsdifferenzen cent-genau aufzufangen
   const waiterCents = Math.max(0, totalCents - (barCents + kitchenCents + serviceCents));
   const poolCents = barCents + kitchenCents + serviceCents;
 
   return {
+    totalTipCents: totalCents,
+    waiterShareCents: waiterCents,
+    barShareCents: barCents,
+    kitchenShareCents: kitchenCents,
+    serviceShareCents: serviceCents,
+    poolShareCents: poolCents,
     totalTip: toEuro(totalCents),
     waiterShare: toEuro(waiterCents),
     barShare: toEuro(barCents),
@@ -68,4 +97,12 @@ export function calculateTipDistribution(
     serviceShare: toEuro(serviceCents),
     poolShare: toEuro(poolCents),
   };
+}
+
+/** @deprecated Legacy-Wrapper: nimmt Euro entgegen, rechnet in Cent um. */
+export function calculateTipDistributionFromEuro(
+  tipAmountEuro: number,
+  profile?: TipProfileInput | null
+): TipDistributionResult {
+  return calculateTipDistribution(toCents(Math.max(0, tipAmountEuro)), profile);
 }

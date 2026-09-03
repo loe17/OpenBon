@@ -1,15 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { calculateTipDistribution } from '../lib/tips';
 
-describe('Flexible Tip Profiles & Pool Distribution (Spec V2 §5.3)', () => {
+describe('Flexible Tip Profiles & Pool Distribution (Cent-hart)', () => {
   it('should allocate 100% of tip to the waiter by default when no profile is provided', () => {
-    const result = calculateTipDistribution(5.0);
+    const result = calculateTipDistribution(500);
+    expect(result.totalTipCents).toBe(500);
     expect(result.totalTip).toBe(5.0);
-    expect(result.waiterShare).toBe(5.0);
-    expect(result.barShare).toBe(0.0);
-    expect(result.kitchenShare).toBe(0.0);
-    expect(result.serviceShare).toBe(0.0);
-    expect(result.poolShare).toBe(0.0);
+    expect(result.waiterShareCents).toBe(500);
+    expect(result.barShareCents).toBe(0);
+    expect(result.kitchenShareCents).toBe(0);
+    expect(result.serviceShareCents).toBe(0);
+    expect(result.poolShareCents).toBe(0);
   });
 
   it('should allocate 100% of tip to the waiter when profile has waiterPercent: 100', () => {
@@ -20,10 +21,10 @@ describe('Flexible Tip Profiles & Pool Distribution (Spec V2 §5.3)', () => {
       kitchenPoolPercent: 0.0,
       servicePoolPercent: 0.0,
     };
-    const result = calculateTipDistribution(12.5, profile);
-    expect(result.totalTip).toBe(12.5);
-    expect(result.waiterShare).toBe(12.5);
-    expect(result.poolShare).toBe(0.0);
+    const result = calculateTipDistribution(1250, profile);
+    expect(result.totalTipCents).toBe(1250);
+    expect(result.waiterShareCents).toBe(1250);
+    expect(result.poolShareCents).toBe(0);
   });
 
   it('should accurately split tip across custom pool percentages', () => {
@@ -34,13 +35,13 @@ describe('Flexible Tip Profiles & Pool Distribution (Spec V2 §5.3)', () => {
       kitchenPoolPercent: 10.0,
       servicePoolPercent: 10.0,
     };
-    const result = calculateTipDistribution(10.0, profile);
-    expect(result.totalTip).toBe(10.0);
-    expect(result.waiterShare).toBe(7.0);
-    expect(result.barShare).toBe(1.0);
-    expect(result.kitchenShare).toBe(1.0);
-    expect(result.serviceShare).toBe(1.0);
-    expect(result.poolShare).toBe(3.0);
+    const result = calculateTipDistribution(1000, profile);
+    expect(result.totalTipCents).toBe(1000);
+    expect(result.waiterShareCents).toBe(700);
+    expect(result.barShareCents).toBe(100);
+    expect(result.kitchenShareCents).toBe(100);
+    expect(result.serviceShareCents).toBe(100);
+    expect(result.poolShareCents).toBe(300);
   });
 
   it('should ensure cents sum up exactly to total tip without rounding losses', () => {
@@ -51,17 +52,16 @@ describe('Flexible Tip Profiles & Pool Distribution (Spec V2 §5.3)', () => {
       kitchenPoolPercent: 15.0,
       servicePoolPercent: 10.0,
     };
-    // 3.33 € tip
-    const result = calculateTipDistribution(3.33, profile);
-    expect(result.totalTip).toBe(3.33);
-    const sum = result.waiterShare + result.barShare + result.kitchenShare + result.serviceShare;
-    expect(Math.round(sum * 100) / 100).toBe(3.33);
+    const result = calculateTipDistribution(333, profile);
+    expect(result.totalTipCents).toBe(333);
+    const sum = result.waiterShareCents + result.barShareCents + result.kitchenShareCents + result.serviceShareCents;
+    expect(sum).toBe(333);
   });
 
   it('should return zeros when tip is 0', () => {
     const result = calculateTipDistribution(0);
-    expect(result.totalTip).toBe(0);
-    expect(result.waiterShare).toBe(0);
-    expect(result.poolShare).toBe(0);
+    expect(result.totalTipCents).toBe(0);
+    expect(result.waiterShareCents).toBe(0);
+    expect(result.poolShareCents).toBe(0);
   });
 });

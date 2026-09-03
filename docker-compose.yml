@@ -14,9 +14,9 @@ services:
       - PORT=3000
       - HA_ROLE=PRIMARY
       - HA_PARTNER_URL=http://openbon-standby:3001
-      # M5.1: Nach einmaligem Paaren (scripts/ha-pair.mjs) aktivieren:
-      # - HA_SYNC_SECRET=${HA_SYNC_SECRET:-}
-      # - HA_ENFORCE_SECRET=1
+      - HA_SYNC_SECRET=${HA_SYNC_SECRET:-}
+      - HA_ENFORCE_SECRET=1
+      - HA_AUTO_FAILOVER=0
     volumes:
       - openbon-data:/app/prisma
     healthcheck:
@@ -39,6 +39,9 @@ services:
       - PORT=3001
       - HA_ROLE=STANDBY
       - HA_PARTNER_URL=http://openbon-primary:3000
+      - HA_SYNC_SECRET=${HA_SYNC_SECRET:-}
+      - HA_ENFORCE_SECRET=1
+      - HA_AUTO_FAILOVER=0
     volumes:
       - openbon-standby-data:/app/prisma
     healthcheck:

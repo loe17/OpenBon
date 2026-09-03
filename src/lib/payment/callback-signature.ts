@@ -19,7 +19,7 @@ import prisma from '../db';
 
 const SIGNATURE_MAX_AGE_MS = 30 * 60 * 1000;
 
-/** Liefert den kasseneigenen Signaturschluessel (ENV zuerst, sonst DB-Secret). */
+/** Liefert den kasseneigenen Signaturschluessel (ENV zuerst, sonst DB-Secret). Fail-closed ohne Fallback. */
 async function getCardCallbackKey(): Promise<Buffer> {
   try {
     const { getJwtSecretKey } = await import('../auth-session');
@@ -29,8 +29,11 @@ async function getCardCallbackKey(): Promise<Buffer> {
     const config = await prisma.eventConfig.findUnique({
       where: { id: 'default' },
       select: { sessionSecret: true },
-    });
-    return Buffer.from(config?.sessionSecret || 'openbon-card-callback-fallback-key');
+    }).catch(() => null);
+    if (config?.sessionSecret && config.sessionSecret.length >= 16) {
+      return Buffer.from(config.sessionSecret);
+    }
+    throw new Error('[CARD-CALLBACK] Kein Signaturschlüssel verfügbar.');
   }
 }
 

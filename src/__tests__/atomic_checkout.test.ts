@@ -11,7 +11,7 @@ describe('Atomic Checkout & Payment Validierung', () => {
       orderType: 'COUNTER_VOUCHER',
       waiterName: 'Bonkasse 1',
       paymentMethod: 'CASH',
-      givenAmount: 20,
+      givenAmountCents: 2000,
       items: [{ productId: 'prod-1', quantity: 2 }],
     });
 
@@ -35,7 +35,7 @@ describe('Atomic Checkout & Payment Validierung', () => {
   it('AtomicCheckoutSchema: negativer Betrag wird abgelehnt', () => {
     const parsed = AtomicCheckoutSchema.safeParse({
       orderType: 'COUNTER_DIRECT',
-      givenAmount: -5,
+      givenAmountCents: -500,
       items: [{ productId: 'prod-1', quantity: 1 }],
     });
     expect(parsed.success).toBe(false);
@@ -46,12 +46,12 @@ describe('Atomic Checkout & Payment Validierung', () => {
     // itemsToPay nicht auf min(1) erzwingen, sonst bricht die reine
     // Pfandrücknahme an der Theke.
     const parsed = CreatePaymentSchema.safeParse({
-      returnDepositAmount: 3.5,
+      returnDepositAmountCents: 350,
       itemsToPay: [],
     });
     expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.returnDepositAmount).toBe(3.5);
+      expect(parsed.data.returnDepositAmountCents).toBe(350);
       expect(parsed.data.paymentMethod).toBe('CASH');
     }
   });
@@ -63,7 +63,7 @@ describe('Atomic Checkout & Payment Validierung', () => {
       nonPaidReason: 'Personalverzehr',
       paymentMethod: 'NON_PAID_STAFF',
       itemsToPay: [
-        { productName: 'Bratwurst', quantityToPay: 1, unitPrice: 4 },
+        { productName: 'Bratwurst', quantityToPay: 1, unitPriceCents: 400 },
       ],
     });
     expect(parsed.success).toBe(true);

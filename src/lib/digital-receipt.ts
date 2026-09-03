@@ -8,8 +8,18 @@ import crypto from 'crypto';
  */
 
 export function generateDigitalReceiptCode(invoiceNumber: string, createdAt: Date = new Date()): string {
-  const secret = process.env.LICENSE_HMAC_SECRET || 'OPENBON_DIGITAL_RECEIPT_SECRET_2026';
-  const payload = `${invoiceNumber}:${createdAt.getTime()}:${Math.random().toString(36).substring(2, 9)}`;
+  const envSecret = process.env.LICENSE_HMAC_SECRET?.trim();
+  const secret =
+    envSecret && envSecret.length >= 16
+      ? envSecret
+      : process.env.VITEST || process.env.NODE_ENV === 'test'
+        ? 'OPENBON-TEST-RECEIPT-SECRET-MIN-16'
+        : '';
+  if (!secret) {
+    throw new Error('[E-BON] LICENSE_HMAC_SECRET fehlt (min. 16 Zeichen). Bitte in .env setzen – kein Public-Fallback.');
+  }
+  const rand = crypto.randomBytes(16).toString('hex').toUpperCase();
+  const payload = `${invoiceNumber}:${createdAt.getTime()}:${rand}`;
   const hash = crypto.createHmac('sha256', secret).update(payload).digest('hex').substring(0, 16).toUpperCase();
   return `EBON-${hash.substring(0, 4)}-${hash.substring(4, 8)}-${hash.substring(8, 12)}-${hash.substring(12, 16)}`;
 }

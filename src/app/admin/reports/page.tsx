@@ -24,7 +24,7 @@ import {
   Lock,
   X,
 } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+import { formatCents, formatCurrency } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import { useToast } from '@/components/ui/toast';
 import type { ReportSummary, PrinterDTO, ZBonPreview } from '@/types/domain';
@@ -158,7 +158,7 @@ export default function AdminReportsPage() {
   };
 
   const maxHourlyGross = data?.hourlySales
-    ? Math.max(...data.hourlySales.map((h) => h.grossAmount), 1)
+    ? Math.max(...data.hourlySales.map((h) => (h as any).grossAmountCents ?? Math.round(((h as any).grossAmount ?? 0) * 100)), 1)
     : 1;
 
   const maxProductQty = data?.topProducts
@@ -166,7 +166,7 @@ export default function AdminReportsPage() {
     : 1;
 
   const maxWaiterGross = data?.waiters
-    ? Math.max(...data.waiters.map((w) => w.totalGross), 1)
+    ? Math.max(...data.waiters.map((w) => (w as any).totalGrossCents ?? Math.round(((w as any).totalGross ?? 0) * 100)), 1)
     : 1;
 
   return (
@@ -246,25 +246,25 @@ export default function AdminReportsPage() {
             <div className="p-4 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl">
               <span className="text-xs font-bold text-slate-400 block mb-1">Tagesumsatz (Brutto)</span>
               <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono">
-                {formatCurrency(data.totalGross)}
+                {formatCents((data as any).totalGrossCents ?? Math.round(((data as any).totalGross ?? 0) * 100))}
               </div>
-              <span className="text-[11px] text-slate-500 mt-1 block">Netto: {formatCurrency(data.totalNet)}</span>
+              <span className="text-[11px] text-slate-500 mt-1 block">Netto: {formatCents((data as any).totalNetCents ?? Math.round(((data as any).totalNet ?? 0) * 100))}</span>
             </div>
 
             <div className="p-4 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl">
               <span className="text-xs font-bold text-slate-400 block mb-1">Barbestand (Ist)</span>
               <div className="text-2xl sm:text-3xl font-black text-blue-400 font-mono">
-                {formatCurrency(data.totalCash)}
+                {formatCents((data as any).totalCashCents ?? Math.round(((data as any).totalCash ?? 0) * 100))}
               </div>
-              <span className="text-[11px] text-slate-500 mt-1 block">Kartenzahlung: {formatCurrency(data.totalCard)}</span>
+              <span className="text-[11px] text-slate-500 mt-1 block">Kartenzahlung: {formatCents((data as any).totalCardCents ?? Math.round(((data as any).totalCard ?? 0) * 100))}</span>
             </div>
 
             <div className="p-4 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl">
               <span className="text-xs font-bold text-slate-400 block mb-1">Pfand-Saldo</span>
               <div className="text-2xl sm:text-3xl font-black text-amber-400 font-mono">
-                {formatCurrency(data.netDepositBalance)}
+                {formatCents((data as any).netDepositBalanceCents ?? Math.round(((data as any).netDepositBalance ?? 0) * 100))}
               </div>
-              <span className="text-[11px] text-slate-500 mt-1 block">Rückgabe: -{formatCurrency(data.totalDepositReturned)}</span>
+              <span className="text-[11px] text-slate-500 mt-1 block">Rückgabe: -{formatCents((data as any).totalDepositReturnedCents ?? Math.round(((data as any).totalDepositReturned ?? 0) * 100))}</span>
             </div>
 
             <div className="p-4 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl">
@@ -272,7 +272,7 @@ export default function AdminReportsPage() {
               <div className="text-2xl sm:text-3xl font-black text-purple-400 font-mono">
                 {data.transactionCount}
               </div>
-              <span className="text-[11px] text-slate-500 mt-1 block">Aufschläge: +{formatCurrency(data.totalSurcharges)}</span>
+              <span className="text-[11px] text-slate-500 mt-1 block">Aufschläge: +{formatCents((data as any).totalSurchargesCents ?? Math.round(((data as any).totalSurcharges ?? 0) * 100))}</span>
             </div>
           </div>
 
@@ -318,10 +318,10 @@ export default function AdminReportsPage() {
                     <Sparkles className="w-5 h-5 text-blue-400" />
                   </div>
                   <div className="text-3xl sm:text-4xl font-black text-blue-400 font-mono mb-1">
-                    ca. {formatCurrency(data.forecast.projectedEodGross)}
+                    ca. {formatCents((data as any).forecast.projectedEodGrossCents ?? Math.round(((data as any).forecast.projectedEodGross ?? 0) * 100))}
                   </div>
                   <p className="text-xs text-slate-400">
-                    Basierend auf {data.forecast.currentVelocityPerHour > 0 ? `${formatCurrency(data.forecast.currentVelocityPerHour)} / Std.` : 'aktueller Verkaufsgeschwindigkeit'}.
+                    Basierend auf {((data as any).forecast.currentVelocityPerHour ?? 0) > 0 ? `${formatCents((data as any).forecast.currentVelocityPerHourCents ?? Math.round(((data as any).forecast.currentVelocityPerHour ?? 0) * 100))} / Std.` : 'aktueller Verkaufsgeschwindigkeit'}.
                   </p>
                 </div>
 
@@ -348,7 +348,7 @@ export default function AdminReportsPage() {
                     <Clock className="w-5 h-5 text-purple-400" />
                   </div>
                   <div className="text-3xl sm:text-4xl font-black text-purple-300 font-mono mb-1">
-                    +{formatCurrency(data.forecast.projectedNextHourGross)}
+                    +{formatCents((data as any).forecast.projectedNextHourGrossCents ?? Math.round(((data as any).forecast.projectedNextHourGross ?? 0) * 100))}
                   </div>
                   <p className="text-xs text-slate-400">
                     Zuverlässigkeit der Hochrechnung: <span className="text-white font-bold">{data.forecast.confidencePercent}%</span>
@@ -434,7 +434,7 @@ export default function AdminReportsPage() {
                       <span>Bargeld (Kasse)</span>
                     </div>
                     <div className="text-lg font-black font-mono text-emerald-400">
-                      {formatCurrency(data.paymentSplit?.cash.amount || 0)}
+                      {formatCents((data as any).paymentSplit?.cash.amountCents ?? Math.round(((data as any).paymentSplit?.cash.amount ?? 0) * 100))}
                     </div>
                   </div>
 
@@ -444,7 +444,7 @@ export default function AdminReportsPage() {
                       <span>SumUp</span>
                     </div>
                     <div className="text-lg font-black font-mono text-blue-400">
-                      {formatCurrency(data.paymentSplit?.cardSumUp || 0)}
+                      {formatCents((data as any).paymentSplit?.cardSumUpCents ?? Math.round(((data as any).paymentSplit?.cardSumUp ?? 0) * 100))}
                     </div>
                   </div>
 
@@ -454,7 +454,7 @@ export default function AdminReportsPage() {
                       <span>VR-Pay Me</span>
                     </div>
                     <div className="text-lg font-black font-mono text-blue-300">
-                      {formatCurrency(data.paymentSplit?.cardVrPay || 0)}
+                      {formatCents((data as any).paymentSplit?.cardVrPayCents ?? Math.round(((data as any).paymentSplit?.cardVrPay ?? 0) * 100))}
                     </div>
                   </div>
 
@@ -464,7 +464,7 @@ export default function AdminReportsPage() {
                       <span>EC-Terminal / Sonst.</span>
                     </div>
                     <div className="text-lg font-black font-mono text-purple-400">
-                      {formatCurrency(data.paymentSplit?.cardTerminal || 0)}
+                      {formatCents((data as any).paymentSplit?.cardTerminalCents ?? Math.round(((data as any).paymentSplit?.cardTerminal ?? 0) * 100))}
                     </div>
                   </div>
                 </div>
@@ -484,13 +484,14 @@ export default function AdminReportsPage() {
 
                   <div className="h-60 flex items-end gap-1.5 sm:gap-2 px-2 pt-6 border-b border-slate-700">
                     {data.hourlySales?.map((h) => {
-                      const heightPercent = Math.max(6, Math.round((h.grossAmount / maxHourlyGross) * 100));
-                      const isPeak = h.grossAmount === maxHourlyGross && h.grossAmount > 0;
+                      const _g = ((h as any).grossAmountCents ?? Math.round(((h as any).grossAmount ?? 0) * 100));
+                      const heightPercent = Math.max(6, Math.round((_g / maxHourlyGross) * 100));
+                      const isPeak = _g === maxHourlyGross && _g > 0;
 
                       return (
                         <div key={h.hour} className="flex-1 flex flex-col items-center group relative">
                           <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-950 text-white text-[10px] font-mono px-2 py-1 rounded-lg border border-slate-700 whitespace-nowrap z-10 pointer-events-none shadow-xl">
-                            {h.label}: {formatCurrency(h.grossAmount)} ({h.orderCount} Bons)
+                            {h.label}: {formatCents((h as any).grossAmountCents ?? Math.round(((h as any).grossAmount ?? 0) * 100))} ({h.orderCount} Bons)
                           </div>
 
                           <div
@@ -498,7 +499,7 @@ export default function AdminReportsPage() {
                             className={`w-full rounded-t-xl transition-all ${
                               isPeak
                                 ? 'bg-amber-400 shadow-lg shadow-amber-400/30'
-                                : h.grossAmount > 0
+                                : _g > 0
                                 ? 'bg-blue-500 hover:bg-blue-400'
                                 : 'bg-slate-800'
                             }`}
@@ -527,7 +528,7 @@ export default function AdminReportsPage() {
                       <div key={cat.id}>
                         <div className="flex justify-between text-xs font-bold mb-1">
                           <span className="text-slate-200">{cat.name} ({cat.count} Stk.)</span>
-                          <span className="font-mono text-emerald-400">{formatCurrency(cat.revenue)} ({cat.percent}%)</span>
+                          <span className="font-mono text-emerald-400">{formatCents((cat as any).revenueCents ?? Math.round(((cat as any).revenue ?? 0) * 100))} ({cat.percent}%)</span>
                         </div>
                         <div className="h-3.5 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700">
                           <div
@@ -555,7 +556,8 @@ export default function AdminReportsPage() {
 
                 <div className="space-y-3">
                   {data.waiters?.map((w) => {
-                    const widthPercent = Math.round((w.totalGross / maxWaiterGross) * 100);
+                    const _wg = ((w as any).totalGrossCents ?? Math.round(((w as any).totalGross ?? 0) * 100));
+                    const widthPercent = Math.round((_wg / maxWaiterGross) * 100);
                     return (
                       <div key={w.waiterName} className="p-4 bg-slate-950 rounded-2xl border border-slate-800">
                         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -570,10 +572,10 @@ export default function AdminReportsPage() {
 
                           <div className="flex items-center gap-4 text-xs font-semibold">
                             <span className="text-blue-400 font-mono">
-                              Letzte 60 Min: <strong>{formatCurrency(w.salesLastHour)}</strong> ({w.ordersLastHour} Bons)
+                              Letzte 60 Min: <strong>{formatCents((w as any).salesLastHourCents ?? Math.round(((w as any).salesLastHour ?? 0) * 100))}</strong> ({w.ordersLastHour} Bons)
                             </span>
                             <span className="text-emerald-400 font-mono text-sm sm:text-base font-black">
-                              {formatCurrency(w.totalGross)}
+                              {formatCents((w as any).totalGrossCents ?? Math.round(((w as any).totalGross ?? 0) * 100))}
                             </span>
                           </div>
                         </div>
@@ -586,8 +588,8 @@ export default function AdminReportsPage() {
                         </div>
 
                         <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-400 pt-1">
-                          <span>Bar: {formatCurrency(w.cashGross)} • Karte: {formatCurrency(w.cardGross)}</span>
-                          <span>Trinkgeld: +{formatCurrency(w.tips)} • Belege: {w.transactionCount}</span>
+                          <span>Bar: {formatCents((w as any).cashGrossCents ?? Math.round(((w as any).cashGross ?? 0) * 100))} • Karte: {formatCents((w as any).cardGrossCents ?? Math.round(((w as any).cardGross ?? 0) * 100))}</span>
+                          <span>Trinkgeld: +{formatCents((w as any).tipsCents ?? Math.round(((w as any).tips ?? 0) * 100))} • Belege: {w.transactionCount}</span>
                         </div>
                       </div>
                     );
@@ -621,11 +623,11 @@ export default function AdminReportsPage() {
                       <tr key={w.waiterName}>
                         <td className="py-3 font-bold text-slate-400">#{w.rank}</td>
                         <td className="py-3 font-bold text-white">{w.waiterName}</td>
-                        <td className="py-3 font-mono font-black text-emerald-400">{formatCurrency(w.totalGross)}</td>
-                        <td className="py-3 font-mono text-blue-400">{formatCurrency(w.salesLastHour)} ({w.ordersLastHour} Bons)</td>
-                        <td className="py-3 font-mono text-slate-300">{formatCurrency(w.cashGross)}</td>
-                        <td className="py-3 font-mono text-slate-300">{formatCurrency(w.cardGross)}</td>
-                        <td className="py-3 font-mono text-amber-400">+{formatCurrency(w.tips)}</td>
+                        <td className="py-3 font-mono font-black text-emerald-400">{formatCents((w as any).totalGrossCents ?? Math.round(((w as any).totalGross ?? 0) * 100))}</td>
+                        <td className="py-3 font-mono text-blue-400">{formatCents((w as any).salesLastHourCents ?? Math.round(((w as any).salesLastHour ?? 0) * 100))} ({w.ordersLastHour} Bons)</td>
+                        <td className="py-3 font-mono text-slate-300">{formatCents((w as any).cashGrossCents ?? Math.round(((w as any).cashGross ?? 0) * 100))}</td>
+                        <td className="py-3 font-mono text-slate-300">{formatCents((w as any).cardGrossCents ?? Math.round(((w as any).cardGross ?? 0) * 100))}</td>
+                        <td className="py-3 font-mono text-amber-400">+{formatCents((w as any).tipsCents ?? Math.round(((w as any).tips ?? 0) * 100))}</td>
                         <td className="py-3 font-mono text-slate-300">{w.transactionCount}</td>
                         <td className="py-3 text-right">
                           <button
@@ -663,7 +665,7 @@ export default function AdminReportsPage() {
                           #{idx + 1} {prod.name}
                         </span>
                         <span className="font-mono text-emerald-400">
-                          {prod.quantity}x verkauft • {formatCurrency(prod.revenue)}
+                          {prod.quantity}x verkauft • {formatCents((prod as any).revenueCents ?? Math.round(((prod as any).revenue ?? 0) * 100))}
                         </span>
                       </div>
                       <div className="h-2.5 w-full bg-slate-800 rounded-full overflow-hidden">
@@ -711,10 +713,10 @@ export default function AdminReportsPage() {
                 {[
                   { label: 'Periode', value: `Z-${String(zPreview.periodNumber ?? 0).padStart(4, '0')}` },
                   { label: 'Belege', value: String(zPreview.transactionCount ?? 0) },
-                  { label: 'Umsatz brutto', value: formatCurrency(zPreview.totalGross ?? 0) },
-                  { label: 'MwSt 19 %', value: formatCurrency(zPreview.taxAmount19 ?? 0) },
-                  { label: 'MwSt 7 %', value: formatCurrency(zPreview.taxAmount7 ?? 0) },
-                  { label: 'Bar-Soll', value: formatCurrency(zPreview.cashExpected ?? 0) },
+                  { label: 'Umsatz brutto', value: formatCents(Math.round((zPreview.totalGross ?? 0) * 100)) },
+                  { label: 'MwSt 19 %', value: formatCents(Math.round((zPreview.taxAmount19 ?? 0) * 100)) },
+                  { label: 'MwSt 7 %', value: formatCents(Math.round((zPreview.taxAmount7 ?? 0) * 100)) },
+                  { label: 'Bar-Soll', value: formatCents(Math.round((zPreview.cashExpected ?? 0) * 100)) },
                 ].map((k) => (
                   <div key={k.label} className="p-3 rounded-2xl bg-slate-950 border border-slate-800">
                     <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logSystemActionSafe } from '@/lib/action-logger';
 import { prisma } from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
+import { toCents } from '@/lib/pricing';
 
 export async function GET(req: Request) {
   const auth = await requireApiAuth(req);
@@ -22,13 +23,13 @@ export async function GET(req: Request) {
       (acc, t) => {
         if (t.action === 'ISSUE') {
           acc.totalIssuedQty += t.quantity;
-          acc.totalIssuedValue += t.totalValue;
+          acc.totalIssuedValue += t.totalValueCents;
         } else if (t.action === 'REDEEM') {
           acc.totalRedeemedQty += t.quantity;
-          acc.totalRedeemedValue += t.totalValue;
+          acc.totalRedeemedValue += t.totalValueCents;
         } else if (t.action === 'RETURN') {
           acc.totalReturnedQty += t.quantity;
-          acc.totalReturnedValue += t.totalValue;
+          acc.totalReturnedValue += t.totalValueCents;
         }
         return acc;
       },
@@ -66,16 +67,16 @@ export async function POST(req: NextRequest) {
     }
 
     const qty = parseInt(quantity, 10);
-    const val = parseFloat(unitValue);
-    const totalVal = Math.round(qty * val * 100) / 100;
+    const valCents = toCents(parseFloat(unitValue));
+    const totalValCents = qty * valCents;
 
     const transaction = await prisma.tokenTransaction.create({
       data: {
         tokenType: tokenType || 'GENERAL',
         action, // ISSUE, REDEEM, RETURN
         quantity: qty,
-        unitValue: val,
-        totalValue: totalVal,
+        unitValueCents: valCents,
+        totalValueCents: totalValCents,
         waiterName: waiterName || 'Kasse',
         deviceId: deviceId || null,
       },

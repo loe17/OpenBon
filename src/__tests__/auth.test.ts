@@ -4,8 +4,8 @@ import QRCode from 'qrcode';
 
 describe('OpenBon Security & QR Integration', () => {
   it('should verify standard admin PIN', async () => {
-    await setAdminPin('1234');
-    const valid = await verifyAdminPin('1234');
+    await setAdminPin('582914');
+    const valid = await verifyAdminPin('582914');
     expect(valid).toBe(true);
 
     const invalid = await verifyAdminPin('0000');

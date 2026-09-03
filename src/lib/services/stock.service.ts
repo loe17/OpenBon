@@ -86,7 +86,7 @@ export class StockService {
                   {
                     name: `MELDEBESTAND: ${prod.name}`,
                     quantity: currentQuantity,
-                    unitPrice: 0,
+                    unitPriceCents: 0,
                   },
                 ],
               },

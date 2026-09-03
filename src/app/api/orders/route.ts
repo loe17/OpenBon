@@ -3,7 +3,7 @@ import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import TicketSplitter from '@/lib/printer/ticket-splitter';
 import haService from '@/lib/ha/ha-service';
-import { getEffectiveProductPrice } from '@/lib/pricing';
+import { getEffectiveProductPrice, toCents } from '@/lib/pricing';
 import { checkAndTriggerLowStockAlert } from '@/lib/low-stock-notifier';
 import { validateBody, CreateOrderSchema } from '@/lib/validations/schemas';
 import { requireApiAuth } from '@/lib/api-guard';
@@ -62,6 +62,9 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const auth = await requireApiAuth(req);
   if (!auth.ok) return auth.response;
+  const { denyStandbyWrite } = await import('@/lib/ha/ha-guard');
+  const denied = denyStandbyWrite();
+  if (denied) return denied;
 
   try {
     const validation = await validateBody(req, CreateOrderSchema);
@@ -148,22 +151,23 @@ export async function POST(req: Request) {
           throw new Error(`Artikel "${prod.name}" ist leider ausverkauft oder nicht mehr ausreichend verfügbar!`);
         }
 
-        const { price: effectiveBasePrice } = getEffectiveProductPrice(prod, now);
+        const { price: effectiveBasePrice } = getEffectiveProductPrice({ price: prod.priceCents / 100, happyHourPrice: prod.happyHourPriceCents != null ? prod.happyHourPriceCents / 100 : null, happyHourStart: prod.happyHourStart, happyHourEnd: prod.happyHourEnd, happyHourDays: prod.happyHourDays, happyHourRules: prod.happyHourRules } as any, now);
 
         // Untereintrag und Optionen an EINER Stelle aufloesen (src/lib/product-resolve.ts):
         // Vererbung der Untereintrags-Felder, Optionen mit Anzahl, Preis serverseitig.
-        const resolved = resolveOrderItem(prod, effectiveBasePrice, {
+        // DB liefert Cents, Lib rechnet in Euro -> Shim + toCents zurück.
+        const resolved = resolveOrderItem({ id: prod.id, name: prod.name, depositCents: prod.depositCents, taxRate: prod.taxRate, alternativeTicketName: (prod as any).alternativeTicketName, color: (prod as any).buttonColor, printGroupId: (prod as any).printGroupId, variants: (prod.variants || []).map((v: any) => ({ id: v.id, name: v.name, priceDelta: v.priceDeltaCents / 100, alternativeTicketName: v.alternativeTicketName, color: v.color, printGroupId: v.printGroupId, deposit: v.depositCents != null ? v.depositCents / 100 : null, taxRate: v.taxRate })), options: (prod.options || []).map((o: any) => ({ id: o.id, name: o.name, priceDelta: o.priceDeltaCents / 100, defaultQuantity: o.defaultQuantity, maxQuantity: o.maxQuantity })) } as any, effectiveBasePrice, {
           variantName: item.variantName,
           selectedOptions: item.selectedOptions,
         });
-        const unitPrice = resolved.unitPrice;
+        const unitPriceCents = toCents(resolved.unitPrice);
 
         orderItemsData.push({
           productId: prod.id,
           productName: prod.name,
           quantity: item.quantity,
-          unitPrice,
-          deposit: resolved.deposit,
+          unitPriceCents,
+          depositCents: toCents(resolved.deposit),
           taxRate: resolved.taxRate,
           variantName: resolved.variantName,
           // Normalisiert als [{name, quantity}] speichern, damit Auswertung,
@@ -268,9 +272,9 @@ export async function POST(req: Request) {
       }
     }
 
-    // 4. Ticket Routing & ESC/POS Printing
+    // 4. Ticket Routing & ESC/POS Printing (async ACK: PENDING bis Spooler-ACK)
     try {
-      const { printedItemIds } = await TicketSplitter.routeAndPrintOrder({
+      const { jobIds } = await TicketSplitter.routeAndPrintOrder({
         id: order.id,
         orderNumber: order.orderNumber,
         tableLabel: order.table?.label || (tokenNumber ? `Abholmarke #${tokenNumber}` : 'Theke'),
@@ -284,8 +288,8 @@ export async function POST(req: Request) {
           productName: i.productName,
           alternativeName: i.product?.alternativeTicketName,
           quantity: i.quantity,
-          unitPrice: i.unitPrice,
-          deposit: i.deposit,
+          unitPriceCents: i.unitPriceCents,
+          depositCents: i.depositCents ?? 0,
           variantName: i.variantName,
           selectedOptions: i.selectedOptions,
           customizationText: i.customizationText,
@@ -293,12 +297,8 @@ export async function POST(req: Request) {
           isHold: i.isHold,
         })),
       });
-
-      if (printedItemIds.length > 0) {
-        await prisma.orderItem.updateMany({
-          where: { id: { in: printedItemIds } },
-          data: { printStatus: 'PRINTED' },
-        });
+      if (global.io && jobIds.length > 0) {
+        global.io.emit('print:queued', { orderId: order.id, jobIds });
       }
     } catch (printErr) {
       console.error('Error during ticket print spooling:', printErr);
@@ -320,20 +320,20 @@ export async function POST(req: Request) {
       const itemSummary = ((order.items || []) as any[])
         .map((i: any) => `${i.quantity}x ${i.productName}${i.variantName ? ` (${i.variantName})` : ''}`)
         .join(', ');
-      const totalSum = ((order.items || []) as any[]).reduce((s: number, i: any) => s + (Number(i.unitPrice) || 0) * (Number(i.quantity) || 1), 0);
+      const totalSumCents = ((order.items || []) as any[]).reduce((s: number, i: any) => s + (Number(i.unitPriceCents) || 0) * (Number(i.quantity) || 1), 0);
       const tableInfo = order.tableLabel ? ` (Tisch ${order.tableLabel})` : '';
 
       return {
         action: 'ORDER_CREATED',
         category: 'ORDERS',
         actor: order.waiterName || auth.session.waiterName || auth.session.role,
-        details: `Bestellung #${order.orderNumber}${tableInfo}: ${itemSummary || `${order.items?.length ?? 0} Position(en)`} – Gesamt: ${totalSum.toFixed(2)} €`,
+        details: `Bestellung #${order.orderNumber}${tableInfo}: ${itemSummary || `${order.items?.length ?? 0} Position(en)`} – Gesamt: ${(totalSumCents / 100).toFixed(2)} €`,
         metadata: {
           orderId: order.id,
           orderNumber: order.orderNumber,
           tableId: order.tableId,
           tableLabel: order.tableLabel,
-          totalGross: totalSum,
+          totalGrossCents: totalSumCents,
           itemCount: order.items?.length ?? 0,
           orderType: order.orderType,
           source: order.source,

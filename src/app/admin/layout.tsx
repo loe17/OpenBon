@@ -1,6 +1,6 @@
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { verifySessionToken, SESSION_COOKIE_NAME } from '@/lib/auth-session';
+import { verifySessionToken, SESSION_COOKIE_NAME, SESSION_LEGACY_COOKIE_NAME } from '@/lib/auth-session';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +14,9 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const cookieStore = cookies();
-  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  const token =
+    cookieStore.get(SESSION_COOKIE_NAME)?.value ||
+    cookieStore.get(SESSION_LEGACY_COOKIE_NAME)?.value;
 
   let session = null;
   if (token) {

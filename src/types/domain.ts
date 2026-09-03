@@ -2,6 +2,10 @@
  * Zentrale Domain-Typen (Spec 2: strikte Typisierung, keine `any`-Typen).
  * Die Typen spiegeln die Prisma-Modelle in der Form wider, in der sie
  * ueber die JSON-API an die Clients ausgeliefert werden.
+ *
+ * Harter Cent-Cut: Alle Geldbetraege sind Int-Cent (*Cents). Prozent- und
+ * Mengenangaben bleiben Float. Legacy-Euro-Felder sind als @deprecated
+ * markiert und dienen nur der Anzeige bzw. der stufenweisen Migration.
  */
 
 export type PaymentMethod =
@@ -149,13 +153,17 @@ export interface ProductVariantDTO {
   id: string;
   productId: string;
   name: string;
-  priceDelta: number;
+  priceDeltaCents: number;
+  /** @deprecated Legacy Euro-Delta */
+  priceDelta?: number;
   isSoldOut: boolean;
   sortIndex: number;
   /** Eigene Werte des Untereintrags; null = vom Hauptartikel erben. */
   alternativeTicketName?: string | null;
   color?: string | null;
   printGroupId?: string | null;
+  depositCents?: number | null;
+  /** @deprecated Legacy Euro-Pfand */
   deposit?: number | null;
   taxRate?: number | null;
 }
@@ -164,7 +172,9 @@ export interface ProductOptionDTO {
   id: string;
   productId: string;
   name: string;
-  priceDelta: number;
+  priceDeltaCents: number;
+  /** @deprecated Legacy Euro-Delta */
+  priceDelta?: number;
   sortIndex: number;
   /** Voreingestellte Anzahl beim Öffnen der Auswahl. */
   defaultQuantity?: number;
@@ -176,8 +186,12 @@ export interface ProductDTO {
   id: string;
   name: string;
   alternativeTicketName: string | null;
-  price: number;
-  deposit: number;
+  priceCents: number;
+  /** @deprecated Anzeige-Euro */
+  price?: number;
+  depositCents: number;
+  /** @deprecated Anzeige-Euro */
+  deposit?: number;
   taxRate: number;
   buttonColor: string | null;
   status: string;
@@ -191,6 +205,8 @@ export interface ProductDTO {
   minAge?: number | null;
   allergens?: string | null;
   additives?: string | null;
+  happyHourPriceCents?: number | null;
+  /** @deprecated Anzeige-Euro */
   happyHourPrice?: number | null;
   happyHourStart?: string | null;
   happyHourEnd?: string | null;
@@ -233,6 +249,8 @@ export interface DiningTableDTO {
   status: TableStatus;
   isActive: boolean;
   activeWaiterName: string | null;
+  openTotalCents?: number;
+  /** @deprecated Anzeige-Euro */
   openTotal?: number;
   openItemCount?: number;
 }
@@ -243,8 +261,12 @@ export interface OrderItemDTO {
   productId: string;
   productName: string;
   quantity: number;
-  unitPrice: number;
-  deposit: number;
+  unitPriceCents: number;
+  /** @deprecated Anzeige-Euro */
+  unitPrice?: number;
+  depositCents: number;
+  /** @deprecated Anzeige-Euro */
+  deposit?: number;
   taxRate: number;
   variantName: string | null;
   selectedOptions: string | null;
@@ -284,8 +306,12 @@ export interface PaymentItemDTO {
   orderItemId: string | null;
   productName: string;
   quantity: number;
-  unitPrice: number;
-  deposit: number;
+  unitPriceCents: number;
+  /** @deprecated Anzeige-Euro */
+  unitPrice?: number;
+  depositCents: number;
+  /** @deprecated Anzeige-Euro */
+  deposit?: number;
   taxRate: number;
 }
 
@@ -297,23 +323,25 @@ export interface PaymentDTO {
   periodId: string | null;
   waiterName: string;
   deviceId: string | null;
-  totalGross: number;
-  totalNet: number;
-  totalTax: number;
-  taxBase19: number;
-  taxAmount19: number;
-  taxBase7: number;
-  taxAmount7: number;
-  taxBase0: number;
-  totalDeposit: number;
-  returnDeposit: number;
-  discountAmount: number;
-  tipAmount: number;
-  surchargeAmount: number;
+  totalGrossCents: number;
+  totalNetCents: number;
+  totalTaxCents: number;
+  taxBase19Cents: number;
+  taxAmount19Cents: number;
+  taxBase7Cents: number;
+  taxAmount7Cents: number;
+  taxBase0Cents: number;
+  totalDepositCents: number;
+  returnDepositCents: number;
+  discountAmountCents: number;
+  tipAmountCents: number;
+  tipWaiterShareCents?: number;
+  tipPoolShareCents?: number;
+  surchargeAmountCents: number;
   surchargePercent: number;
   surchargeReason: string | null;
-  givenAmount: number;
-  changeAmount: number;
+  givenAmountCents: number;
+  changeAmountCents: number;
   paymentMethod: PaymentMethod;
   cardAuthCode: string | null;
   cardTerminalId: string | null;
@@ -323,13 +351,45 @@ export interface PaymentDTO {
   createdAt: string;
   items?: PaymentItemDTO[];
   table?: DiningTableDTO | null;
+  /** @deprecated Anzeige-Euro, abgeleitet aus *Cents */
+  totalGross?: number;
+  /** @deprecated Anzeige-Euro */
+  totalNet?: number;
+  /** @deprecated Anzeige-Euro */
+  totalTax?: number;
+  /** @deprecated Anzeige-Euro */
+  taxBase19?: number;
+  /** @deprecated Anzeige-Euro */
+  taxAmount19?: number;
+  /** @deprecated Anzeige-Euro */
+  taxBase7?: number;
+  /** @deprecated Anzeige-Euro */
+  taxAmount7?: number;
+  /** @deprecated Anzeige-Euro */
+  taxBase0?: number;
+  /** @deprecated Anzeige-Euro */
+  totalDeposit?: number;
+  /** @deprecated Anzeige-Euro */
+  returnDeposit?: number;
+  /** @deprecated Anzeige-Euro */
+  discountAmount?: number;
+  /** @deprecated Anzeige-Euro */
+  tipAmount?: number;
+  /** @deprecated Anzeige-Euro */
+  surchargeAmount?: number;
+  /** @deprecated Anzeige-Euro */
+  givenAmount?: number;
+  /** @deprecated Anzeige-Euro */
+  changeAmount?: number;
 }
 
 export interface CashMovementDTO {
   id: string;
   periodId: string | null;
   type: CashMovementType;
-  amount: number;
+  amountCents: number;
+  /** @deprecated Anzeige-Euro */
+  amount?: number;
   reason: string;
   waiterName: string;
   deviceId: string | null;
@@ -344,22 +404,50 @@ export interface RegisterPeriodDTO {
   closedAt: string | null;
   status: 'OPEN' | 'CLOSED';
   closedBy: string | null;
-  totalGross: number;
-  totalNet: number;
-  taxAmount19: number;
-  taxAmount7: number;
-  taxBase0: number;
-  totalCash: number;
-  totalCard: number;
-  totalTips: number;
-  totalDepositOut: number;
-  cashIn: number;
-  cashOut: number;
-  cashExpected: number;
-  cashCounted: number | null;
-  cashDifference: number | null;
+  totalGrossCents: number;
+  totalNetCents: number;
+  taxAmount19Cents: number;
+  taxAmount7Cents: number;
+  taxBase0Cents: number;
+  totalCashCents: number;
+  totalCardCents: number;
+  totalTipsCents: number;
+  totalDepositOutCents: number;
+  cashInCents: number;
+  cashOutCents: number;
+  cashExpectedCents: number;
+  cashCountedCents: number | null;
+  cashDifferenceCents: number | null;
   transactionCount: number;
   fiscalSignature: string | null;
+  /** @deprecated Anzeige-Euro */
+  totalGross?: number;
+  /** @deprecated Anzeige-Euro */
+  totalNet?: number;
+  /** @deprecated Anzeige-Euro */
+  taxAmount19?: number;
+  /** @deprecated Anzeige-Euro */
+  taxAmount7?: number;
+  /** @deprecated Anzeige-Euro */
+  taxBase0?: number;
+  /** @deprecated Anzeige-Euro */
+  totalCash?: number;
+  /** @deprecated Anzeige-Euro */
+  totalCard?: number;
+  /** @deprecated Anzeige-Euro */
+  totalTips?: number;
+  /** @deprecated Anzeige-Euro */
+  totalDepositOut?: number;
+  /** @deprecated Anzeige-Euro */
+  cashIn?: number;
+  /** @deprecated Anzeige-Euro */
+  cashOut?: number;
+  /** @deprecated Anzeige-Euro */
+  cashExpected?: number;
+  /** @deprecated Anzeige-Euro */
+  cashCounted?: number | null;
+  /** @deprecated Anzeige-Euro */
+  cashDifference?: number | null;
 }
 
 export interface PrinterDTO {
@@ -384,22 +472,40 @@ export interface PrintGroupDTO {
 
 export interface WaiterShiftSummary {
   waiterName: string;
-  totalGross: number;
-  cashGross: number;
-  cardGross: number;
-  tips: number;
-  depositReturned: number;
+  totalGrossCents: number;
+  cashGrossCents: number;
+  cardGrossCents: number;
+  tipsCents: number;
+  depositReturnedCents: number;
   transactionCount: number;
   ordersLastHour: number;
-  salesLastHour: number;
+  salesLastHourCents: number;
   rank?: number;
+  /** @deprecated Anzeige-Euro */
+  totalGross?: number;
+  /** @deprecated Anzeige-Euro */
+  cashGross?: number;
+  /** @deprecated Anzeige-Euro */
+  cardGross?: number;
+  /** @deprecated Anzeige-Euro */
+  tips?: number;
+  /** @deprecated Anzeige-Euro */
+  depositReturned?: number;
+  /** @deprecated Anzeige-Euro */
+  salesLastHour?: number;
 }
 
 export interface TaxSplit {
   rate: number;
-  base: number;
-  tax: number;
-  gross: number;
+  baseCents: number;
+  taxCents: number;
+  grossCents: number;
+  /** @deprecated Anzeige-Euro */
+  base?: number;
+  /** @deprecated Anzeige-Euro */
+  tax?: number;
+  /** @deprecated Anzeige-Euro */
+  gross?: number;
 }
 
 /* ------------------------------------------------------------------ Reports */
@@ -407,7 +513,9 @@ export interface TaxSplit {
 export interface HourlySalesPoint {
   hour: number;
   label: string;
-  grossAmount: number;
+  grossAmountCents: number;
+  /** @deprecated Anzeige-Euro */
+  grossAmount?: number;
   orderCount: number;
   itemCount: number;
 }
@@ -415,14 +523,18 @@ export interface HourlySalesPoint {
 export interface TopProductStat {
   name: string;
   quantity: number;
-  revenue: number;
+  revenueCents: number;
+  /** @deprecated Anzeige-Euro */
+  revenue?: number;
 }
 
 export interface CategoryBreakdownEntry {
   id: string;
   name: string;
   color: string;
-  revenue: number;
+  revenueCents: number;
+  /** @deprecated Anzeige-Euro */
+  revenue?: number;
   count: number;
   percent: number;
 }
@@ -436,44 +548,66 @@ export interface StockAlertEntry {
 }
 
 export interface ForecastBlock {
-  currentTotalGross: number;
-  projectedEodGross: number;
-  currentVelocityPerHour: number;
-  projectedNextHourGross: number;
+  currentTotalGrossCents: number;
+  projectedEodGrossCents: number;
+  currentVelocityPerHourCents: number;
+  projectedNextHourGrossCents: number;
   peakHourLabel: string;
   peakHourIntensity: 'NORMAL' | 'HIGH' | 'EXTREME';
   confidencePercent: number;
   criticalStockAlerts: StockAlertEntry[];
+  /** @deprecated Anzeige-Euro */
+  currentTotalGross?: number;
+  /** @deprecated Anzeige-Euro */
+  projectedEodGross?: number;
+  /** @deprecated Anzeige-Euro */
+  currentVelocityPerHour?: number;
+  /** @deprecated Anzeige-Euro */
+  projectedNextHourGross?: number;
 }
 
 export interface PaymentSplitBlock {
-  cash: { amount: number; percent: number };
-  cardAll: { amount: number; percent: number };
-  cardSumUp: number;
-  cardVrPay: number;
-  cardSparkasse: number;
-  cardTerminal: number;
-  staff: number;
-  discounts: number;
-  surcharges: number;
+  cash: { amountCents: number; amount?: number; percent: number };
+  cardAll: { amountCents: number; amount?: number; percent: number };
+  cardSumUpCents: number;
+  cardVrPayCents: number;
+  cardSparkasseCents: number;
+  cardTerminalCents: number;
+  staffCents: number;
+  discountsCents: number;
+  surchargesCents: number;
+  /** @deprecated Anzeige-Euro */
+  cardSumUp?: number;
+  /** @deprecated Anzeige-Euro */
+  cardVrPay?: number;
+  /** @deprecated Anzeige-Euro */
+  cardSparkasse?: number;
+  /** @deprecated Anzeige-Euro */
+  cardTerminal?: number;
+  /** @deprecated Anzeige-Euro */
+  staff?: number;
+  /** @deprecated Anzeige-Euro */
+  discounts?: number;
+  /** @deprecated Anzeige-Euro */
+  surcharges?: number;
 }
 
 export interface ReportSummary {
-  totalGross: number;
-  totalNet: number;
-  totalTax19: number;
-  totalTax7: number;
-  taxBase0: number;
-  totalCash: number;
-  totalCard: number;
+  totalGrossCents: number;
+  totalNetCents: number;
+  totalTax19Cents: number;
+  totalTax7Cents: number;
+  taxBase0Cents: number;
+  totalCashCents: number;
+  totalCardCents: number;
   paymentSplit: PaymentSplitBlock;
-  totalStaff: number;
-  totalDepositCharged: number;
-  totalDepositReturned: number;
-  netDepositBalance: number;
-  totalTips: number;
-  totalDiscounts: number;
-  totalSurcharges: number;
+  totalStaffCents: number;
+  totalDepositChargedCents: number;
+  totalDepositReturnedCents: number;
+  netDepositBalanceCents: number;
+  totalTipsCents: number;
+  totalDiscountsCents: number;
+  totalSurchargesCents: number;
   transactionCount: number;
   ordersCount: number;
   waiters: WaiterShiftSummary[];
@@ -482,37 +616,89 @@ export interface ReportSummary {
   categoryBreakdown: CategoryBreakdownEntry[];
   forecast: ForecastBlock;
   exportedAt: string;
+  /** @deprecated Anzeige-Euro */
+  totalGross?: number;
+  /** @deprecated Anzeige-Euro */
+  totalNet?: number;
+  /** @deprecated Anzeige-Euro */
+  totalTax19?: number;
+  /** @deprecated Anzeige-Euro */
+  totalTax7?: number;
+  /** @deprecated Anzeige-Euro */
+  taxBase0?: number;
+  /** @deprecated Anzeige-Euro */
+  totalCash?: number;
+  /** @deprecated Anzeige-Euro */
+  totalCard?: number;
+  /** @deprecated Anzeige-Euro */
+  totalStaff?: number;
+  /** @deprecated Anzeige-Euro */
+  totalDepositCharged?: number;
+  /** @deprecated Anzeige-Euro */
+  totalDepositReturned?: number;
+  /** @deprecated Anzeige-Euro */
+  netDepositBalance?: number;
+  /** @deprecated Anzeige-Euro */
+  totalTips?: number;
+  /** @deprecated Anzeige-Euro */
+  totalDiscounts?: number;
+  /** @deprecated Anzeige-Euro */
+  totalSurcharges?: number;
 }
 
-/** Vorschau des Z-Bons vor dem Tagesabschluss */
+/** Vorschau des Z-Bons vor dem Tagesabschluss (Cent) */
 export interface ZBonPreview {
   periodId: string;
   periodNumber: number;
   openedAt: string;
   status: string;
-  totalGross: number;
-  totalNet: number;
-  taxAmount19: number;
-  taxAmount7: number;
-  taxBase0: number;
-  totalCash: number;
-  totalCard: number;
-  cashIn: number;
-  cashOut: number;
-  cashExpected: number;
+  totalGrossCents: number;
+  totalNetCents: number;
+  taxAmount19Cents: number;
+  taxAmount7Cents: number;
+  taxBase0Cents: number;
+  totalCashCents: number;
+  totalCardCents: number;
+  cashInCents: number;
+  cashOutCents: number;
+  cashExpectedCents: number;
   transactionCount: number;
   error?: string;
+  /** @deprecated Anzeige-Euro */
+  totalGross?: number;
+  /** @deprecated Anzeige-Euro */
+  totalNet?: number;
+  /** @deprecated Anzeige-Euro */
+  taxAmount19?: number;
+  /** @deprecated Anzeige-Euro */
+  taxAmount7?: number;
+  /** @deprecated Anzeige-Euro */
+  taxBase0?: number;
+  /** @deprecated Anzeige-Euro */
+  totalCash?: number;
+  /** @deprecated Anzeige-Euro */
+  totalCard?: number;
+  /** @deprecated Anzeige-Euro */
+  cashIn?: number;
+  /** @deprecated Anzeige-Euro */
+  cashOut?: number;
+  /** @deprecated Anzeige-Euro */
+  cashExpected?: number;
 }
 
-/** Warenkorb-Position im Client (noch nicht persistiert) */
+/** Warenkorb-Position im Client (noch nicht persistiert, Cent) */
 export interface CartLine {
   lineId: string;
   productId: string;
   productName: string;
   alternativeTicketName?: string | null;
   quantity: number;
-  unitPrice: number;
-  deposit: number;
+  unitPriceCents: number;
+  /** @deprecated Anzeige-Euro */
+  unitPrice?: number;
+  depositCents: number;
+  /** @deprecated Anzeige-Euro */
+  deposit?: number;
   taxRate: number;
   variantName: string | null;
   selectedOptions: string[];

@@ -7,8 +7,8 @@ describe('Fiscal block signature (Spec 6.7)', () => {
   const block = {
     periodNumber: 7,
     closedAt: '2026-08-24T20:00:00.000Z',
-    totalGross: 4812.35,
-    totalNet: 4043.99,
+    totalGrossCents: 481235,
+    totalNetCents: 404399,
     transactionCount: 512,
     previousSignature: null as string | null,
   };
@@ -28,7 +28,7 @@ describe('Fiscal block signature (Spec 6.7)', () => {
 
   it('should detect a manipulated total', () => {
     const signature = signFiscalBlock(block);
-    expect(verifyFiscalBlock(signature, { ...block, totalGross: 4000.0 })).toBe(false);
+    expect(verifyFiscalBlock(signature, { ...block, totalGrossCents: 400000 })).toBe(false);
   });
 
   it('should detect a manipulated transaction count', () => {
@@ -60,8 +60,8 @@ describe('Fiscal block signature (Spec 6.7)', () => {
     });
 
     expect(totals).toBeDefined();
-    expect(typeof totals.totalGross).toBe('number');
-    expect(typeof totals.cashExpected).toBe('number');
+    expect(typeof totals.totalGrossCents).toBe('number');
+    expect(typeof totals.cashExpectedCents).toBe('number');
     expect(Array.isArray(totals.waiters)).toBe(true);
   });
 });
