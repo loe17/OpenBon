@@ -3,6 +3,7 @@ import { logSystemActionSafe } from '@/lib/action-logger';
 import { exec, execFile } from 'child_process';
 import { promisify } from 'util';
 import { APP_VERSION, GITHUB_REPO_URL } from '@/lib/version';
+import { compareSemver } from '@/lib/version-compare';
 import { requireAdmin } from '@/lib/admin-guard';
 import { requireApiAuth } from '@/lib/api-guard';
 import { getDiskSpace } from '@/lib/disk-space';
@@ -45,18 +46,6 @@ function runGit(args: string[], timeoutMs = 30000): Promise<{ stdout: string; st
 /** M6.1 Strenger Git-Refname (Tags/Branches ohne Meta-Zeichen). */
 const SAFE_GIT_REF_RE = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$/;
 
-function compareSemver(vA: string, vB: string): number {
-  const cleanA = vA.replace(/^v/i, '').split('.').map((p) => parseInt(p, 10) || 0);
-  const cleanB = vB.replace(/^v/i, '').split('.').map((p) => parseInt(p, 10) || 0);
-  for (let i = 0; i < 3; i++) {
-    const a = cleanA[i] || 0;
-    const b = cleanB[i] || 0;
-    if (a > b) return 1;
-    if (a < b) return -1;
-  }
-  return 0;
-}
-
 export async function GET(req: Request) {
   const auth = await requireApiAuth(req, ['ADMIN']);
   if (!auth.ok) return auth.response;
@@ -75,25 +64,35 @@ export async function GET(req: Request) {
     let latestReleaseUrl: string | null = null;
 
     let availableTags: string[] = [];
+    // Diagnose: Warum wird ggf. kein Update gefunden (statt "neuester Stand" zu behaupten)?
+    let updateCheckWarning: string | null = null;
+    const checkNotes: string[] = [];
     try {
       const { stdout: tagOut } = await execAsync('git tag -l "v*" --sort=-v:refname', { cwd: projectRoot }).catch(() => ({ stdout: '' }));
       if (tagOut.trim()) {
         availableTags = tagOut.trim().split('\n').map((t) => t.trim()).filter(Boolean);
       }
-    } catch {}
+    } catch {
+      checkNotes.push('Lokale Tags konnten nicht gelesen werden.');
+    }
 
-    // 1. Prüfe offizielle GitHub Tags & Releases via GitHub API
+    // 1. Prüfe offizielle GitHub Tags & Releases via GitHub API (15s Timeout,
+    //    Rate-Limit wird an UI durchgereicht statt "neuester Stand" zu behaupten)
     try {
-      const ghTagsRes = await fetch('https://api.github.com/repos/loe17/OpenBon/tags', {
-        headers: { 'User-Agent': 'OpenBon-POS-System' },
-        signal: AbortSignal.timeout(4000),
+      const ghTagsRes = await fetch('https://api.github.com/repos/loe17/OpenBon/tags?per_page=100', {
+        headers: { 'User-Agent': 'OpenBon-POS-System', Accept: 'application/vnd.github+json' },
+        signal: AbortSignal.timeout(15000),
       });
 
       if (ghTagsRes.ok) {
+        const remaining = ghTagsRes.headers.get('x-ratelimit-remaining');
+        if (remaining !== null && Number(remaining) <= 5) {
+          checkNotes.push(`GitHub-API-Limit fast aufgebraucht (noch ${remaining}).`);
+        }
         const tagsData = await ghTagsRes.json();
         if (Array.isArray(tagsData) && tagsData.length > 0) {
           const apiTags = tagsData.map((t: any) => t.name).filter(Boolean);
-          // Kombiniere und dedupliziere Tags
+          // Kombiniere und dedupliziere Tags (API zuerst = neueste oben)
           availableTags = Array.from(new Set([...apiTags, ...availableTags]));
 
           const sorted = tagsData
@@ -112,15 +111,54 @@ export async function GET(req: Request) {
             }
           }
         }
+      } else if (ghTagsRes.status === 403 || ghTagsRes.status === 429) {
+        const resetAt = ghTagsRes.headers.get('x-ratelimit-reset');
+        const when = resetAt ? new Date(Number(resetAt) * 1000).toLocaleTimeString('de-DE') : 'unbekannt';
+        updateCheckWarning = `GitHub-API-Limit erreicht (HTTP ${ghTagsRes.status}, frei ab ca. ${when}). Lokale Prüfung läuft trotzdem.`;
+      } else {
+        checkNotes.push(`GitHub-API antwortete HTTP ${ghTagsRes.status} – nur lokale Prüfung möglich.`);
       }
-    } catch {
-      // Offline oder API-Ratelimit -> ignorieren und via Git prüfen
+    } catch (err) {
+      checkNotes.push(
+        err instanceof Error && err.name === 'TimeoutError'
+          ? 'GitHub-API Zeitüberschreitung (15s) – evtl. kein Internet/DNS.'
+          : 'GitHub-API nicht erreichbar (offline?) – nur lokale Prüfung möglich.'
+      );
     }
 
-    // 2. Prüfe Git-Commits auf master
+    // 1b. Lokale Tags aktualisieren (fetch --tags, sonst kennt die Box nur alte Tags)
+    try {
+      await runGit(['fetch', 'origin', '--tags', '--force'], 15000).catch(() => ({ stdout: '' }));
+      const { stdout: tagOut2 } = await execAsync('git tag -l "v*" --sort=-v:refname', { cwd: projectRoot }).catch(() => ({ stdout: '' }));
+      if (tagOut2.trim()) {
+        const localTags = tagOut2.trim().split('\n').map((t) => t.trim()).filter(Boolean);
+        availableTags = Array.from(new Set([...availableTags, ...localTags]));
+        // Fallback falls API tot: neuestes lokales Tag als Vergleich
+        if (!latestReleaseVersion && localTags.length > 0) {
+          const topLocal = localTags[0].replace(/^v/i, '');
+          if (/^\d+\.\d+\.\d+/.test(topLocal)) {
+            latestReleaseVersion = topLocal;
+            latestReleaseName = `Release v${topLocal} (lokal)`;
+            latestReleaseUrl = `https://github.com/loe17/OpenBon/releases/tag/v${topLocal}`;
+            checkNotes.push('Vergleich gegen lokale Tags (API unerreichbar).');
+            if (compareSemver(topLocal, APP_VERSION) > 0) {
+              isNewRelease = true;
+            }
+          }
+        }
+      }
+    } catch {
+      checkNotes.push('Tag-Abgleich via Git fehlgeschlagen (kein Remote/offline?).');
+    }
+
+    // 2. Prüfe Git-Commits auf master (detached HEAD abfangen: dann origin/master vergleichen)
     try {
       const { stdout: bOut } = await execAsync('git rev-parse --abbrev-ref HEAD', { cwd: projectRoot });
       branch = bOut.trim();
+      if (branch === 'HEAD') {
+        branch = 'master';
+        checkNotes.push('Detached HEAD (Tag ausgecheckt) – vergleiche gegen origin/master.');
+      }
 
       const { stdout: cOut } = await execAsync('git rev-parse --short HEAD', { cwd: projectRoot });
       localCommit = cOut.trim();
@@ -128,8 +166,8 @@ export async function GET(req: Request) {
       // M6.1: 'safe.directory *' global entfernt (maschinenweite Nebenwirkung).
       // Der Projektordner ist der laufende Prozess-CWD und gilt per se als safe.
 
-      // Fetch from remote
-      await runGit(['fetch', 'origin', 'master'], 6000).catch(() => ({ stdout: '' }));
+      // Fetch from remote (mit Tags, damit Tag-Checkout danach nicht erneut laden muss)
+      await runGit(['fetch', 'origin', 'master', '--tags'], 15000).catch(() => ({ stdout: '' }));
 
       // Branchname vom Server selbst - trotzdem hart eingegrenzt
       const safeBranch = SAFE_GIT_REF_RE.test(branch) ? branch : 'master';
@@ -138,7 +176,9 @@ export async function GET(req: Request) {
       if (diffOut.trim()) {
         pendingCommits = diffOut.trim().split('\n');
       }
-    } catch {}
+    } catch {
+      checkNotes.push('Git-Commit-Vergleich fehlgeschlagen (kein .git/Remote?).');
+    }
 
     const hasUpdate = isNewRelease || pendingCommits.length > 0;
     const updateType: 'RELEASE' | 'HOTFIX' | 'NONE' = isNewRelease
@@ -147,7 +187,10 @@ export async function GET(req: Request) {
       ? 'HOTFIX'
       : 'NONE';
 
-    let remoteStatus = 'System ist auf dem neuesten Stand';
+    const checkIncomplete = !hasUpdate && (updateCheckWarning !== null || checkNotes.length > 0);
+    let remoteStatus = checkIncomplete
+      ? 'Update-Prüfung unvollständig – bitte erneut prüfen'
+      : 'System ist auf dem neuesten Stand';
     if (updateType === 'RELEASE') {
       remoteStatus = `Neues offizielles Release v${latestReleaseVersion} verfügbar`;
     } else if (updateType === 'HOTFIX') {
@@ -170,6 +213,8 @@ export async function GET(req: Request) {
       latestReleaseUrl,
       availableTags,
       pendingCommits,
+      updateCheckWarning,
+      checkNotes,
       nodeVersion: process.version,
       platform: process.platform,
       arch: process.arch,

@@ -44,6 +44,8 @@ interface SystemInfo {
   latestReleaseUrl?: string | null;
   availableTags?: string[];
   pendingCommits?: string[];
+  updateCheckWarning?: string | null;
+  checkNotes?: string[];
   diskSpace?: {
     totalBytes: number;
     freeBytes: number;
@@ -172,7 +174,16 @@ export default function AdminSystemUpdatePage() {
           `[PATCH-UPDATE] ${data.pendingCommits.length} Hotfix-Commit(s) auf GitHub verfügbar:\n${data.pendingCommits.join('\n')}`,
           false
         );
+      } else if (data.updateCheckWarning) {
+        addTerminalLog(`[WARNUNG] ${data.updateCheckWarning}`, true);
+        if (data.checkNotes && data.checkNotes.length > 0) {
+          addTerminalLog(`[HINWEIS] ${data.checkNotes.join(' ')}`, true);
+        }
+        addTerminalLog(`[STATUS] Prüfung unvollständig – bitte erneut auf "Prüfen" klicken (v${APP_VERSION}, Commit: ${data.localCommit || '-'})`, true);
       } else {
+        if (data.checkNotes && data.checkNotes.length > 0) {
+          addTerminalLog(`[HINWEIS] ${data.checkNotes.join(' ')}`, false);
+        }
         addTerminalLog(`[STATUS] System ist auf dem neuesten Stand (v${APP_VERSION}, Commit: ${data.localCommit || '-'})`);
       }
     } catch (e) {
