@@ -109,22 +109,53 @@ export async function POST(req: Request) {
           throw new Error(`Artikel "${prod.name}" ist leider ausverkauft oder nicht mehr ausreichend verfügbar!`);
         }
 
-        const { price: effectiveBasePrice } = getEffectiveProductPrice({ price: prod.priceCents / 100, happyHourPrice: prod.happyHourPriceCents != null ? prod.happyHourPriceCents / 100 : null, happyHourStart: prod.happyHourStart, happyHourEnd: prod.happyHourEnd, happyHourDays: prod.happyHourDays, happyHourRules: prod.happyHourRules } as any, now);
+        const { priceCents: effectiveBasePriceCents } = getEffectiveProductPrice(prod as any, now);
 
-        // Untereintrag und Optionen an EINER Stelle aufloesen (src/lib/product-resolve.ts):
-        // Vererbung der Untereintrags-Felder, Optionen mit Anzahl, Preis serverseitig.
-        const resolved = resolveOrderItem({ id: prod.id, name: prod.name, depositCents: prod.depositCents, taxRate: prod.taxRate, alternativeTicketName: (prod as any).alternativeTicketName, color: (prod as any).buttonColor, printGroupId: (prod as any).printGroupId, variants: (prod.variants || []).map((v: any) => ({ id: v.id, name: v.name, priceDelta: v.priceDeltaCents / 100, alternativeTicketName: v.alternativeTicketName, color: v.color, printGroupId: v.printGroupId, deposit: v.depositCents != null ? v.depositCents / 100 : null, taxRate: v.taxRate })), options: (prod.options || []).map((o: any) => ({ id: o.id, name: o.name, priceDelta: o.priceDeltaCents / 100, defaultQuantity: o.defaultQuantity, maxQuantity: o.maxQuantity })) } as any, effectiveBasePrice, {
-          variantName: item.variantName,
-          selectedOptions: item.selectedOptions,
-        });
-        const unitPriceCents = toCents(resolved.unitPrice);
+        // Untereintrag und Optionen an EINER Stelle auflösen (src/lib/product-resolve.ts):
+        // Vererbung der Untereintrags-Felder, Optionen mit Anzahl, Preis serverseitig in Cent.
+        const resolved = resolveOrderItem(
+          {
+            id: prod.id,
+            name: prod.name,
+            depositCents: prod.depositCents,
+            taxRate: prod.taxRate,
+            alternativeTicketName: (prod as any).alternativeTicketName,
+            color: (prod as any).buttonColor,
+            printGroupId: (prod as any).printGroupId,
+            variants: (prod.variants || []).map((v: any) => ({
+              id: v.id,
+              name: v.name,
+              priceDeltaCents: v.priceDeltaCents ?? 0,
+              priceDelta: (v.priceDeltaCents ?? 0) / 100,
+              alternativeTicketName: v.alternativeTicketName,
+              color: v.color,
+              printGroupId: v.printGroupId,
+              depositCents: v.depositCents,
+              taxRate: v.taxRate,
+            })),
+            options: (prod.options || []).map((o: any) => ({
+              id: o.id,
+              name: o.name,
+              priceDeltaCents: o.priceDeltaCents ?? 0,
+              priceDelta: (o.priceDeltaCents ?? 0) / 100,
+              defaultQuantity: o.defaultQuantity,
+              maxQuantity: o.maxQuantity,
+            })),
+          } as any,
+          effectiveBasePriceCents,
+          {
+            variantName: item.variantName,
+            selectedOptions: item.selectedOptions,
+          }
+        );
+        const unitPriceCents = resolved.unitPriceCents;
 
         orderItemsData.push({
           productId: prod.id,
           productName: prod.name,
           quantity: item.quantity,
           unitPriceCents,
-          depositCents: toCents(resolved.deposit),
+          depositCents: resolved.depositCents,
           taxRate: resolved.taxRate,
           variantName: resolved.variantName,
           // Normalisiert als [{name, quantity}] speichern, damit Auswertung,
@@ -158,7 +189,14 @@ export async function POST(req: Request) {
       }
 
       const invoiceNumber = `BELEG-${new Date().getFullYear()}-${String(invoiceSeq).padStart(5, '0')}`;
-      const digitalReceiptCode = generateDigitalReceiptCode(invoiceNumber);
+      let digitalReceiptCode: string | null = null;
+      if (Boolean(config.enableDigitalReceipt || config.enableDigitalReceiptQr)) {
+        try {
+          digitalReceiptCode = generateDigitalReceiptCode(invoiceNumber);
+        } catch (eBonErr) {
+          console.warn('[CHECKOUT] E-Bon Generierung übersprungen:', eBonErr instanceof Error ? eBonErr.message : eBonErr);
+        }
+      }
 
       // Bestellung anlegen (Positionen inklusive)
       // Verbrauch der Lagerposten abbuchen

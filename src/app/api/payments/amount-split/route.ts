@@ -32,6 +32,14 @@ export async function POST(req: Request) {
     const seq = updatedConfig.invoiceSequence - 1;
     const invNum = `SPLIT-${new Date().getFullYear()}-${String(seq).padStart(5, '0')}`;
     const gross = amountCents / 100;
+    let digitalReceiptCode: string | null = null;
+    if (Boolean(updatedConfig.enableDigitalReceipt || updatedConfig.enableDigitalReceiptQr)) {
+      try {
+        digitalReceiptCode = generateDigitalReceiptCode(invNum);
+      } catch (eBonErr) {
+        console.warn('[AMOUNT-SPLIT] E-Bon Generierung übersprungen:', eBonErr instanceof Error ? eBonErr.message : eBonErr);
+      }
+    }
     const payment = await prisma.payment.create({
       data: {
         invoiceNumber: invNum,
@@ -40,7 +48,7 @@ export async function POST(req: Request) {
         periodId: period.id,
         waiterName: waiterName || auth.session.waiterName || 'Bedienung',
         deviceId: auth.session.deviceId || null,
-        digitalReceiptCode: generateDigitalReceiptCode(invNum),
+        digitalReceiptCode,
         totalGrossCents: amountCents,
         totalNetCents: Math.round(amountCents / 1.19),
         totalTaxCents: amountCents - Math.round(amountCents / 1.19),

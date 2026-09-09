@@ -239,7 +239,14 @@ export async function POST(req: Request) {
         ? `BELEG-${new Date().getFullYear()}-${String(seq).padStart(5, '0')}-${body.requestId.slice(0, 8)}`
         : `BELEG-${new Date().getFullYear()}-${String(seq).padStart(5, '0')}`;
 
-      const digitalReceiptCode = generateDigitalReceiptCode(invoiceNumber);
+      let digitalReceiptCode: string | null = null;
+      if (Boolean(config.enableDigitalReceipt || config.enableDigitalReceiptQr)) {
+        try {
+          digitalReceiptCode = generateDigitalReceiptCode(invoiceNumber);
+        } catch (eBonErr) {
+          console.warn('[PAYMENT] E-Bon Generierung übersprungen:', eBonErr instanceof Error ? eBonErr.message : eBonErr);
+        }
+      }
 
       for (const item of itemsToPay) {
         if (!item.orderItemId) continue;

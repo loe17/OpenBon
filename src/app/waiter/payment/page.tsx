@@ -410,6 +410,8 @@ function WaiterPaymentContent() {
         orderItemId: i.orderItemId,
         productName: i.productName,
         quantityToPay: i.selectedQty,
+        unitPriceCents: Math.round(i.unitPrice * 100),
+        depositCents: Math.round(i.deposit * 100),
         unitPrice: i.unitPrice,
         deposit: i.deposit,
         taxRate: i.taxRate,
@@ -429,7 +431,9 @@ function WaiterPaymentContent() {
           nonPaidReason: paymentMethod.startsWith('NON_PAID') ? nonPaidReason : null,
           cardAuthCode,
           returnDepositCount: Object.values(returnDeposits).reduce((a, b) => a + b, 0),
+          returnDepositAmountCents: Math.round(totalReturnDeposit * 100),
           returnDepositAmount: totalReturnDeposit,
+          givenAmountCents: paymentMethod === 'CASH' ? Math.round(givenAmount * 100) : 0,
           givenAmount: paymentMethod === 'CASH' ? givenAmount : 0,
           printReceipt: opts.printReceipt,
           requestId,
@@ -982,7 +986,9 @@ function WaiterPaymentContent() {
           {/* Stückelungs-Rechner mit Scheinen (5€–200€), Münzen (1ct–2€) und Ziffernblock */}
           {paymentMethod === 'CASH' && (
             <ChangeCalculator
+              amountDueCents={(checkout as any).amountDueWithTipCents ?? Math.round(checkout.amountDueWithTip * 100)}
               amountDue={checkout.amountDueWithTip}
+              givenCents={Math.round(givenAmount * 100)}
               givenAmount={givenAmount}
               onGivenChange={(val) => {
                 setKeypadValue(val > 0 ? val.toFixed(2).replace('.', ',') : '');

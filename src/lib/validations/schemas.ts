@@ -30,13 +30,33 @@ export const PaymentItemInputSchema = z.object({
   orderItemId: z.string().nullable().optional(),
   productName: z.string().min(1),
   quantityToPay: z.number().int().positive(),
-  unitPriceCents: z.number().int().nonnegative(),
-  depositCents: z.number().int().default(0),
+  unitPriceCents: z.number().int().nonnegative().optional(),
+  depositCents: z.number().int().nonnegative().optional(),
   taxRate: z.number().default(19),
   /** @deprecated Legacy Euro-Aliase (Migration Gruppen 2/3) */
   unitPrice: z.number().nonnegative().optional(),
   /** @deprecated Legacy Euro-Alias */
   deposit: z.number().optional(),
+}).transform((item) => {
+  const unitPriceCents =
+    item.unitPriceCents !== undefined
+      ? item.unitPriceCents
+      : typeof item.unitPrice === 'number'
+        ? Math.round(item.unitPrice * 100)
+        : 0;
+
+  const depositCents =
+    item.depositCents !== undefined
+      ? item.depositCents
+      : typeof item.deposit === 'number'
+        ? Math.round(item.deposit * 100)
+        : 0;
+
+  return {
+    ...item,
+    unitPriceCents,
+    depositCents,
+  };
 });
 
 export const PaymentMethodEnum = z.enum([
@@ -118,7 +138,12 @@ export const CreatePaymentSchema = z.object({
   surchargeAmount: z.number().nonnegative().optional(),
   /** @deprecated Legacy Euro-Alias */
   returnDepositAmount: z.number().nonnegative().optional(),
-});
+}).transform((data) => ({
+  ...data,
+  givenAmountCents: data.givenAmountCents ?? (typeof data.givenAmount === 'number' ? Math.round(data.givenAmount * 100) : undefined),
+  tipAmountCents: data.tipAmountCents || (typeof data.tipAmount === 'number' ? Math.round(data.tipAmount * 100) : 0),
+  returnDepositAmountCents: data.returnDepositAmountCents ?? (typeof data.returnDepositAmount === 'number' ? Math.round(data.returnDepositAmount * 100) : undefined),
+}));
 
 /**
  * Atomic Checkout: Bestellung + sofortige Vollzahlung in EINER serverseitigen Transaktion.
