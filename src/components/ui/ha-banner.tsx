@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { ShieldAlert, ArrowRight, X } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 interface HaStatusResponse {
   role?: string;
@@ -22,16 +22,22 @@ const DISMISS_TTL_MS = 12 * 60 * 60 * 1000; // halber Tag, dann erinnert das Ban
  * selbstaendig - inklusive Direkteinstieg in den Assistenten.
  *
  * Verhalten:
- *  - Pollt alle 60 s den ADMIN-geschuetzten Status. Fuer Nicht-Admins
- *    antwortet der Endpunkt mit 401 -> Banner bleibt unsichtbar.
+ *  - Nur im Admin-Bereich (/admin) aktiv, um 401-Fehler auf Kassen-/
+ *    Bedienstationen zu vermeiden.
  *  - Abblendbar fuer 12 h pro Geraet (sessionStorage).
  */
 export default function HaBanner() {
   const router = useRouter();
+  const pathname = usePathname();
   const [state, setState] = useState<'loading' | 'hidden' | 'weak' | 'enforced'>('loading');
   const [dismissed, setDismissed] = useState(true);
 
   const load = useCallback(async () => {
+    // HA-Banner ist nur für Administratoren im Admin-Bereich relevant
+    if (!pathname || !pathname.startsWith('/admin')) {
+      setState('hidden');
+      return;
+    }
     try {
       const res = await fetch('/api/system/ha/status', { cache: 'no-store' });
       if (!res.ok) {

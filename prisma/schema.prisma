@@ -342,7 +342,7 @@ model OrderItem {
   product            Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
   productName        String
   quantity           Int           @default(1)
-  unitPriceCents     Int
+  unitPriceCents     Int           @default(0)
   depositCents       Int           @default(0)
   taxRate            Float         @default(19.0)
   variantName        String?
@@ -379,9 +379,9 @@ model Payment {
   waiterName         String
   deviceId           String?
   digitalReceiptCode String?         @unique
-  totalGrossCents    Int
-  totalNetCents      Int
-  totalTaxCents      Int
+  totalGrossCents    Int             @default(0)
+  totalNetCents      Int             @default(0)
+  totalTaxCents      Int             @default(0)
   taxBase19Cents     Int             @default(0)
   taxAmount19Cents   Int             @default(0)
   taxBase7Cents      Int             @default(0)
@@ -436,8 +436,8 @@ model PaymentItem {
   orderItem   OrderItem? @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
   productName String
   quantity    Int
-  unitPriceCents Int
-  depositCents   Int        @default(0)
+  unitPriceCents Int      @default(0)
+  depositCents   Int      @default(0)
   taxRate     Float      @default(19.0)
 }
 
@@ -446,8 +446,8 @@ model TokenTransaction {
   tokenType  String   @default("GENERAL") // DRINK, FOOD, DEPOSIT, GENERAL
   action     String // ISSUE, REDEEM, RETURN
   quantity   Int
-  unitValueCents  Int
-  totalValueCents Int
+  unitValueCents  Int  @default(0)
+  totalValueCents Int  @default(0)
   waiterName String   @default("Kasse")
   deviceId   String?
   createdAt  DateTime @default(now())
@@ -588,7 +588,7 @@ model CashMovement {
   periodId   String?
   period     RegisterPeriod? @relation(fields: [periodId], references: [id], onDelete: SetNull)
   type       String          @default("CASH_IN") // CASH_IN, CASH_OUT
-  amountCents Int
+  amountCents Int            @default(0)
   reason     String
   waiterName String          @default("Kasse")
   deviceId   String?

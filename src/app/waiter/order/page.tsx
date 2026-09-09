@@ -274,7 +274,7 @@ function WaiterOrderContent() {
 
     const { priceCents: effectivePriceCents } = getEffectiveProductPrice(product as unknown as { priceCents: number });
     const vDelta = variant ? ((variant as unknown as { priceDeltaCents?: number }).priceDeltaCents ?? 0) : 0;
-    const unitPrice = effectivePriceCents + vDelta + optionsDelta;
+    const unitPrice = (effectivePriceCents + vDelta + optionsDelta) / 100;
     const optionsKey = optionsList
       .map((o) => `${o.name}x${o.quantity}`)
       .sort()
@@ -293,7 +293,9 @@ function WaiterOrderContent() {
           productId: product.id,
           name: product.name,
           price: unitPrice,
-          deposit: product.deposit || 0,
+          deposit: ((product as any).depositCents !== undefined && (product as any).depositCents !== null)
+            ? Number((product as any).depositCents) / 100
+            : Number(product.deposit || 0),
           quantity: 1,
           variantName: variant ? variant.name : undefined,
           selectedOptions: optionsList,
@@ -934,10 +936,14 @@ function WaiterOrderContent() {
                       });
                     };
 
+                    const optDeltaCents = (opt as any).priceDeltaCents !== undefined && (opt as any).priceDeltaCents !== null
+                      ? Number((opt as any).priceDeltaCents)
+                      : Math.round(Number(opt.priceDelta || 0) * 100);
+
                     const priceLabel =
-                      opt.priceDelta && opt.priceDelta > 0 ? (
+                      optDeltaCents > 0 ? (
                         <span className="font-mono text-emerald-400">
-                          +{formatCurrency(opt.priceDelta)}
+                          +{formatCents(optDeltaCents)}
                           {multi && qty > 1 ? ` × ${qty}` : ''}
                         </span>
                       ) : (

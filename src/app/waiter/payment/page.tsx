@@ -69,13 +69,19 @@ function extractPayableItems(orders: any[]): PayableItem[] {
       if (item.isCancelled) continue;
       const unpaid = (item.quantity || 0) - (item.paidQuantity || 0);
       if (unpaid > 0) {
+        const uPrice = item.unitPriceCents !== undefined && item.unitPriceCents !== null
+          ? Number(item.unitPriceCents) / 100
+          : Number(item.unitPrice || 0);
+        const dep = item.depositCents !== undefined && item.depositCents !== null
+          ? Number(item.depositCents) / 100
+          : Number(item.deposit || 0);
         result.push({
           orderItemId: item.id,
           productName: item.productName || item.name || 'Artikel',
           variantName: item.variantName || item.variant?.name || null,
-          unitPrice: item.unitPrice || 0,
-          deposit: item.deposit || 0,
-          taxRate: item.taxRate || 19,
+          unitPrice: uPrice,
+          deposit: dep,
+          taxRate: Number(item.taxRate || 19),
           totalUnpaidQty: unpaid,
           selectedQty: unpaid,
         });

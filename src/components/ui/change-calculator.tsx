@@ -105,12 +105,12 @@ export function ChangeCalculator({
   };
 
   const banknotesCents = [
-    { value: 500, label: '5', color: 'bg-emerald-900/60 border-emerald-600 text-emerald-200 hover:bg-emerald-800' },
-    { value: 1000, label: '10', color: 'bg-rose-900/60 border-rose-600 text-rose-200 hover:bg-rose-800' },
-    { value: 2000, label: '20', color: 'bg-blue-900/60 border-blue-600 text-blue-200 hover:bg-blue-800' },
-    { value: 5000, label: '50', color: 'bg-amber-900/60 border-amber-600 text-amber-200 hover:bg-amber-800' },
-    { value: 10000, label: '100', color: 'bg-teal-900/60 border-teal-600 text-teal-200 hover:bg-teal-800' },
     { value: 20000, label: '200', color: 'bg-yellow-900/60 border-yellow-500 text-yellow-200 hover:bg-yellow-800' },
+    { value: 10000, label: '100', color: 'bg-teal-900/60 border-teal-600 text-teal-200 hover:bg-teal-800' },
+    { value: 5000, label: '50', color: 'bg-amber-900/60 border-amber-600 text-amber-200 hover:bg-amber-800' },
+    { value: 2000, label: '20', color: 'bg-blue-900/60 border-blue-600 text-blue-200 hover:bg-blue-800' },
+    { value: 1000, label: '10', color: 'bg-rose-900/60 border-rose-600 text-rose-200 hover:bg-rose-800' },
+    { value: 500, label: '5', color: 'bg-emerald-900/60 border-emerald-600 text-emerald-200 hover:bg-emerald-800' },
   ] as const;
 
   const coinsCents = [
@@ -168,18 +168,16 @@ export function ChangeCalculator({
       <div>
         <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1">
           <Banknote className="w-3 h-3 text-blue-400" />
-          <span>Scheine (Direktwahl)</span>
+          <span>Scheine (+ Addieren)</span>
         </div>
         <div className="grid grid-cols-6 gap-1.5">
           {banknotesCents.map((note) => (
             <button
               key={note.value}
               type="button"
-              onClick={() => handleSetDirectCents(note.value)}
-              className={`h-11 rounded-xl border-2 font-black font-mono text-xs sm:text-sm transition active:scale-95 flex flex-col items-center justify-center shadow ${note.color} ${
-                givCents === note.value ? 'ring-2 ring-white scale-105' : ''
-              }`}
-              title={`${note.label} € Schein`}
+              onClick={() => handleAddCents(note.value)}
+              className={`h-11 rounded-xl border-2 font-black font-mono text-xs sm:text-sm transition active:scale-95 flex flex-col items-center justify-center shadow ${note.color}`}
+              title={`+ ${note.label} €`}
             >
               <span className="leading-none">{note.label} €</span>
             </button>

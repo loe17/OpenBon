@@ -103,7 +103,13 @@ export default function HomePage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const cfg = d && !d.error ? d : null;
-        if (cfg && !cancelled) setConfig(cfg);
+        if (cfg && !cancelled) {
+          setConfig(cfg);
+          if (cfg.initialPinSet === false) {
+            router.push('/setup');
+            return;
+          }
+        }
         return evaluateGate(cfg);
       })
       .catch(() => evaluateGate(null));

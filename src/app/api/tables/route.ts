@@ -75,11 +75,18 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireApiAuth(req, ['ADMIN']);
+  const auth = await requireApiAuth(req, ['ADMIN', 'WAITER', 'POS_CASHIER']);
   if (!auth.ok) return auth.response;
 
   try {
     const body = await req.json();
+
+    // Destruktive oder administrative Aktionen erfordern strikt ADMIN
+    if (body.action === 'GENERATE_GRID' || body.action === 'BULK_UPDATE_POSITIONS' || body.action === 'PRINT_MARKERS') {
+      if (auth.session.role !== 'ADMIN') {
+        return NextResponse.json({ error: 'Nur Administratoren dürfen diese Aktion ausführen.' }, { status: 403 });
+      }
+    }
 
     // Action: Generate Grid
     if (body.action === 'GENERATE_GRID') {

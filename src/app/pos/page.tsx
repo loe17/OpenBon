@@ -176,9 +176,7 @@ function PosCounterContent() {
       .then((cfg) => {
         if (cfg && !cfg.error) {
           setConfig(cfg);
-          setEnableDigitalReceipt(
-            Boolean(cfg.enableDigitalReceipt || cfg.enableDigitalReceiptQr || (cfg.enableNfc && cfg.enableNfcPos !== false))
-          );
+          setEnableDigitalReceipt(Boolean(cfg.enableDigitalReceipt));
         }
       })
       .catch(() => {});
@@ -672,7 +670,7 @@ function PosCounterContent() {
           <div className={`grid ${isAutoFitScreen ? 'grid-cols-[repeat(auto-fill,minmax(125px,1fr))] gap-2' : 'grid-cols-[repeat(auto-fill,minmax(135px,1fr))] gap-2.5 sm:gap-3.5'}`}>
             {displayedProducts?.map((prod) => {
               const isOut = prod.isSoldOut;
-              const { price: effectivePrice, isHappyHour } = getEffectiveProductPrice(prod as any);
+              const { price: effectivePrice, priceCents: effectivePriceCents, isHappyHour } = getEffectiveProductPrice(prod as any);
 
               return (
                 <button
@@ -725,7 +723,7 @@ function PosCounterContent() {
 
                   <div className="flex items-center justify-between w-full mt-2">
                     <span className="text-base sm:text-lg font-black font-mono text-emerald-400">
-                      {formatCents(Math.round((effectivePrice) * 100))}
+                      {formatCents(effectivePriceCents)}
                     </span>
                     {!isOut && (
                       <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200">

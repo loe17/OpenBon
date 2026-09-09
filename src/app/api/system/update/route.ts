@@ -447,21 +447,33 @@ export async function POST(req: Request) {
         logs.push(npmOut.trim() || 'Abhängigkeiten aktuell.');
 
         logs.push('[3/4] Aktualisiere Datenbankschema (prisma db push)...');
-        await execAsync('npx prisma generate', {
+        const pathMod = await import('path');
+        const fsMod = await import('fs');
+        const absDbFile = pathMod.resolve(projectRoot, 'prisma', 'dev.db');
+        const effectiveDbUrl = `file:${absDbFile.replace(/\\/g, '/')}`;
+        const pushEnv = {
           cwd: projectRoot,
           timeout: 45000,
-          env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'file:./prisma/dev.db' },
-        }).catch(() => {});
+          env: { ...process.env, DATABASE_URL: effectiveDbUrl },
+        };
+
+        // Automatisches Ausführen von Float->Cent Rettungsskripten vor dem Abgleich
+        const migScript = pathMod.join(projectRoot, 'scripts', 'migrate-v0417-cent.js');
+        if (fsMod.existsSync(migScript)) {
+          logs.push('[SCHEMA] Führe Datenrettung (Float -> Cent) vorab aus...');
+          try {
+            const { stdout: mOut } = await execAsync(`node "${migScript}"`, pushEnv);
+            logs.push(mOut.trim() || 'Datenrettung abgeschlossen.');
+          } catch (mErr: any) {
+            logs.push(`[HINWEIS] Migration vorab: ${String(mErr?.stdout || mErr?.message || mErr).slice(0, 300)}`);
+          }
+        }
+
+        await execAsync('npx prisma generate', pushEnv).catch(() => {});
 
         // N2.3: Kein stiller Datenverlust im Update-Pfad - gleiche Regel wie
         // bei den Startskripten: normaler Abgleich zuerst, Data-Loss nur mit
         // expliziter Freigabe OPENBON_ALLOW_DATA_LOSS=1.
-        const pushEnv = {
-          cwd: projectRoot,
-          timeout: 45000,
-          env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL || 'file:./prisma/dev.db' },
-        };
-
         let dbPushFailed = false;
         let dbPushOutput = '';
         try {

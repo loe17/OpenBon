@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '@/components/providers/socket-provider';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatCents } from '@/lib/utils';
 import {
   PlusCircle,
   CreditCard,
@@ -265,8 +265,8 @@ function WaiterTablesContent() {
   useEffect(() => {
     setSoundMuted(isAudioMuted());
     const savedWaiter = localStorage.getItem('pos_waiter_name');
-    if (savedWaiter && savedWaiter.trim() !== '') {
-      setWaiterName(savedWaiter);
+    if (savedWaiter && savedWaiter.trim() !== '' && savedWaiter.trim() !== 'Bedienung') {
+      setWaiterName(savedWaiter.trim());
     } else {
       setShowWaiterPrompt(true);
     }
@@ -499,7 +499,7 @@ function WaiterTablesContent() {
             className="flex items-center gap-2 px-3 py-1.5 bg-blue-950 text-blue-300 border border-blue-800 hover:border-blue-500 rounded-xl text-xs font-bold transition active:scale-95"
           >
             <UserCheck className="w-4 h-4 text-blue-400" />
-            <span>Bedienung: <strong className="text-white">{waiterName}</strong></span>
+            <span>Bedienung: <strong className="text-white">{waiterName}</strong> <span className="text-[10px] text-blue-300 underline font-normal ml-0.5">(Wechseln)</span></span>
             <Edit3 className="w-3 h-3 text-blue-400" />
           </button>
 
@@ -529,6 +529,10 @@ function WaiterTablesContent() {
               const next = !soundMuted;
               setSoundMuted(next);
               setAudioMuted(next);
+              if (!next) {
+                // Bei Aktivierung sofort Bestätigungston abspielen (entsperrt Web-Audio-Kontext im Browser)
+                setTimeout(() => playConfirm(), 50);
+              }
             }}
             className={`p-1.5 rounded-xl border transition active:scale-95 ${
               soundMuted
@@ -641,7 +645,7 @@ function WaiterTablesContent() {
                           {table.openItemCount} Pos.
                         </span>
                         <span className="text-xs font-black text-white font-mono">
-                          {formatCurrency(table.openGrossAmount)}
+                          {formatCents(table.openGrossAmount)}
                         </span>
                       </>
                     ) : (
@@ -696,7 +700,7 @@ function WaiterTablesContent() {
               <div>
                 <span className="text-xs text-slate-400 block font-semibold">Offener Betrag:</span>
                 <span className="text-2xl font-black text-white">
-                  {formatCurrency(selectedTable.openGrossAmount)}
+                  {formatCents(selectedTable.openGrossAmount)}
                 </span>
               </div>
               <div className="text-right">

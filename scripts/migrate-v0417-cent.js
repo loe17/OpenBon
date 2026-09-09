@@ -18,6 +18,26 @@ try {
   require('dotenv').config();
 } catch {}
 
+const path = require('path');
+const fs = require('fs');
+
+// Absoluten DB-Pfad erzwingen, um Pfadabweichungen zwischen Prisma CLI und Node auszuschließen
+if (!process.env.DATABASE_URL) {
+  const defaultDb = path.resolve(__dirname, '..', 'prisma', 'dev.db');
+  process.env.DATABASE_URL = `file:${defaultDb.replace(/\\/g, '/')}`;
+} else if (process.env.DATABASE_URL.startsWith('file:./') || process.env.DATABASE_URL.startsWith('file:../')) {
+  const rawRel = process.env.DATABASE_URL.replace(/^file:/, '');
+  // Wenn z. B. file:./dev.db im prisma-Ordner liegt
+  let absCandidate = path.resolve(process.cwd(), rawRel);
+  if (!fs.existsSync(absCandidate)) {
+    const prismaCandidate = path.resolve(__dirname, '..', 'prisma', path.basename(rawRel));
+    if (fs.existsSync(prismaCandidate)) {
+      absCandidate = prismaCandidate;
+    }
+  }
+  process.env.DATABASE_URL = `file:${absCandidate.replace(/\\/g, '/')}`;
+}
+
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
