@@ -31,7 +31,7 @@ npm install
 npx prisma db push
 node prisma/seed.js
 
-# 3. Testsuite ausführen (18 Suiten, 100% grün)
+# 3. Testsuite ausführen (33 Suiten, 100% grün)
 npm test
 
 # 4. Server starten
@@ -55,6 +55,7 @@ Jedes Smartphone, Tablet, Touchscreen-Terminal oder PC kann direkt im Webbrowser
 | **📲 QR-Tischbestellung** | `http://openbon.local/guest/table/1` | Gäste bestellen kontaktlos vom Smartphone am Tisch |
 | **🧾 Digitaler E-Bon & NFC** | `http://openbon.local/receipt/[code]` | Papierloser Kassenbeleg (§33 KassenSichV) via QR & NFC |
 | **💬 Team-Funk** | `http://openbon.local/chat` | Echtzeit-Notrufe & Küchen-Durchsagen |
+| **📖 Handbuch & Offline-Hilfe** | `http://openbon.local/docs` | Vollständiges, integriertes Benutzerhandbuch für alle Stationen |
 
 ---
 
@@ -98,6 +99,9 @@ Jedes Smartphone, Tablet, Touchscreen-Terminal oder PC kann direkt im Webbrowser
 - **Live-Druckerwarteschlange (Spooler Manager):** Interaktive Überwachung aller offenen, gedruckten und fehlgeschlagenen Druckaufträge mit 1-Klick-Wiederholung (Retry), Drucker-Umleitung (Reroute) und Bon-Vorschau.
 - **Kellner-Zwischenstand (X-Bon) & Auto-Lock:** Schneller 1-Klick Schichteinblick (Bargeld-Soll im Geldbeutel, Umsatz, Trinkgeld) und Inaktivitäts-Schutz auf Smartphones.
 - **Kontaktloser E-Bon per NFC & QR:** Direkte Belegübertragung via Web NFC an Gast-Smartphones oder per Cloudflare Tunnel / Netcup Webhosting über Mobilfunk.
+- **Beleg-Auswahl an der Bonkasse:** Touch-Fenster nach dem Kassieren mit `E-Bon per NFC`, optionalem `Papierbon` und `Kein Beleg` für maximalen Durchsatz an der Theke.
+- **Konfigurierbarer Papierbon-Knopf an der Bonkasse:** Schnellwahlschalter in Kopfzeile und Warenkorb sowie Nachdruckfunktion (`Erneut drucken`) bei Kundenwunsch oder Papierstau.
+- **Schutz vor Datenverlust bei ungespeicherten Einstellungen:** Lückenloser In-App-Navigationsschutz beim Verlassen editierter Admin-Einstellungen.
 - **Keine blockierenden Browser-Popups:** Alle Bestätigungen und Warnungen erfolgen über animierte Toasts und barrierefreie Touch-Dialoge.
 - **Kellner-Schichtabrechnung (`/waiter/settle`):** Touch-optimierter Soll/Ist-Kassensturz mit Trinkgeld-Ausschüttung und digitalem Kassenabschlussbeleg.
 - **1-Klick EventProfile-Snapshots:** Speichern und blitzschnelles Wiederherstellen kompletter Fest-Konfigurationen (Tische, Drucker-Routing, Warengruppen, Artikel) im Einstellungsmenü.
@@ -108,6 +112,7 @@ Jedes Smartphone, Tablet, Touchscreen-Terminal oder PC kann direkt im Webbrowser
 
 Im Verzeichnis [`docs/`](docs/) stehen praxisnahe Anleitungen bereit:
 
+- 📖 **[`docs/ANLEITUNG.md`](docs/ANLEITUNG.md)**: Vollständige Bedienungsanleitung für alle Stationen und Einstellungen.
 - 🌐 **[`docs/EBON_ONLINE_ANLEITUNG.md`](docs/EBON_ONLINE_ANLEITUNG.md)**: E-Bon Online-Bereitstellung (Cloudflare Tunnel, Netcup DynDNS) & NFC-Übertragung.
 - 📖 **[`docs/AUSFALLSICHERHEIT_LITESTREAM.md`](docs/AUSFALLSICHERHEIT_LITESTREAM.md)**: Litestream-Setup, USB-Replikation und Kalt-Standby.
 - 📱 **[`docs/OFFLINE_FIRST_GUIDE.md`](docs/OFFLINE_FIRST_GUIDE.md)**: Offline-First Leitfaden für Kassenbedienungen und Helfer.
@@ -127,4 +132,4 @@ npm test
 npm run build
 ```
 
-- **26 Test-Suiten / 189 Tests (100% bestanden):** E2E-Lebenszyklus, WCAG 2.1 Kontrastvalidierung, Idempotenz, Berechtigungen, PBKDF2-PIN-Hashing, Drucker-Fallback, DSFinV-K/DATEV-Fiskalisierung, Druckspooler-Resilienz und ESC/POS-Rendering.
+- **33 Test-Suiten / 220 Tests (100% bestanden):** E2E-Lebenszyklus, WCAG 2.1 Kontrastvalidierung, Idempotenz, Berechtigungen, PBKDF2-PIN-Hashing, Drucker-Fallback, DSFinV-K/DATEV-Fiskalisierung, Druckspooler-Resilienz, ESC/POS-Rendering, dynamische Konfiguration und Setup-Wizard.

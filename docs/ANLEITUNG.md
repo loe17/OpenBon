@@ -34,11 +34,18 @@ Willkommen bei **OpenBon**, dem plattformunabhängigen, hochverfügbaren Kassens
 
 ### 2. Bonkasse / Thekenverkauf (Counter Express)
 - Für den Direktverkauf an der Theke ohne Tischauswahl.
-- Unterstützt 3 Modi:
+- Unterstützt 3 Ausgabe-Modi:
   1. *Nur Kassieren*
-  2. *Gutscheinbon für den Gast*
-  3. *Gutschein + Gegenbon (Abholmarke mit fortlaufender Nummer)*
+  2. *Gutscheinbon für den Gast (Wertmarken)*
+  3. *Gutschein + Gegenbon (Gast-Wertmarke UND Küchen-Gegenbon mit fortlaufender Nummer)*
 - Kassenlade springt bei Barzahlung automatisch auf.
+- **Beleg-Auswahl nach dem Kassieren**:
+  - Touch-Auswahlfenster mit `[ ((o)) E-Bon per NFC ]`, `[ 🖨 Papierbon ]` (wenn aktiviert) und `[ ⊘ Kein Beleg ]` für sofortigen Kassenabschluss.
+  - Großformatige Rückgeldanzeige bei Barzahlung.
+- **Papierbon-Steuerung**:
+  - In den Admin-Einstellungen über *"Papierbon-Knopf an der Bonkasse anzeigen"* flexibel aktivierbar.
+  - Bei aktiver Einstellung stehen Touch-Schnellumschalter in der Kopfleiste (`[ 🖨 Papierbon: AN / AUS ]`) und im Warenkorb bereit.
+  - Nachdruck-Funktion: Bei Papierstau oder Gast-Nachfrage kann der Beleg jederzeit über `[ 🖨 Erneut drucken ]` nochmals gedruckt werden.
 
 ### 3. Küchenmonitor (KDS)
 - Zeigt alle offenen Zubereitungsaufträge in Echtzeit.
@@ -55,7 +62,17 @@ Willkommen bei **OpenBon**, dem plattformunabhängigen, hochverfügbaren Kassens
 - Zeigt gedruckte Küchen-, Ausschank- und Kassenbelege live im Browser an. Ideal zum Testen ohne echten Thermodrucker!
 
 ### 6. Digitaler Beleg (E-Bon nach §33 KassenSichV) & NFC-Übertragung
-- **Papierlose Belegausgabe**: Gäste können ihren Kassenbeleg digital per **QR-Code** (über Mobilfunk/Internet) oder per **NFC (Smartphone kurz anhalten)** abrufen.
+- **Papierlose Belegausgabe**: Gäste können ihren Kassenbeleg digital per **NFC (Smartphone kurz anhalten)** oder per **QR-Code** (über Mobilfunk/Internet) abrufen.
 - **Einrichtung & Hosting**: Detaillierte Anleitung zur Bereitstellung via **Cloudflare Tunnel (Netcup-Domain)** oder **Netcup Webhosting Reverse-Proxy / DynDNS** siehe:
   👉 [Ausführliche E-Bon & NFC Online-Anleitung](file:///c:/Users/Lukas/Documents/GeminiTemp/Kassensystem/docs/EBON_ONLINE_ANLEITUNG.md)
+
+### 7. Erststart-Assistent & Setup Wizard (`/setup`)
+- Geführter 4-Schritte-Assistent bei Erstinstallation zur schnellen Vergabe sicherer Initial-PINs, Festdaten, Tischreihen und Drucker.
+- Schützt bereits konfigurierte Systeme automatisch vor Überschreiben.
+
+### 8. Verwaltung & Schutz vor Datenverlust (`/admin/settings`)
+- Lückenlose Erfassung ungespeicherter Änderungen: Beim Anklicken von Links (Chat, Artikel etc.), Stationswechseln im Menü oder Browser-Navigation erscheint ein In-App-Bestätigungsdialog (*„Speichern & wechseln“*, *„Verwerfen & wechseln“*, *„Hier bleiben“*).
+
+### 9. Integriertes Handbuch & Offline-Dokumentation (`/docs`)
+- Vollständiges, thematisch gegliedertes Benutzerhandbuch direkt in der Anwendung für alle Stationen und Einstellungen verfügbar (auch offline).
 

@@ -1,5 +1,5 @@
 /**
- * Umfassendes Handbuch und Referenz-Dokumentation für OpenBon v0.4.9.
+ * Umfassendes Handbuch und Referenz-Dokumentation für OpenBon v0.4.34.
  * Offline verfügbar, druckoptimiert (A4) und thematisch gegliedert.
  */
 
@@ -86,6 +86,33 @@ export const HANDBOOK: DocChapter[] = [
           'Auf das Teilen-Symbol (iOS Safari) bzw. das Drei-Punkte-Menü (Android Chrome) tippen.',
           '"Zum Home-Bildschirm hinzufügen" auswählen.',
           'OpenBon öffnet sich fortan als native App ohne Adressleiste und mit optimaler Bildschirmfläche.',
+        ],
+      },
+      {
+        id: '1.5',
+        heading: '1.5 Erststart-Assistent & Setup Wizard (/setup)',
+        paragraphs: [
+          'Bei einer Neuinstallation oder dem ersten Aufruf führt OpenBon automatisch durch einen 4-Schritte-Einrichtungsassistenten:',
+          '1. Veranstaltungsdaten (Name des Fests, Währung, Steuersätze).',
+          '2. Sichere PIN-Festlegung: Vergabe individueller PINs für Admin, Kasse, Küche und Bedienung zur Ablösung der Standard-PINs.',
+          '3. Tische & Räume: Blitzschnelle Generierung von Tischreihen oder Übernahme vorhandener Pläne.',
+          '4. Drucker & Stationen: Zuweisung von Bon- und Küchendruckern.',
+        ],
+        hints: [
+          {
+            kind: 'tip',
+            text: 'Befinden sich bereits aktive Daten auf dem System, wird der Assistent automatisch gesperrt, um ein versehentliches Überschreiben zu verhindern.',
+          },
+        ],
+      },
+      {
+        id: '1.6',
+        heading: '1.6 Schutz vor Datenverlust bei ungespeicherten Einstellungen',
+        paragraphs: [
+          'In den Systemeinstellungen (/admin/settings) überwacht OpenBon jede Eingabe. Werden Werte verändert, greift bei jeglichem Verlassen (Klick auf Chat, Artikel, Stationswechsel im Menü oder Browser-Zurück) ein In-App-Sicherheitsdialog:',
+          '• "Speichern & wechseln": Übernimmt alle Änderungen sofort und leitet zur gewählten Seite weiter.',
+          '• "Verwerfen & wechseln": Setzt ungespeicherte Änderungen zurück.',
+          '• "Hier bleiben": Bricht den Wechsel ab, sodass die Bearbeitung fortgeführt werden kann.',
         ],
       },
     ],
@@ -233,9 +260,29 @@ export const HANDBOOK: DocChapter[] = [
       },
       {
         id: '3.4',
-        heading: '3.4 Digitaler E-Bon (Papierlos per QR-Code)',
+        heading: '3.4 Digitaler E-Bon & Web-NFC Übertragung',
         paragraphs: [
-          'Auf Wunsch wird nach der Zahlung ein dynamischer QR-Code angezeigt. Der Gast scannt den Code mit seinem Smartphone und erhält den GoBD- und TSE-konformen digitalen Beleg als PDF.',
+          'Gäste können ihren Kassenbeleg nach § 33 KassenSichV papierlos empfangen:',
+          '• E-Bon per NFC: Der Gast hält sein Smartphone kurz an das Kassen-Tablet bzw. den NFC-Leser. Die Beleg-URL wird in Sekundenbruchteilen kontaktlos übertragen.',
+          '• E-Bon per QR-Code: Alternativ wird ein dynamischer QR-Code auf dem Bildschirm angezeigt, den der Gast mit der Kamera scannt.',
+          'Digitale Belege werden manipulationssicher mit kryptografischer Signatur und TSE-Daten als PDF ausgeliefert.',
+        ],
+      },
+      {
+        id: '3.5',
+        heading: '3.5 Beleg-Auswahl & Papierbon-Steuerung an der Bonkasse',
+        paragraphs: [
+          'Nach Abschluss des Kassiervorgangs (Bar, Karte, Wertmarke) präsentiert OpenBon eine übersichtliche Touch-Auswahl:',
+          '• [ E-Bon per NFC ]: Startet die Web-NFC-Übertragung mit Statusanzeige und Scan-Alternative.',
+          '• [ Papierbon ]: Druckt den Beleg direkt am Kassen-Bondrucker aus. Ist bereits gedruckt, ermöglicht [ Erneut drucken ] jederzeit einen Nachdruck.',
+          '• [ Kein Beleg ]: Schließt die Kassiermaske mit einem Touch, sodass die Kasse sofort für die nächste Schlange frei ist.',
+          'Über die Option "Papierbon-Knopf an der Bonkasse anzeigen" in den Admin-Einstellungen kann die Papierbon-Funktion flexibel aktiviert werden. Ist sie aktiv, stehen an der Kasse Schnellwahlschalter in der oberen Menüleiste und im Warenkorb bereit.',
+        ],
+        hints: [
+          {
+            kind: 'tip',
+            text: 'Bleibt der Papierbon deaktiviert, spart OpenBon wertvolles Thermopapier und schont die Umwelt.',
+          },
         ],
       },
     ],
