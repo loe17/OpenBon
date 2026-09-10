@@ -5,9 +5,9 @@ import { parseAndValidateLicense, generateOfflineSignature } from '../lib/licens
 import { verifyStationPin, setAllStationPins } from '../lib/auth-pin';
 import { EscPosBuilder } from '../lib/printer/escpos-builder';
 
-describe('OpenBon v0.4.32: Schema, License, PIN & Print Sanity Tests', () => {
-  it('should verify v0.4.32 version info', () => {
-    expect(APP_VERSION).toBe('0.4.32');
+describe('OpenBon v0.4.33: Schema, License, PIN & Print Sanity Tests', () => {
+  it('should verify v0.4.33 version info', () => {
+    expect(APP_VERSION).toBe('0.4.33');
   });
 
   it('should initialize Prisma DB Client with valid DATABASE_URL fallback', () => {
@@ -71,5 +71,27 @@ describe('OpenBon v0.4.32: Schema, License, PIN & Print Sanity Tests', () => {
 
     expect(zbonTicket.rawBuffer).toBeDefined();
     expect(zbonTicket.textRepresentation).toContain('Z-BON TAGESABSCHLUSS');
+  });
+
+  it('should successfully save config with boolean card payment flags in database', async () => {
+    const { sanitizeConfigInput } = await import('../lib/config-whitelist');
+    const input = {
+      cardSumupEnabled: 'false',
+      cardVrPayEnabled: false,
+      cardSparkasseEnabled: 'true',
+      cardZvtEnabled: 'false',
+      cardStripeEnabled: 'false',
+      cardZettleEnabled: 'false',
+      enablePosReceiptPrint: true,
+    };
+    const sanitized = sanitizeConfigInput(input);
+    const updated = await prisma.eventConfig.upsert({
+      where: { id: 'default' },
+      update: sanitized,
+      create: { id: 'default', ...sanitized },
+    });
+    expect(updated.cardSumupEnabled).toBe(false);
+    expect(updated.cardSparkasseEnabled).toBe(true);
+    expect(updated.enablePosReceiptPrint).toBe(true);
   });
 });

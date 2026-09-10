@@ -174,6 +174,12 @@ export const CONFIG_BOOLEAN_FIELDS = new Set<string>([
   'initialPinSet',
   'enableWaiterReceiptPrint',
   'enablePosReceiptPrint',
+  'cardSumupEnabled',
+  'cardVrPayEnabled',
+  'cardSparkasseEnabled',
+  'cardZvtEnabled',
+  'cardStripeEnabled',
+  'cardZettleEnabled',
 ]);
 
 /** Bewusst NICHT ueberschreibbare System-/Geheimfelder im Restore-Pfad */
@@ -198,7 +204,11 @@ export function sanitizeConfigInput(body: Record<string, unknown>): Record<strin
       continue;
     }
     if (CONFIG_BOOLEAN_FIELDS.has(field)) {
-      data[field] = Boolean(value);
+      if (typeof value === 'string') {
+        data[field] = value.toLowerCase() === 'true' || value === '1';
+      } else {
+        data[field] = Boolean(value);
+      }
       continue;
     }
     if (value === null) {

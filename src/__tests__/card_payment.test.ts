@@ -248,5 +248,24 @@ describe('ZVT protocol (Spec 4.3.2)', () => {
       expect(isPaymentMethodAvailable('CARD_SUMUP', zvtConfig)).toBe(false);
       expect(hasAnyCardPaymentConfigured(zvtConfig)).toBe(true);
     });
+
+    it('should correctly sanitize and coerce card provider boolean fields', async () => {
+      const { sanitizeConfigInput } = await import('../lib/config-whitelist');
+      const sanitized = sanitizeConfigInput({
+        cardSumupEnabled: 'false',
+        cardVrPayEnabled: 'true',
+        cardSparkasseEnabled: false,
+        cardZvtEnabled: true,
+        cardStripeEnabled: '0',
+        cardZettleEnabled: '1',
+      });
+      expect(sanitized.cardSumupEnabled).toBe(false);
+      expect(sanitized.cardVrPayEnabled).toBe(true);
+      expect(sanitized.cardSparkasseEnabled).toBe(false);
+      expect(sanitized.cardZvtEnabled).toBe(true);
+      expect(sanitized.cardStripeEnabled).toBe(false);
+      expect(sanitized.cardZettleEnabled).toBe(true);
+      expect(typeof sanitized.cardSumupEnabled).toBe('boolean');
+    });
   });
 });
