@@ -24,9 +24,11 @@ import {
 } from 'lucide-react';
 import { EU_ALLERGENS, GASTRONOMY_ADDITIVES } from '@/lib/compliance';
 import { useToast } from '@/components/ui/toast';
+import { useSocket } from '@/components/providers/socket-provider';
 import type { ProductDTO, ProductCategoryDTO, PrintGroupDTO } from '@/types/domain';
 
 export default function AdminProductsPage() {
+  const { socket } = useSocket();
   const { success, error, warning } = useToast();
   const [categories, setCategories] = useState<ProductCategoryDTO[]>([]);
   const [printGroups, setPrintGroups] = useState<PrintGroupDTO[]>([]);
@@ -122,7 +124,29 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+
+    if (socket) {
+      const handleRefresh = () => {
+        fetchData();
+      };
+      socket.on('stock:updated', handleRefresh);
+      socket.on('inventory:updated', handleRefresh);
+      socket.on('product:updated', handleRefresh);
+      socket.on('product:deleted', handleRefresh);
+      socket.on('order:new', handleRefresh);
+      socket.on('categories:changed', handleRefresh);
+      socket.on('category:deleted', handleRefresh);
+      return () => {
+        socket.off('stock:updated', handleRefresh);
+        socket.off('inventory:updated', handleRefresh);
+        socket.off('product:updated', handleRefresh);
+        socket.off('product:deleted', handleRefresh);
+        socket.off('order:new', handleRefresh);
+        socket.off('categories:changed', handleRefresh);
+        socket.off('category:deleted', handleRefresh);
+      };
+    }
+  }, [socket]);
 
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();

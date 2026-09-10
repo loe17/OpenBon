@@ -69,16 +69,21 @@ export async function POST(req: Request) {
       summary.push('Tische & Raumplan gelöscht');
     }
 
-    // 4. Artikel & Warengruppen
+    // 4. Artikel & Warengruppen (abgesichert gegen Fremdschlüssel-Sperren bei bestehenden Bestellungen)
     if (resetProducts || resetConfig) {
-      await prisma.productOption.deleteMany({});
-      await prisma.productVariant.deleteMany({});
-      await prisma.product.deleteMany({});
-      await prisma.productCategory.deleteMany({});
-      await prisma.customizationWordGroup.deleteMany({});
-      await prisma.stockUnit.deleteMany({});
-      await prisma.stockItem.deleteMany({});
-      await prisma.tapLine.deleteMany({});
+      await prisma.$executeRawUnsafe('PRAGMA foreign_keys = OFF;');
+      try {
+        await prisma.productOption.deleteMany({});
+        await prisma.productVariant.deleteMany({});
+        await prisma.product.deleteMany({});
+        await prisma.productCategory.deleteMany({});
+        await prisma.customizationWordGroup.deleteMany({});
+        await prisma.stockUnit.deleteMany({});
+        await prisma.stockItem.deleteMany({});
+        await prisma.tapLine.deleteMany({});
+      } finally {
+        await prisma.$executeRawUnsafe('PRAGMA foreign_keys = ON;');
+      }
       summary.push('Artikel, Warengruppen & Bestände gelöscht');
     }
 

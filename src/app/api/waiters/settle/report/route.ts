@@ -23,14 +23,20 @@ export interface SettlementReport {
   periodNumber: number;
   periodOpenedAt: string;
   generatedAt: string;
+  totalGross?: number;
   totalGrossCents: number;
   transactionCount: number;
-  byMethod: { method: string; label: string; amountCents: number; count: number }[];
+  byMethod: { method: string; label: string; amount?: number; amountCents: number; count: number }[];
+  cashGross?: number;
   cashGrossCents: number;
+  cashExpected?: number;
   /** Soll-Barbestand: Barumsatz abzueglich der Trinkgelder, die die Bedienung behaelt. */
   cashExpectedCents: number;
+  tipsTotal?: number;
   tipsTotalCents: number;
+  tipWaiterShare?: number;
   tipWaiterShareCents: number;
+  tipPoolShare?: number;
   tipPoolShareCents: number;
   tipProfileName: string | null;
   isTraining: boolean;
@@ -104,20 +110,27 @@ export async function GET(req: Request) {
       periodNumber: period.periodNumber,
       periodOpenedAt: period.openedAt.toISOString(),
       generatedAt: new Date().toISOString(),
+      totalGross: Math.round(totalGross) / 100,
       totalGrossCents: Math.round(totalGross),
       transactionCount: payments.length,
       byMethod: Array.from(methodMap.entries())
         .map(([method, v]) => ({
           method,
           label: getPaymentLabel(method),
+          amount: Math.round(v.amount) / 100,
           amountCents: Math.round(v.amount),
           count: v.count,
         }))
         .sort((a, b) => b.amountCents - a.amountCents),
+      cashGross: Math.round(cashGross) / 100,
       cashGrossCents: Math.round(cashGross),
+      cashExpected: cashExpectedCents / 100,
       cashExpectedCents,
+      tipsTotal: Math.round(tipsTotal) / 100,
       tipsTotalCents: Math.round(tipsTotal),
+      tipWaiterShare: Math.round(tipWaiterShare) / 100,
       tipWaiterShareCents: Math.round(tipWaiterShare),
+      tipPoolShare: Math.round(tipPoolShare) / 100,
       tipPoolShareCents: Math.round(tipPoolShare),
       tipProfileName: profile?.tipProfile?.name ?? null,
       isTraining: config?.trainingMode ?? false,

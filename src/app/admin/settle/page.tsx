@@ -20,6 +20,7 @@ import {
 import { formatCents } from '@/lib/utils';
 import { useToast } from '@/components/ui/toast';
 import { triggerHapticFeedback } from '@/lib/socket-client';
+import { useSocket } from '@/components/providers/socket-provider';
 
 /**
  * Schichtabrechnung als gefuehrter Ablauf - ausschliesslich in der Administration.
@@ -39,15 +40,20 @@ interface SettlementReport {
   periodNumber: number;
   periodOpenedAt: string;
   generatedAt: string;
+  totalGross?: number;
   totalGrossCents?: number;
-  totalGross: number;
   transactionCount: number;
-  byMethod: { method: string; label: string; amount: number; count: number }[];
-  cashGross: number;
-  cashExpected: number;
-  tipsTotal: number;
-  tipWaiterShare: number;
-  tipPoolShare: number;
+  byMethod: { method: string; label: string; amount?: number; amountCents?: number; count: number }[];
+  cashGross?: number;
+  cashGrossCents?: number;
+  cashExpected?: number;
+  cashExpectedCents?: number;
+  tipsTotal?: number;
+  tipsTotalCents?: number;
+  tipWaiterShare?: number;
+  tipWaiterShareCents?: number;
+  tipPoolShare?: number;
+  tipPoolShareCents?: number;
   tipProfileName: string | null;
   isTraining: boolean;
   eventName: string;
@@ -63,7 +69,11 @@ const STEPS: { id: Step; label: string; icon: typeof Users }[] = [
   { id: 5, label: 'Beleg', icon: FileText },
 ];
 
-const money = (v: number, centsMaybe?: number) => formatCents(typeof centsMaybe === 'number' ? centsMaybe : Math.round((v ?? 0) * 100));
+const money = (v?: number, centsMaybe?: number) => {
+  if (typeof centsMaybe === 'number') return formatCents(centsMaybe);
+  if (typeof v === 'number') return formatCents(Math.round(v * 100));
+  return '0,00 €';
+};
 
 function AdminSettleContent() {
   const params = useSearchParams();
@@ -73,18 +83,18 @@ function AdminSettleContent() {
   const [waiters, setWaiters] = useState<string[]>([]);
   const [selected, setSelected] = useState('');
   const [report, setReport] = useState<SettlementReport | null>(null);
-  const [counted, setCounted] = useState('');
-  const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
-  const [printers, setPrinters] = useState<{ id: string; name: string; isActive: boolean }[]>([]);
-  const [printerId, setPrinterId] = useState('');
+  const [counted, setCounted] = useState('0');
+  const [notes, setNotes] = useState('');
+  const [printerId, setPrinterId] = useState<string>('');
+  const [printers, setPrinters] = useState<{ id: string; name: string; isActive?: boolean }[]>([]);
   const [settleTemplate, setSettleTemplate] = useState<'OFFICIAL_A4' | 'RECEIPT_SLIP' | 'DASHBOARD_SUMMARY'>('OFFICIAL_A4');
   const [rawWaiters, setRawWaiters] = useState<{ name: string; waiterNumber?: number | null; isSettled?: boolean; lastSettledAt?: string | null }[]>([]);
   const [filterMode, setFilterMode] = useState<'ALL' | 'OPEN' | 'SETTLED'>('ALL');
+  const [done, setDone] = useState(false);
 
-  /* ------------------------------------------------------------ Laden */
+  const { socket } = useSocket();
 
   const loadWaitersList = useCallback(async () => {
     try {
@@ -109,7 +119,7 @@ function AdminSettleContent() {
         const pData = await pRes.json();
         if (Array.isArray(pData)) {
           setPrinters(pData);
-          const active = pData.find((p: { isActive: boolean }) => p.isActive);
+          const active = pData.find((p: { isActive?: boolean }) => p.isActive);
           if (active) setPrinterId(active.id);
         }
       }
@@ -122,17 +132,20 @@ function AdminSettleContent() {
 
   useEffect(() => {
     loadWaitersList();
+    const interval = setInterval(loadWaitersList, 10000);
+    return () => clearInterval(interval);
+  }, [loadWaitersList]);
 
-    if (typeof window !== 'undefined' && (window as any).io) {
-      const socket = (window as any).io();
-      socket.on('waiters:settled', () => loadWaitersList());
-      socket.on('waiter:settled', () => loadWaitersList());
+  useEffect(() => {
+    if (socket) {
+      socket.on('waiters:settled', loadWaitersList);
+      socket.on('waiter:settled', loadWaitersList);
       return () => {
         socket.off('waiters:settled');
         socket.off('waiter:settled');
       };
     }
-  }, [loadWaitersList]);
+  }, [socket, loadWaitersList]);
 
   // Aus /admin/tips wird die Bedienung per Verweis uebergeben - dann direkt
   // zum zweiten Schritt springen statt erneut auswaehlen zu lassen.
@@ -178,7 +191,8 @@ function AdminSettleContent() {
 
   const countedNum = parseFloat(counted.replace(',', '.'));
   const countedValid = Number.isFinite(countedNum) && countedNum >= 0;
-  const difference = report && countedValid ? Math.round((countedNum - report.cashExpected) * 100) / 100 : 0;
+  const expectedNum = report ? (report.cashExpected ?? (report.cashExpectedCents !== undefined ? report.cashExpectedCents / 100 : 0)) : 0;
+  const difference = report && countedValid ? Math.round((countedNum - expectedNum) * 100) / 100 : 0;
   const differenceOk = Math.abs(difference) < 0.05;
 
   const finish = async (withPrint: boolean) => {
@@ -191,13 +205,20 @@ function AdminSettleContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           waiterName: report.waiterName,
-          totalGross: report.totalGross,
-          cashGross: report.cashGross,
-          cashExpected: report.cashExpected,
+          totalGross: report.totalGross ?? (report.totalGrossCents !== undefined ? report.totalGrossCents / 100 : 0),
+          totalGrossCents: report.totalGrossCents ?? Math.round(((report.totalGross ?? 0)) * 100),
+          cashGross: report.cashGross ?? (report.cashGrossCents !== undefined ? report.cashGrossCents / 100 : 0),
+          cashGrossCents: report.cashGrossCents ?? Math.round(((report.cashGross ?? 0)) * 100),
+          cashExpected: report.cashExpected ?? (report.cashExpectedCents !== undefined ? report.cashExpectedCents / 100 : 0),
+          cashExpectedCents: report.cashExpectedCents ?? Math.round(((report.cashExpected ?? 0)) * 100),
           cashCounted: countedNum,
-          tips: report.tipsTotal,
-          tipWaiterShare: report.tipWaiterShare,
-          tipPoolShare: report.tipPoolShare,
+          cashCountedCents: Math.round(countedNum * 100),
+          tips: report.tipsTotal ?? (report.tipsTotalCents !== undefined ? report.tipsTotalCents / 100 : 0),
+          tipsTotalCents: report.tipsTotalCents ?? Math.round(((report.tipsTotal ?? 0)) * 100),
+          tipWaiterShare: report.tipWaiterShare ?? (report.tipWaiterShareCents !== undefined ? report.tipWaiterShareCents / 100 : 0),
+          tipWaiterShareCents: report.tipWaiterShareCents ?? Math.round(((report.tipWaiterShare ?? 0)) * 100),
+          tipPoolShare: report.tipPoolShare ?? (report.tipPoolShareCents !== undefined ? report.tipPoolShareCents / 100 : 0),
+          tipPoolShareCents: report.tipPoolShareCents ?? Math.round(((report.tipPoolShare ?? 0)) * 100),
           tipProfileName: report.tipProfileName,
           byMethod: report.byMethod,
           transactionCount: report.transactionCount,
@@ -912,12 +933,14 @@ function AdminSettleContent() {
               <h3 className="font-black text-sm uppercase mb-3">Zahlarten-Mix</h3>
               <div className="space-y-3 mb-6">
                 {report.byMethod.map((m) => {
-                  const pct = report.totalGross > 0 ? Math.round((m.amount / report.totalGross) * 100) : 0;
+                  const total = report.totalGross ?? (report.totalGrossCents !== undefined ? report.totalGrossCents / 100 : 0);
+                  const amount = m.amount ?? (m.amountCents !== undefined ? m.amountCents / 100 : 0);
+                  const pct = total > 0 ? Math.round((amount / total) * 100) : 0;
                   return (
                     <div key={m.method} className="space-y-1">
                       <div className="flex justify-between text-xs font-bold">
                         <span>{m.label} ({m.count}×)</span>
-                        <span className="font-mono">{money(m.amount)} ({pct}%)</span>
+                        <span className="font-mono">{money(amount)} ({pct}%)</span>
                       </div>
                       <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
                         <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${pct}%` }} />

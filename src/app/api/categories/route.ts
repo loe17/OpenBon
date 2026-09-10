@@ -128,19 +128,27 @@ export async function DELETE(req: Request) {
     const force = searchParams.get('force') === 'true';
     if (!id) return NextResponse.json({ error: 'ID fehlt' }, { status: 400 });
 
-    const productCount = await prisma.product.count({ where: { categoryId: id } });
-    if (productCount > 0 && !force) {
+    const activeProductCount = await prisma.product.count({
+      where: { categoryId: id, status: { not: 'HIDDEN' } },
+    });
+
+    if (activeProductCount > 0 && !force) {
       return NextResponse.json(
-        { error: `Diese Warengruppe enthält noch ${productCount} Artikel. Bitte verschiebe oder lösche zuerst die Artikel.` },
+        { error: `Diese Warengruppe enthält noch ${activeProductCount} Artikel. Bitte verschiebe oder lösche zuerst die Artikel.` },
         { status: 409 }
       );
     }
 
-    if (force && productCount > 0) {
+    // Sichere Löschung (auch bei historischen Verknüpfungen in SQLite):
+    await prisma.$executeRawUnsafe('PRAGMA foreign_keys = OFF;');
+    try {
+      await prisma.productOption.deleteMany({ where: { product: { categoryId: id } } });
+      await prisma.productVariant.deleteMany({ where: { product: { categoryId: id } } });
       await prisma.product.deleteMany({ where: { categoryId: id } });
+      await prisma.productCategory.delete({ where: { id } });
+    } finally {
+      await prisma.$executeRawUnsafe('PRAGMA foreign_keys = ON;');
     }
-
-    await prisma.productCategory.delete({ where: { id } });
     await logSystemActionSafe(() => ({
       action: 'CATEGORY_DELETED',
       category: 'ADMIN',

@@ -86,27 +86,57 @@ export default function Navbar() {
   const { socket } = useSocket();
 
   useEffect(() => {
+    const checkUnread = (msgs?: any[]) => {
+      const lastRead = typeof window !== 'undefined' ? Number(localStorage.getItem('openbon_chat_last_read') || 0) : 0;
+      if (pathname === '/chat') {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('openbon_chat_last_read', String(Date.now()));
+        }
+        setHasUnreadChat(false);
+        return;
+      }
+      if (Array.isArray(msgs)) {
+        const unread = msgs.some((m: any) => !m.isRead && new Date(m.createdAt).getTime() > lastRead);
+        setHasUnreadChat(unread);
+      }
+    };
+
     fetch('/api/chat')
       .then((r) => (r.ok ? r.json() : []))
       .then((msgs) => {
-        if (Array.isArray(msgs)) {
-          const unread = msgs.some((m: any) => !m.isRead);
-          if (unread && pathname !== '/chat') {
-            setHasUnreadChat(true);
-          }
-        }
+        checkUnread(msgs);
       })
       .catch(() => {});
 
-    if (!socket) return;
+    const handleReadEvent = () => setHasUnreadChat(false);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('openbon:chat_read', handleReadEvent);
+    }
+
+    if (!socket) {
+      return () => {
+        if (typeof window !== 'undefined') {
+          window.removeEventListener('openbon:chat_read', handleReadEvent);
+        }
+      };
+    }
+
     const handleChat = (msg: any) => {
-      if (pathname !== '/chat') {
+      if (pathname === '/chat') {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('openbon_chat_last_read', String(Date.now()));
+        }
+        setHasUnreadChat(false);
+      } else {
         setHasUnreadChat(true);
       }
     };
     socket.on('chat:incoming', handleChat);
     socket.on('chat:message', handleChat);
     return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('openbon:chat_read', handleReadEvent);
+      }
       socket.off('chat:incoming', handleChat);
       socket.off('chat:message', handleChat);
     };
@@ -114,6 +144,9 @@ export default function Navbar() {
 
   useEffect(() => {
     if (pathname === '/chat') {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('openbon_chat_last_read', String(Date.now()));
+      }
       setHasUnreadChat(false);
     }
   }, [pathname]);

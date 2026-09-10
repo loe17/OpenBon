@@ -232,15 +232,18 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
     );
 
     const headerLines: string[] = [];
+    const isEco = tpl === 'ECO';
+    const singleSlipActive = isFood ? config.receiptSingleItemFoodSlips !== false : isDrink ? config.receiptSingleItemDrinkSlips !== false : false;
 
-    // 1. Kopfzeilen-Hierarchie:
-    // Zeile 1: Name der Veranstaltung
-    // Zeile 2: Veranstalter / Organisation
-    // Zeile 3: Zusatztext Kopfzeile
+    // 1. Kopfzeilen-Hierarchie
     if (showHeader) {
       const eventName = config.name || 'Veranstaltung 2026';
       const organizer = config.receiptSubHeader || '';
       const customHeader = config.receiptHeader || '';
+
+      if (singleSlipActive) {
+        headerLines.push(center('*** BON 1 von 2 (Tisch 7) ***'));
+      }
 
       headerLines.push(center(eventName.toUpperCase()));
       if (organizer) headerLines.push(center(organizer));
@@ -255,7 +258,10 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
         const taxLine = [tax, vat].filter(Boolean).join(' · ');
         if (taxLine) headerLines.push(center(taxLine));
       }
-      headerLines.push('');
+
+      if (!isEco) {
+        headerLines.push(DBL_LINE);
+      }
     }
 
     // 2. Tischnummer
@@ -263,7 +269,7 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
 
     // 3. Metadaten
     const metaLines: string[] = [];
-    if (tpl === 'ECO') {
+    if (isEco) {
       if (showWaiter && showStamp) {
         metaLines.push(row(sample.waiter, sample.stamp));
       } else if (showWaiter) {
@@ -271,18 +277,28 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
       } else if (showStamp) {
         metaLines.push(row('Zeit:', sample.stamp));
       }
-      if (showTable || showWaiter || showStamp) metaLines.push(LINE);
+      if (isReceipt) {
+        metaLines.push(row('Bon #42', 'Nr: BELEG-2026-00042'));
+      }
+      metaLines.push(LINE);
     } else {
-      if (showWaiter) metaLines.push(row('Bedienung:', sample.waiter));
-      if (showStamp) metaLines.push(row('Uhrzeit:', sample.stamp));
-      if (showTable || showWaiter || showStamp) metaLines.push(LINE);
+      if (showWaiter) {
+        metaLines.push(row(`Bedienung: ${sample.waiter}`, isReceipt ? 'Bon #42' : ''));
+      }
+      if (showStamp) {
+        metaLines.push(`Datum: ${sample.stamp}`);
+      }
+      if (isReceipt) {
+        metaLines.push('Beleg-Nr: BELEG-2026-00042');
+      }
+      metaLines.push(LINE);
     }
 
     // 4. Positionen
     const visible = isFood
-      ? sample.items.filter((i) => !i.name.includes('Helles'))
+      ? (singleSlipActive ? [sample.items[0]] : sample.items.filter((i) => !i.name.includes('Helles')))
       : isDrink
-      ? sample.items.filter((i) => i.name.includes('Helles'))
+      ? (singleSlipActive ? [sample.items[2]] : sample.items.filter((i) => i.name.includes('Helles')))
       : sample.items;
 
     const formattedItems: {
@@ -296,18 +312,12 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
     const itemLines: string[] = [];
 
     for (const item of visible) {
-      const priceFormatted = item.price.toFixed(2);
+      const priceFormatted = `${(item.price * item.qty).toFixed(2)} EUR`;
       let subText: string | undefined;
       let optionText: string | undefined;
 
       if (isReceipt) {
-        if (tpl === 'GASTRO') {
-          itemLines.push(row(`${item.qty}x ${item.name}`, priceFormatted));
-          subText = `(Einzelpreis: ${(item.price / item.qty).toFixed(2)} € | MwSt: 19%)`;
-          itemLines.push(`   ${subText}`);
-        } else {
-          itemLines.push(row(`${item.qty}x ${item.name}`, priceFormatted));
-        }
+        itemLines.push(row(`${item.qty}x ${item.name}`, priceFormatted));
       } else {
         if (tpl === 'HIGH_VISIBILITY') {
           itemLines.push(`-> ${item.qty}x ${item.name.toUpperCase()}`);
@@ -317,14 +327,19 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
       }
 
       if (showOptions && item.option) {
-        optionText = tpl === 'HIGH_VISIBILITY' ? `! WUNSCH: ${item.option.toUpperCase()}` : `> ${item.option}`;
+        optionText = tpl === 'HIGH_VISIBILITY' ? `! WUNSCH: ${item.option.toUpperCase()}` : `   + ${item.option}`;
         itemLines.push(`   ${optionText}`);
+      }
+
+      if (isReceipt && item.name.includes('Helles')) {
+        subText = '   inkl. Pfand: 3.00 EUR';
+        itemLines.push(subText);
       }
 
       formattedItems.push({
         qty: item.qty,
         name: isReceipt || tpl !== 'HIGH_VISIBILITY' ? item.name : item.name.toUpperCase(),
-        priceStr: isReceipt ? `${priceFormatted} €` : '',
+        priceStr: isReceipt ? priceFormatted : '',
         subText,
         optionText,
       });
@@ -333,29 +348,33 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
     // 5. Gesamtsumme & Fußzeile
     const footerLines: string[] = [];
     if (isReceipt) {
-      const total = visible.reduce((s, i) => s + i.price, 0);
+      const total = visible.reduce((s, i) => s + (i.price * i.qty), 0);
       footerLines.push(LINE);
-      if (tpl === 'HIGH_VISIBILITY') {
-        footerLines.push(center(`GESAMTBETRAG: ${total.toFixed(2)} ${config.currency || 'EUR'}`));
-        footerLines.push(center(DBL_LINE));
-      } else {
-        footerLines.push(row('GESAMTSUMME', `${total.toFixed(2)} ${config.currency || 'EUR'}`));
-      }
+      footerLines.push(row('GESAMTBETRAG:', `${total.toFixed(2)} EUR`));
+      footerLines.push(row('Bar:', `${total.toFixed(2)} EUR`));
+      footerLines.push(row('Gegeben:', '50.00 EUR'));
+      footerLines.push(row('Rueckgeld:', `${(50 - total).toFixed(2)} EUR`));
 
       if (config.enableTax) {
         const net = total / (1 + (config.taxRateNormal || 19) / 100);
-        footerLines.push(row(`darin MwSt ${config.taxRateNormal || 19}%`, (total - net).toFixed(2)));
+        const tax = total - net;
+        footerLines.push('.'.repeat(widthCols));
+        footerLines.push(row('MwSt-Satz', 'Netto       Steuer      Brutto'));
+        footerLines.push(row(`${(config.taxRateNormal || 19).toFixed(1)}%`, `${net.toFixed(2)} EUR   ${tax.toFixed(2)} EUR  ${total.toFixed(2)} EUR`));
+        footerLines.push('.'.repeat(widthCols));
       }
 
       if (config.receiptShowTse !== false) {
-        footerLines.push('');
-        footerLines.push('TSE-Signatur:');
-        footerLines.push('A1B2-C3D4-E5F6-7890');
+        footerLines.push(center('TSE-Signatur (KassenSichV)'));
+        footerLines.push(center('TSE-01-OK-9842A7BC34F2'));
+        footerLines.push(row('Start: 24.08. 19:42:01', 'Ende: 19:42:15'));
+        footerLines.push(center('Seriennr: TSE-SANDBOX-849204'));
+        footerLines.push(LINE);
       }
 
       if (tpl === 'GASTRO') {
         footerLines.push('');
-        footerLines.push('--- BEWIRTUNGSBELEG (§ 4 Abs. 5 EStG) ---');
+        footerLines.push(center('--- BEWIRTUNGSBELEG (§ 4 Abs. 5 EStG) ---'));
         footerLines.push('Bewirtete Personen: _____________________');
         footerLines.push('Anlass: _________________________________');
         footerLines.push('Trinkgeld: ____________ € Datum: ________');
@@ -365,6 +384,11 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
       if (config.receiptFooterText) {
         footerLines.push('');
         footerLines.push(center(config.receiptFooterText));
+      }
+    } else {
+      footerLines.push(LINE);
+      if (singleSlipActive) {
+        footerLines.push(center('* Posten 1 von 2 abgeschlossen *'));
       }
     }
 

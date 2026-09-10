@@ -59,10 +59,34 @@ export async function GET() {
     const isEffectivelyConfigured = Boolean(config.initialPinSet || hasActiveData);
     const needsSetup = !isEffectivelyConfigured;
 
+    // Dynamische Pfand-Erkennung aus allen aktiven Artikeln der aktuellen Speisekarte
+    const depositProducts = await prisma.product.findMany({
+      where: {
+        status: { not: 'HIDDEN' },
+        depositCents: { gt: 0 },
+      },
+      select: {
+        depositCents: true,
+      },
+    });
+
+    const distinctDepositCents = Array.from(
+      new Set(depositProducts.map((p) => p.depositCents).filter((c): c is number => typeof c === 'number' && c > 0))
+    ).sort((a, b) => a - b);
+
+    const hasActiveDeposit = distinctDepositCents.length > 0;
+    const depositTiers = distinctDepositCents.map((c) => ({
+      unit: c / 100,
+      unitCents: c,
+      label: `${(c / 100).toFixed(2).replace('.', ',')} € Pfand`,
+    }));
+
     // Sicherer Payload OHNE PINs, ZVT-Passwörter oder Secrets
     const publicConfig = {
       id: config.id,
       name: config.name,
+      hasActiveDeposit,
+      depositTiers,
       currency: config.currency,
       taxRateNormal: config.taxRateNormal,
       taxRateReduced: config.taxRateReduced,

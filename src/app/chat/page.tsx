@@ -78,10 +78,18 @@ function ChatPageContent() {
 
     setSenderName(defaultName);
     fetchMessages();
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('openbon_chat_last_read', String(Date.now()));
+      window.dispatchEvent(new Event('openbon:chat_read'));
+    }
 
     if (socket) {
       socket.on('chat:incoming', (msg: ChatMessage) => {
         setMessages((prev) => [...prev, msg]);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('openbon_chat_last_read', String(Date.now()));
+          window.dispatchEvent(new Event('openbon:chat_read'));
+        }
         if (msg.isUrgent) {
           playAcousticPing();
         }
@@ -89,6 +97,10 @@ function ChatPageContent() {
     }
 
     return () => {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('openbon_chat_last_read', String(Date.now()));
+        window.dispatchEvent(new Event('openbon:chat_read'));
+      }
       if (socket) {
         socket.off('chat:incoming');
       }

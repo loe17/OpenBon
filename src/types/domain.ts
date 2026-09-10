@@ -148,6 +148,8 @@ export interface EventConfigDTO {
   tokenSequence: number;
   invoiceSequence: number;
   orderSequence: number;
+  hasActiveDeposit?: boolean;
+  depositTiers?: { unit: number; unitCents: number; label: string }[];
 }
 
 export interface ProductVariantDTO {

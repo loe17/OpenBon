@@ -500,6 +500,9 @@ export async function POST(req: Request) {
     if (global.io) {
       global.io.emit('order:new', order);
       global.io.emit('payment:completed', payment);
+      global.io.emit('stock:updated');
+      global.io.emit('inventory:updated');
+      global.io.emit('product:updated');
       if (body.tableId) {
         global.io.emit('table:updated', { tableId: body.tableId, status: 'FREE' });
       }

@@ -47,6 +47,14 @@ export async function POST(req: Request) {
 
     const name = waiterName || 'Bedienung';
 
+    const resolvedTotalGrossCents = Number(body.totalGrossCents ?? (typeof totalGross === 'number' ? Math.round(totalGross * 100) : 0));
+    const resolvedCashGrossCents = Number(body.cashGrossCents ?? (typeof cashGross === 'number' ? Math.round(cashGross * 100) : 0));
+    const resolvedCashExpectedCents = Number(body.cashExpectedCents ?? (typeof cashExpected === 'number' ? Math.round(cashExpected * 100) : resolvedCashGrossCents));
+    const resolvedCashCountedCents = Number(body.cashCountedCents ?? (typeof cashCounted === 'number' ? Math.round(cashCounted * 100) : (typeof handoverAmount === 'number' ? Math.round(handoverAmount * 100) : 0)));
+    const resolvedTipsTotalCents = Number(body.tipsTotalCents ?? (typeof tips === 'number' ? Math.round(tips * 100) : 0));
+    const resolvedTipWaiterShareCents = Number(body.tipWaiterShareCents ?? (typeof tipWaiterShare === 'number' ? Math.round(tipWaiterShare * 100) : 0));
+    const resolvedTipPoolShareCents = Number(body.tipPoolShareCents ?? (typeof tipPoolShare === 'number' ? Math.round(tipPoolShare * 100) : 0));
+
     // 1. Audit Log der Abrechnung
     await logSystemActionSafe(() => ({
       action: 'WAITER_SETTLED',
@@ -54,20 +62,27 @@ export async function POST(req: Request) {
       actor: name,
       details:
         `Schichtabrechnung für ${name} abgeschlossen. ` +
-        `Umsatz: ${Number(totalGross || 0).toFixed(2)} €, ` +
-        `Soll-Bar: ${Number(cashExpected ?? cashGross ?? 0).toFixed(2)} €, ` +
-        `gezählt: ${Number(cashCounted ?? handoverAmount ?? 0).toFixed(2)} €, ` +
-        `Differenz: ${(Number(cashCounted ?? handoverAmount ?? 0) - Number(cashExpected ?? cashGross ?? 0)).toFixed(2)} €, ` +
-        `Trinkgeld: ${Number(tips || 0).toFixed(2)} €`,
+        `Umsatz: ${(resolvedTotalGrossCents / 100).toFixed(2)} €, ` +
+        `Soll-Bar: ${(resolvedCashExpectedCents / 100).toFixed(2)} €, ` +
+        `gezählt: ${(resolvedCashCountedCents / 100).toFixed(2)} €, ` +
+        `Differenz: ${((resolvedCashCountedCents - resolvedCashExpectedCents) / 100).toFixed(2)} €, ` +
+        `Trinkgeld: ${(resolvedTipsTotalCents / 100).toFixed(2)} €`,
       metadata: {
-        totalGross,
-        cashGross,
-        cashExpected,
-        cashCounted,
-        tips,
-        tipWaiterShare,
-        tipPoolShare,
-        handoverAmount,
+        totalGross: resolvedTotalGrossCents / 100,
+        totalGrossCents: resolvedTotalGrossCents,
+        cashGross: resolvedCashGrossCents / 100,
+        cashGrossCents: resolvedCashGrossCents,
+        cashExpected: resolvedCashExpectedCents / 100,
+        cashExpectedCents: resolvedCashExpectedCents,
+        cashCounted: resolvedCashCountedCents / 100,
+        cashCountedCents: resolvedCashCountedCents,
+        tips: resolvedTipsTotalCents / 100,
+        tipsTotalCents: resolvedTipsTotalCents,
+        tipWaiterShare: resolvedTipWaiterShareCents / 100,
+        tipWaiterShareCents: resolvedTipWaiterShareCents,
+        tipPoolShare: resolvedTipPoolShareCents / 100,
+        tipPoolShareCents: resolvedTipPoolShareCents,
+        handoverAmount: resolvedCashCountedCents / 100,
         transactionCount,
         byMethod,
         notes,
@@ -78,27 +93,16 @@ export async function POST(req: Request) {
     // 2. Schicht beenden – das Profil wird NICHT geloescht.
     //    Frueher wurde hier deleteMany aufgerufen: Damit verschwand die Bedienung
     //    nach der ersten Abrechnung samt PIN und Trinkgeldprofil dauerhaft aus
-    //    allen Listen. Stattdessen wird sie nur auf inaktiv gesetzt und kann zur
+    //    der Datenbank. Jetzt wird sie nur noch inaktiv gesetzt und kann in der
     //    naechsten Schicht wieder aktiviert werden.
-    const where = waiterId ? { id: waiterId } : { name: waiterName };
-    const updated = await prisma.waiterProfile.updateMany({
-      where,
-      data: { isActive: false },
+    await prisma.waiterProfile.updateMany({
+      where: { name },
+      data: {
+        isActive: false,
+      },
     });
 
-    if (updated.count === 0) {
-      const { getOrAssignWaiterNumber } = await import('@/lib/waiter-number');
-      const waiterNumber = await getOrAssignWaiterNumber(name);
-      await prisma.waiterProfile
-        .upsert({
-          where: { name },
-          update: { isActive: false },
-          create: { name, waiterNumber, pin: '3333', isActive: false },
-        })
-        .catch(() => undefined);
-    }
-
-    // 3. Tische freigeben die dieser Bedienung zugewiesen waren und keine offenen Posten haben
+    // 3. Tische der Bedienung freigeben (falls noch aktiv zugeordnet)
     await prisma.diningTable.updateMany({
       where: { activeWaiterName: name },
       data: { activeWaiterName: null },
@@ -128,8 +132,6 @@ export async function POST(req: Request) {
         if (!printer) {
           printError = 'Kein aktiver Drucker konfiguriert.';
         } else {
-          const expected = Number(cashExpected ?? cashGross ?? 0);
-          const counted = Number(cashCounted ?? handoverAmount ?? 0);
           const { rawBuffer, textRepresentation } = EscPosBuilder.buildSettlementTicket(
             {
               waiterName: name,
@@ -137,21 +139,21 @@ export async function POST(req: Request) {
               isTraining: config?.trainingMode ?? false,
               settledAt: new Date(),
               settledBy: auth.session.waiterName || auth.session.role,
-              totalGrossCents: Math.round(Number(totalGross || 0)),
+              totalGrossCents: resolvedTotalGrossCents,
               transactionCount: Number(transactionCount || 0),
               byMethod: Array.isArray(byMethod)
                 ? byMethod.map((m: any) => ({
                     label: String(m.label || m.method || 'Zahlart'),
-                    amountCents: Math.round(Number(m.amountCents ?? m.amount ?? 0)),
+                    amountCents: Math.round(Number(m.amountCents ?? (typeof m.amount === 'number' ? m.amount * 100 : 0))),
                   }))
                 : [],
-              tipsTotalCents: Math.round(Number((tips as any)?.totalCents ?? tips ?? 0)),
-              tipWaiterShareCents: Math.round(Number(tipWaiterShare || 0)),
-              tipPoolShareCents: Math.round(Number(tipPoolShare || 0)),
+              tipsTotalCents: resolvedTipsTotalCents,
+              tipWaiterShareCents: resolvedTipWaiterShareCents,
+              tipPoolShareCents: resolvedTipPoolShareCents,
               tipProfileName: tipProfileName || null,
-              cashExpectedCents: Math.round(expected),
-              cashCountedCents: Math.round(counted),
-              cashDifferenceCents: Math.round(counted - expected),
+              cashExpectedCents: resolvedCashExpectedCents,
+              cashCountedCents: resolvedCashCountedCents,
+              cashDifferenceCents: resolvedCashCountedCents - resolvedCashExpectedCents,
               notes: notes || undefined,
             },
             printer.paperWidth

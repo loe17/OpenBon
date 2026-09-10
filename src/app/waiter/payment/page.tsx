@@ -816,60 +816,58 @@ function WaiterPaymentContent() {
               })
             )}
 
-            {/* Rückpfand Matrix (Mehrere Pfandwerte gleichzeitig, z. B. 1x 1€, 2x 2€) */}
-            <div className="p-4 rounded-3xl bg-slate-900 border-2 border-blue-900/80 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-black text-blue-300">
-                  <Coins className="w-5 h-5 text-blue-400" />
-                  <span>Rückpfand (Leergut-Gutschrift)</span>
+            {/* Rückpfand Matrix (nur anzeigen wenn Pfand im System aktiv ist) */}
+            {config?.hasActiveDeposit && Array.isArray(config?.depositTiers) && config.depositTiers.length > 0 && (
+              <div className="p-4 rounded-3xl bg-slate-900 border-2 border-blue-900/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-black text-blue-300">
+                    <Coins className="w-5 h-5 text-blue-400" />
+                    <span>Rückpfand (Leergut-Gutschrift)</span>
+                  </div>
+                  <div className="text-base font-mono font-black text-amber-400">
+                    {totalReturnDeposit > 0 ? `−${formatCents(Math.round((totalReturnDeposit) * 100))}` : '0,00 €'}
+                  </div>
                 </div>
-                <div className="text-base font-mono font-black text-amber-400">
-                  {totalReturnDeposit > 0 ? `−${formatCents(Math.round((totalReturnDeposit) * 100))}` : '0,00 €'}
-                </div>
-              </div>
 
-              {/* Grid von Pfandwerten mit Plus/Minus Zählern */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {[
-                  { unit: 1.0, label: '1,00 € (Glas/Becher)' },
-                  { unit: 2.0, label: '2,00 € (Krug/Teller)' },
-                  { unit: 0.5, label: '0,50 € (Flasche)' },
-                ].map(({ unit, label }) => {
-                  const count = returnDeposits[unit] || 0;
-                  return (
-                    <div
-                      key={unit}
-                      className="p-2.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between shadow-sm"
-                    >
-                      <div className="min-w-0 pr-1">
-                        <div className="text-xs font-black text-slate-200">{unit.toFixed(2)} €</div>
-                        <div className="text-[10px] text-slate-500 truncate">{label}</div>
+                {/* Grid von Pfandwerten dynamisch aus den Artikeln mit Plus/Minus Zählern */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {config.depositTiers.map(({ unit, label }: { unit: number; label: string }) => {
+                    const count = returnDeposits[unit] || 0;
+                    return (
+                      <div
+                        key={unit}
+                        className="p-2.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between shadow-sm"
+                      >
+                        <div className="min-w-0 pr-1">
+                          <div className="text-xs font-black text-slate-200">{unit.toFixed(2).replace('.', ',')} €</div>
+                          <div className="text-[10px] text-slate-500 truncate">{label}</div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => updateDepositQty(unit, -1)}
+                            disabled={count === 0}
+                            className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-700 disabled:opacity-30 border border-slate-700 rounded-xl text-slate-200 font-bold text-lg active:scale-95 transition"
+                          >
+                            −
+                          </button>
+                          <span className="w-7 text-center font-black font-mono text-sm text-blue-400">
+                            {count}x
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => updateDepositQty(unit, 1)}
+                            className="w-8 h-8 flex items-center justify-center bg-blue-600 hover:bg-blue-500 rounded-xl text-white font-bold text-lg active:scale-95 transition shadow"
+                          >
+                            +
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => updateDepositQty(unit, -1)}
-                          disabled={count === 0}
-                          className="w-8 h-8 flex items-center justify-center bg-slate-800 hover:bg-slate-700 disabled:opacity-30 border border-slate-700 rounded-xl text-slate-200 font-bold text-lg active:scale-95 transition"
-                        >
-                          −
-                        </button>
-                        <span className="w-7 text-center font-black font-mono text-sm text-blue-400">
-                          {count}x
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => updateDepositQty(unit, 1)}
-                          className="w-8 h-8 flex items-center justify-center bg-blue-600 hover:bg-blue-500 rounded-xl text-white font-bold text-lg active:scale-95 transition shadow"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Leuchtbalken (Spec 5.1) */}

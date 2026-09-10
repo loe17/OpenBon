@@ -351,6 +351,9 @@ export async function POST(req: Request) {
     // 6. WebSocket Events
     if (global.io) {
       global.io.emit('order:new', order);
+      global.io.emit('stock:updated');
+      global.io.emit('inventory:updated');
+      global.io.emit('product:updated');
       if (body.tableId) {
         global.io.emit('table:updated', { tableId: body.tableId, status: 'OCCUPIED' });
       }
