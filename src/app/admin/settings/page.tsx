@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Settings,
   Building2,
@@ -30,6 +31,7 @@ import { CardPaymentTab } from './tabs/CardPaymentTab';
 type SettingsTab = 'GENERAL' | 'RECEIPT' | 'PRINTERS' | 'CARDS' | 'SECURITY' | 'FISCAL' | 'SNAPSHOTS';
 
 export default function AdminSettingsPage() {
+  const router = useRouter();
   const { success, error } = useToast();
   const [activeTab, setActiveTab] = useState<SettingsTab>('GENERAL');
   const [config, setConfig] = useState<EventConfigDTO | null>(null);
@@ -78,16 +80,78 @@ export default function AdminSettingsPage() {
     config && baselineRef.current !== null && JSON.stringify(config) !== baselineRef.current
   );
 
-  // N3.4: Browser-Warnung bei ungespeicherten Änderungen (Tab schließen/navigieren)
+  const [pendingTab, setPendingTab] = useState<SettingsTab | null>(null);
+  const [pendingNavUrl, setPendingNavUrl] = useState<string | null>(null);
+  const [showDirtyModal, setShowDirtyModal] = useState(false);
+
+  // Browser- und In-App-Navigation abfangen, wenn Einstellungen ungespeichert sind
   useEffect(() => {
-    if (!isDirty) return;
+    if (!isDirty) {
+      if (typeof window !== 'undefined') {
+        (window as any).__openbon_dirty_handler = null;
+      }
+      return;
+    }
+
     const warn = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = '';
       return '';
     };
     window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
+
+    // Globaler Callback für Stationswechsel & Menünavigation (z.B. Navbar)
+    if (typeof window !== 'undefined') {
+      (window as any).__openbon_dirty_handler = (destUrl: string) => {
+        setPendingNavUrl(destUrl);
+        setPendingTab(null);
+        setShowDirtyModal(true);
+        return true;
+      };
+    }
+
+    // Fängt alle Klicks auf interne Links (<a> / <Link>) im Admin-Bereich und der Navbar ab
+    const handleDocumentClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      const anchor = target.closest('a');
+      if (!anchor || !anchor.href) return;
+      if (anchor.target === '_blank' || anchor.hasAttribute('download')) return;
+
+      try {
+        const dest = new URL(anchor.href, window.location.href);
+        if (dest.origin === window.location.origin) {
+          const currentUrl = window.location.pathname + window.location.search;
+          const targetUrl = dest.pathname + dest.search;
+          if (targetUrl !== currentUrl && !dest.pathname.endsWith('/admin/settings')) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            setPendingNavUrl(targetUrl);
+            setPendingTab(null);
+            setShowDirtyModal(true);
+          }
+        }
+      } catch {}
+    };
+
+    const handlePopState = () => {
+      window.history.pushState(null, '', window.location.href);
+      setShowDirtyModal(true);
+    };
+
+    document.addEventListener('click', handleDocumentClick, { capture: true });
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('beforeunload', warn);
+      document.removeEventListener('click', handleDocumentClick, { capture: true });
+      window.removeEventListener('popstate', handlePopState);
+      if (typeof window !== 'undefined') {
+        (window as any).__openbon_dirty_handler = null;
+      }
+    };
   }, [isDirty]);
 
   const handleSave = async () => {
@@ -123,14 +187,12 @@ export default function AdminSettingsPage() {
     }
   };
 
-  const [pendingTab, setPendingTab] = useState<SettingsTab | null>(null);
-  const [showDirtyModal, setShowDirtyModal] = useState(false);
-
   const handleTabClick = (tabId: SettingsTab) => {
     triggerHapticFeedback();
     if (tabId === activeTab) return;
     if (isDirty) {
       setPendingTab(tabId);
+      setPendingNavUrl(null);
       setShowDirtyModal(true);
       return;
     }
@@ -139,11 +201,19 @@ export default function AdminSettingsPage() {
 
   const handleSaveAndSwitch = async () => {
     await handleSave();
-    if (pendingTab) {
+    if (pendingNavUrl) {
+      const dest = pendingNavUrl;
+      setPendingNavUrl(null);
+      setPendingTab(null);
+      setShowDirtyModal(false);
+      router.push(dest);
+    } else if (pendingTab) {
       setActiveTab(pendingTab);
       setPendingTab(null);
+      setShowDirtyModal(false);
+    } else {
+      setShowDirtyModal(false);
     }
-    setShowDirtyModal(false);
   };
 
   const handleDiscardAndSwitch = () => {
@@ -152,11 +222,19 @@ export default function AdminSettingsPage() {
         setConfig(JSON.parse(baselineRef.current));
       } catch {}
     }
-    if (pendingTab) {
+    if (pendingNavUrl) {
+      const dest = pendingNavUrl;
+      setPendingNavUrl(null);
+      setPendingTab(null);
+      setShowDirtyModal(false);
+      router.push(dest);
+    } else if (pendingTab) {
       setActiveTab(pendingTab);
       setPendingTab(null);
+      setShowDirtyModal(false);
+    } else {
+      setShowDirtyModal(false);
     }
-    setShowDirtyModal(false);
   };
 
   const handleToggleAutostart = async () => {
@@ -294,7 +372,10 @@ export default function AdminSettingsPage() {
               <h3 className="text-lg font-black">Ungespeicherte Änderungen</h3>
             </div>
             <p className="text-slate-300 text-sm leading-relaxed">
-              Sie haben Einstellungen geändert, die noch nicht gespeichert wurden. Wie möchten Sie beim Tab-Wechsel verfahren?
+              Sie haben Einstellungen geändert, die noch nicht gespeichert wurden.
+              {pendingNavUrl
+                ? ' Möchten Sie diese Änderungen vor dem Verlassen der Einstellungen speichern?'
+                : ' Wie möchten Sie beim Wechsel verfahren?'}
             </p>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2">
               <button
@@ -302,6 +383,7 @@ export default function AdminSettingsPage() {
                 onClick={() => {
                   setShowDirtyModal(false);
                   setPendingTab(null);
+                  setPendingNavUrl(null);
                 }}
                 className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
               >

@@ -215,7 +215,7 @@ export async function POST(req: Request) {
       }
 
       let digitalReceiptCode: string | null = null;
-      if (Boolean(config.enableDigitalReceipt || config.enableDigitalReceiptQr)) {
+      if (Boolean(config.enableDigitalReceipt || config.enableDigitalReceiptQr || config.enableNfc)) {
         try {
           digitalReceiptCode = generateDigitalReceiptCode(invoiceNumber);
         } catch (eBonErr) {
@@ -523,8 +523,8 @@ export async function POST(req: Request) {
     }
 
     const receiptUrl =
-      payment.digitalReceiptCode && config?.baseUrl
-        ? buildReceiptUrl(config.baseUrl, payment.digitalReceiptCode)
+      payment.digitalReceiptCode
+        ? buildReceiptUrl(config?.baseUrl || 'http://openbon.local', payment.digitalReceiptCode)
         : null;
 
     await logSystemActionSafe(() => ({

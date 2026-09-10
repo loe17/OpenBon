@@ -234,6 +234,17 @@ export default function Navbar() {
   const handleRoleSelection = (targetRole: string) => {
     if (targetRole === role) return;
 
+    if (typeof window !== 'undefined' && (window as any).__openbon_dirty_handler) {
+      const targetPath =
+        targetRole === 'WAITER' ? '/waiter' :
+        targetRole === 'POS_CASHIER' ? '/pos' :
+        targetRole === 'KITCHEN' ? '/kitchen' :
+        '/admin/dashboard';
+      setIsOpen(false);
+      const handled = (window as any).__openbon_dirty_handler(targetPath);
+      if (handled) return;
+    }
+
     if (targetRole === 'ADMIN') {
       setPinTarget('ADMIN');
       setShowPinModal(true);
@@ -257,6 +268,17 @@ export default function Navbar() {
   const [pendingAdminPath, setPendingAdminPath] = useState<string | null>(null);
 
   const applyRole = (newRole: string) => {
+    if (typeof window !== 'undefined' && (window as any).__openbon_dirty_handler) {
+      const targetPath =
+        newRole === 'WAITER' ? '/waiter' :
+        newRole === 'POS_CASHIER' ? '/pos' :
+        newRole === 'KITCHEN' ? '/kitchen' :
+        '/admin/dashboard';
+      setIsOpen(false);
+      const handled = (window as any).__openbon_dirty_handler(targetPath);
+      if (handled) return;
+    }
+
     localStorage.setItem('pos_user_role', newRole);
     setRole(newRole);
     setIsOpen(false);

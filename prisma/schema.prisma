@@ -40,6 +40,7 @@ model EventConfig {
   lowStockAlertPrinterId      String?
   receiptPrinterId            String?
   enableWaiterReceiptPrint    Boolean @default(false)
+  enablePosReceiptPrint       Boolean @default(false)
 
   // Beleg- & Bon-Druck Layout & Schriftgrößen
   receiptHeader                 String? @default("")

@@ -123,6 +123,7 @@ export interface EventConfigDTO {
   lowStockAlertPrinterId?: string | null;
   receiptPrinterId?: string | null;
   enableWaiterReceiptPrint?: boolean;
+  enablePosReceiptPrint?: boolean;
   cardSumupEnabled?: boolean;
   cardVrPayEnabled?: boolean;
   cardSparkasseEnabled?: boolean;

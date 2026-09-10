@@ -79,6 +79,7 @@ export const ALLOWED_CONFIG_FIELDS = [
   'lowStockAlertPrinterId',
   'receiptPrinterId',
   'enableWaiterReceiptPrint',
+  'enablePosReceiptPrint',
   'cardSumupEnabled',
   'cardVrPayEnabled',
   'cardSparkasseEnabled',
@@ -171,6 +172,8 @@ export const CONFIG_BOOLEAN_FIELDS = new Set<string>([
   'receiptDrinkShowOptions',
   'haAutoFailover',
   'initialPinSet',
+  'enableWaiterReceiptPrint',
+  'enablePosReceiptPrint',
 ]);
 
 /** Bewusst NICHT ueberschreibbare System-/Geheimfelder im Restore-Pfad */

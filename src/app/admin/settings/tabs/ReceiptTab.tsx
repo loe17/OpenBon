@@ -510,12 +510,18 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
                 </p>
               </div>
 
-              <div>
+              <div className="space-y-3">
                 <Toggle
                   label="Papierbon-Knopf bei Bedienung anzeigen"
                   hint="Erlaubt Bedienungen, nach dem Bezahlen einen Papierbon auszudrucken. Standard: Nicht angehakt."
                   value={Boolean(config.enableWaiterReceiptPrint)}
                   onToggle={() => onChange({ enableWaiterReceiptPrint: !config.enableWaiterReceiptPrint })}
+                />
+                <Toggle
+                  label="Papierbon-Knopf an der Bonkasse anzeigen"
+                  hint="Zeigt nach dem Kassieren an der Bonkasse die Option, einen Papierbon auszudrucken. Standard: Nicht angehakt."
+                  value={Boolean(config.enablePosReceiptPrint)}
+                  onToggle={() => onChange({ enablePosReceiptPrint: !config.enablePosReceiptPrint })}
                 />
               </div>
             </div>
