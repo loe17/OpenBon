@@ -249,10 +249,25 @@ export async function POST(req: Request) {
         where: { id: 'default' },
         data: { invoiceSequence: { increment: 1 } },
       });
-      const seq = current.invoiceSequence - 1;
-      const invoiceNumber = body.requestId
+      let seq = current.invoiceSequence - 1;
+      let invoiceNumber = body.requestId
         ? `BELEG-${new Date().getFullYear()}-${String(seq).padStart(5, '0')}-${body.requestId.slice(0, 8)}`
         : `BELEG-${new Date().getFullYear()}-${String(seq).padStart(5, '0')}`;
+
+      let existingPayment = await tx.payment.findUnique({ where: { invoiceNumber } });
+      while (existingPayment) {
+        seq++;
+        invoiceNumber = body.requestId
+          ? `BELEG-${new Date().getFullYear()}-${String(seq).padStart(5, '0')}-${body.requestId.slice(0, 8)}`
+          : `BELEG-${new Date().getFullYear()}-${String(seq).padStart(5, '0')}`;
+        existingPayment = await tx.payment.findUnique({ where: { invoiceNumber } });
+      }
+      if (seq >= current.invoiceSequence) {
+        await tx.eventConfig.update({
+          where: { id: 'default' },
+          data: { invoiceSequence: seq + 1 },
+        });
+      }
 
       let digitalReceiptCode: string | null = null;
       if (Boolean(config.enableDigitalReceipt || config.enableDigitalReceiptQr)) {
@@ -393,7 +408,9 @@ export async function POST(req: Request) {
 
     // 5. Kassenbeleg drucken
     if (body.printReceipt) {
-      const receiptPrinter = await prisma.printer.findFirst({ where: { isActive: true } });
+      const receiptPrinter = config?.receiptPrinterId
+        ? await prisma.printer.findUnique({ where: { id: config.receiptPrinterId } })
+        : await prisma.printer.findFirst({ where: { isActive: true } });
       if (receiptPrinter) {
         // M6.6: E-Bon-URL auch aufs Papier bringen (wenn Schalter aktiv)
         const ebReceiptUrl = payment.digitalReceiptCode

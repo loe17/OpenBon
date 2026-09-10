@@ -148,15 +148,30 @@ function WaiterOrderContent() {
         fetchCategories();
       };
 
+      const handleWaiterSettled = (data: any) => {
+        const saved = localStorage.getItem('pos_waiter_name')?.trim();
+        if (
+          saved &&
+          data?.waiterName &&
+          (saved.toLowerCase() === data.waiterName.toLowerCase() ||
+            data.waiterName.toLowerCase().startsWith(saved.toLowerCase()))
+        ) {
+          localStorage.removeItem('pos_waiter_name');
+          router.push('/waiter');
+        }
+      };
+
       socket.on('inventory:updated', handleInventory);
       socket.on('product:updated', handleInventory);
+      socket.on('waiter:settled', handleWaiterSettled);
 
       return () => {
         socket.off('inventory:updated', handleInventory);
         socket.off('product:updated', handleInventory);
+        socket.off('waiter:settled', handleWaiterSettled);
       };
     }
-  }, [socket]);
+  }, [socket, router]);
 
   useEffect(() => {
     setSoundMuted(isAudioMuted());
@@ -830,37 +845,21 @@ function WaiterOrderContent() {
 
           {/* Action Buttons: Immer sichtbar unten (Groß & Prominent für Touch) */}
           <div className="p-3 bg-slate-900 border-t border-slate-800 shrink-0">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                disabled={cart.length === 0 || isSubmitting}
-                onClick={() => submitOrder(false)}
-                className={`min-h-[54px] px-4 py-3 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-xl transition active:scale-95 touch-manipulation ${
-                  cart.length > 0 && !isSubmitting
-                    ? 'bg-blue-600 hover:bg-blue-500 text-white border border-blue-400 shadow-blue-950/60'
-                    : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
-                }`}
-              >
-                <Send className="w-5 h-5" />
-                <span>
-                  {isSubmitting ? 'Wird gebucht...' : `Bestellen & Tisch (${formatCurrency(totalAmount)})`}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                disabled={cart.length === 0 || isSubmitting}
-                onClick={() => submitOrder(true)}
-                className={`min-h-[54px] px-4 py-3 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-xl transition active:scale-95 touch-manipulation ${
-                  cart.length > 0 && !isSubmitting
-                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-2 border-emerald-400 shadow-emerald-950/80'
-                    : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
-                }`}
-              >
-                <CreditCard className="w-5 h-5" />
-                <span>Bestellen & Sofort Kassieren</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              disabled={cart.length === 0 || isSubmitting}
+              onClick={() => submitOrder(true)}
+              className={`w-full min-h-[58px] px-4 py-3 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-3 shadow-xl transition active:scale-95 touch-manipulation ${
+                cart.length > 0 && !isSubmitting
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-2 border-emerald-400 shadow-emerald-950/80'
+                  : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+              }`}
+            >
+              <CreditCard className="w-6 h-6" />
+              <span>
+                {isSubmitting ? 'Wird gebucht...' : `Bestellen & Kassieren (${formatCurrency(totalAmount)})`}
+              </span>
+            </button>
           </div>
         </div>
       </div>

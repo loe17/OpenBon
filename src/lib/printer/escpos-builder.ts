@@ -1119,6 +1119,8 @@ export class EscPosBuilder {
       isTraining?: boolean;
       isCorrection?: boolean;
       printDetails?: boolean;
+      printItemsSold?: boolean;
+      printOrders?: boolean;
       itemsSold?: { name: string; quantity: number; amountCents: number }[];
       orders?: { orderNumber: number; time: string; tableName: string; totalCents: number; itemsSummary: string }[];
       settledAt?: string | Date;
@@ -1239,7 +1241,10 @@ export class EscPosBuilder {
       add(`Bemerkung: ${data.notes}`);
     }
 
-    if (data.printDetails && data.itemsSold && data.itemsSold.length > 0) {
+    const doPrintItemsSold = data.printItemsSold !== undefined ? Boolean(data.printItemsSold) : Boolean(data.printDetails);
+    const doPrintOrders = data.printOrders !== undefined ? Boolean(data.printOrders) : Boolean(data.printDetails);
+
+    if (doPrintItemsSold && data.itemsSold && data.itemsSold.length > 0) {
       builder.divider();
       builder.bold(true).textLine('VERKAUFTE ARTIKEL').bold(false);
       add('-- Verkaufte Artikel --');
@@ -1249,7 +1254,7 @@ export class EscPosBuilder {
       }
     }
 
-    if (data.printDetails && data.orders && data.orders.length > 0) {
+    if (doPrintOrders && data.orders && data.orders.length > 0) {
       builder.divider();
       builder.bold(true).textLine(`BESTELLUNGEN (${data.orders.length})`).bold(false);
       add(`-- Bestellungen (${data.orders.length}) --`);

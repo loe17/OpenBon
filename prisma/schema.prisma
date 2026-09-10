@@ -38,6 +38,8 @@ model EventConfig {
   activeTheme                 String  @default("dark") // dark, light, contrast, tradition, speed
   waiterAutoLockMinutes       Int     @default(0) // 0 = Deaktiviert, sonst 1, 2, 3, 5, 10 Minuten
   lowStockAlertPrinterId      String?
+  receiptPrinterId            String?
+  enableWaiterReceiptPrint    Boolean @default(false)
 
   // Beleg- & Bon-Druck Layout & Schriftgrößen
   receiptHeader                 String? @default("")
@@ -85,6 +87,12 @@ model EventConfig {
 
   // Kartenzahlungs-IDs & Provider-Konfiguration
   activeCardProvider  String  @default("SUMUP") // SUMUP, VRPAY, SPARKASSE, ZETTLE, STRIPE, ZVT
+  cardSumupEnabled    Boolean @default(false)
+  cardVrPayEnabled    Boolean @default(false)
+  cardSparkasseEnabled Boolean @default(false)
+  cardZvtEnabled      Boolean @default(false)
+  cardStripeEnabled   Boolean @default(false)
+  cardZettleEnabled   Boolean @default(false)
   sumupMerchantCode   String?
   sumupAppId          String?
   vrPayApiKey         String?

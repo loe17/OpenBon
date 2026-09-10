@@ -31,6 +31,7 @@ import {
   Coins,
   Printer,
   Sparkles,
+  FileText,
 } from 'lucide-react';
 import { VOID_REASONS, type OrderDTO } from '@/types/domain';
 import { playConfirm, playVoidAlert, playOrderReadyChime } from '@/lib/audio-feedback';
@@ -121,6 +122,8 @@ function WaiterTablesContent() {
   const [xBonData, setXBonData] = useState<any>(null);
   const [loadingXBon, setLoadingXBon] = useState(false);
   const [printingXBon, setPrintingXBon] = useState(false);
+  const [xBonPrinters, setXBonPrinters] = useState<Array<{ id: string; name: string; ipAddress?: string | null; isVirtual?: boolean; isActive?: boolean }>>([]);
+  const [xBonTarget, setXBonTarget] = useState<string>('pdf');
 
   // Auto-Lock nach Inaktivität
   useEffect(() => {
@@ -161,10 +164,26 @@ function WaiterTablesContent() {
     setLoadingXBon(true);
     setShowXBonModal(true);
     try {
-      const res = await fetch(`/api/reports/x-bon?waiterName=${encodeURIComponent(waiterName)}`);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setXBonData(data);
+      const [resReport, resPrinters] = await Promise.all([
+        fetch(`/api/reports/x-bon?waiterName=${encodeURIComponent(waiterName)}`),
+        fetch('/api/printers').catch(() => null),
+      ]);
+      if (resReport && resReport.ok) {
+        const data = await resReport.json();
+        setXBonData(data);
+      } else {
+        throw new Error();
+      }
+      if (resPrinters && resPrinters.ok) {
+        const printerList = await resPrinters.json();
+        if (Array.isArray(printerList)) {
+          setXBonPrinters(printerList);
+          const activePrinters = printerList.filter((p) => p.isActive);
+          if (activePrinters.length > 0 && xBonTarget === 'pdf') {
+            // keep existing target or user preference
+          }
+        }
+      }
     } catch {
       showToast('err', 'Fehler beim Laden des Zwischenstands');
     } finally {
@@ -172,14 +191,19 @@ function WaiterTablesContent() {
     }
   };
 
-  const handlePrintXBon = async () => {
+  const handlePrintXBon = async (targetPrinterId?: string) => {
+    const printerIdToUse = targetPrinterId || xBonTarget;
+    if (printerIdToUse === 'pdf') {
+      handlePrintBrowserXBon();
+      return;
+    }
     triggerHapticFeedback();
     setPrintingXBon(true);
     try {
       const res = await fetch('/api/reports/x-bon', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ waiterName }),
+        body: JSON.stringify({ waiterName, printerId: printerIdToUse }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -321,6 +345,23 @@ function WaiterTablesContent() {
       socket.on('payment:completed', () => fetchTables());
       socket.on('tables:regenerated', () => fetchTables());
 
+      // Automatische Abmeldung wenn die Bedienung abgerechnet wurde
+      socket.on('waiter:settled', (data: any) => {
+        const currentSaved = localStorage.getItem('pos_waiter_name')?.trim();
+        if (
+          currentSaved &&
+          data?.waiterName &&
+          (currentSaved.toLowerCase() === data.waiterName.toLowerCase() ||
+            data.waiterName.toLowerCase().startsWith(currentSaved.toLowerCase()))
+        ) {
+          localStorage.removeItem('pos_waiter_name');
+          setWaiterName('Bedienung');
+          setInputWaiterName('');
+          setShowWaiterPrompt(true);
+          showToast('err', `Schicht von ${data.waiterName} wurde abgerechnet. Bitte neu anmelden.`);
+        }
+      });
+
       // Spec 7: Küchen-Fertigmeldung mit Audio-Gong & Banner
       socket.on('order:ready', (data: any) => {
         playOrderReadyChime();
@@ -339,6 +380,7 @@ function WaiterTablesContent() {
         socket.off('payment:completed');
         socket.off('tables:regenerated');
         socket.off('order:ready');
+        socket.off('waiter:settled');
       }
     };
   }, [socket]);
@@ -834,7 +876,7 @@ function WaiterTablesContent() {
               </button>
 
               <button
-                onClick={() => void handleXBon()}
+                onClick={() => void handleOpenXBon()}
                 disabled={busyAction !== null}
                 className="touch-target h-14 bg-slate-800 border border-slate-700 hover:border-amber-500 text-slate-100 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
               >
@@ -1343,6 +1385,28 @@ function WaiterTablesContent() {
                   Abgeschlossene Kassiervorgänge: <strong>{xBonData.transactionCount || 0}</strong> · X-Bon schließt die Kasse nicht ab.
                 </div>
 
+                {/* Druckziel / Format-Auswahl */}
+                <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                    <Printer className="w-3.5 h-3.5 text-emerald-400" />
+                    Ausgabe wählen (Netzwerkdrucker oder PDF):
+                  </label>
+                  <select
+                    value={xBonTarget}
+                    onChange={(e) => setXBonTarget(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-medium focus:ring-1 focus:ring-emerald-500"
+                  >
+                    <option value="pdf">📄 PDF-Druckansicht (im Browser öffnen & drucken)</option>
+                    {xBonPrinters
+                      .filter((p) => p.isActive)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          🖨️ {p.name} {p.ipAddress ? `(${p.ipAddress})` : ''} {p.isVirtual ? '[Virtuell]' : ''}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
                 <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
                   <button
                     type="button"
@@ -1351,23 +1415,31 @@ function WaiterTablesContent() {
                   >
                     Schließen
                   </button>
-                  <button
-                    type="button"
-                    onClick={handlePrintBrowserXBon}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-blue-300 border border-slate-700 hover:border-blue-500 rounded-xl text-xs font-bold shadow flex items-center gap-1.5"
-                    title="Druckansicht für Standard-Drucker öffnen"
-                  >
-                    <Printer className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Druckansicht</span>
-                  </button>
+                  {xBonTarget !== 'pdf' && (
+                    <button
+                      type="button"
+                      onClick={handlePrintBrowserXBon}
+                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-blue-300 border border-slate-700 hover:border-blue-500 rounded-xl text-xs font-bold shadow flex items-center gap-1.5"
+                      title="Als PDF / Druckansicht im Browser öffnen"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-blue-400" />
+                      <span>PDF-Vorschau</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={printingXBon}
-                    onClick={handlePrintXBon}
+                    onClick={() => handlePrintXBon()}
                     className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow flex items-center gap-1.5 disabled:opacity-50"
                   >
                     <Printer className={`w-3.5 h-3.5 ${printingXBon ? 'animate-spin' : ''}`} />
-                    <span>{printingXBon ? 'Druckt...' : 'X-Bon drucken'}</span>
+                    <span>
+                      {printingXBon
+                        ? 'Druckt...'
+                        : xBonTarget === 'pdf'
+                        ? 'PDF / Druckansicht öffnen'
+                        : 'Auf Drucker drucken'}
+                    </span>
                   </button>
                 </div>
               </div>

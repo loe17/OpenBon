@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState, Suspense } from 'reac
 import { useRouter, useSearchParams } from 'next/navigation';
 import { formatCents, formatCurrency, generateIdempotencyKey } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
+import { useSocket } from '@/components/providers/socket-provider';
 import { computeCheckout } from '@/lib/pricing';
 import { PAYMENT_METHODS, isPaymentMethodAvailable, getActiveCardPaymentMethod } from '@/lib/payment/methods';
 import { playPaymentSuccess, playPaymentFailure } from '@/lib/audio-feedback';
@@ -154,20 +155,32 @@ function WaiterPaymentContent() {
     return searchParams.get('waiterName') || 'Bedienung';
   });
 
+  const { socket } = useSocket();
+
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const pName = searchParams.get('waiterName');
-      const storedName =
+    if (!socket) return;
+    const handleWaiterSettled = (data: any) => {
+      const saved =
         localStorage.getItem('openbon_waiter_name') ||
         localStorage.getItem('pos_waiter_name') ||
         localStorage.getItem('waiterName');
-      if (pName) {
-        setWaiterName(pName);
-      } else if (storedName) {
-        setWaiterName(storedName);
+      if (
+        saved &&
+        data?.waiterName &&
+        (saved.trim().toLowerCase() === data.waiterName.trim().toLowerCase() ||
+          data.waiterName.trim().toLowerCase().startsWith(saved.trim().toLowerCase()))
+      ) {
+        localStorage.removeItem('openbon_waiter_name');
+        localStorage.removeItem('pos_waiter_name');
+        localStorage.removeItem('waiterName');
+        router.push('/waiter');
       }
-    }
-  }, [searchParams]);
+    };
+    socket.on('waiter:settled', handleWaiterSettled);
+    return () => {
+      socket.off('waiter:settled', handleWaiterSettled);
+    };
+  }, [socket, router]);
 
   // WICHTIG: Der Idempotenz-Schluessel gilt fuer GENAU EINEN Kassiervorgang.
   // Bleibt er ueber mehrere Zahlungen gleich, erkennt der Server die zweite
@@ -1143,29 +1156,31 @@ function WaiterPaymentContent() {
             )}
           </div>
 
-          <div className={`grid grid-cols-1 sm:grid-cols-${isEBonAvailable ? '4' : '3'} gap-3 w-full max-w-3xl`}>
-            <button
-              disabled={!completedPaymentId || receiptPrinted}
-              onClick={() => {
-                haptic();
-                if (!completedPaymentId) return;
-                setReceiptPrinted(true);
-                void fetch(`/api/payments/${completedPaymentId}/receipt`, { method: 'POST' }).catch(
-                  () => setReceiptPrinted(false)
-                );
-              }}
-              className="pos-touch-btn h-20 rounded-3xl bg-blue-600 hover:bg-blue-500 text-white font-black flex flex-col items-center justify-center gap-1 disabled:bg-slate-800 disabled:text-slate-500 transition active:scale-95 shadow"
-            >
-              <Printer className="w-6 h-6" />
-              <span className="text-sm">{receiptPrinted ? 'Beleg gedruckt' : 'Papierbon'}</span>
-            </button>
+          <div className="flex flex-wrap gap-3 w-full max-w-3xl justify-center">
+            {Boolean(config?.enableWaiterReceiptPrint) && (
+              <button
+                disabled={!completedPaymentId || receiptPrinted}
+                onClick={() => {
+                  haptic();
+                  if (!completedPaymentId) return;
+                  setReceiptPrinted(true);
+                  void fetch(`/api/payments/${completedPaymentId}/receipt`, { method: 'POST' }).catch(
+                    () => setReceiptPrinted(false)
+                  );
+                }}
+                className="pos-touch-btn flex-1 min-w-[140px] h-20 rounded-3xl bg-blue-600 hover:bg-blue-500 text-white font-black flex flex-col items-center justify-center gap-1 disabled:bg-slate-800 disabled:text-slate-500 transition active:scale-95 shadow"
+              >
+                <Printer className="w-6 h-6" />
+                <span className="text-sm">{receiptPrinted ? 'Beleg gedruckt' : 'Papierbon'}</span>
+              </button>
+            )}
 
             {/* E-Bon Button: Nur aktiv/sichtbar wenn Internet- oder NFC-Option im Admin aktiv ist */}
             {isEBonAvailable && (
               <button
                 type="button"
                 onClick={openEBonDialog}
-                className="pos-touch-btn h-20 rounded-3xl bg-emerald-600 hover:bg-emerald-500 text-white font-black flex flex-col items-center justify-center gap-1 transition active:scale-95 shadow shadow-emerald-950/60"
+                className="pos-touch-btn flex-1 min-w-[140px] h-20 rounded-3xl bg-emerald-600 hover:bg-emerald-500 text-white font-black flex flex-col items-center justify-center gap-1 transition active:scale-95 shadow shadow-emerald-950/60"
               >
                 <div className="flex items-center gap-1">
                   {isInternetActive && <QrCode className="w-5 h-5" />}
@@ -1187,7 +1202,7 @@ function WaiterPaymentContent() {
                 haptic();
                 router.push('/waiter');
               }}
-              className="pos-touch-btn h-20 rounded-3xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-black flex flex-col items-center justify-center gap-1 transition active:scale-95"
+              className="pos-touch-btn flex-1 min-w-[140px] h-20 rounded-3xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-black flex flex-col items-center justify-center gap-1 transition active:scale-95"
             >
               <Ban className="w-6 h-6" />
               <span className="text-sm">Kein Beleg</span>
@@ -1197,7 +1212,7 @@ function WaiterPaymentContent() {
                 haptic();
                 router.push('/waiter');
               }}
-              className="pos-touch-btn h-20 rounded-3xl bg-emerald-900 hover:bg-emerald-800 border border-emerald-700 text-emerald-100 font-black flex flex-col items-center justify-center gap-1 transition active:scale-95 shadow"
+              className="pos-touch-btn flex-1 min-w-[140px] h-20 rounded-3xl bg-emerald-900 hover:bg-emerald-800 border border-emerald-700 text-emerald-100 font-black flex flex-col items-center justify-center gap-1 transition active:scale-95 shadow"
             >
               <DoorOpen className="w-6 h-6" />
               <span className="text-sm">Tisch schließen</span>

@@ -42,6 +42,8 @@ export async function POST(req: Request) {
       // Neu: Abrechnungskorrektur & Beleg-Details
       isCorrection,
       printDetails,
+      printItemsSold,
+      printOrders,
       itemsSold,
       orders,
     } = body;
@@ -128,12 +130,12 @@ export async function POST(req: Request) {
     let printError: string | null = null;
     if (printReceipt) {
       try {
-        const [config, printer] = await Promise.all([
-          prisma.eventConfig.findUnique({ where: { id: 'default' } }),
-          printerId
-            ? prisma.printer.findUnique({ where: { id: printerId } })
-            : prisma.printer.findFirst({ where: { isActive: true } }),
-        ]);
+        const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
+        const printer = printerId
+          ? await prisma.printer.findUnique({ where: { id: printerId } })
+          : config?.receiptPrinterId
+          ? await prisma.printer.findUnique({ where: { id: config.receiptPrinterId } })
+          : await prisma.printer.findFirst({ where: { isActive: true } });
 
         if (!printer) {
           printError = 'Kein aktiver Drucker konfiguriert.';
@@ -145,6 +147,8 @@ export async function POST(req: Request) {
               isTraining: config?.trainingMode ?? false,
               isCorrection: Boolean(isCorrection),
               printDetails: Boolean(printDetails),
+              printItemsSold: printItemsSold !== undefined ? Boolean(printItemsSold) : Boolean(printDetails),
+              printOrders: printOrders !== undefined ? Boolean(printOrders) : Boolean(printDetails),
               itemsSold: Array.isArray(itemsSold) ? itemsSold : undefined,
               orders: Array.isArray(orders) ? orders : undefined,
               settledAt: new Date(),

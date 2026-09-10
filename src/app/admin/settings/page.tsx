@@ -14,6 +14,7 @@ import {
   CheckCircle,
   Receipt,
   CreditCard,
+  AlertTriangle,
 } from 'lucide-react';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import { useToast } from '@/components/ui/toast';
@@ -122,6 +123,42 @@ export default function AdminSettingsPage() {
     }
   };
 
+  const [pendingTab, setPendingTab] = useState<SettingsTab | null>(null);
+  const [showDirtyModal, setShowDirtyModal] = useState(false);
+
+  const handleTabClick = (tabId: SettingsTab) => {
+    triggerHapticFeedback();
+    if (tabId === activeTab) return;
+    if (isDirty) {
+      setPendingTab(tabId);
+      setShowDirtyModal(true);
+      return;
+    }
+    setActiveTab(tabId);
+  };
+
+  const handleSaveAndSwitch = async () => {
+    await handleSave();
+    if (pendingTab) {
+      setActiveTab(pendingTab);
+      setPendingTab(null);
+    }
+    setShowDirtyModal(false);
+  };
+
+  const handleDiscardAndSwitch = () => {
+    if (baselineRef.current) {
+      try {
+        setConfig(JSON.parse(baselineRef.current));
+      } catch {}
+    }
+    if (pendingTab) {
+      setActiveTab(pendingTab);
+      setPendingTab(null);
+    }
+    setShowDirtyModal(false);
+  };
+
   const handleToggleAutostart = async () => {
     triggerHapticFeedback();
     setTogglingAutostart(true);
@@ -207,10 +244,7 @@ export default function AdminSettingsPage() {
             <button
               key={t.id}
               type="button"
-              onClick={() => {
-                triggerHapticFeedback();
-                setActiveTab(t.id);
-              }}
+              onClick={() => handleTabClick(t.id)}
               className={`min-h-[48px] px-4 py-2.5 rounded-2xl font-bold text-xs sm:text-sm flex items-center gap-2 transition active:scale-95 touch-manipulation whitespace-nowrap ${
                 isActive
                   ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30'
@@ -235,7 +269,7 @@ export default function AdminSettingsPage() {
             togglingAutostart={togglingAutostart}
           />
         )}
-        {activeTab === 'RECEIPT' && <ReceiptTab config={config} onChange={handleConfigUpdate} />}
+        {activeTab === 'RECEIPT' && <ReceiptTab config={config} onChange={handleConfigUpdate} printers={printers} />}
         {activeTab === 'CARDS' && <CardPaymentTab config={config} onChange={handleConfigUpdate} />}
         {activeTab === 'PRINTERS' && (
           <PrintersTab config={config} onChange={handleConfigUpdate} printers={printers} />
@@ -248,6 +282,49 @@ export default function AdminSettingsPage() {
         )}
         {activeTab === 'SNAPSHOTS' && <SnapshotsTab />}
       </div>
+
+      {/* Unsaved Changes Confirmation Modal (Rein internes In-App Modal) */}
+      {showDirtyModal && (
+        <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 text-white">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-amber-500/20 text-amber-400">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-black">Ungespeicherte Änderungen</h3>
+            </div>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              Sie haben Einstellungen geändert, die noch nicht gespeichert wurden. Wie möchten Sie beim Tab-Wechsel verfahren?
+            </p>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDirtyModal(false);
+                  setPendingTab(null);
+                }}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs"
+              >
+                Hier bleiben
+              </button>
+              <button
+                type="button"
+                onClick={handleDiscardAndSwitch}
+                className="px-4 py-2.5 rounded-xl border border-rose-800/80 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 font-bold text-xs"
+              >
+                Verwerfen & wechseln
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAndSwitch}
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-lg shadow-emerald-950/50"
+              >
+                Speichern & wechseln
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

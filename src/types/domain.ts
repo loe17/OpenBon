@@ -121,6 +121,14 @@ export interface EventConfigDTO {
   lockStartScreen?: boolean;
   enableKioskMode?: boolean;
   lowStockAlertPrinterId?: string | null;
+  receiptPrinterId?: string | null;
+  enableWaiterReceiptPrint?: boolean;
+  cardSumupEnabled?: boolean;
+  cardVrPayEnabled?: boolean;
+  cardSparkasseEnabled?: boolean;
+  cardZvtEnabled?: boolean;
+  cardStripeEnabled?: boolean;
+  cardZettleEnabled?: boolean;
   datevConsultantNumber?: string | null;
   datevClientNumber?: string | null;
   datevCashAccount?: string | null;

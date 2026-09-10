@@ -78,7 +78,9 @@ export async function POST(req: Request) {
 
     const printer = body.printerId
       ? await prisma.printer.findUnique({ where: { id: body.printerId } })
-      : await prisma.printer.findFirst({ where: { isActive: true } });
+      : (config?.receiptPrinterId
+          ? await prisma.printer.findUnique({ where: { id: config.receiptPrinterId } })
+          : await prisma.printer.findFirst({ where: { isActive: true } }));
 
     if (!printer) {
       return NextResponse.json({ error: 'Kein aktiver Drucker konfiguriert.' }, { status: 400 });
@@ -95,11 +97,16 @@ export async function POST(req: Request) {
       action: 'X_BON_PRINTED',
       category: 'CASHBOOK',
       actor: body.waiterName || auth.session.waiterName || auth.session.role,
-      details: `X-Bon (Zwischenbericht) gedruckt${body.waiterName ? ` für ${body.waiterName}` : ''}.`,
+      details: `X-Bon (Zwischenbericht) gedruckt${body.waiterName ? ` für ${body.waiterName}` : ''} auf ${printer.name}.`,
       metadata: { waiterName: body.waiterName ?? null, printerId: printer.id },
     }));
 
-    return NextResponse.json({ success: result.success, isVirtual: result.isVirtual, report });
+    return NextResponse.json({
+      success: result.success,
+      isVirtual: result.isVirtual,
+      printedOn: printer.name,
+      report,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
     return NextResponse.json({ error: message }, { status: 500 });

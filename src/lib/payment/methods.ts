@@ -121,50 +121,62 @@ export function getPaymentColor(id: string): string {
 }
 
 /**
- * Ermittelt die exakte konkrete Kartenmethode basierend auf dem in den Einstellungen
- * gewählten einzigen aktiven Anbieter.
+ * Ermittelt die exakte konkrete Kartenmethode basierend auf den aktivierten
+ * Checkboxen und Konfigurationen der Anbieter im Adminbereich.
  */
 export function getActiveCardPaymentMethod(config?: EventConfigDTO | null): PaymentMethod | null {
   if (!config) return null;
   const provider = config.activeCardProvider?.toUpperCase();
 
-  if (provider === 'SUMUP') {
-    if ((config.sumupMerchantCode && config.sumupMerchantCode.trim() !== '') || (config.sumupAppId && config.sumupAppId.trim() !== '')) {
-      return 'CARD_SUMUP';
-    }
-  } else if (provider === 'VR_PAYME' || provider === 'VRPAY') {
-    if (config.vrPayTerminalId && config.vrPayTerminalId.trim() !== '') {
-      return 'CARD_VRPAY';
-    }
-  } else if (provider === 'SPARKASSE_SPOS' || provider === 'SPOS' || provider === 'SPARKASSE') {
-    if (config.sparkasseMerchantId && config.sparkasseMerchantId.trim() !== '') {
-      return 'CARD_SPARKASSE';
-    }
-  } else if (provider === 'ZETTLE') {
-    return 'CARD_ZETTLE';
-  } else if (provider === 'STRIPE') {
-    if (config.stripeSecretKey || config.stripePublishableKey) {
-      return 'CARD_STRIPE';
-    }
-  } else if (provider === 'ZVT' || provider === 'TERMINAL') {
-    if (config.zvtHost && config.zvtHost.trim() !== '') {
-      return 'CARD_TERMINAL';
-    }
-  }
+  const isSumUpConfigured = Boolean(
+    config.cardSumupEnabled &&
+      ((config.sumupMerchantCode && config.sumupMerchantCode.trim() !== '') ||
+        (config.sumupAppId && config.sumupAppId.trim() !== ''))
+  );
+  const isVrPayConfigured = Boolean(
+    config.cardVrPayEnabled &&
+      config.vrPayTerminalId &&
+      config.vrPayTerminalId.trim() !== ''
+  );
+  const isSparkasseConfigured = Boolean(
+    config.cardSparkasseEnabled &&
+      config.sparkasseMerchantId &&
+      config.sparkasseMerchantId.trim() !== ''
+  );
+  const isZettleConfigured = Boolean(config.cardZettleEnabled);
+  const isStripeConfigured = Boolean(
+    config.cardStripeEnabled &&
+      (config.stripeSecretKey || config.stripePublishableKey || (config as any).hasStripeConfig)
+  );
+  const isZvtConfigured = Boolean(
+    config.cardZvtEnabled && config.zvtHost && config.zvtHost.trim() !== ''
+  );
 
-  // Automatischer Fallback, falls kein expliziter Provider-Name gewählt wurde
-  if ((config.sumupMerchantCode && config.sumupMerchantCode.trim() !== '') || (config.sumupAppId && config.sumupAppId.trim() !== '')) {
-    return 'CARD_SUMUP';
-  }
-  if (config.vrPayTerminalId && config.vrPayTerminalId.trim() !== '') return 'CARD_VRPAY';
-  if (config.sparkasseMerchantId && config.sparkasseMerchantId.trim() !== '') return 'CARD_SPARKASSE';
-  if (config.zvtHost && config.zvtHost.trim() !== '') return 'CARD_TERMINAL';
+  // Falls ein bestimmter Provider in den Einstellungen als Primäranbieter hinterlegt ist:
+  if (provider === 'SUMUP' && isSumUpConfigured) return 'CARD_SUMUP';
+  if ((provider === 'VR_PAYME' || provider === 'VRPAY') && isVrPayConfigured) return 'CARD_VRPAY';
+  if (
+    (provider === 'SPARKASSE_SPOS' || provider === 'SPOS' || provider === 'SPARKASSE') &&
+    isSparkasseConfigured
+  )
+    return 'CARD_SPARKASSE';
+  if (provider === 'ZETTLE' && isZettleConfigured) return 'CARD_ZETTLE';
+  if (provider === 'STRIPE' && isStripeConfigured) return 'CARD_STRIPE';
+  if ((provider === 'ZVT' || provider === 'TERMINAL') && isZvtConfigured) return 'CARD_TERMINAL';
+
+  // Automatischer Fallback: erster aktivierter und konfigurierter Anbieter
+  if (isSumUpConfigured) return 'CARD_SUMUP';
+  if (isVrPayConfigured) return 'CARD_VRPAY';
+  if (isSparkasseConfigured) return 'CARD_SPARKASSE';
+  if (isZettleConfigured) return 'CARD_ZETTLE';
+  if (isStripeConfigured) return 'CARD_STRIPE';
+  if (isZvtConfigured) return 'CARD_TERMINAL';
 
   return null;
 }
 
 /**
- * Prüft ob mindestens eine Kartenzahlungsmethode im Adminbereich konfiguriert ist.
+ * Prüft ob mindestens eine Kartenzahlungsmethode im Adminbereich konfiguriert und aktiviert ist.
  */
 export function hasAnyCardPaymentConfigured(config?: EventConfigDTO | null): boolean {
   return getActiveCardPaymentMethod(config) !== null;
@@ -184,9 +196,37 @@ export function isPaymentMethodAvailable(
     return methodId === 'CASH' || methodId === 'NON_PAID_STAFF' || methodId === 'DISCOUNT';
   }
 
-  const activeCardMethod = getActiveCardPaymentMethod(config);
-  if (methodId === activeCardMethod) return true;
-  if (methodId.startsWith('CARD_')) return false;
+  if (methodId === 'CARD_SUMUP') {
+    return Boolean(
+      config.cardSumupEnabled &&
+        ((config.sumupMerchantCode && config.sumupMerchantCode.trim() !== '') ||
+          (config.sumupAppId && config.sumupAppId.trim() !== ''))
+    );
+  }
+  if (methodId === 'CARD_VRPAY') {
+    return Boolean(
+      config.cardVrPayEnabled && config.vrPayTerminalId && config.vrPayTerminalId.trim() !== ''
+    );
+  }
+  if (methodId === 'CARD_SPARKASSE') {
+    return Boolean(
+      config.cardSparkasseEnabled &&
+        config.sparkasseMerchantId &&
+        config.sparkasseMerchantId.trim() !== ''
+    );
+  }
+  if (methodId === 'CARD_ZETTLE') {
+    return Boolean(config.cardZettleEnabled);
+  }
+  if (methodId === 'CARD_STRIPE') {
+    return Boolean(
+      config.cardStripeEnabled &&
+        (config.stripeSecretKey || config.stripePublishableKey || (config as any).hasStripeConfig)
+    );
+  }
+  if (methodId === 'CARD_TERMINAL') {
+    return Boolean(config.cardZvtEnabled && config.zvtHost && config.zvtHost.trim() !== '');
+  }
 
   return true;
 }

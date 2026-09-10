@@ -31,6 +31,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     const printer = body.printerId
       ? await prisma.printer.findUnique({ where: { id: body.printerId } })
+      : config?.receiptPrinterId
+      ? await prisma.printer.findUnique({ where: { id: config.receiptPrinterId } })
       : await prisma.printer.findFirst({ where: { isActive: true } });
 
     if (!printer) {

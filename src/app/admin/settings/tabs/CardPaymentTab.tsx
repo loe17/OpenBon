@@ -23,25 +23,47 @@ function filled(value?: string | null): boolean {
   return Boolean(value && String(value).trim() !== '');
 }
 
-function StatusBadge({ active }: { active: boolean }) {
-  return active ? (
-    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded-full">
+function StatusBadge({ enabled, configured }: { enabled: boolean; configured: boolean }) {
+  if (!enabled) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 bg-slate-950 border border-slate-700 px-2.5 py-0.5 rounded-full">
+        Deaktiviert
+      </span>
+    );
+  }
+  if (!configured) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-300 bg-amber-950/60 border border-amber-800 px-2.5 py-0.5 rounded-full">
+        <AlertTriangle className="w-3 h-3" />
+        Aktiviert (Eingabe fehlt)
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800 px-2.5 py-0.5 rounded-full">
       <CheckCircle2 className="w-3 h-3" />
-      An der Kasse verfügbar
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 bg-slate-950 border border-slate-700 px-2 py-0.5 rounded-full">
-      Nicht eingerichtet
+      An der Kasse aktiv
     </span>
   );
 }
 
 export function CardPaymentTab({ config, onChange }: CardPaymentTabProps) {
-  const sumupActive = filled(config.sumupMerchantCode) || filled(config.sumupAppId);
-  const vrPayActive = filled(config.vrPayTerminalId);
-  const sparkasseActive = filled(config.sparkasseMerchantId);
-  const zvtActive = filled(config.zvtHost);
-  const anyActive = sumupActive || vrPayActive || sparkasseActive || zvtActive;
+  const sumupConfigured = filled(config.sumupMerchantCode) || filled(config.sumupAppId);
+  const vrPayConfigured = filled(config.vrPayTerminalId);
+  const sparkasseConfigured = filled(config.sparkasseMerchantId);
+  const zettleConfigured = true; // App-to-App
+  const stripeConfigured = Boolean(config.stripeSecretKey);
+  const zvtConfigured = filled(config.zvtHost);
+
+  const sumupActive = Boolean(config.cardSumupEnabled && sumupConfigured);
+  const vrPayActive = Boolean(config.cardVrPayEnabled && vrPayConfigured);
+  const sparkasseActive = Boolean(config.cardSparkasseEnabled && sparkasseConfigured);
+  const zettleActive = Boolean(config.cardZettleEnabled);
+  const stripeActive = Boolean(config.cardStripeEnabled && stripeConfigured);
+  const zvtActive = Boolean(config.cardZvtEnabled && zvtConfigured);
+
+  const anyActive =
+    sumupActive || vrPayActive || sparkasseActive || zettleActive || stripeActive || zvtActive;
 
   const inputClass =
     'w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-mono focus:border-blue-500';
@@ -52,10 +74,10 @@ export function CardPaymentTab({ config, onChange }: CardPaymentTabProps) {
         <div className="flex items-start gap-3 bg-amber-950/40 border border-amber-800/60 text-amber-200 rounded-2xl p-4">
           <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
           <div className="text-sm">
-            <div className="font-bold">Zurzeit ist nur Barzahlung möglich.</div>
+            <div className="font-bold">Zurzeit ist an der Kasse nur Barzahlung möglich.</div>
             <p className="text-xs text-amber-200/80 mt-0.5">
-              Eine Kartenzahlart wird an Bonkasse und Bedienung erst angeboten, sobald unten das
-              passende Feld ausgefüllt ist.
+              Kartenzahlung wird an Bonkasse und Bedienung erst angeboten, sobald mindestens ein
+              Anbieter per Checkbox aktiviert und mit den nötigen Zugangsdaten eingerichtet ist.
             </p>
           </div>
         </div>
@@ -75,8 +97,19 @@ export function CardPaymentTab({ config, onChange }: CardPaymentTabProps) {
         {/* SumUp */}
         <div className="rounded-2xl bg-slate-950 border border-slate-800 p-4 space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <span className="font-bold text-sm text-white">SumUp</span>
-            <StatusBadge active={sumupActive} />
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={Boolean(config.cardSumupEnabled)}
+                onChange={(e) => onChange({ cardSumupEnabled: e.target.checked })}
+                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-slate-900 border-slate-700"
+              />
+              <span className="font-bold text-sm text-white">SumUp</span>
+            </label>
+            <StatusBadge
+              enabled={Boolean(config.cardSumupEnabled)}
+              configured={sumupConfigured}
+            />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
@@ -105,8 +138,19 @@ export function CardPaymentTab({ config, onChange }: CardPaymentTabProps) {
         {/* VR-Pay */}
         <div className="rounded-2xl bg-slate-950 border border-slate-800 p-4 space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <span className="font-bold text-sm text-white">VR-Pay Me</span>
-            <StatusBadge active={vrPayActive} />
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={Boolean(config.cardVrPayEnabled)}
+                onChange={(e) => onChange({ cardVrPayEnabled: e.target.checked })}
+                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-slate-900 border-slate-700"
+              />
+              <span className="font-bold text-sm text-white">VR-Pay Me</span>
+            </label>
+            <StatusBadge
+              enabled={Boolean(config.cardVrPayEnabled)}
+              configured={vrPayConfigured}
+            />
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-300 mb-1">Terminal-ID</label>
@@ -123,8 +167,19 @@ export function CardPaymentTab({ config, onChange }: CardPaymentTabProps) {
         {/* Sparkasse */}
         <div className="rounded-2xl bg-slate-950 border border-slate-800 p-4 space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <span className="font-bold text-sm text-white">Sparkasse / S-POS</span>
-            <StatusBadge active={sparkasseActive} />
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={Boolean(config.cardSparkasseEnabled)}
+                onChange={(e) => onChange({ cardSparkasseEnabled: e.target.checked })}
+                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-slate-900 border-slate-700"
+              />
+              <span className="font-bold text-sm text-white">Sparkasse / S-POS</span>
+            </label>
+            <StatusBadge
+              enabled={Boolean(config.cardSparkasseEnabled)}
+              configured={sparkasseConfigured}
+            />
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-300 mb-1">
@@ -143,8 +198,19 @@ export function CardPaymentTab({ config, onChange }: CardPaymentTabProps) {
         {/* Zettle by PayPal */}
         <div className="rounded-2xl bg-slate-950 border border-slate-800 p-4 space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <span className="font-bold text-sm text-white">Zettle by PayPal</span>
-            <StatusBadge active={true} />
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={Boolean(config.cardZettleEnabled)}
+                onChange={(e) => onChange({ cardZettleEnabled: e.target.checked })}
+                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-slate-900 border-slate-700"
+              />
+              <span className="font-bold text-sm text-white">Zettle by PayPal</span>
+            </label>
+            <StatusBadge
+              enabled={Boolean(config.cardZettleEnabled)}
+              configured={zettleConfigured}
+            />
           </div>
           <p className="text-xs text-slate-400">
             Zettle App-to-App benötigt keine statischen API-Keys. Die Zettle-App muss auf dem Gerät installiert sein.
@@ -154,8 +220,19 @@ export function CardPaymentTab({ config, onChange }: CardPaymentTabProps) {
         {/* Stripe Terminal / QR */}
         <div className="rounded-2xl bg-slate-950 border border-slate-800 p-4 space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <span className="font-bold text-sm text-white">Stripe Terminal / Hosted QR</span>
-            <StatusBadge active={Boolean(config.stripeSecretKey)} />
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={Boolean(config.cardStripeEnabled)}
+                onChange={(e) => onChange({ cardStripeEnabled: e.target.checked })}
+                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-slate-900 border-slate-700"
+              />
+              <span className="font-bold text-sm text-white">Stripe Terminal / Hosted QR</span>
+            </label>
+            <StatusBadge
+              enabled={Boolean(config.cardStripeEnabled)}
+              configured={stripeConfigured}
+            />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
@@ -187,9 +264,20 @@ export function CardPaymentTab({ config, onChange }: CardPaymentTabProps) {
         <div className="flex items-center justify-between gap-2 flex-wrap border-b border-slate-800 pb-3">
           <div className="flex items-center gap-3">
             <Server className="w-5 h-5 text-rose-400" />
-            <h3 className="font-bold text-base text-white">EC-Terminal im Netzwerk (ZVT)</h3>
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={Boolean(config.cardZvtEnabled)}
+                onChange={(e) => onChange({ cardZvtEnabled: e.target.checked })}
+                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-slate-900 border-slate-700"
+              />
+              <span className="font-bold text-base text-white">EC-Terminal im Netzwerk (ZVT)</span>
+            </label>
           </div>
-          <StatusBadge active={zvtActive} />
+          <StatusBadge
+            enabled={Boolean(config.cardZvtEnabled)}
+            configured={zvtConfigured}
+          />
         </div>
         <p className="text-xs text-slate-400 -mt-1">
           Für fest verbaute Terminals, die per Netzwerkkabel oder WLAN erreichbar sind. Die Kasse

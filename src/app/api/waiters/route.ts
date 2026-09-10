@@ -5,6 +5,8 @@ import { requireApiAuth } from '@/lib/api-guard';
 import { getOrAssignWaiterNumber } from '@/lib/waiter-number';
 import { hashPin } from '@/lib/auth-pin';
 
+import { getOrCreateOpenPeriod } from '@/lib/register-period';
+
 /** M3.1: Gepinnte Eingabe normalisieren und NUR als PBKDF2-Hash persistieren. */
 function resolveStoredPin(rawPin: unknown): string {
   const clean = typeof rawPin === 'string' ? rawPin.trim() : '';
@@ -18,7 +20,9 @@ export async function GET(req: Request) {
   if (!auth.ok) return auth.response;
 
   try {
-    const [profiles, distinctOrders, distinctPayments, recentSettles] = await Promise.all([
+    const period = await getOrCreateOpenPeriod();
+
+    const [profiles, distinctOrders, distinctPayments, recentSettles, latestPayments, latestOrders] = await Promise.all([
       prisma.waiterProfile.findMany({
         select: {
           id: true,
@@ -40,8 +44,27 @@ export async function GET(req: Request) {
         distinct: ['waiterName'],
       }),
       prisma.actionLog.findMany({
-        where: { action: { in: ['WAITER_SETTLED', 'WAITER_SETTLEMENT_CORRECTION'] } },
+        where: {
+          action: { in: ['WAITER_SETTLED', 'WAITER_SETTLEMENT_CORRECTION'] },
+          createdAt: { gte: period.openedAt },
+        },
         select: { actor: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.payment.findMany({
+        where: {
+          isCancelled: false,
+          createdAt: { gte: period.openedAt },
+        },
+        select: { waiterName: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.order.findMany({
+        where: {
+          status: { not: 'CANCELLED' },
+          createdAt: { gte: period.openedAt },
+        },
+        select: { waiterName: true, createdAt: true },
         orderBy: { createdAt: 'desc' },
       }),
     ]);
@@ -101,14 +124,55 @@ export async function GET(req: Request) {
       }
     }
 
-    const result = Array.from(namesMap.values()).map((w) => {
-      const settle = recentSettles.find((s: any) => s.actor === w.name);
-      return {
-        ...w,
-        isSettled: Boolean(settle),
-        lastSettledAt: settle?.createdAt || null,
-      };
-    });
+    const result: any[] = [];
+
+    for (const w of namesMap.values()) {
+      const settles = recentSettles.filter((s: any) => s.actor === w.name);
+      const latestSettle = settles[0];
+
+      if (!latestSettle) {
+        // Noch nie abgerechnet in dieser Kassenperiode
+        result.push({
+          ...w,
+          isSettled: false,
+          lastSettledAt: null,
+          shiftNumber: 1,
+        });
+      } else {
+        // Wurde bereits mindestens einmal abgerechnet
+        const settleTime = new Date(latestSettle.createdAt).getTime();
+        const hasPaymentAfter = latestPayments.some(
+          (p) => p.waiterName === w.name && new Date(p.createdAt).getTime() > settleTime
+        );
+        const hasOrderAfter = latestOrders.some(
+          (o) => o.waiterName === w.name && new Date(o.createdAt).getTime() > settleTime
+        );
+        const hasNewActivity = hasPaymentAfter || hasOrderAfter || w.isActive;
+
+        // Wenn nach der Abrechnung neue Aktivität vorliegt: frische, offene Schicht bereitstellen
+        if (hasNewActivity) {
+          result.push({
+            ...w,
+            id: w.id,
+            name: w.name,
+            isSettled: false,
+            lastSettledAt: latestSettle.createdAt,
+            shiftNumber: settles.length + 1,
+          });
+        }
+
+        // Bereits abgerechnete Schicht (zur Revisionsansicht / Korrektur)
+        result.push({
+          ...w,
+          id: `${w.id || w.name}-settled-${latestSettle.createdAt}`,
+          name: hasNewActivity ? `${w.name} (Schicht ${settles.length})` : w.name,
+          originalWaiterName: w.name,
+          isSettled: true,
+          lastSettledAt: latestSettle.createdAt,
+          shiftNumber: settles.length,
+        });
+      }
+    }
 
     return NextResponse.json(result);
   } catch (error) {

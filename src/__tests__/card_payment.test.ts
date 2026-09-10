@@ -215,8 +215,16 @@ describe('ZVT protocol (Spec 4.3.2)', () => {
       expect(hasAnyCardPaymentConfigured(emptyConfig)).toBe(false);
     });
 
-    it('should activate SumUp only when merchant code or appId is set', () => {
+    it('should activate SumUp only when enabled and merchant code or appId is set', () => {
+      const sumupDisabledConfig: any = {
+        cardSumupEnabled: false,
+        sumupMerchantCode: 'SUMUP-1234',
+      };
+      expect(isPaymentMethodAvailable('CARD_SUMUP', sumupDisabledConfig)).toBe(false);
+      expect(hasAnyCardPaymentConfigured(sumupDisabledConfig)).toBe(false);
+
       const sumupConfig: any = {
+        cardSumupEnabled: true,
         sumupMerchantCode: 'SUMUP-1234',
       };
       expect(isPaymentMethodAvailable('CARD_SUMUP', sumupConfig)).toBe(true);
@@ -224,8 +232,16 @@ describe('ZVT protocol (Spec 4.3.2)', () => {
       expect(hasAnyCardPaymentConfigured(sumupConfig)).toBe(true);
     });
 
-    it('should activate ZVT EC-Terminal when zvtHost is set', () => {
+    it('should activate ZVT EC-Terminal when enabled and zvtHost is set', () => {
+      const zvtDisabledConfig: any = {
+        cardZvtEnabled: false,
+        zvtHost: '192.168.178.50',
+      };
+      expect(isPaymentMethodAvailable('CARD_TERMINAL', zvtDisabledConfig)).toBe(false);
+      expect(hasAnyCardPaymentConfigured(zvtDisabledConfig)).toBe(false);
+
       const zvtConfig: any = {
+        cardZvtEnabled: true,
         zvtHost: '192.168.178.50',
       };
       expect(isPaymentMethodAvailable('CARD_TERMINAL', zvtConfig)).toBe(true);

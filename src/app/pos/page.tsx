@@ -512,14 +512,20 @@ function PosCounterContent() {
           </div>
         </div>
 
-        {/* Mode Selector */}
-        <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-700">
+        {/* Mode Selector (Ausgabe-Modus: Direktverkauf vs. Wertmarken/Bons für Küchen-/Schänkenausgabe) */}
+        <div className="flex items-center gap-2 bg-slate-950 px-2.5 py-1.5 rounded-2xl border border-slate-700">
+          <span
+            className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden lg:inline"
+            title="Steuert, ob Bons für die Essens-/Getränkeausgabe gedruckt werden oder direkt ausgegeben wird"
+          >
+            Ausgabe-Modus:
+          </span>
           <button
             onClick={() => setMode('DIRECT')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
               mode === 'DIRECT' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
             }`}
-            title="Reiner Verkauf an der Theke"
+            title="Direktverkauf (Theke/Bar): Kassieren und Speisen/Getränke direkt aushändigen, kein Bon-Ausdruck für Küche/Schänke"
           >
             Nur Kassieren
           </button>
@@ -528,7 +534,7 @@ function PosCounterContent() {
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
               mode === 'VOUCHER' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
             }`}
-            title="Druckt Wertmarken je Artikel mit Abholnummer"
+            title="Wertmarken / Abholbons: Druckt Wertmarken je Artikel, die der Gast an Schänke oder Küche gegen Speisen/Getränke einlöst"
           >
             Wertmarken
           </button>
@@ -537,7 +543,7 @@ function PosCounterContent() {
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
               mode === 'DUAL' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
             }`}
-            title="Druckt Gast-Wertmarke UND Küchen-Gegenbon"
+            title="Gutschein + Gegenbon: Druckt Gast-Wertmarke UND zusätzlichen Küchen-Gegenbon zur Zubereitung"
           >
             Gutschein + Gegenbon
           </button>
@@ -898,7 +904,7 @@ function PosCounterContent() {
                 {/* Left Column: Aktions-Buttons (Bild 1) & Scheine/Münzen Rechner */}
                 <div className="flex-1 p-4 sm:p-5 overflow-y-auto border-b md:border-b-0 md:border-r border-slate-800 space-y-4">
                   {/* Top Action Buttons (Bild 1 Layout: Rot Abbrechen, Grün Barzahlung, Blau Kartenzahlung, Amber Wertmarke) */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className={`grid gap-2 ${hasAnyCardPaymentConfigured(config) ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
                     <button
                       type="button"
                       onClick={() => setShowCheckoutModal(false)}
@@ -918,15 +924,20 @@ function PosCounterContent() {
                       <span>Barzahlung</span>
                     </button>
 
-                    <button
-                      type="button"
-                      disabled={isProcessing || payableItems.length === 0}
-                      onClick={() => handleCheckout(getActiveCardPaymentMethod(config) || 'CARD_SUMUP')}
-                      className="min-h-[50px] rounded-2xl font-black text-xs sm:text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 shadow-md flex items-center justify-center gap-1.5 transition active:scale-95"
-                    >
-                      <CreditCard className="w-4 h-4 text-blue-400" />
-                      <span>Kartenzahlung</span>
-                    </button>
+                    {hasAnyCardPaymentConfigured(config) && (
+                      <button
+                        type="button"
+                        disabled={isProcessing || payableItems.length === 0}
+                        onClick={() => {
+                          const activeCard = getActiveCardPaymentMethod(config);
+                          if (activeCard) handleCheckout(activeCard);
+                        }}
+                        className="min-h-[50px] rounded-2xl font-black text-xs sm:text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 shadow-md flex items-center justify-center gap-1.5 transition active:scale-95"
+                      >
+                        <CreditCard className="w-4 h-4 text-blue-400" />
+                        <span>Kartenzahlung</span>
+                      </button>
+                    )}
 
                     <button
                       type="button"

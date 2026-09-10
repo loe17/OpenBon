@@ -25,6 +25,7 @@ import type { EventConfigDTO } from '@/types/domain';
 interface ReceiptTabProps {
   config: EventConfigDTO;
   onChange: (updates: Partial<EventConfigDTO>) => void;
+  printers?: { id: string; name: string; isActive?: boolean }[];
 }
 
 type PreviewKind = 'RECEIPT' | 'FOOD' | 'DRINK' | 'EBON';
@@ -127,7 +128,7 @@ function FontSizeSlider({
   );
 }
 
-export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
+export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
   const [preview, setPreview] = useState<PreviewKind>('RECEIPT');
   const [paperWidth, setPaperWidth] = useState<80 | 58>(80);
 
@@ -483,6 +484,39 @@ export function ReceiptTab({ config, onChange }: ReceiptTabProps) {
               <div className="flex items-center gap-3">
                 <Receipt className="w-5 h-5 text-emerald-400" />
                 <h3 className="font-bold text-base text-white">Kassenbeleg für den Gast</h3>
+              </div>
+            </div>
+
+            {/* Standard-Drucker & Bedienungs-Ausgabe */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-2xl bg-slate-950 border border-slate-800">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                  Standard-Drucker für Kassenbelege &amp; Quittungen
+                </label>
+                <select
+                  value={config.receiptPrinterId || ''}
+                  onChange={(e) => onChange({ receiptPrinterId: e.target.value || null })}
+                  className="w-full min-h-[48px] px-3.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white focus:border-emerald-500"
+                >
+                  <option value="">(Erster aktiver Drucker / Automatisch)</option>
+                  {(printers || []).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} {!p.isActive ? '(inaktiv)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Legt fest, an welchem Bondrucker Gastquittungen und Belege ausgedruckt werden.
+                </p>
+              </div>
+
+              <div>
+                <Toggle
+                  label="Papierbon-Knopf bei Bedienung anzeigen"
+                  hint="Erlaubt Bedienungen, nach dem Bezahlen einen Papierbon auszudrucken. Standard: Nicht angehakt."
+                  value={Boolean(config.enableWaiterReceiptPrint)}
+                  onToggle={() => onChange({ enableWaiterReceiptPrint: !config.enableWaiterReceiptPrint })}
+                />
               </div>
             </div>
 

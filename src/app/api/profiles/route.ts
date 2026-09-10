@@ -11,17 +11,62 @@ export async function GET(req: Request) {
   const denied = await requireAdmin(req);
   if (denied) return denied;
   try {
-    const profiles = await prisma.eventProfile.findMany({
+    const rawProfiles = await prisma.eventProfile.findMany({
       orderBy: { updatedAt: 'desc' },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        createdAt: true,
-        updatedAt: true,
-      },
     });
+
+    const profiles = rawProfiles.map((p) => {
+      let snapshot: any = null;
+      try {
+        snapshot = JSON.parse(p.profileJson);
+      } catch {
+        snapshot = null;
+      }
+
+      const summary = snapshot
+        ? {
+            eventName: snapshot.config?.name || p.name,
+            productCount: Array.isArray(snapshot.products) ? snapshot.products.length : 0,
+            categoryCount: Array.isArray(snapshot.categories) ? snapshot.categories.length : 0,
+            tableCount: Array.isArray(snapshot.tables) ? snapshot.tables.length : 0,
+            printerCount: Array.isArray(snapshot.printers) ? snapshot.printers.length : 0,
+            printGroupCount: Array.isArray(snapshot.printGroups) ? snapshot.printGroups.length : 0,
+          }
+        : null;
+
+      return {
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+        summary,
+        snapshot,
+      };
+    });
+
     return NextResponse.json(profiles);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  const auth = await requireApiAuth(req, ['ADMIN']);
+  if (!auth.ok) return auth.response;
+
+  const denied = await requireAdmin(req);
+  if (denied) return denied;
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    if (!id) {
+      return NextResponse.json({ error: 'Profil-ID ist erforderlich' }, { status: 400 });
+    }
+
+    await prisma.eventProfile.delete({ where: { id } });
+    return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }

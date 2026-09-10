@@ -199,7 +199,21 @@ export async function POST(req: Request) {
         throw new Error('Keine gültigen Artikel in der Bestellung gefunden.');
       }
 
-      const invoiceNumber = `BELEG-${new Date().getFullYear()}-${String(invoiceSeq).padStart(5, '0')}`;
+      let currentInvoiceSeq = config.invoiceSequence - 1;
+      let invoiceNumber = `BELEG-${new Date().getFullYear()}-${String(currentInvoiceSeq).padStart(5, '0')}`;
+      let existingPayment = await tx.payment.findUnique({ where: { invoiceNumber } });
+      while (existingPayment) {
+        currentInvoiceSeq++;
+        invoiceNumber = `BELEG-${new Date().getFullYear()}-${String(currentInvoiceSeq).padStart(5, '0')}`;
+        existingPayment = await tx.payment.findUnique({ where: { invoiceNumber } });
+      }
+      if (currentInvoiceSeq >= config.invoiceSequence) {
+        await tx.eventConfig.update({
+          where: { id: 'default' },
+          data: { invoiceSequence: currentInvoiceSeq + 1 },
+        });
+      }
+
       let digitalReceiptCode: string | null = null;
       if (Boolean(config.enableDigitalReceipt || config.enableDigitalReceiptQr)) {
         try {

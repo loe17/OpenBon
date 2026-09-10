@@ -68,23 +68,41 @@ export async function GET(req: Request) {
 
   try {
     const { searchParams } = new URL(req.url);
-    const waiterName = (searchParams.get('waiterName') || '').trim();
-
-    if (!waiterName) {
+    const rawWaiterName = (searchParams.get('waiterName') || '').trim();
+    if (!rawWaiterName) {
       return NextResponse.json({ error: 'waiterName ist erforderlich.' }, { status: 400 });
     }
+
+    const cleanWaiterName = rawWaiterName
+      .replace(/\s*\(Schicht\s*\d+\)$/i, '')
+      .replace(/\s*\(Abgerechnet\)$/i, '')
+      .trim();
+    const isCorrection = searchParams.get('isCorrection') === 'true';
 
     const [config, period] = await Promise.all([
       prisma.eventConfig.findUnique({ where: { id: 'default' } }),
       getOrCreateOpenPeriod(),
     ]);
 
+    // Wenn es keine Korrektur ist, prüfen ob die Bedienung zuvor schon abgerechnet wurde
+    const latestSettle = await prisma.actionLog.findFirst({
+      where: {
+        action: { in: ['WAITER_SETTLED', 'WAITER_SETTLEMENT_CORRECTION'] },
+        actor: cleanWaiterName,
+        createdAt: { gte: period.openedAt },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Bei neuer Schicht nur Umsätze nach dem vorherigen Abschluss zählen
+    const shiftStartDate = !isCorrection && latestSettle ? latestSettle.createdAt : period.openedAt;
+
     const [payments, ordersData, profile] = await Promise.all([
       prisma.payment.findMany({
         where: {
-          waiterName,
+          waiterName: cleanWaiterName,
           isCancelled: false,
-          createdAt: { gte: period.openedAt },
+          createdAt: { gte: shiftStartDate },
         },
         select: {
           totalGrossCents: true,
@@ -97,11 +115,11 @@ export async function GET(req: Request) {
       prisma.order.findMany({
         where: {
           OR: [
-            { waiterName },
-            { payments: { some: { waiterName, isCancelled: false } } },
+            { waiterName: cleanWaiterName },
+            { payments: { some: { waiterName: cleanWaiterName, isCancelled: false } } },
           ],
           status: { not: 'CANCELLED' },
-          createdAt: { gte: period.openedAt },
+          createdAt: { gte: shiftStartDate },
         },
         include: {
           table: { select: { label: true } },
@@ -112,7 +130,7 @@ export async function GET(req: Request) {
         orderBy: { createdAt: 'asc' },
       }),
       prisma.waiterProfile.findFirst({
-        where: { name: waiterName },
+        where: { name: cleanWaiterName },
         select: { tipProfile: { select: { name: true } } },
       }),
     ]);
@@ -187,7 +205,7 @@ export async function GET(req: Request) {
     const cashExpectedCents = Math.round(cashGross - tipWaiterShare);
 
     const report: SettlementReport = {
-      waiterName,
+      waiterName: rawWaiterName,
       periodNumber: period.periodNumber,
       periodOpenedAt: period.openedAt.toISOString(),
       generatedAt: new Date().toISOString(),

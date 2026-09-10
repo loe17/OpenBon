@@ -122,7 +122,8 @@ function AdminSettleContent() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [pendingWaiter, setPendingWaiter] = useState<string | null>(null);
   const [isCorrection, setIsCorrection] = useState(false);
-  const [printDetails, setPrintDetails] = useState(true);
+  const [printItemsSold, setPrintItemsSold] = useState(false);
+  const [printOrders, setPrintOrders] = useState(false);
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'ARTICLES' | 'ORDERS'>('OVERVIEW');
   const [articleSearch, setArticleSearch] = useState('');
 
@@ -295,7 +296,8 @@ function AdminSettleContent() {
           printReceipt: withPrint,
           printerId: withPrint ? printerId || undefined : undefined,
           isCorrection,
-          printDetails,
+          printItemsSold,
+          printOrders,
           itemsSold: report.itemsSold,
           orders: report.orders,
         }),
@@ -858,15 +860,25 @@ function AdminSettleContent() {
               </div>
             ) : null}
 
-            <div className="pt-1">
+            <div className="pt-1 space-y-2">
               <label className="flex items-center gap-2.5 cursor-pointer bg-slate-950 border border-slate-800 p-3 rounded-xl text-xs font-bold text-slate-300 hover:text-white">
                 <input
                   type="checkbox"
-                  checked={printDetails}
-                  onChange={(e) => setPrintDetails(e.target.checked)}
+                  checked={printItemsSold}
+                  onChange={(e) => setPrintItemsSold(e.target.checked)}
                   className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-slate-900 border-slate-700"
                 />
-                <span>Artikel- und Bestelldetails mit auf den Bon drucken</span>
+                <span>Verkaufte Artikel mitdrucken (Summe je Artikel)</span>
+              </label>
+
+              <label className="flex items-center gap-2.5 cursor-pointer bg-slate-950 border border-slate-800 p-3 rounded-xl text-xs font-bold text-slate-300 hover:text-white">
+                <input
+                  type="checkbox"
+                  checked={printOrders}
+                  onChange={(e) => setPrintOrders(e.target.checked)}
+                  className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-slate-900 border-slate-700"
+                />
+                <span>Einzelne Bestellungen mitdrucken (jede Bestellung einzeln)</span>
               </label>
             </div>
           </div>
@@ -1049,7 +1061,7 @@ function AdminSettleContent() {
               </table>
 
               {/* 4. Verkaufte Artikel */}
-              {report.itemsSold && report.itemsSold.length > 0 && (
+              {printItemsSold && report.itemsSold && report.itemsSold.length > 0 && (
                 <div className="mb-6">
                   <h3 className="font-black text-sm border-b-2 border-slate-900 pb-1 mb-2 uppercase">
                     4. Verkaufte Artikel ({report.itemsSold.length} Positionen)
@@ -1085,7 +1097,7 @@ function AdminSettleContent() {
               )}
 
               {/* 5. Einzelbestellungen */}
-              {report.orders && report.orders.length > 0 && (
+              {printOrders && report.orders && report.orders.length > 0 && (
                 <div className="mb-6">
                   <h3 className="font-black text-sm border-b-2 border-slate-900 pb-1 mb-2 uppercase">
                     5. Einzelbestellungen ({report.orders.length} Vorgänge)
@@ -1177,7 +1189,7 @@ function AdminSettleContent() {
                 </div>
 
                 {/* Optional: Verkaufte Artikel auf Bonstreifen */}
-                {printDetails && report.itemsSold && report.itemsSold.length > 0 && (
+                {printItemsSold && report.itemsSold && report.itemsSold.length > 0 && (
                   <div className="py-2 border-b border-slate-400 space-y-1">
                     <div className="font-bold">VERKAUFTE ARTIKEL:</div>
                     {report.itemsSold.map((it) => (
@@ -1190,7 +1202,7 @@ function AdminSettleContent() {
                 )}
 
                 {/* Optional: Bestellungen auf Bonstreifen */}
-                {printDetails && report.orders && report.orders.length > 0 && (
+                {printOrders && report.orders && report.orders.length > 0 && (
                   <div className="py-2 border-b border-slate-400 space-y-1">
                     <div className="font-bold">BESTELLUNGEN ({report.orders.length}):</div>
                     {report.orders.map((ord) => (
@@ -1283,7 +1295,7 @@ function AdminSettleContent() {
               </div>
 
               {/* Top Verkaufte Artikel */}
-              {report.itemsSold && report.itemsSold.length > 0 && (
+              {printItemsSold && report.itemsSold && report.itemsSold.length > 0 && (
                 <div>
                   <h3 className="font-black text-sm uppercase mb-3">
                     Verkaufte Artikel ({report.itemsSold.length} Positionen, {report.itemsSold.reduce((sum, it) => sum + it.quantity, 0)} Stück)
