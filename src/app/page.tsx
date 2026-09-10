@@ -105,7 +105,7 @@ export default function HomePage() {
         const cfg = d && !d.error ? d : null;
         if (cfg && !cancelled) {
           setConfig(cfg);
-          if (cfg.initialPinSet === false) {
+          if (cfg.needsSetup === true) {
             router.push('/setup');
             return;
           }

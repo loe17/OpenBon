@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { APP_VERSION } from '@/lib/version';
+import { hasActiveEventData } from '@/lib/auth-pin';
 
 export async function GET() {
   try {
@@ -44,6 +45,19 @@ export async function GET() {
         receiptSingleItemDrinkSlips: true,
       });
     }
+
+    // Prüfen, ob bereits aktive Veranstaltungsdaten auf dem System existieren
+    const hasActiveData = await hasActiveEventData();
+
+    if (hasActiveData && !config.initialPinSet) {
+      await prisma.eventConfig.update({
+        where: { id: 'default' },
+        data: { initialPinSet: true },
+      }).catch(() => {});
+    }
+
+    const isEffectivelyConfigured = Boolean(config.initialPinSet || hasActiveData);
+    const needsSetup = !isEffectivelyConfigured;
 
     // Sicherer Payload OHNE PINs, ZVT-Passwörter oder Secrets
     const publicConfig = {
@@ -91,7 +105,8 @@ export async function GET() {
       receiptDrinkShowOptions: config.receiptDrinkShowOptions,
       activeCardProvider: config.activeCardProvider || 'SUMUP',
       tseProvider: config.tseProvider,
-      initialPinSet: config.initialPinSet,
+      initialPinSet: isEffectivelyConfigured,
+      needsSetup,
       // N3.3: Versionskennung fuer den "Update verfuegbar"-Hinweis der Clients
       appVersion: APP_VERSION,
     };

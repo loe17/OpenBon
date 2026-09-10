@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Sparkles,
   ShieldCheck,
   Printer,
-  Grid,
   CheckCircle,
   ArrowRight,
   ArrowLeft,
@@ -25,33 +24,27 @@ export default function SetupWizardPage() {
   // Step 1: Event Info
   const [eventName, setEventName] = useState('Vereinsfest 2026');
   const [organizer, setOrganizer] = useState('Freiwillige Feuerwehr e.V.');
-  const [currency, setCurrency] = useState('EUR');
   const [enableTax, setEnableTax] = useState(false);
 
-  // Step 2: PINs (Sicherheit)
+  // Step 2: PINs (Sicherheit - min. 6 Ziffern)
   const [adminPin, setAdminPin] = useState('');
   const [posPin, setPosPin] = useState('');
   const [kitchenPin, setKitchenPin] = useState('');
   const [waiterPin, setWaiterPin] = useState('');
 
-  // Step 3: Tische
-  const [tableCount, setTableCount] = useState(20);
-  const [columns, setColumns] = useState(4);
-
-  // Step 4: Drucker
+  // Step 3: Drucker & Abschluss
   const [enableVirtual, setEnableVirtual] = useState(true);
 
   const handleFinish = async () => {
-    if (adminPin.length < 4 || posPin.length < 4 || kitchenPin.length < 4 || waiterPin.length < 4) {
-      error('Bitte alle 4 PINs mit mindestens 4 Ziffern angeben.');
+    if (adminPin.length < 6 || posPin.length < 6 || kitchenPin.length < 6 || waiterPin.length < 6) {
+      error('Bitte für alle 4 Stationen eine PIN mit mindestens 6 Ziffern angeben.');
       setStep(2);
       return;
     }
 
     setLoading(true);
     try {
-      // 1. Initial-PINs setzen
-      const pinRes = await fetch('/api/auth/initial-setup', {
+      const res = await fetch('/api/auth/initial-setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -59,45 +52,19 @@ export default function SetupWizardPage() {
           posPin,
           kitchenPin,
           waiterPin,
-        }),
-      });
-
-      if (!pinRes.ok) {
-        const pinData = await pinRes.json();
-        throw new Error(pinData.error || 'Fehler beim Einrichten der PINs');
-      }
-
-      // 2. EventConfig Grunddaten speichern
-      const configRes = await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: eventName,
-          receiptSubHeader: organizer,
-          currency,
+          eventName,
+          organizer,
           enableTax,
           enableVirtualPrinters: enableVirtual,
         }),
       });
 
-      if (!configRes.ok) {
-        throw new Error('Fehler beim Speichern der Konfiguration');
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Fehler beim Einrichten');
       }
 
-      // 2. Tische generieren
-      await fetch('/api/tables', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'REGENERATE_GRID',
-          rows: Math.ceil(tableCount / columns),
-          cols: columns,
-          startNumber: 1,
-          step: 1,
-        }),
-      });
-
-      success('Einrichtungs-Assistent erfolgreich abgeschlossen!');
+      success('Kassensystem erfolgreich eingerichtet!');
       router.push('/admin/dashboard');
     } catch (err) {
       error(err instanceof Error ? err.message : 'Einrichtungsfehler');
@@ -117,7 +84,7 @@ export default function SetupWizardPage() {
           <div>
             <h1 className="text-2xl font-black">OpenBon Erststart-Assistent</h1>
             <p className="text-slate-400 text-xs sm:text-sm">
-              Schritt {step} von 4: Schnelleinrichtung für den Kassenbetrieb
+              Schritt {step} von 3: Schnelleinrichtung für den Kassenbetrieb
             </p>
           </div>
         </div>
@@ -126,7 +93,7 @@ export default function SetupWizardPage() {
         <div className="w-full bg-slate-800 h-2 rounded-full mb-8 overflow-hidden">
           <div
             className="bg-blue-600 h-full transition-all duration-300"
-            style={{ width: `${(step / 4) * 100}%` }}
+            style={{ width: `${(step / 3) * 100}%` }}
           />
         </div>
 
@@ -175,7 +142,7 @@ export default function SetupWizardPage() {
               <label htmlFor="enableTax" className="text-xs text-slate-300 cursor-pointer">
                 <strong>Mehrwertsteuer ausweisen (19% / 7%)</strong>
                 <span className="block text-slate-500">
-                  Für Vereine & Kleinunternehmer standardmäßig deaktiviert
+                  Für Vereine &amp; Kleinunternehmer standardmäßig deaktiviert
                 </span>
               </label>
             </div>
@@ -187,15 +154,15 @@ export default function SetupWizardPage() {
           <div className="space-y-4 animate-in fade-in">
             <div className="flex items-center gap-2 text-sm font-bold text-amber-400 mb-2">
               <Lock className="w-4 h-4" />
-              <span>Sicherheit & Stations-PINs festlegen</span>
+              <span>Sicherheit &amp; Stations-PINs festlegen</span>
             </div>
             <p className="text-xs text-slate-400">
-              Bitte lege individuelle PINs fest, um die Standard-PINs zu ersetzen.
+              Aus Sicherheitsgründen muss jede PIN mindestens 6 Ziffern lang sein (keine einfachen Folgen wie 123456).
             </p>
 
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1">
-                Admin-PIN (Vollzugriff)
+                Admin-PIN (Vollzugriff, min. 6 Ziffern)
               </label>
               <input
                 type="password"
@@ -203,13 +170,13 @@ export default function SetupWizardPage() {
                 value={adminPin}
                 onChange={(e) => setAdminPin(e.target.value)}
                 className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
-                placeholder="z. B. 8492"
+                placeholder="z. B. 849201"
               />
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1">
-                Kassen- / Theken-PIN
+                Kassen- / Theken-PIN (min. 6 Ziffern)
               </label>
               <input
                 type="password"
@@ -217,13 +184,13 @@ export default function SetupWizardPage() {
                 value={posPin}
                 onChange={(e) => setPosPin(e.target.value)}
                 className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
-                placeholder="z. B. 6214"
+                placeholder="z. B. 621405"
               />
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1">
-                Küchen- & Ausschank-PIN
+                Küchen- &amp; Ausschank-PIN (min. 6 Ziffern)
               </label>
               <input
                 type="password"
@@ -231,13 +198,13 @@ export default function SetupWizardPage() {
                 value={kitchenPin}
                 onChange={(e) => setKitchenPin(e.target.value)}
                 className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
-                placeholder="z. B. 4519"
+                placeholder="z. B. 451923"
               />
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1">
-                Kellner-PIN (Mobilteile)
+                Kellner-PIN (Mobilteile, min. 6 Ziffern)
               </label>
               <input
                 type="password"
@@ -245,56 +212,18 @@ export default function SetupWizardPage() {
                 value={waiterPin}
                 onChange={(e) => setWaiterPin(e.target.value)}
                 className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
-                placeholder="z. B. 3918"
+                placeholder="z. B. 391847"
               />
             </div>
           </div>
         )}
 
-        {/* Step 3: Tischplan Schnellgenerator */}
+        {/* Step 3: Drucker & Abschluss */}
         {step === 3 && (
-          <div className="space-y-4 animate-in fade-in">
-            <div className="flex items-center gap-2 text-sm font-bold text-emerald-400 mb-2">
-              <Grid className="w-4 h-4" />
-              <span>Tischplan Schnellgenerator</span>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">
-                Anzahl Tische im Festzelt
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="200"
-                value={tableCount}
-                onChange={(e) => setTableCount(parseInt(e.target.value, 10) || 1)}
-                className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">
-                Spalten im Kassenraster
-              </label>
-              <input
-                type="number"
-                min="2"
-                max="8"
-                value={columns}
-                onChange={(e) => setColumns(parseInt(e.target.value, 10) || 4)}
-                className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Step 4: Drucker & Abschluss */}
-        {step === 4 && (
           <div className="space-y-4 animate-in fade-in">
             <div className="flex items-center gap-2 text-sm font-bold text-purple-400 mb-2">
               <Printer className="w-4 h-4" />
-              <span>Drucker & Ausgabe</span>
+              <span>Drucker &amp; Ausgabe</span>
             </div>
 
             <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-950 border border-slate-800">
@@ -319,7 +248,7 @@ export default function SetupWizardPage() {
                 <strong>Bereit für den Kassenbetrieb!</strong>
                 <p className="mt-1 text-slate-300">
                   Nach dem Abschluss kannst du im Admin-Menü jederzeit weitere Warengruppen, Produkte,
-                  Bondrucker und Benutzerprofile anpassen.
+                  Tische, Bondrucker und Benutzerprofile anpassen.
                 </p>
               </div>
             </div>
@@ -341,7 +270,7 @@ export default function SetupWizardPage() {
             <div />
           )}
 
-          {step < 4 ? (
+          {step < 3 ? (
             <button
               type="button"
               onClick={() => setStep(step + 1)}

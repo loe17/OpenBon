@@ -138,6 +138,7 @@ export interface EventConfigDTO {
   zvtPassword: string;
   baseUrl: string;
   initialPinSet?: boolean;
+  needsSetup?: boolean;
   tseProvider: string;
   tseSerialNumber: string | null;
   licenseKey: string;

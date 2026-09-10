@@ -13,6 +13,7 @@ const PUBLIC_PATHS = [
   '/_next',
   '/api/auth/pin',
   '/api/auth/session',
+  '/api/auth/initial-setup',
   '/api/config/public',
   '/api/devices',
   '/api/health',

@@ -268,3 +268,20 @@ export async function hasFactoryPin(): Promise<boolean> {
   }
 }
 
+/**
+ * Prüft, ob bereits aktive Veranstaltungsdaten (Produkte, Tische, Bestellungen) existieren.
+ */
+export async function hasActiveEventData(): Promise<boolean> {
+  try {
+    const [productCount, tableCount, orderCount] = await Promise.all([
+      prisma.product.count().catch(() => 0),
+      prisma.diningTable.count().catch(() => 0),
+      prisma.order.count().catch(() => 0),
+    ]);
+    return productCount + tableCount + orderCount > 0;
+  } catch {
+    return false;
+  }
+}
+
+
