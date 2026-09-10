@@ -5,9 +5,9 @@ import { parseAndValidateLicense, generateOfflineSignature } from '../lib/licens
 import { verifyStationPin, setAllStationPins } from '../lib/auth-pin';
 import { EscPosBuilder } from '../lib/printer/escpos-builder';
 
-describe('OpenBon v0.4.33: Schema, License, PIN & Print Sanity Tests', () => {
-  it('should verify v0.4.33 version info', () => {
-    expect(APP_VERSION).toBe('0.4.33');
+describe('OpenBon v0.4.34: Schema, License, PIN & Print Sanity Tests', () => {
+  it('should verify v0.4.34 version info', () => {
+    expect(APP_VERSION).toBe('0.4.34');
   });
 
   it('should initialize Prisma DB Client with valid DATABASE_URL fallback', () => {
@@ -93,5 +93,17 @@ describe('OpenBon v0.4.33: Schema, License, PIN & Print Sanity Tests', () => {
     expect(updated.cardSumupEnabled).toBe(false);
     expect(updated.cardSparkasseEnabled).toBe(true);
     expect(updated.enablePosReceiptPrint).toBe(true);
+  });
+
+  it('should verify /api/config/public is force-dynamic and delivers enablePosReceiptPrint', async () => {
+    const publicRoute = await import('../app/api/config/public/route');
+    expect(publicRoute.dynamic).toBe('force-dynamic');
+    expect(publicRoute.revalidate).toBe(0);
+
+    const res = await publicRoute.GET();
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.enablePosReceiptPrint).toBe(true);
+    expect(res.headers.get('cache-control')).toContain('no-store');
   });
 });

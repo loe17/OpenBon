@@ -3,6 +3,9 @@ import prisma from '@/lib/db';
 import { APP_VERSION } from '@/lib/version';
 import { hasActiveEventData } from '@/lib/auth-pin';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET() {
   try {
     const config = await prisma.eventConfig.findUnique({
@@ -152,7 +155,13 @@ export async function GET() {
       appVersion: APP_VERSION,
     };
 
-    return NextResponse.json(publicConfig);
+    return NextResponse.json(publicConfig, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    });
   } catch (error) {
     return NextResponse.json({ error: 'Konfiguration konnte nicht geladen werden' }, { status: 500 });
   }

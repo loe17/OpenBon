@@ -180,15 +180,20 @@ function PosCounterContent() {
   }, [socket, cart, totalGross, totalDeposit, stationId, stationName]);
 
   useEffect(() => {
-    fetch('/api/config/public')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((cfg) => {
-        if (cfg && !cfg.error) {
-          setConfig(cfg);
-          setEnableDigitalReceipt(Boolean(cfg.enableDigitalReceipt || cfg.enableNfc));
-        }
-      })
-      .catch(() => {});
+    const loadConfig = () => {
+      fetch('/api/config/public')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((cfg) => {
+          if (cfg && !cfg.error) {
+            setConfig(cfg);
+            setEnableDigitalReceipt(Boolean(cfg.enableDigitalReceipt || cfg.enableNfc));
+          }
+        })
+        .catch(() => {});
+    };
+
+    loadConfig();
+    window.addEventListener('focus', loadConfig);
 
     fetch('/api/printers')
       .then((r) => (r.ok ? r.json() : []))
@@ -220,13 +225,30 @@ function PosCounterContent() {
           })
           .catch(() => {});
       };
+
+      const handleConfigUpdate = (updated: any) => {
+        if (updated && typeof updated === 'object') {
+          setConfig((prev: any) => ({ ...(prev || {}), ...updated }));
+          if ('enableDigitalReceipt' in updated || 'enableNfc' in updated) {
+            setEnableDigitalReceipt(Boolean(updated.enableDigitalReceipt || updated.enableNfc));
+          }
+        }
+      };
+
       socket.on('inventory:updated', handleInventory);
       socket.on('product:updated', handleInventory);
+      socket.on('config:updated', handleConfigUpdate);
       return () => {
+        window.removeEventListener('focus', loadConfig);
         socket.off('inventory:updated', handleInventory);
         socket.off('product:updated', handleInventory);
+        socket.off('config:updated', handleConfigUpdate);
       };
     }
+
+    return () => {
+      window.removeEventListener('focus', loadConfig);
+    };
   }, [socket]);
 
   const handleProductClick = (product: ProductDTO, variant?: ProductVariantDTO) => {
@@ -331,7 +353,7 @@ function PosCounterContent() {
   const isPosReceiptPrintActive = Boolean(config?.enablePosReceiptPrint);
 
   const handlePrintPaperReceipt = async () => {
-    if (!completedPayment?.id || posReceiptPrinted) return;
+    if (!completedPayment?.id) return;
     triggerHapticFeedback();
     setPosReceiptPrinted(true);
     try {
@@ -341,13 +363,11 @@ function PosCounterContent() {
         body: JSON.stringify({ printerId: posPrinterId || undefined }),
       });
       if (!res.ok) {
-        setPosReceiptPrinted(false);
         error('Fehler beim Drucken des Papierbons.');
       } else {
         success('Papierbon an Drucker gesendet.');
       }
     } catch {
-      setPosReceiptPrinted(false);
       error('Netzwerkfehler beim Drucken des Papierbons.');
     }
   };
@@ -614,6 +634,26 @@ function PosCounterContent() {
             <span>Lade öffnen</span>
           </button>
         )}
+
+        {/* Papierbon Druck-Umschalter (Nur wenn in den Einstellungen aktiviert) */}
+        {isPosReceiptPrintActive && (
+          <button
+            type="button"
+            onClick={() => {
+              triggerHapticFeedback();
+              setPrintReceipt((prev) => !prev);
+            }}
+            className={`pos-touch-btn flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-bold border shadow transition active:scale-95 ${
+              printReceipt
+                ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500 shadow-blue-950/50'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+            }`}
+            title="Papierbon-Druck für Kassiervorgänge ein- oder ausschalten"
+          >
+            <Printer className={`w-4 h-4 ${printReceipt ? 'text-white' : 'text-slate-400'}`} />
+            <span>Papierbon: {printReceipt ? 'AN' : 'AUS'}</span>
+          </button>
+        )}
       </div>
 
       {/* Meldebestand Low-Stock Alert Bar */}
@@ -870,6 +910,35 @@ function PosCounterContent() {
 
           {/* Bottom Area: Gesamtbetrag & Großer Kassieren Button */}
           <div className="pt-3 border-t border-slate-800 space-y-2.5">
+            {/* Papierbon Toggle im Warenkorb (wenn in Einstellungen aktiviert) */}
+            {isPosReceiptPrintActive && (
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHapticFeedback();
+                  setPrintReceipt((prev) => !prev);
+                }}
+                className={`w-full py-2 px-3 rounded-xl border flex items-center justify-between text-xs font-bold transition active:scale-98 ${
+                  printReceipt
+                    ? 'bg-blue-950/80 border-blue-600/60 text-blue-200 shadow-sm'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-300'
+                }`}
+                title="Papierbon-Druck für diesen Verkauf umschalten"
+              >
+                <div className="flex items-center gap-2">
+                  <Printer className={`w-4 h-4 ${printReceipt ? 'text-blue-400' : 'text-slate-500'}`} />
+                  <span>Papierbon drucken</span>
+                </div>
+                <span
+                  className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${
+                    printReceipt ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  {printReceipt ? 'AKTIV' : 'AUS'}
+                </span>
+              </button>
+            )}
+
             {/* Total Amount */}
             <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-baseline justify-between shadow-inner">
               <span className="text-xs font-bold text-slate-400">Gesamtbetrag:</span>
@@ -993,20 +1062,22 @@ function PosCounterContent() {
                     </button>
                   </div>
 
-                  {/* Kassenbon Druck Schalter */}
-                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-2.5 flex items-center justify-between">
-                    <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-slate-300">
-                      <input
-                        type="checkbox"
-                        checked={printReceipt}
-                        onChange={(e) => setPrintReceipt(e.target.checked)}
-                        className="w-4 h-4 rounded accent-emerald-500 cursor-pointer"
-                      />
-                      <Receipt className="w-4 h-4 text-emerald-400" />
-                      <span>Kassenbon am Kassen-Drucker drucken</span>
-                    </label>
-                    <span className="text-[10px] text-slate-500 font-semibold">Standard: Aktiv</span>
-                  </div>
+                  {/* Kassenbon Druck Schalter (nur wenn in Einstellungen aktiviert) */}
+                  {isPosReceiptPrintActive && (
+                    <div className="bg-slate-950 border border-slate-800 rounded-2xl p-2.5 flex items-center justify-between">
+                      <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-slate-300">
+                        <input
+                          type="checkbox"
+                          checked={printReceipt}
+                          onChange={(e) => setPrintReceipt(e.target.checked)}
+                          className="w-4 h-4 rounded accent-blue-500 cursor-pointer"
+                        />
+                        <Printer className="w-4 h-4 text-blue-400" />
+                        <span>Kassenbon am Kassen-Drucker drucken</span>
+                      </label>
+                      <span className="text-[10px] text-slate-400 font-semibold">{printReceipt ? 'Aktiv' : 'Aus'}</span>
+                    </div>
+                  )}
 
                   {/* Bargeld-Rückgeldrechner (Scheine 5-200€, Münzen 1ct-2€, Numpad ohne 00) */}
                   <div>
@@ -1174,12 +1245,12 @@ function PosCounterContent() {
                   {isPosReceiptPrintActive && (
                     <button
                       type="button"
-                      disabled={!completedPayment.id || posReceiptPrinted}
+                      disabled={!completedPayment.id}
                       onClick={handlePrintPaperReceipt}
                       className="pos-touch-btn flex-1 min-w-[130px] h-20 rounded-3xl bg-blue-600 hover:bg-blue-500 text-white font-black flex flex-col items-center justify-center gap-1 disabled:bg-slate-800 disabled:text-slate-500 transition active:scale-95 shadow"
                     >
                       <Printer className="w-6 h-6" />
-                      <span className="text-sm">{posReceiptPrinted ? 'Beleg gedruckt' : 'Papierbon'}</span>
+                      <span className="text-sm">{posReceiptPrinted ? 'Erneut drucken' : 'Papierbon'}</span>
                     </button>
                   )}
 
