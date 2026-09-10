@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import type { EventConfigDTO } from '@/types/domain';
 import HaPairingAssistant from '@/components/admin/ha-pairing-assistant';
+import { useToast } from '@/components/ui/toast';
 
 interface GeneralTabProps {
   config: EventConfigDTO;
@@ -79,8 +80,8 @@ function Toggle({
 const THEMES: { id: string; label: string; description: string }[] = [
   { id: 'dark', label: 'Dunkel', description: 'Eleganter Mitternachtsmodus mit tiefen Kontrasten und subtilem Glow' },
   { id: 'light', label: 'Hell', description: 'Schneeweißer Grund mit sonnenlichttauglichen Kontrasten' },
-  { id: 'tradition', label: 'Tradition', description: 'Warme Natur- und Bernsteintöne für zünftige Vereinsfeste und Biergärten' },
-  { id: 'speed', label: 'Kompakt', description: 'Maximale Kacheldichte und extra große Ziffern für hohen Thekendurchsatz' },
+  { id: 'speed', label: 'Kompakt Dunkel', description: 'Maximale Kacheldichte und extra große Ziffern im Dunkelmodus' },
+  { id: 'speed-light', label: 'Kompakt Hell', description: 'Maximale Kacheldichte und extra große Ziffern im hellen Modus' },
 ];
 
 const RESET_HELP: Record<string, { title: string; tables: string[]; description: string }> = {
@@ -133,6 +134,7 @@ export function GeneralTab({
   onToggleAutostart,
   togglingAutostart,
 }: GeneralTabProps) {
+  const { error: toastError, success: toastSuccess } = useToast();
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetOrders, setResetOrders] = useState(true);
   const [resetPayments, setResetPayments] = useState(true);
@@ -183,11 +185,12 @@ export function GeneralTab({
       const data = await res.json();
       if (res.ok) {
         setResetResult(data.summary || ['Erfolgreich zurückgesetzt']);
+        toastSuccess('System erfolgreich zurückgesetzt');
       } else {
-        alert(data.error || 'Fehler beim Zurücksetzen');
+        toastError(data.error || 'Fehler beim Zurücksetzen');
       }
     } catch {
-      alert('Netzwerkfehler beim Zurücksetzen');
+      toastError('Netzwerkfehler beim Zurücksetzen');
     } finally {
       setIsResetting(false);
     }
@@ -497,7 +500,7 @@ export function GeneralTab({
                 if (typeof window !== 'undefined') {
                   localStorage.setItem('openbon_theme', t.id);
                   document.documentElement.setAttribute('data-theme', t.id);
-                  document.documentElement.classList.remove('dark', 'light', 'contrast', 'tradition', 'speed', 'modern', 'minimal', 'plain', 'klassisch');
+                  document.documentElement.classList.remove('dark', 'light', 'contrast', 'tradition', 'speed', 'speed-light', 'modern', 'minimal', 'plain', 'klassisch');
                   document.documentElement.classList.add(t.id);
                 }
               }}

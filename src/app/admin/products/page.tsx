@@ -25,10 +25,12 @@ import {
 import { EU_ALLERGENS, GASTRONOMY_ADDITIVES } from '@/lib/compliance';
 import { useToast } from '@/components/ui/toast';
 import { useSocket } from '@/components/providers/socket-provider';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import type { ProductDTO, ProductCategoryDTO, PrintGroupDTO } from '@/types/domain';
 
 export default function AdminProductsPage() {
   const { socket } = useSocket();
+  const { confirm } = useConfirm();
   const { success, error, warning } = useToast();
   const [categories, setCategories] = useState<ProductCategoryDTO[]>([]);
   const [printGroups, setPrintGroups] = useState<PrintGroupDTO[]>([]);
@@ -180,9 +182,13 @@ export default function AdminProductsPage() {
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 409) {
-          const cascade = window.confirm(
-            `${data.error}\n\nMöchtest du die Warengruppe "${catName}" samt aller darin enthaltenen Artikel trotzdem unwiderruflich löschen?`
-          );
+          const cascade = await confirm({
+            title: 'Warengruppe mit Artikeln löschen?',
+            message: `${data.error}\n\nMöchtest du die Warengruppe "${catName}" samt aller darin enthaltenen Artikel trotzdem unwiderruflich löschen?`,
+            confirmText: 'Trotzdem löschen',
+            cancelText: 'Abbrechen',
+            isDestructive: true,
+          });
           if (cascade) {
             const forceRes = await fetch(`/api/categories?id=${catId}&force=true`, { method: 'DELETE' });
             if (forceRes.ok) {
@@ -204,7 +210,7 @@ export default function AdminProductsPage() {
 
   const openNewModal = () => {
     if (categories.length === 0) {
-      alert('Bitte legen Sie zuerst mindestens eine Warengruppe an (z. B. Getränke oder Speisen), bevor Sie Artikel anlegen können.');
+      warning('Bitte legen Sie zuerst mindestens eine Warengruppe an (z. B. Getränke oder Speisen), bevor Sie Artikel anlegen können.');
       setEditingCat(null);
       setNewCatName('');
       setShowCatModal(true);

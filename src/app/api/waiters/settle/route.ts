@@ -39,6 +39,11 @@ export async function POST(req: Request) {
       transactionCount,
       printReceipt,
       printerId,
+      // Neu: Abrechnungskorrektur & Beleg-Details
+      isCorrection,
+      printDetails,
+      itemsSold,
+      orders,
     } = body;
 
     if (!waiterName && !waiterId) {
@@ -57,17 +62,18 @@ export async function POST(req: Request) {
 
     // 1. Audit Log der Abrechnung
     await logSystemActionSafe(() => ({
-      action: 'WAITER_SETTLED',
+      action: isCorrection ? 'WAITER_SETTLEMENT_CORRECTION' : 'WAITER_SETTLED',
       category: 'AUTH',
       actor: name,
       details:
-        `Schichtabrechnung für ${name} abgeschlossen. ` +
+        (isCorrection ? `Abrechnungskorrektur für ${name} durch Admin abgeschlossen. ` : `Schichtabrechnung für ${name} abgeschlossen. `) +
         `Umsatz: ${(resolvedTotalGrossCents / 100).toFixed(2)} €, ` +
         `Soll-Bar: ${(resolvedCashExpectedCents / 100).toFixed(2)} €, ` +
         `gezählt: ${(resolvedCashCountedCents / 100).toFixed(2)} €, ` +
         `Differenz: ${((resolvedCashCountedCents - resolvedCashExpectedCents) / 100).toFixed(2)} €, ` +
         `Trinkgeld: ${(resolvedTipsTotalCents / 100).toFixed(2)} €`,
       metadata: {
+        isCorrection: Boolean(isCorrection),
         totalGross: resolvedTotalGrossCents / 100,
         totalGrossCents: resolvedTotalGrossCents,
         cashGross: resolvedCashGrossCents / 100,
@@ -137,6 +143,10 @@ export async function POST(req: Request) {
               waiterName: name,
               eventName: config?.name || undefined,
               isTraining: config?.trainingMode ?? false,
+              isCorrection: Boolean(isCorrection),
+              printDetails: Boolean(printDetails),
+              itemsSold: Array.isArray(itemsSold) ? itemsSold : undefined,
+              orders: Array.isArray(orders) ? orders : undefined,
               settledAt: new Date(),
               settledBy: auth.session.waiterName || auth.session.role,
               totalGrossCents: resolvedTotalGrossCents,
@@ -171,7 +181,9 @@ export async function POST(req: Request) {
       success: true,
       printed,
       printError,
-      message: `Schicht für ${name} erfolgreich abgerechnet und abgemeldet.`,
+      message: isCorrection
+        ? `Abrechnungskorrektur für ${name} erfolgreich abgeschlossen.`
+        : `Schicht für ${name} erfolgreich abgerechnet und abgemeldet.`,
     });
   } catch (error: any) {
     console.error('Fehler bei Schichtabrechnung:', error);

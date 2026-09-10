@@ -129,36 +129,33 @@ html[data-theme="light"] .bg-gradient-to-r {
   background-color: #ffffff !important;
 }
 
-/* Theme 3: Tradition (Warme Bernstein- & Eichenholztöne, Biergarten & Wirtshaus) */
-html.tradition body, html[data-theme="tradition"] body {
-  background-color: #140d07 !important;
-  color: #fffbeb !important;
+/* Theme 3: Kompakt Hell (High-Speed Tresen, sonnentauglich hell, 4px-Radien) */
+html.speed-light body, html[data-theme="speed-light"] body {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
 }
-html.tradition .bg-gradient-to-b,
-html.tradition .bg-gradient-to-br,
-html.tradition .bg-gradient-to-r,
-html[data-theme="tradition"] .bg-gradient-to-b,
-html[data-theme="tradition"] .bg-gradient-to-br,
-html[data-theme="tradition"] .bg-gradient-to-r {
-  background-image: none !important;
-  background-color: #140d07 !important;
-}
-html.tradition header, html.tradition nav, html[data-theme="tradition"] header, html[data-theme="tradition"] nav {
-  background-color: #1a1008 !important;
-  border-color: #92400e !important;
+html.speed-light header, html.speed-light nav, html[data-theme="speed-light"] header, html[data-theme="speed-light"] nav {
+  background-color: #ffffff !important;
+  border-color: #2563eb !important;
   border-bottom-width: 2px !important;
-  color: #fffbeb !important;
+  color: #0f172a !important;
 }
-html.tradition .bg-slate-950, html[data-theme="tradition"] .bg-slate-950 { background-color: #140d07 !important; border-color: #78350f !important; }
-html.tradition .bg-slate-900, html[data-theme="tradition"] .bg-slate-900 { background-color: #1f140b !important; border-color: #92400e !important; border-width: 1.5px !important; }
-html.tradition .bg-slate-800, html[data-theme="tradition"] .bg-slate-800 { background-color: #2b1b0e !important; border-color: #b45309 !important; }
-html.tradition .border-slate-800, html.tradition .border-slate-700, html[data-theme="tradition"] .border-slate-800, html[data-theme="tradition"] .border-slate-700 { border-color: #78350f !important; }
-html.tradition .text-white, html.tradition .text-slate-100, html[data-theme="tradition"] .text-white, html[data-theme="tradition"] .text-slate-100 { color: #fffbeb !important; }
-html.tradition .text-slate-300, html.tradition .text-slate-400, html[data-theme="tradition"] .text-slate-300, html[data-theme="tradition"] .text-slate-400 { color: #fde68a !important; }
-html.tradition .text-slate-500, html[data-theme="tradition"] .text-slate-500 { color: #d97706 !important; }
-html.tradition .keypad-key, html[data-theme="tradition"] .keypad-key { background-color: #1f140b !important; color: #fffbeb !important; border-color: #92400e !important; }
+html.speed-light .bg-slate-950, html[data-theme="speed-light"] .bg-slate-950 { background-color: #f1f5f9 !important; border-color: #cbd5e1 !important; color: #0f172a !important; }
+html.speed-light .bg-slate-900, html[data-theme="speed-light"] .bg-slate-900 { background-color: #ffffff !important; border-color: #94a3b8 !important; color: #0f172a !important; }
+html.speed-light .bg-slate-800, html[data-theme="speed-light"] .bg-slate-800 { background-color: #e2e8f0 !important; border-color: #64748b !important; color: #0f172a !important; }
+html.speed-light .border-slate-800, html.speed-light .border-slate-700, html[data-theme="speed-light"] .border-slate-800, html[data-theme="speed-light"] .border-slate-700 { border-color: #cbd5e1 !important; }
+html.speed-light .text-white, html.speed-light .text-slate-100, html[data-theme="speed-light"] .text-white, html[data-theme="speed-light"] .text-slate-100 { color: #0f172a !important; }
+html.speed-light .text-slate-300, html.speed-light .text-slate-400, html[data-theme="speed-light"] .text-slate-300, html[data-theme="speed-light"] .text-slate-400 { color: #334155 !important; }
+html.speed-light .text-slate-500, html[data-theme="speed-light"] .text-slate-500 { color: #64748b !important; }
+html.speed-light .rounded-3xl, html.speed-light .rounded-2xl, html.speed-light .rounded-xl, html[data-theme="speed-light"] .rounded-3xl, html[data-theme="speed-light"] .rounded-2xl, html[data-theme="speed-light"] .rounded-xl { border-radius: 0.25rem !important; }
+html.speed-light button, html[data-theme="speed-light"] button { font-weight: 800 !important; }
+html.speed-light .p-4, html[data-theme="speed-light"] .p-4 { padding: 0.75rem !important; }
+html.speed-light .p-6, html[data-theme="speed-light"] .p-6 { padding: 1rem !important; }
+html.speed-light .gap-4, html[data-theme="speed-light"] .gap-4 { gap: 0.5rem !important; }
+html.speed-light .gap-6, html[data-theme="speed-light"] .gap-6 { gap: 0.75rem !important; }
+html.speed-light .keypad-key, html[data-theme="speed-light"] .keypad-key { background-color: #e2e8f0 !important; color: #0f172a !important; border-color: #2563eb !important; border-radius: 0.25rem !important; }
 
-/* Theme 4: Kompakt (High-Speed Tresen, 4px-Radien, maximale Kacheldichte) */
+/* Theme 4: Kompakt Dunkel (High-Speed Tresen, 4px-Radien, maximale Kacheldichte) */
 html.speed body, html[data-theme="speed"] body {
   background-color: #080c14 !important;
   color: #ffffff !important;
@@ -178,26 +175,48 @@ html.speed .p-4, html[data-theme="speed"] .p-4 { padding: 0.75rem !important; }
 html.speed .p-6, html[data-theme="speed"] .p-6 { padding: 1rem !important; }
 html.speed .gap-4, html[data-theme="speed"] .gap-4 { gap: 0.5rem !important; }
 html.speed .gap-6, html[data-theme="speed"] .gap-6 { gap: 0.75rem !important; }
-html.speed .bg-gradient-to-b,
-html.speed .bg-gradient-to-br,
-html.speed .bg-gradient-to-r,
-html[data-theme="speed"] .bg-gradient-to-b,
-html[data-theme="speed"] .bg-gradient-to-br,
-html[data-theme="speed"] .bg-gradient-to-r {
+html.speed .bg-gradient-to-b:not(.coin-btn),
+html.speed .bg-gradient-to-br:not(.coin-btn),
+html.speed .bg-gradient-to-r:not(.coin-btn),
+html[data-theme="speed"] .bg-gradient-to-b:not(.coin-btn),
+html[data-theme="speed"] .bg-gradient-to-br:not(.coin-btn),
+html[data-theme="speed"] .bg-gradient-to-r:not(.coin-btn) {
   background-image: none !important;
   background-color: #080c14 !important;
 }
 html.speed .keypad-key, html[data-theme="speed"] .keypad-key { background-color: #0f172a !important; color: #ffffff !important; border-color: #2563eb !important; border-radius: 0.25rem !important; }
 
-/* Erhalte weisse Schrift auf bunten Funktions-Buttons in allen Themes */
+/* Erhalte weisse Schrift auf bunten Funktions-Buttons in hellen Themes */
 html.light button[class*="bg-blue-"], html.light button[class*="bg-emerald-"], html.light button[class*="bg-rose-"], html.light button[class*="bg-amber-"], html.light button[class*="bg-indigo-"], html.light [class*="bg-blue-600"], html.light [class*="bg-emerald-600"], html.light [class*="bg-rose-600"],
-html[data-theme="light"] button[class*="bg-blue-"], html[data-theme="light"] button[class*="bg-emerald-"], html[data-theme="light"] button[class*="bg-rose-"], html[data-theme="light"] button[class*="bg-amber-"], html[data-theme="light"] button[class*="bg-indigo-"], html[data-theme="light"] [class*="bg-blue-600"], html[data-theme="light"] [class*="bg-emerald-600"], html[data-theme="light"] [class*="bg-rose-600"] {
+html[data-theme="light"] button[class*="bg-blue-"], html[data-theme="light"] button[class*="bg-emerald-"], html[data-theme="light"] button[class*="bg-rose-"], html[data-theme="light"] button[class*="bg-amber-"], html[data-theme="light"] button[class*="bg-indigo-"], html[data-theme="light"] [class*="bg-blue-600"], html[data-theme="light"] [class*="bg-emerald-600"], html[data-theme="light"] [class*="bg-rose-600"],
+html.speed-light button[class*="bg-blue-"], html.speed-light button[class*="bg-emerald-"], html.speed-light button[class*="bg-rose-"], html.speed-light button[class*="bg-amber-"], html.speed-light button[class*="bg-indigo-"], html.speed-light [class*="bg-blue-600"], html.speed-light [class*="bg-emerald-600"], html.speed-light [class*="bg-rose-600"],
+html[data-theme="speed-light"] button[class*="bg-blue-"], html[data-theme="speed-light"] button[class*="bg-emerald-"], html[data-theme="speed-light"] button[class*="bg-rose-"], html[data-theme="speed-light"] button[class*="bg-amber-"], html[data-theme="speed-light"] button[class*="bg-indigo-"], html[data-theme="speed-light"] [class*="bg-blue-600"], html[data-theme="speed-light"] [class*="bg-emerald-600"], html[data-theme="speed-light"] [class*="bg-rose-600"] {
   color: #ffffff !important;
 }
 
 html.light button[class*="bg-blue-"] *, html.light button[class*="bg-emerald-"] *, html.light button[class*="bg-rose-"] *, html.light [class*="bg-blue-600"] *, html.light [class*="bg-emerald-600"] *, html.light [class*="bg-rose-600"] *,
-html[data-theme="light"] button[class*="bg-blue-"] *, html[data-theme="light"] button[class*="bg-emerald-"] *, html[data-theme="light"] button[class*="bg-rose-"] *, html[data-theme="light"] [class*="bg-blue-600"] *, html[data-theme="light"] [class*="bg-emerald-600"] *, html[data-theme="light"] [class*="bg-rose-600"] * {
+html[data-theme="light"] button[class*="bg-blue-"] *, html[data-theme="light"] button[class*="bg-emerald-"] *, html[data-theme="light"] button[class*="bg-rose-"] *, html[data-theme="light"] [class*="bg-blue-600"] *, html[data-theme="light"] [class*="bg-emerald-600"] *, html[data-theme="light"] [class*="bg-rose-600"] *,
+html.speed-light button[class*="bg-blue-"] *, html.speed-light button[class*="bg-emerald-"] *, html.speed-light button[class*="bg-rose-"] *, html.speed-light [class*="bg-blue-600"] *, html.speed-light [class*="bg-emerald-600"] *, html.speed-light [class*="bg-rose-600"] *,
+html[data-theme="speed-light"] button[class*="bg-blue-"] *, html[data-theme="speed-light"] button[class*="bg-emerald-"] *, html[data-theme="speed-light"] button[class*="bg-rose-"] *, html[data-theme="speed-light"] [class*="bg-blue-600"] *, html[data-theme="speed-light"] [class*="bg-emerald-600"] *, html[data-theme="speed-light"] [class*="bg-rose-600"] * {
   color: #ffffff !important;
+}
+
+/* Erhalte Münz-Farben & Kontrast in allen Themes */
+.coin-btn {
+  color: #000000 !important;
+}
+.coin-btn span {
+  color: #000000 !important;
+}
+.coin-2euro {
+  background-color: #fef08a !important; /* Gold */
+  border: 3px solid #cbd5e1 !important; /* Silber */
+  color: #000000 !important;
+}
+.coin-1euro {
+  background-color: #f1f5f9 !important; /* Silber */
+  border: 3px solid #f59e0b !important; /* Gold */
+  color: #000000 !important;
 }
 
 /* Global Scrollable Setup */

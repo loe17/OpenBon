@@ -40,7 +40,7 @@ export async function GET(req: Request) {
         distinct: ['waiterName'],
       }),
       prisma.actionLog.findMany({
-        where: { action: 'WAITER_SETTLED' },
+        where: { action: { in: ['WAITER_SETTLED', 'WAITER_SETTLEMENT_CORRECTION'] } },
         select: { actor: true, createdAt: true },
         orderBy: { createdAt: 'desc' },
       }),

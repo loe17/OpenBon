@@ -114,14 +114,14 @@ export function ChangeCalculator({
   ] as const;
 
   const coinsCents = [
-    { value: 200, label: '2€', style: 'bg-gradient-to-br from-amber-400 via-slate-200 to-amber-500 border-2 border-amber-600 text-slate-950' },
-    { value: 100, label: '1€', style: 'bg-gradient-to-br from-slate-200 via-amber-300 to-slate-300 border-2 border-slate-500 text-slate-950' },
-    { value: 50, label: '50', style: 'bg-amber-300 border-2 border-amber-600 text-amber-950' },
-    { value: 20, label: '20', style: 'bg-amber-300 border-2 border-amber-600 text-amber-950' },
-    { value: 10, label: '10', style: 'bg-amber-300 border-2 border-amber-600 text-amber-950' },
-    { value: 5, label: '5', style: 'bg-orange-400 border-2 border-orange-700 text-orange-950' },
-    { value: 2, label: '2', style: 'bg-orange-400 border-2 border-orange-700 text-orange-950' },
-    { value: 1, label: '1', style: 'bg-orange-400 border-2 border-orange-700 text-orange-950' },
+    { value: 200, label: '2€', style: 'coin-btn coin-2euro bg-amber-200 border-[3px] border-slate-300 text-black font-black' },
+    { value: 100, label: '1€', style: 'coin-btn coin-1euro bg-slate-100 border-[3px] border-amber-500 text-black font-black' },
+    { value: 50, label: '50', style: 'coin-btn bg-amber-300 border-2 border-amber-600 text-amber-950 font-black' },
+    { value: 20, label: '20', style: 'coin-btn bg-amber-300 border-2 border-amber-600 text-amber-950 font-black' },
+    { value: 10, label: '10', style: 'coin-btn bg-amber-300 border-2 border-amber-600 text-amber-950 font-black' },
+    { value: 5, label: '5', style: 'coin-btn bg-orange-400 border-2 border-orange-700 text-orange-950 font-black' },
+    { value: 2, label: '2', style: 'coin-btn bg-orange-400 border-2 border-orange-700 text-orange-950 font-black' },
+    { value: 1, label: '1', style: 'coin-btn bg-orange-400 border-2 border-orange-700 text-orange-950 font-black' },
   ] as const;
 
   return (

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 
 import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { PrintQueueManager } from '@/components/admin/print-queue-manager';
 
 interface PrinterRow {
@@ -49,6 +50,7 @@ interface PrintGroupRow {
 }
 
 export default function AdminPrintersPage() {
+  const { confirm } = useConfirm();
   const { success, error, warning } = useToast();
   const [printers, setPrinters] = useState<PrinterRow[]>([]);
   const [printGroups, setPrintGroups] = useState<PrintGroupRow[]>([]);
@@ -298,7 +300,14 @@ export default function AdminPrintersPage() {
   };
 
   const handleDeleteGroup = async (group: PrintGroupRow) => {
-    if (!window.confirm(`Druckgruppe "${group.name}" wirklich loeschen?`)) return;
+    const ok = await confirm({
+      title: 'Druckgruppe löschen?',
+      message: `Möchten Sie die Druckgruppe "${group.name}" wirklich unwiderruflich löschen?`,
+      confirmText: 'Löschen',
+      cancelText: 'Abbrechen',
+      isDestructive: true,
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/print-groups?id=${group.id}`, { method: 'DELETE' });
       if (!res.ok) {

@@ -18,6 +18,22 @@ import { getPaymentLabel } from '@/lib/payment/methods';
  * Kassentag waere sachlich falsch.
  */
 
+export interface SettlementItemSold {
+  name: string;
+  quantity: number;
+  amountCents: number;
+}
+
+export interface SettlementOrderSummary {
+  id: string;
+  orderNumber: number;
+  time: string;
+  tableName: string;
+  totalCents: number;
+  itemsCount: number;
+  itemsSummary: string;
+}
+
 export interface SettlementReport {
   waiterName: string;
   periodNumber: number;
@@ -41,6 +57,9 @@ export interface SettlementReport {
   tipProfileName: string | null;
   isTraining: boolean;
   eventName: string;
+  orderCount: number;
+  itemsSold: SettlementItemSold[];
+  orders: SettlementOrderSummary[];
 }
 
 export async function GET(req: Request) {
@@ -60,20 +79,43 @@ export async function GET(req: Request) {
       getOrCreateOpenPeriod(),
     ]);
 
-    const payments = await prisma.payment.findMany({
-      where: {
-        waiterName,
-        isCancelled: false,
-        createdAt: { gte: period.openedAt },
-      },
-      select: {
-        totalGrossCents: true,
-        tipAmountCents: true,
-        tipWaiterShareCents: true,
-        tipPoolShareCents: true,
-        paymentMethod: true,
-      },
-    });
+    const [payments, ordersData, profile] = await Promise.all([
+      prisma.payment.findMany({
+        where: {
+          waiterName,
+          isCancelled: false,
+          createdAt: { gte: period.openedAt },
+        },
+        select: {
+          totalGrossCents: true,
+          tipAmountCents: true,
+          tipWaiterShareCents: true,
+          tipPoolShareCents: true,
+          paymentMethod: true,
+        },
+      }),
+      prisma.order.findMany({
+        where: {
+          OR: [
+            { waiterName },
+            { payments: { some: { waiterName, isCancelled: false } } },
+          ],
+          status: { not: 'CANCELLED' },
+          createdAt: { gte: period.openedAt },
+        },
+        include: {
+          table: { select: { label: true } },
+          items: {
+            where: { isCancelled: false },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.waiterProfile.findFirst({
+        where: { name: waiterName },
+        select: { tipProfile: { select: { name: true } } },
+      }),
+    ]);
 
     let totalGross = 0;
     let cashGross = 0;
@@ -97,11 +139,50 @@ export async function GET(req: Request) {
       methodMap.set(method, entry);
     }
 
-    // Trinkgeldprofil der Bedienung fuer die Beschriftung der Verteilung
-    const profile = await prisma.waiterProfile.findFirst({
-      where: { name: waiterName },
-      select: { tipProfile: { select: { name: true } } },
+    // Detail-Auswertung: Bestellungen & Verkaufte Artikel
+    const itemsMap = new Map<string, { quantity: number; amountCents: number }>();
+
+    const orders: SettlementOrderSummary[] = ordersData.map((o) => {
+      let orderTotalCents = 0;
+      let orderItemsCount = 0;
+      const summaryParts: string[] = [];
+
+      for (const item of o.items) {
+        const qty = item.quantity || 1;
+        const priceCents = (item.unitPriceCents || 0) * qty;
+        orderTotalCents += priceCents;
+        orderItemsCount += qty;
+
+        const itemName = item.variantName ? `${item.productName} (${item.variantName})` : item.productName;
+        summaryParts.push(`${qty}x ${itemName}`);
+
+        const existing = itemsMap.get(itemName) || { quantity: 0, amountCents: 0 };
+        existing.quantity += qty;
+        existing.amountCents += priceCents;
+        itemsMap.set(itemName, existing);
+      }
+
+      const tableName = o.table?.label || (o.tokenNumber ? `Token #${o.tokenNumber}` : 'Theke / Ohne Tisch');
+      const time = new Date(o.createdAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+      return {
+        id: o.id,
+        orderNumber: o.orderNumber,
+        time,
+        tableName,
+        totalCents: orderTotalCents,
+        itemsCount: orderItemsCount,
+        itemsSummary: summaryParts.join(', ') || 'Keine Artikel',
+      };
     });
+
+    const itemsSold: SettlementItemSold[] = Array.from(itemsMap.entries())
+      .map(([name, val]) => ({
+        name,
+        quantity: val.quantity,
+        amountCents: val.amountCents,
+      }))
+      .sort((a, b) => b.quantity - a.quantity || b.amountCents - a.amountCents);
 
     const cashExpectedCents = Math.round(cashGross - tipWaiterShare);
 
@@ -135,6 +216,9 @@ export async function GET(req: Request) {
       tipProfileName: profile?.tipProfile?.name ?? null,
       isTraining: config?.trainingMode ?? false,
       eventName: config?.name || 'OpenBon',
+      orderCount: orders.length,
+      itemsSold,
+      orders,
     };
 
     return NextResponse.json(report);

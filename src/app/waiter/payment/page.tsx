@@ -39,6 +39,7 @@ import { sendWithOutboxFallback } from '@/lib/offline/outbox';
 import { WaiterOrderHistoryModal } from '@/components/waiter/waiter-order-history-modal';
 
 import StationGate from '@/components/auth/station-gate';
+import { useToast } from '@/components/ui/toast';
 type Stage = 'SPLIT' | 'METHOD' | 'CASH' | 'CARD' | 'DONE';
 
 interface PayableItem {
@@ -95,6 +96,7 @@ function WaiterPaymentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tableId = searchParams.get('tableId');
+  const { success: toastSuccess } = useToast();
 
   const [stage, setStage] = useState<Stage>('SPLIT');
   const [config, setConfig] = useState<EventConfigDTO | null>(null);
@@ -583,7 +585,7 @@ function WaiterPaymentContent() {
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white">
       {/* ===================== STICKY TOP CONTAINER (Permanent ganz oben über der Tischnummer fixiert) ===================== */}
-      <div className="sticky top-0 z-50 shadow-2xl bg-slate-950 shrink-0">
+      <div className="sticky top-0 z-20 shadow-2xl bg-slate-950 shrink-0">
         {/* XXL Gast-Display Banner (Ganz oben) */}
         {guestFacingAllowed && guestFacingMode && (
           <div
@@ -883,31 +885,19 @@ function WaiterPaymentContent() {
                 {formatCents((checkout as any).amountDueCents ?? Math.round(((checkout as any).amountDue ?? 0) * 100))}
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                onClick={() => {
-                  toggleSelectAll(true);
-                  setStage('METHOD');
-                }}
-                disabled={items.length === 0}
-                className="pos-touch-btn h-16 rounded-2xl font-black text-sm sm:text-base bg-slate-800 border border-slate-700 text-slate-100 disabled:opacity-40"
-              >
-                Alles bezahlen
-                <span className="block text-xs font-mono text-emerald-400 mt-0.5">
-                  {formatCurrency(
-                    items.reduce((s, i) => s + (i.unitPrice + i.deposit) * i.totalUnpaidQty, 0)
-                  )}
-                </span>
-              </button>
+            <div>
               <button
                 onClick={() => {
                   haptic();
                   setStage('METHOD');
                 }}
                 disabled={!hasSelection}
-                className="pos-touch-btn h-16 rounded-2xl font-black text-base bg-emerald-500 hover:bg-emerald-400 text-slate-950 dark:text-white dark:bg-emerald-600 dark:hover:bg-emerald-500 shadow-lg shadow-emerald-950/50 disabled:bg-slate-800 disabled:text-slate-500"
+                className="pos-touch-btn w-full h-16 rounded-2xl font-black text-base sm:text-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 dark:text-white dark:bg-emerald-600 dark:hover:bg-emerald-500 shadow-lg shadow-emerald-950/50 disabled:bg-slate-800 disabled:text-slate-500 flex items-center justify-center gap-2 transition active:scale-98"
               >
-                Weiter zur Zahlart
+                <span>Weiter zur Zahlart</span>
+                <span className="font-mono opacity-90 text-sm sm:text-base">
+                  ({formatCents((checkout as any).amountDueCents ?? Math.round(((checkout as any).amountDue ?? 0) * 100))})
+                </span>
               </button>
             </div>
           </div>
@@ -985,7 +975,7 @@ function WaiterPaymentContent() {
                   const j = await res.json().catch(() => ({}));
                   if (!res.ok) { setError(j.error || 'Split fehlgeschlagen.'); return; }
                   setError(null);
-                  alert(`Teilbetrag ${(v).toFixed(2)} € als ${j.payment.invoiceNumber} gebucht.`);
+                  toastSuccess(`Teilbetrag ${(v).toFixed(2)} € als ${j.payment.invoiceNumber} gebucht.`);
                 }}
                 className="px-4 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl min-h-[48px]"
               >

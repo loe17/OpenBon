@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 
 import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 interface PreflightCheck {
   id: string;
@@ -88,6 +89,7 @@ interface DiagnosticReport {
 }
 
 export default function DiagnosticsPage() {
+  const { confirm } = useConfirm();
   const { success, error } = useToast();
   const [report, setReport] = useState<DiagnosticReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -199,9 +201,14 @@ export default function DiagnosticsPage() {
   };
 
   const handlePurgeTestData = async () => {
-    if (!confirm('Möchten Sie wirklich alle Test-Bestellungen, Test-Zahlungen und Druckaufträge rückstandsfrei bereinigen?\n\nIhre Stammdaten (Artikel, Warengruppen, Tische, Drucker) bleiben dabei vollständig erhalten.')) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Test-Daten bereinigen?',
+      message: 'Möchten Sie wirklich alle Test-Bestellungen, Test-Zahlungen und Druckaufträge rückstandsfrei bereinigen?\n\nIhre Stammdaten (Artikel, Warengruppen, Tische, Drucker) bleiben dabei vollständig erhalten.',
+      confirmText: 'Jetzt bereinigen',
+      cancelText: 'Abbrechen',
+      isDestructive: true,
+    });
+    if (!ok) return;
     setLoading(true);
     try {
       const res = await fetch('/api/diagnostics', {

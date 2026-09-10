@@ -17,6 +17,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { formatCents, formatCurrency } from '@/lib/utils';
 
 interface PrintJobItem {
@@ -44,6 +45,7 @@ interface QueueCounts {
 }
 
 export function PrintQueueManager({ printers }: { printers: Array<{ id: string; name: string; ipAddress: string; isVirtual: boolean }> }) {
+  const { confirm } = useConfirm();
   const { success, error, warning } = useToast();
   const [items, setItems] = useState<PrintJobItem[]>([]);
   const [counts, setCounts] = useState<QueueCounts>({ total: 0, pending: 0, failed: 0, printed: 0 });
@@ -139,7 +141,14 @@ export function PrintQueueManager({ printers }: { printers: Array<{ id: string; 
   };
 
   const handleDelete = async (job: PrintJobItem) => {
-    if (!window.confirm(`Druckauftrag "${job.title}" wirklich aus der Warteschlange löschen?`)) return;
+    const ok = await confirm({
+      title: 'Druckauftrag löschen?',
+      message: `Möchten Sie den Druckauftrag "${job.title}" wirklich aus der Warteschlange löschen?`,
+      confirmText: 'Löschen',
+      cancelText: 'Abbrechen',
+      isDestructive: true,
+    });
+    if (!ok) return;
     try {
       const res = await fetch('/api/printers/queue', {
         method: 'POST',
@@ -158,7 +167,13 @@ export function PrintQueueManager({ printers }: { printers: Array<{ id: string; 
   };
 
   const handleClearCompleted = async () => {
-    if (!window.confirm('Alle bereits gedruckten Aufträge aus der Liste aufräumen?')) return;
+    const ok = await confirm({
+      title: 'Gedruckte Aufträge aufräumen?',
+      message: 'Möchten Sie alle bereits gedruckten Aufträge aus der Liste aufräumen?',
+      confirmText: 'Aufräumen',
+      cancelText: 'Abbrechen',
+    });
+    if (!ok) return;
     try {
       const res = await fetch('/api/printers/queue', {
         method: 'POST',

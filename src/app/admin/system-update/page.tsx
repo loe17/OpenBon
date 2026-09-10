@@ -24,6 +24,7 @@ import {
 import { APP_VERSION, GITHUB_REPO_URL } from '@/lib/version';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import { copyTextToClipboard } from '@/lib/clipboard';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 interface SystemInfo {
   currentVersion?: string;
@@ -68,6 +69,7 @@ interface TerminalLog {
 }
 
 export default function AdminSystemUpdatePage() {
+  const { confirm } = useConfirm();
   const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null);
   const [checking, setChecking] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -265,7 +267,14 @@ export default function AdminSystemUpdatePage() {
   };
 
   const handleRestartServer = async () => {
-    if (!confirm('Möchtest du den OpenBon Server-Prozess jetzt neu starten?')) return;
+    const ok = await confirm({
+      title: 'Server neu starten?',
+      message: 'Möchten Sie den OpenBon Server-Prozess jetzt neu starten?\n\nLaufende Vorgänge werden kurz pausiert, der Dienst startet innerhalb weniger Sekunden neu.',
+      confirmText: 'Jetzt neu starten',
+      cancelText: 'Abbrechen',
+      isDestructive: false,
+    });
+    if (!ok) return;
 
     triggerHapticFeedback();
     addTerminalLog('[START] Sende Neustart-Signal an den OpenBon Dienst...', false);
@@ -298,22 +307,23 @@ export default function AdminSystemUpdatePage() {
     const label = isMaster ? 'Entwicklungs-Branch (master)' : `Release-Version ${targetRef}`;
 
     if (sysInfo?.diskSpace && !sysInfo.diskSpace.isSufficient) {
-      if (
-        !confirm(
-          `⚠️ ACHTUNG: Auf dem Server sind nur ${sysInfo.diskSpace.formattedFree} freier Festplattenspeicher verfügbar (empfohlen: mindestens ${sysInfo.diskSpace.minRequiredMb} MB für den Build-Prozess).\n\nMöchtest du trotzdem fortfahren? Das System wird versuchen, vor dem Bauen temporäre Caches und alte Backups automatisch zu bereinigen.`
-        )
-      ) {
-        return;
-      }
+      const okDisk = await confirm({
+        title: 'Geringer Festplattenspeicher',
+        message: `⚠️ ACHTUNG: Auf dem Server sind nur ${sysInfo.diskSpace.formattedFree} freier Festplattenspeicher verfügbar (empfohlen: mindestens ${sysInfo.diskSpace.minRequiredMb} MB für den Build-Prozess).\n\nMöchten Sie trotzdem fortfahren? Das System wird versuchen, vor dem Bauen temporäre Caches und alte Backups automatisch zu bereinigen.`,
+        confirmText: 'Trotzdem fortfahren',
+        cancelText: 'Abbrechen',
+        isDestructive: true,
+      });
+      if (!okDisk) return;
     }
 
-    if (
-      !confirm(
-        `OpenBon jetzt auf ${label} setzen?\n\nDer Server führt vorab ein Sicherheits-Backup der Datenbank durch, lädt den Stand von GitHub herunter, führt eventuelle Datenbankmigrationen aus, kompiliert die Anwendung neu und startet den Dienst wieder.`
-      )
-    ) {
-      return;
-    }
+    const okInstall = await confirm({
+      title: 'Update durchführen?',
+      message: `OpenBon jetzt auf ${label} setzen?\n\nDer Server führt vorab ein Sicherheits-Backup der Datenbank durch, lädt den Stand von GitHub herunter, führt eventuelle Datenbankmigrationen aus, kompiliert die Anwendung neu und startet den Dienst wieder.`,
+      confirmText: 'Update jetzt starten',
+      cancelText: 'Abbrechen',
+    });
+    if (!okInstall) return;
 
     triggerHapticFeedback();
     setUpdating(true);

@@ -17,8 +17,10 @@ import {
   Check,
 } from 'lucide-react';
 import { APP_VERSION } from '@/lib/version';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 export default function AdminBackupPage() {
+  const { confirm } = useConfirm();
   const [config, setConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -145,10 +147,14 @@ export default function AdminBackupPage() {
   // Execute Restore
   const handleExecuteRestore = async () => {
     if (!restorePreview) return;
-    const confirm = window.confirm(
-      'WARNUNG: Das Einspielen der Sicherung überschreibt die ausgewählten Datenbestände unwiderruflich! Fortfahren?'
-    );
-    if (!confirm) return;
+    const ok = await confirm({
+      title: 'Sicherung einspielen?',
+      message: 'WARNUNG: Das Einspielen der Sicherung überschreibt die ausgewählten Datenbestände unwiderruflich!\n\nMöchten Sie wirklich fortfahren?',
+      confirmText: 'Jetzt einspielen',
+      cancelText: 'Abbrechen',
+      isDestructive: true,
+    });
+    if (!ok) return;
 
     try {
       setRestoring(true);

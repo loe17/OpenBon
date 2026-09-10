@@ -29,6 +29,7 @@ export const viewport: Viewport = {
 };
 
 import { ToastProvider } from '@/components/ui/toast';
+import { ConfirmProvider } from '@/components/ui/confirm-dialog';
 
 export default function RootLayout({
   children,
@@ -68,15 +69,17 @@ export default function RootLayout({
       <body className="font-sans min-h-full flex flex-col bg-slate-950 text-slate-100 antialiased transition-colors duration-200">
         <ThemeProvider>
           <ToastProvider>
-            <SocketProvider>
-              <OfflineBanner />
-              <HaBanner />
-              <UpdateNoticeBar />
-              <BroadcastAlertOverlay />
-              <Navbar />
-              <TrainingWatermark />
-              <main className="flex-1 flex flex-col overflow-hidden">{children}</main>
-            </SocketProvider>
+            <ConfirmProvider>
+              <SocketProvider>
+                <OfflineBanner />
+                <HaBanner />
+                <UpdateNoticeBar />
+                <BroadcastAlertOverlay />
+                <Navbar />
+                <TrainingWatermark />
+                <main className="flex-1 flex flex-col overflow-hidden">{children}</main>
+              </SocketProvider>
+            </ConfirmProvider>
           </ToastProvider>
         </ThemeProvider>
       </body>

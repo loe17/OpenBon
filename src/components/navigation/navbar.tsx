@@ -384,7 +384,7 @@ export default function Navbar() {
       )}
 
       {/* Main Top Header */}
-      <header className="sticky top-0 z-40 bg-slate-900 text-white border-b border-slate-800 shadow-md">
+      <header className="sticky top-0 z-50 bg-slate-900 text-white border-b border-slate-800 shadow-md">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 flex items-center justify-between h-14 sm:h-16">
           {/* Logo & Brand */}
           <div className="flex items-center gap-3">
@@ -454,7 +454,7 @@ export default function Navbar() {
                     const ThemeIcon =
                       t.id === 'dark' ? Moon :
                       t.id === 'light' ? Sun :
-                      t.id === 'tradition' ? Sparkles :
+                      t.id === 'speed-light' ? Sparkles :
                       t.id === 'speed' ? LayoutGrid : Square;
 
                     return (
@@ -535,7 +535,7 @@ export default function Navbar() {
 
       {/* Slide-out Navigation Drawer */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-[60] flex animate-in fade-in duration-150">
           <div className="fixed inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
 
           <div className="relative w-84 max-w-[88vw] bg-slate-900 text-white h-full shadow-2xl flex flex-col z-10 border-r border-slate-700 animate-in slide-in-from-left duration-200">

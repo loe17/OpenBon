@@ -30,7 +30,7 @@ interface InventoryRow {
 
 export default function AdminInventoryPage() {
   const { socket } = useSocket();
-  const { success } = useToast();
+  const { success, error, warning } = useToast();
   const [stockItems, setStockItems] = useState<InventoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -257,11 +257,15 @@ export default function AdminInventoryPage() {
                       const v = window.prompt(`Inventur-Zählung für ${item.product?.name} (Soll: ${item.currentQuantity}). Gezählte Menge eingeben:`, String(item.currentQuantity));
                       if (v === null) return;
                       const counted = Number(v.replace(',', '.'));
-                      if (!Number.isFinite(counted) || counted < 0) { alert('Ungültige Menge.'); return; }
+                      if (!Number.isFinite(counted) || counted < 0) { error('Ungültige Menge.'); return; }
                       const res = await fetch('/api/stock-units/count', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productId: item.productId, countedQuantity: counted, note: 'Inventur Admin' }) });
                       const j = await res.json().catch(() => ({}));
-                      alert(res.ok ? `Gezählt: Soll ${j.soll}, Ist ${j.ist}, Diff ${j.diff}` : (j.error || 'Fehlgeschlagen'));
-                      window.location.reload();
+                      if (res.ok) {
+                        success(`Gezählt: Soll ${j.soll}, Ist ${j.ist}, Diff ${j.diff}`);
+                      } else {
+                        error(j.error || 'Fehlgeschlagen');
+                      }
+                      fetchStock();
                     }}
                     className="mt-2 w-full py-2 bg-amber-600 hover:bg-amber-500 text-black rounded-xl text-xs font-black min-h-[44px]"
                     title="Soll/Ist-Zählung mit Differenzbuchung"

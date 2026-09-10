@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 
 import StationGate from '@/components/auth/station-gate';
+import { useToast } from '@/components/ui/toast';
 interface KitchenOrder {
   id: string;
   orderNumber: number;
@@ -57,6 +58,7 @@ interface CategoryOption {
 
 function KitchenMonitorContent() {
   const { socket } = useSocket();
+  const { error: toastError, success: toastSuccess } = useToast();
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
@@ -183,7 +185,7 @@ function KitchenMonitorContent() {
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        alert(j.error || 'Rückgängig nicht möglich (nur 10 Minuten).');
+        toastError(j.error || 'Rückgängig nicht möglich (nur 10 Minuten).');
         return;
       }
       fetchKdsOrders();
@@ -576,7 +578,7 @@ function KitchenMonitorContent() {
                           });
                           if (!res.ok) {
                             const j = await res.json().catch(() => ({}));
-                            alert(j.error || 'Kein offener Druckauftrag für diese Bestellung.');
+                            toastError(j.error || 'Kein offener Druckauftrag für diese Bestellung.');
                           }
                         } catch (e) {
                           console.error(e);

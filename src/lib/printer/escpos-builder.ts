@@ -1117,6 +1117,10 @@ export class EscPosBuilder {
       waiterName: string;
       eventName?: string;
       isTraining?: boolean;
+      isCorrection?: boolean;
+      printDetails?: boolean;
+      itemsSold?: { name: string; quantity: number; amountCents: number }[];
+      orders?: { orderNumber: number; time: string; tableName: string; totalCents: number; itemsSummary: string }[];
       settledAt?: string | Date;
       settledBy?: string;
       totalGrossCents: number;
@@ -1157,8 +1161,13 @@ export class EscPosBuilder {
       add('*** UEBUNGSBON ***');
     }
 
-    builder.align('center').size(true, true).bold(true).textLine('SCHICHTABRECHNUNG').size(false, false).bold(false);
-    add('[ SCHICHTABRECHNUNG ]');
+    if (data.isCorrection) {
+      builder.align('center').size(true, true).bold(true).textLine('*** ABRECHNUNGSKORREKTUR ***').size(false, false).bold(false);
+      add('[ *** ABRECHNUNGSKORREKTUR *** ]');
+    } else {
+      builder.align('center').size(true, true).bold(true).textLine('SCHICHTABRECHNUNG').size(false, false).bold(false);
+      add('[ SCHICHTABRECHNUNG ]');
+    }
     if (data.eventName) {
       builder.textLine(data.eventName);
       add(data.eventName);
@@ -1228,6 +1237,30 @@ export class EscPosBuilder {
       builder.divider();
       builder.textLine(`Bemerkung: ${data.notes}`);
       add(`Bemerkung: ${data.notes}`);
+    }
+
+    if (data.printDetails && data.itemsSold && data.itemsSold.length > 0) {
+      builder.divider();
+      builder.bold(true).textLine('VERKAUFTE ARTIKEL').bold(false);
+      add('-- Verkaufte Artikel --');
+      for (const it of data.itemsSold) {
+        builder.twoColumn(`${it.quantity}x ${it.name}`, money(it.amountCents));
+        add(`${it.quantity}x ${it.name}: ${money(it.amountCents)}`);
+      }
+    }
+
+    if (data.printDetails && data.orders && data.orders.length > 0) {
+      builder.divider();
+      builder.bold(true).textLine(`BESTELLUNGEN (${data.orders.length})`).bold(false);
+      add(`-- Bestellungen (${data.orders.length}) --`);
+      for (const ord of data.orders) {
+        builder.twoColumn(`#${ord.orderNumber} ${ord.time} ${ord.tableName}`, money(ord.totalCents));
+        add(`#${ord.orderNumber} ${ord.time} ${ord.tableName}: ${money(ord.totalCents)}`);
+        if (ord.itemsSummary) {
+          builder.textLine(`  ${ord.itemsSummary}`);
+          add(`  ${ord.itemsSummary}`);
+        }
+      }
     }
 
     builder.lineFeed(2);

@@ -70,14 +70,14 @@ const THEME_PALETTES: Record<Theme, ThemePalette> = {
     badgeHighlight: '#15803d',
     badgeHighlightText: '#ffffff',
   },
-  tradition: {
-    id: 'tradition',
-    background: '#140d07',
-    card: '#1f140b',
-    foreground: '#fffbeb',
-    mutedForeground: '#fde68a',
-    border: '#78350f',
-    primaryAction: '#b45309',
+  'speed-light': {
+    id: 'speed-light',
+    background: '#f8fafc',
+    card: '#ffffff',
+    foreground: '#0f172a',
+    mutedForeground: '#334155',
+    border: '#cbd5e1',
+    primaryAction: '#2563eb',
     primaryActionText: '#ffffff',
     badgeHighlight: '#15803d',
     badgeHighlightText: '#ffffff',
@@ -99,7 +99,8 @@ const THEME_PALETTES: Record<Theme, ThemePalette> = {
 describe('OpenBon Automated Theme & WCAG 2.1 Contrast Validation Test Suite', () => {
   it('should verify that all 4 available themes are defined without parentheses or legacy themes', () => {
     const ids = AVAILABLE_THEMES.map((t) => t.id);
-    expect(ids).toEqual(['dark', 'light', 'tradition', 'speed']);
+    expect(ids).toEqual(['dark', 'light', 'speed', 'speed-light']);
+    expect(ids).not.toContain('tradition');
     expect(ids).not.toContain('contrast');
     expect(ids).not.toContain('klassisch');
 
