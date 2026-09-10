@@ -343,67 +343,90 @@ export class EscPosBuilder {
       addText(header);
     }
 
-    if (data.eventName) {
-      builder.align('center').bold(true).textLine(data.eventName).bold(false);
-      addText(data.eventName);
-    }
-    if (data.subHeader) {
-      builder.align('center').textLine(data.subHeader);
-      addText(data.subHeader);
-    }
-    if (data.customHeader) {
-      builder.align('center').textLine(data.customHeader);
-      addText(data.customHeader);
-    }
-    if (data.template === 'GASTRO') {
-      if (data.addressStreet && data.addressCity) {
-        const addr = `${data.addressStreet} · ${data.addressCity}`;
-        builder.align('center').textLine(addr);
-        addText(addr);
-      }
-      const taxLine = [data.taxNumber ? `St.-Nr: ${data.taxNumber}` : '', data.vatId ? `USt-ID: ${data.vatId}` : ''].filter(Boolean).join(' · ');
-      if (taxLine) {
-        builder.align('center').textLine(taxLine);
-        addText(taxLine);
+    const isEco = data.template === 'ECO';
+    const hideHeader = Boolean(data.hideHeader);
+    const tableFirst = Boolean(data.tableFirst || hideHeader);
+
+    // Papiersparmodus: Tisch direkt an oberster Stelle drucken
+    if (tableFirst && data.tableLabel) {
+      const parsedSize = Number(data.tableFontSize) || (isEco ? 3 : 4);
+      EscPosBuilder.formatTableNumber(builder, data.tableLabel, parsedSize);
+      addText(`Tisch: ${data.tableLabel}`);
+      if (data.tokenNumber) {
+        builder.size(true, true).bold(true).align('center').textLine(`ABHOL-NR: #${data.tokenNumber}`).size(false, false).bold(false).align('left');
+        addText(`ABHOL-NR: #${data.tokenNumber}`);
       }
     }
 
-    const isEco = data.template === 'ECO';
-    if (!isEco) {
-      builder.doubleDivider();
-      addText('='.repeat(paperWidth === 58 ? 32 : 42));
+    if (!hideHeader) {
+      if (data.eventName) {
+        builder.align('center').bold(true).textLine(data.eventName).bold(false);
+        addText(data.eventName);
+      }
+      if (data.subHeader) {
+        builder.align('center').textLine(data.subHeader);
+        addText(data.subHeader);
+      }
+      if (data.customHeader) {
+        builder.align('center').textLine(data.customHeader);
+        addText(data.customHeader);
+      }
+      if (data.template === 'GASTRO') {
+        if (data.addressStreet && data.addressCity) {
+          const addr = `${data.addressStreet} · ${data.addressCity}`;
+          builder.align('center').textLine(addr);
+          addText(addr);
+        }
+        const taxLine = [data.taxNumber ? `St.-Nr: ${data.taxNumber}` : '', data.vatId ? `USt-ID: ${data.vatId}` : ''].filter(Boolean).join(' · ');
+        if (taxLine) {
+          builder.align('center').textLine(taxLine);
+          addText(taxLine);
+        }
+      }
+
+      if (!isEco) {
+        builder.doubleDivider();
+        addText('='.repeat(paperWidth === 58 ? 32 : 42));
+      }
     }
 
     builder.align('left');
-    if (data.tokenNumber) {
-      builder.size(true, true).bold(true).align('center').textLine(`ABHOL-NR: #${data.tokenNumber}`).size(false, false).bold(false).align('left');
-      addText(`ABHOL-NR: #${data.tokenNumber}`);
-    }
+    if (!tableFirst) {
+      if (data.tokenNumber) {
+        builder.size(true, true).bold(true).align('center').textLine(`ABHOL-NR: #${data.tokenNumber}`).size(false, false).bold(false).align('left');
+        addText(`ABHOL-NR: #${data.tokenNumber}`);
+      }
 
-    if (data.tableLabel) {
-      const parsedSize = Number(data.tableFontSize) || 2;
-      EscPosBuilder.formatTableNumber(builder, data.tableLabel, isEco ? Math.min(3, parsedSize) : parsedSize);
-      addText(`Tisch: ${data.tableLabel}`);
+      if (data.tableLabel) {
+        const parsedSize = Number(data.tableFontSize) || 2;
+        EscPosBuilder.formatTableNumber(builder, data.tableLabel, isEco ? Math.min(3, parsedSize) : parsedSize);
+        addText(`Tisch: ${data.tableLabel}`);
+      }
     }
 
     const dateStr = data.createdAt ? new Date(data.createdAt).toLocaleString('de-DE') : new Date().toLocaleString('de-DE');
-    if (isEco) {
-      // Kompakte Einzeilen-Metadaten für minimale Papierlänge
-      builder.twoColumn(`${data.waiterName || 'Kasse'}`, dateStr);
-      addText(`${data.waiterName || 'Kasse'} · ${dateStr}`);
-      if (data.invoiceNumber || data.orderNumber) {
-        builder.twoColumn(data.orderNumber ? `Bon #${data.orderNumber}` : '', data.invoiceNumber ? `Nr: ${data.invoiceNumber}` : '');
-      }
-    } else {
-      builder.bold(true).twoColumn(`Bedienung: ${data.waiterName || 'Kasse'}`, data.orderNumber ? `Bon #${data.orderNumber}` : '').bold(false);
-      addText(`Bedienung: ${data.waiterName || 'Kasse'} ${data.orderNumber ? `| Bon #${data.orderNumber}` : ''}`);
+    if (!data.hideWaiter || !data.hideTimestamp) {
+      if (isEco) {
+        builder.twoColumn(data.hideWaiter ? '' : `${data.waiterName || 'Kasse'}`, data.hideTimestamp ? '' : dateStr);
+        addText(`${data.hideWaiter ? '' : data.waiterName || 'Kasse'} ${data.hideTimestamp ? '' : `· ${dateStr}`}`);
+        if (data.invoiceNumber || data.orderNumber) {
+          builder.twoColumn(data.orderNumber ? `Bon #${data.orderNumber}` : '', data.invoiceNumber ? `Nr: ${data.invoiceNumber}` : '');
+        }
+      } else {
+        if (!data.hideWaiter) {
+          builder.bold(true).twoColumn(`Bedienung: ${data.waiterName || 'Kasse'}`, data.orderNumber ? `Bon #${data.orderNumber}` : '').bold(false);
+          addText(`Bedienung: ${data.waiterName || 'Kasse'} ${data.orderNumber ? `| Bon #${data.orderNumber}` : ''}`);
+        }
 
-      builder.textLine(`Datum: ${dateStr}`);
-      addText(`Datum: ${dateStr}`);
+        if (!data.hideTimestamp) {
+          builder.textLine(`Datum: ${dateStr}`);
+          addText(`Datum: ${dateStr}`);
+        }
 
-      if (data.invoiceNumber) {
-        builder.textLine(`Beleg-Nr: ${data.invoiceNumber}`);
-        addText(`Beleg-Nr: ${data.invoiceNumber}`);
+        if (data.invoiceNumber) {
+          builder.textLine(`Beleg-Nr: ${data.invoiceNumber}`);
+          addText(`Beleg-Nr: ${data.invoiceNumber}`);
+        }
       }
     }
 
@@ -533,8 +556,8 @@ export class EscPosBuilder {
         addText(`davon Trinkgeld: ${(tipCentsVal / 100).toFixed(2)} EUR`);
       }
 
-      // Spec 6.7: MwSt-Splits (19 % / 7 % / 0 %) statt pauschaler 19 % (nur wenn enableTax aktiv)
-      if (data.enableTax !== false) {
+      // Spec 6.7: MwSt-Splits (19 % / 7 % / 0 %) statt pauschaler 19 % (nur wenn enableTax ausdrücklich aktiv)
+      if (data.enableTax === true) {
         if (data.taxSplits && data.taxSplits.length > 0) {
           builder.divider('.');
           addText('.'.repeat(paperWidth === 58 ? 32 : 42));
@@ -621,6 +644,7 @@ export class EscPosBuilder {
     data: {
       tableNumber: number | string;
       label?: string;
+      numberOnly?: boolean;
       qrUrl?: string | null;
       eventName?: string;
       fontSize?: number;
@@ -630,34 +654,47 @@ export class EscPosBuilder {
     paperWidth = 80
   ): { rawBuffer: Buffer; textRepresentation: string } {
     const builder = new EscPosBuilder(paperWidth);
-    const label = data.label || `Tisch ${data.tableNumber}`;
+    const label = data.numberOnly ? String(data.tableNumber) : (data.label || `Tisch ${data.tableNumber}`);
     const textLines: string[] = [];
 
     builder.align('center');
-    if (data.eventName) {
+    if (data.eventName && !data.numberOnly) {
       builder.bold(true).textLine(data.eventName).bold(false);
       textLines.push(data.eventName);
+      builder.doubleDivider();
+      textLines.push('='.repeat(paperWidth === 58 ? 32 : 42));
     }
-
-    builder.doubleDivider();
-    textLines.push('='.repeat(paperWidth === 58 ? 32 : 42));
 
     const fs = data.fontSize ?? 4;
-    // Tischbeschriftung ohne Schwarz-Hinterlegung, skalierbar bis zur vollen Breite
-    if (fs >= 10) {
-      builder.charSize(6, 6).bold(true).textLine(label.toUpperCase()).resetCharSize().bold(false);
-    } else if (fs >= 8) {
-      builder.charSize(5, 5).bold(true).textLine(label.toUpperCase()).resetCharSize().bold(false);
-    } else if (fs >= 6) {
-      builder.charSize(4, 4).bold(true).textLine(label.toUpperCase()).resetCharSize().bold(false);
-    } else if (fs >= 4) {
-      builder.charSize(3, 3).bold(true).textLine(label.toUpperCase()).resetCharSize().bold(false);
-    } else if (fs >= 2) {
-      builder.charSize(2, 2).bold(true).textLine(label.toUpperCase()).resetCharSize().bold(false);
+    // Tischbeschriftung / reine Nummer skalierbar bis zur vollen Breite
+    const displayStr = data.numberOnly ? label : label.toUpperCase();
+    if (data.numberOnly) {
+      // Wenn nur Nummer: extra groß drucken!
+      if (fs >= 8) {
+        builder.charSize(7, 7).bold(true).textLine(displayStr).resetCharSize().bold(false);
+      } else if (fs >= 6) {
+        builder.charSize(6, 6).bold(true).textLine(displayStr).resetCharSize().bold(false);
+      } else if (fs >= 4) {
+        builder.charSize(5, 5).bold(true).textLine(displayStr).resetCharSize().bold(false);
+      } else {
+        builder.charSize(4, 4).bold(true).textLine(displayStr).resetCharSize().bold(false);
+      }
     } else {
-      builder.charSize(1, 1).bold(true).textLine(label.toUpperCase()).resetCharSize().bold(false);
+      if (fs >= 10) {
+        builder.charSize(6, 6).bold(true).textLine(displayStr).resetCharSize().bold(false);
+      } else if (fs >= 8) {
+        builder.charSize(5, 5).bold(true).textLine(displayStr).resetCharSize().bold(false);
+      } else if (fs >= 6) {
+        builder.charSize(4, 4).bold(true).textLine(displayStr).resetCharSize().bold(false);
+      } else if (fs >= 4) {
+        builder.charSize(3, 3).bold(true).textLine(displayStr).resetCharSize().bold(false);
+      } else if (fs >= 2) {
+        builder.charSize(2, 2).bold(true).textLine(displayStr).resetCharSize().bold(false);
+      } else {
+        builder.charSize(1, 1).bold(true).textLine(displayStr).resetCharSize().bold(false);
+      }
     }
-    textLines.push(`[ ${label.toUpperCase()} ]`);
+    textLines.push(`[ ${displayStr} ]`);
 
     builder.doubleDivider();
     textLines.push('='.repeat(paperWidth === 58 ? 32 : 42));

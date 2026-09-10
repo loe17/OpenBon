@@ -148,7 +148,25 @@ function WaiterPaymentContent() {
   const [guestFacingRotated, setGuestFacingRotated] = useState(true);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [soundMuted, setSoundMuted] = useState(true);
-  const [waiterName, setWaiterName] = useState('Bedienung');
+  const [waiterName, setWaiterName] = useState(() => {
+    return searchParams.get('waiterName') || 'Bedienung';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const pName = searchParams.get('waiterName');
+      const storedName =
+        localStorage.getItem('openbon_waiter_name') ||
+        localStorage.getItem('pos_waiter_name') ||
+        localStorage.getItem('waiterName');
+      if (pName) {
+        setWaiterName(pName);
+      } else if (storedName) {
+        setWaiterName(storedName);
+      }
+    }
+  }, [searchParams]);
+
   // WICHTIG: Der Idempotenz-Schluessel gilt fuer GENAU EINEN Kassiervorgang.
   // Bleibt er ueber mehrere Zahlungen gleich, erkennt der Server die zweite
   // Zahlung als Wiederholung, bucht nichts und liefert den alten Beleg zurueck -
@@ -425,7 +443,7 @@ function WaiterPaymentContent() {
         '/api/payments',
         {
           tableId: tableId || null,
-          waiterName: localStorage.getItem('pos_waiter_name') || 'Bedienung 1',
+          waiterName: waiterName || localStorage.getItem('openbon_waiter_name') || localStorage.getItem('pos_waiter_name') || 'Bedienung',
           deviceId: localStorage.getItem('pos_device_id'),
           paymentMethod,
           nonPaidReason: paymentMethod.startsWith('NON_PAID') ? nonPaidReason : null,

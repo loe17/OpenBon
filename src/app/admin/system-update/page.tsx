@@ -75,11 +75,32 @@ export default function AdminSystemUpdatePage() {
   const [executing, setExecuting] = useState(false);
   const [terminalHistory, setTerminalHistory] = useState<TerminalLog[]>([]);
   const [copiedAll, setCopiedAll] = useState(false);
-  const [selectedTarget, setSelectedTarget] = useState<string>('v0.4.2');
+  const [selectedTarget, setSelectedTarget] = useState<string>(`v${APP_VERSION}`);
+  const [liveUptime, setLiveUptime] = useState<number | null>(null);
   const [updateProgress, setUpdateProgress] = useState(0);
   const [updateStage, setUpdateStage] = useState('Vorbereitung...');
   const [updateElapsed, setUpdateElapsed] = useState(0);
   const terminalEndRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Live Server-Uptime Sekundenzähler
+  useEffect(() => {
+    if (liveUptime === null) return;
+    const t = setInterval(() => {
+      setLiveUptime((prev) => (prev !== null ? prev + 1 : null));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [liveUptime !== null]);
+
+  const formatLiveUptime = (totalSec: number | null | undefined) => {
+    if (totalSec === null || totalSec === undefined) return 'Online';
+    const d = Math.floor(totalSec / 86400);
+    const h = Math.floor((totalSec % 86400) / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    if (d > 0) return `${d} T. ${h} Std. ${m} Min.`;
+    if (h > 0) return `${h} Std. ${m} Min. ${s} Sek.`;
+    return `${m} Min. ${s} Sek.`;
+  };
 
   useEffect(() => {
     terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -157,10 +178,14 @@ export default function AdminSystemUpdatePage() {
       const res = await fetch('/api/system/update');
       const data = await res.json();
       setSysInfo(data);
+      if (typeof data.uptime === 'number') {
+        setLiveUptime(data.uptime);
+      }
 
       if (data.availableTags && data.availableTags.length > 0) {
-        if (!selectedTarget || selectedTarget === 'v0.4.2') {
-          setSelectedTarget(data.availableTags[0] || 'v0.4.2');
+        const curTag = `v${data.version || APP_VERSION}`;
+        if (!selectedTarget || selectedTarget === 'v0.4.2' || selectedTarget === `v${APP_VERSION}`) {
+          setSelectedTarget(data.availableTags.includes(curTag) ? curTag : data.availableTags[0]);
         }
       }
 
@@ -530,7 +555,7 @@ export default function AdminSystemUpdatePage() {
           <div className="min-w-0">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Server-Uptime</span>
             <span className="text-xs font-mono font-bold text-slate-200 truncate block">
-              {sysInfo?.uptime ? `${Math.floor(sysInfo.uptime / 60)} Min.` : 'Online'}
+              {formatLiveUptime(liveUptime ?? sysInfo?.uptime)}
             </span>
           </div>
         </div>

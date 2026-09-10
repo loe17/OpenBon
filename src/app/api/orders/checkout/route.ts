@@ -182,6 +182,17 @@ export async function POST(req: Request) {
             });
           }
         }
+
+        if (prod.trackStock && !config.trainingMode) {
+          const newStockQty = Math.max(0, (prod.stockQuantity ?? 0) - item.quantity);
+          await tx.product.update({
+            where: { id: prod.id },
+            data: {
+              stockQuantity: newStockQty,
+              isSoldOut: newStockQty === 0 ? true : prod.isSoldOut,
+            },
+          });
+        }
       }
 
       if (orderItemsData.length === 0) {
@@ -329,6 +340,8 @@ export async function POST(req: Request) {
     const { order, payment, checkout, tipDist } = result as any;
 
     // 3. Nachgelagerte, nicht-kritische Effekte (best-effort):
+    const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
+
     // Low-Stock-Warnungen
     for (const item of order.items) {
       if (item.product?.trackStock) {
@@ -341,40 +354,79 @@ export async function POST(req: Request) {
 
     // Kuechen-/Schankbons drucken (async ACK: PENDING bis Spooler-ACK via print:acked)
     try {
-      const { jobIds } = await TicketSplitter.routeAndPrintOrder({
-        id: order.id,
-        orderNumber: order.orderNumber,
-        tableLabel: order.table?.label || (order.tokenNumber ? `Abholmarke #${order.tokenNumber}` : 'Theke'),
-        waiterName: order.waiterName,
-        tokenNumber: order.tokenNumber,
-        isTraining: order.isTraining,
-        createdAt: order.createdAt,
-        items: order.items.map((i: any) => ({
-          id: i.id,
-          productId: i.productId,
-          productName: i.productName,
-          alternativeName: i.product?.alternativeTicketName,
-          quantity: i.quantity,
-          unitPriceCents: i.unitPriceCents,
-          depositCents: i.depositCents ?? 0,
-          variantName: i.variantName,
-          selectedOptions: i.selectedOptions,
-          customizationText: i.customizationText,
-          courseNumber: i.courseNumber,
-          isHold: i.isHold,
-        })),
-      });
-      if (global.io && jobIds.length > 0) {
-        global.io.emit('print:queued', { orderId: order.id, jobIds });
+      if (body.source === 'POS_CASHIER' && body.targetPrinterId) {
+        const cashierPrinter = await prisma.printer.findUnique({ where: { id: body.targetPrinterId } });
+        if (cashierPrinter && cashierPrinter.isActive) {
+          const { formatWaiterLabel } = await import('@/lib/waiter-number');
+          const ticketData: TicketData = {
+            title: 'KASSENBON',
+            orderNumber: order.orderNumber,
+            tableLabel: 'Kasse',
+            tableFontSize: 3,
+            itemFontSize: 2,
+            optionsFontSize: 1,
+            template: config?.receiptTemplate || 'CLASSIC',
+            waiterName: formatWaiterLabel(order.waiterName),
+            createdAt: order.createdAt,
+            items: order.items.map((i: any) => ({
+              name: i.product?.alternativeTicketName || i.productName,
+              quantity: i.quantity,
+              unitPriceCents: i.unitPriceCents,
+              depositCents: i.depositCents ?? 0,
+              variantName: i.variantName,
+            })),
+            isTraining: order.isTraining,
+            enableTax: Boolean(config?.enableTax),
+            eventName: config?.name,
+            subHeader: config?.receiptSubHeader || undefined,
+            customHeader: config?.receiptHeader || undefined,
+          };
+          const prnRes = await networkSpooler.printTicket(cashierPrinter, ticketData, {
+            orderId: order.id,
+            itemIds: order.items.map((i: any) => i.id),
+          });
+          if (global.io && prnRes.jobId) {
+            global.io.emit('print:queued', { orderId: order.id, jobIds: [prnRes.jobId] });
+          }
+        }
+      } else {
+        const { jobIds } = await TicketSplitter.routeAndPrintOrder({
+          id: order.id,
+          orderNumber: order.orderNumber,
+          tableLabel: order.source === 'POS_CASHIER' ? 'Kasse' : (order.table?.label || (order.tokenNumber ? `Abholmarke #${order.tokenNumber}` : 'Theke')),
+          waiterName: order.waiterName,
+          tokenNumber: order.tokenNumber,
+          isTraining: order.isTraining,
+          createdAt: order.createdAt,
+          items: order.items.map((i: any) => ({
+            id: i.id,
+            productId: i.productId,
+            productName: i.productName,
+            alternativeName: i.product?.alternativeTicketName,
+            quantity: i.quantity,
+            unitPriceCents: i.unitPriceCents,
+            depositCents: i.depositCents ?? 0,
+            variantName: i.variantName,
+            selectedOptions: i.selectedOptions,
+            customizationText: i.customizationText,
+            courseNumber: i.courseNumber,
+            isHold: i.isHold,
+          })),
+        });
+        if (global.io && jobIds.length > 0) {
+          global.io.emit('print:queued', { orderId: order.id, jobIds });
+        }
       }
     } catch (printErr) {
       console.error('[CHECKOUT] Fehler beim Bon-Druck:', printErr);
     }
 
     // Kassenbeleg drucken
-    const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
     if (body.printReceipt) {
-      const receiptPrinter = await prisma.printer.findFirst({ where: { isActive: true } });
+      const receiptPrinter =
+        (body.targetPrinterId
+          ? await prisma.printer.findUnique({ where: { id: body.targetPrinterId } })
+          : null) || (await prisma.printer.findFirst({ where: { isActive: true } }));
       if (receiptPrinter && config) {
         const { formatWaiterLabel } = await import('@/lib/waiter-number');
         const ebReceiptUrl =
@@ -412,6 +464,7 @@ export async function POST(req: Request) {
           cardAuthCode: payment.cardAuthCode,
           taxSplits: checkout.splits.filter((s: any) => (s.grossCents ?? s.gross ?? 0) > 0),
           isTraining: payment.isTraining,
+          enableTax: Boolean(config.enableTax),
           eventName: config.name,
           subHeader: config.receiptSubHeader || undefined,
           customHeader: config.receiptHeader || undefined,

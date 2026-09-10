@@ -23,6 +23,7 @@ import {
   PlusCircle,
   Lock,
   X,
+  FileText,
 } from 'lucide-react';
 import { formatCents, formatCurrency } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
@@ -108,6 +109,73 @@ export default function AdminReportsPage() {
     } catch {
       error('Drucker nicht erreichbar.');
     }
+  };
+
+  /** Druckansicht für Kellner-Abrechnung über Browser/Standarddrucker */
+  const handlePrintWaiterBrowser = (w: any) => {
+    triggerHapticFeedback();
+    const printWindow = window.open('', '_blank', 'width=420,height=620');
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+    const gross = (w as any).totalGrossCents ? formatCents(w.totalGrossCents) : `${((w.totalGross || 0)).toFixed(2)} €`;
+    const cash = (w as any).cashGrossCents ? formatCents(w.cashGrossCents) : `${((w.cashGross || 0)).toFixed(2)} €`;
+    const card = (w as any).cardGrossCents ? formatCents(w.cardGrossCents) : `${((w.cardGross || 0)).toFixed(2)} €`;
+    const tips = (w as any).tipsCents ? formatCents(w.tipsCents) : `${((w.tips || 0)).toFixed(2)} €`;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Kellnerbericht - ${w.waiterName}</title>
+          <style>
+            body { font-family: monospace, sans-serif; padding: 20px; color: #000; font-size: 13px; }
+            h2 { text-align: center; margin: 4px 0; }
+            .line { border-top: 1px dashed #000; margin: 10px 0; }
+            .row { display: flex; justify-content: space-between; margin: 4px 0; }
+            .bold { font-weight: bold; }
+            .highlight { font-size: 16px; font-weight: bold; margin: 12px 0; }
+            .center { text-align: center; }
+          </style>
+        </head>
+        <body>
+          <h2>*** KELLNER-ABRECHNUNG ***</h2>
+          <div class="center">Bedienung: ${w.waiterName}</div>
+          <div class="center">Erstellt: ${new Date().toLocaleString('de-DE')}</div>
+          <div class="line"></div>
+          <div class="row highlight">
+            <span>BAR-SOLL:</span>
+            <span>${cash}</span>
+          </div>
+          <div class="line"></div>
+          <div class="row">
+            <span>Gesamtumsatz:</span>
+            <span class="bold">${gross}</span>
+          </div>
+          <div class="row">
+            <span>Kartenzahlung:</span>
+            <span>${card}</span>
+          </div>
+          <div class="row">
+            <span>Trinkgeld:</span>
+            <span>${tips}</span>
+          </div>
+          <div class="row">
+            <span>Belege / Bons:</span>
+            <span>${w.transactionCount || 0}</span>
+          </div>
+          <div class="line"></div>
+          <div class="center" style="font-size: 11px; margin-top: 15px;">
+            (Schichtbericht - OpenBon)
+          </div>
+          <script>
+            window.onload = function() { window.print(); };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   /** Spec 6.7: Z-Bon-Dialog mit Vorschau der abzuschließenden Periode */
@@ -629,11 +697,19 @@ export default function AdminReportsPage() {
                         <td className="py-3 font-mono text-slate-300">{formatCents((w as any).cardGrossCents ?? Math.round(((w as any).cardGross ?? 0) * 100))}</td>
                         <td className="py-3 font-mono text-amber-400">+{formatCents((w as any).tipsCents ?? Math.round(((w as any).tips ?? 0) * 100))}</td>
                         <td className="py-3 font-mono text-slate-300">{w.transactionCount}</td>
-                        <td className="py-3 text-right">
+                        <td className="py-3 text-right space-x-1.5">
+                          <button
+                            onClick={() => handlePrintWaiterBrowser(w)}
+                            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-blue-300 border border-slate-700 hover:border-blue-500 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition"
+                            title="Druckansicht (Standard-Drucker / A4 / PDF) öffnen"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-blue-400" />
+                            <span>Druckansicht</span>
+                          </button>
                           <button
                             onClick={() => handlePrintWaiterXBon(w.waiterName)}
                             className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 hover:border-amber-500 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition"
-                            title="X-Bon Abrechnung für diese Bedienung drucken"
+                            title="X-Bon Abrechnung auf Bondrucker drucken"
                           >
                             <Printer className="w-3.5 h-3.5 text-amber-400" />
                             <span>X-Bon</span>

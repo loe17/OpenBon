@@ -84,6 +84,7 @@ export default function AdminTablesPage() {
   const [markerNoteText, setMarkerNoteText] = useState('Tischnummer bitte bei Bestellung angeben');
   const [markerPaperWidth, setMarkerPaperWidth] = useState<80 | 58>(80);
   const [includeQr, setIncludeQr] = useState(true);
+  const [markerNumberOnly, setMarkerNumberOnly] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
 
   // Dragging in Floorplan
@@ -398,6 +399,7 @@ export default function AdminTablesPage() {
           qrSize: markerQrSize,
           noteText: markerNoteText,
           includeQr,
+          numberOnly: markerNumberOnly,
         }),
       });
       if (res.ok) {
@@ -1187,6 +1189,23 @@ export default function AdminTablesPage() {
                 <label className="flex items-center gap-2 p-3 bg-slate-950 rounded-xl border border-slate-800 cursor-pointer">
                   <input
                     type="checkbox"
+                    checked={markerNumberOnly}
+                    onChange={(e) => setMarkerNumberOnly(e.target.checked)}
+                    className="w-4 h-4 rounded text-indigo-600"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-slate-200 block">
+                      Nur Nummer drucken (ohne &bdquo;TISCH&ldquo;)
+                    </span>
+                    <span className="text-[11px] text-slate-400 block">
+                      Druckt die Tischnummer extra groß und zentriert auf das Papier.
+                    </span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 p-3 bg-slate-950 rounded-xl border border-slate-800 cursor-pointer">
+                  <input
+                    type="checkbox"
                     checked={includeQr}
                     onChange={(e) => setIncludeQr(e.target.checked)}
                     className="w-4 h-4 rounded text-indigo-600"
@@ -1228,18 +1247,24 @@ export default function AdminTablesPage() {
                     markerPaperWidth === 58 ? 'w-[230px]' : 'w-[290px]'
                   }`}
                 >
-                  <div className="text-xs font-bold uppercase tracking-tight">{eventName}</div>
-                  <div className="my-1 border-b-2 border-dashed border-black" />
+                  {!markerNumberOnly && (
+                    <>
+                      <div className="text-xs font-bold uppercase tracking-tight">{eventName}</div>
+                      <div className="my-1 border-b-2 border-dashed border-black" />
+                    </>
+                  )}
                   
                   {/* Table Label with Scalable Font Size */}
                   <div
                     className="font-black my-3 uppercase tracking-tighter"
                     style={{
-                      fontSize: `${Math.max(14, Math.min(38, 12 + markerFontSize * 2.6))}px`,
-                      lineHeight: '1.1',
+                      fontSize: markerNumberOnly
+                        ? `${Math.max(26, Math.min(56, 22 + markerFontSize * 3.4))}px`
+                        : `${Math.max(14, Math.min(38, 12 + markerFontSize * 2.6))}px`,
+                      lineHeight: '1.05',
                     }}
                   >
-                    TISCH {markerStart}
+                    {markerNumberOnly ? markerStart : `TISCH ${markerStart}`}
                   </div>
 
                   <div className="my-1 border-b-2 border-dashed border-black" />

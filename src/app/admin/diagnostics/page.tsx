@@ -299,6 +299,28 @@ export default function DiagnosticsPage() {
         </div>
       </div>
 
+      {/* Erklärung der beiden Diagnose-Modi */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 print:hidden">
+        <div className="bg-slate-900 border border-amber-500/30 rounded-2xl p-3.5 flex items-start gap-3">
+          <ShieldCheck className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-xs">
+            <div className="font-bold text-amber-300">Preflight-Check (Lautloser Software-Check)</div>
+            <div className="text-slate-400 mt-0.5 leading-relaxed">
+              Prüft im Hintergrund Datenbank, Festplatte, HA-Partner und Netzwerk. <strong>Kein Papierverbrauch, keine Kassenlade.</strong>
+            </div>
+          </div>
+        </div>
+        <div className="bg-slate-900 border border-blue-500/30 rounded-2xl p-3.5 flex items-start gap-3">
+          <Zap className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+          <div className="text-xs">
+            <div className="font-bold text-blue-300">Fest-Generalprobe (Hardware-Funktionstest)</div>
+            <div className="text-slate-400 mt-0.5 leading-relaxed">
+              Druckt auf <strong>allen konfigurierten Druckern</strong> einen Test-Bon, testet den Papierschnitt und kickt die Kassenlade probeweise auf.
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Preflight-Check Ergebnis (Festbeginn-Checkliste) */}
       {preflight && (
         <div

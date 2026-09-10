@@ -86,6 +86,18 @@ export default function Navbar() {
   const { socket } = useSocket();
 
   useEffect(() => {
+    fetch('/api/chat')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((msgs) => {
+        if (Array.isArray(msgs)) {
+          const unread = msgs.some((m: any) => !m.isRead);
+          if (unread && pathname !== '/chat') {
+            setHasUnreadChat(true);
+          }
+        }
+      })
+      .catch(() => {});
+
     if (!socket) return;
     const handleChat = (msg: any) => {
       if (pathname !== '/chat') {
@@ -344,16 +356,13 @@ export default function Navbar() {
           {/* Logo & Brand */}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => {
-                setIsOpen(!isOpen);
-                setHasUnreadChat(false);
-              }}
+              onClick={() => setIsOpen(!isOpen)}
               className="relative p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition active:scale-95 touch-manipulation"
               title="Menü öffnen"
             >
               {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              {hasUnreadChat && !isOpen && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full ring-2 ring-slate-900 animate-pulse shadow" />
+              {hasUnreadChat && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full ring-2 ring-slate-900 animate-pulse shadow shadow-rose-950" />
               )}
             </button>
             <Link href="/" className="flex items-center gap-2 font-black text-lg sm:text-xl tracking-tight">
@@ -581,7 +590,10 @@ export default function Navbar() {
                                 }`}
                               >
                                 <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                                <span>{link.label}</span>
+                                <span className="flex-1">{link.label}</span>
+                                {link.href === '/chat' && hasUnreadChat && (
+                                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse ml-auto" />
+                                )}
                               </Link>
                             );
                           })}
@@ -611,7 +623,10 @@ export default function Navbar() {
                         }`}
                       >
                         <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                        <span>{link.label}</span>
+                        <span className="flex-1">{link.label}</span>
+                        {link.href === '/chat' && hasUnreadChat && (
+                          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse ml-auto" />
+                        )}
                       </Link>
                     );
                   })}

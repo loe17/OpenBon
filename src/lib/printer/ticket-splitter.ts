@@ -137,15 +137,20 @@ export class TicketSplitter {
 
       const isSingleSlip = isFood ? singleFoodSlips : singleDrinkSlips;
 
+      // Explizite Konfiguration an der Druckergruppe hat immer Vorrang!
+      // 0 = unbegrenzt (alle auf einen Bon), >0 = Chunk-Limit
+      let resolvedMaxItems = globalTrayLimit;
+      if (typeof printGroup.maxItemsPerTicket === 'number') {
+        resolvedMaxItems = printGroup.maxItemsPerTicket;
+      } else if (isSingleSlip) {
+        resolvedMaxItems = 1;
+      }
+
       if (!buckets.has(printGroup.id)) {
         buckets.set(printGroup.id, {
           printGroupId: printGroup.id,
           printGroupName: printGroup.name,
-          maxItemsPerTicket: isSingleSlip
-            ? 1
-            : (printGroup.maxItemsPerTicket && printGroup.maxItemsPerTicket > 0
-                ? printGroup.maxItemsPerTicket
-                : globalTrayLimit),
+          maxItemsPerTicket: resolvedMaxItems,
           printer: {
             id: printer.id,
             name: printer.name,
@@ -228,6 +233,19 @@ export class TicketSplitter {
         const isKitchenDrinkBucket = /kueche|küche|ausschank|theke|grill/i.test(bucket.printGroupName);
         const { formatWaiterLabel } = await import('@/lib/waiter-number');
 
+        const showHeader = isFoodBucket
+          ? (config?.receiptFoodShowHeader ?? true)
+          : (config?.receiptDrinkShowHeader ?? true);
+        const showTable = isFoodBucket
+          ? (config?.receiptFoodShowTable ?? true)
+          : (config?.receiptDrinkShowTable ?? true);
+        const showWaiter = isFoodBucket
+          ? (config?.receiptFoodShowWaiter ?? true)
+          : (config?.receiptDrinkShowWaiter ?? true);
+        const showTimestamp = isFoodBucket
+          ? (config?.receiptFoodShowTimestamp ?? true)
+          : (config?.receiptDrinkShowTimestamp ?? true);
+
         const ticketData: TicketData = {
           title: isKitchenDrinkBucket ? '' : bucket.printGroupName.toUpperCase(),
           orderNumber: order.orderNumber,
@@ -245,6 +263,11 @@ export class TicketSplitter {
           items: chunk,
           isTraining: order.isTraining,
           traySplit,
+          hideHeader: !showHeader,
+          hideTable: !showTable,
+          hideWaiter: !showWaiter,
+          hideTimestamp: !showTimestamp,
+          tableFirst: !showHeader,
         };
 
         const res = await networkSpooler.printTicket(bucket.printer, ticketData, {

@@ -85,7 +85,10 @@ function PosCounterContent() {
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedCartItemIds, setSelectedCartItemIds] = useState<string[]>([]);
-  const [printReceipt, setPrintReceipt] = useState(true);
+  const [printReceipt, setPrintReceipt] = useState(false);
+  const [allPrinters, setAllPrinters] = useState<any[]>([]);
+  const [posPrinterId, setPosPrinterId] = useState<string>('');
+  const [editPosPrinterId, setEditPosPrinterId] = useState<string>('');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -103,9 +106,12 @@ function PosCounterContent() {
     if (typeof window !== 'undefined') {
       const savedName = localStorage.getItem('openbon_pos_name') || 'Bonkasse 1';
       const savedId = localStorage.getItem('openbon_pos_id') || 'POS_1';
+      const savedPrinter = localStorage.getItem('openbon_pos_printer_id') || '';
       setStationName(savedName);
       setEditStationName(savedName);
       setStationId(savedId);
+      setPosPrinterId(savedPrinter);
+      setEditPosPrinterId(savedPrinter);
     }
   }, []);
 
@@ -185,6 +191,7 @@ function PosCounterContent() {
       .then((r) => (r.ok ? r.json() : []))
       .then((prns) => {
         if (Array.isArray(prns)) {
+          setAllPrinters(prns.filter((p: any) => p.isActive));
           const anyHasDrawer = prns.some((p: any) => p.isActive && p.hasCashDrawer);
           setHasDrawerAvailable(anyHasDrawer);
         }
@@ -335,7 +342,9 @@ function PosCounterContent() {
       const result = await sendWithOutboxFallback('ORDER', '/api/orders/checkout', {
         orderType: mode === 'DIRECT' ? 'COUNTER_DIRECT' : 'COUNTER_VOUCHER',
         source: 'POS_CASHIER',
-        waiterName,
+        waiterName: stationName || waiterName,
+        cashierStationName: stationName,
+        targetPrinterId: posPrinterId || undefined,
         deviceId,
         idempotencyKey,
         items: itemsToPay.map((item) => ({
@@ -1393,6 +1402,26 @@ function PosCounterContent() {
                 className="w-5 h-5 accent-emerald-500 shrink-0"
               />
             </label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-300">
+                Zugeordneter Bondrucker dieser Station
+                <span className="block text-[10px] font-semibold text-slate-500">
+                  Auswahl des Netzwerk- oder USB-Druckers für Kassenbons & Belege dieser Station.
+                </span>
+              </label>
+              <select
+                value={editPosPrinterId}
+                onChange={(e) => setEditPosPrinterId(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-medium focus:border-emerald-500 outline-none"
+              >
+                <option value="">Automatisch (Standard Küchen-/Thekendrucker)</option>
+                {allPrinters.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} {p.ip ? `(${p.ip})` : p.devicePath ? `(${p.devicePath})` : ''} {p.type === 'NETWORK' ? '[Netzwerk]' : p.type ? `[${p.type}]` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
@@ -1409,8 +1438,10 @@ function PosCounterContent() {
                   setStationName(clean);
                   setStationId(cleanId);
                   setEditDrawerConnected(editDrawerConnected);
+                  setPosPrinterId(editPosPrinterId);
                   localStorage.setItem('openbon_pos_name', clean);
                   localStorage.setItem('openbon_pos_id', cleanId);
+                  localStorage.setItem('openbon_pos_printer_id', editPosPrinterId);
                   localStorage.setItem('pos_drawer_connected', editDrawerConnected ? '1' : '0');
                   if (socket) {
                     socket.emit('pos:station_online', { stationId: cleanId, stationName: clean });

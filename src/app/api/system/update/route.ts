@@ -151,6 +151,15 @@ export async function GET(req: Request) {
       checkNotes.push('Tag-Abgleich via Git fehlgeschlagen (kein Remote/offline?).');
     }
 
+    // Sortiere alle Tags absteigend nach SemVer (neueste Version immer oben)
+    availableTags = Array.from(new Set(availableTags)).sort((a, b) => {
+      const vA = a.replace(/^v/i, '');
+      const vB = b.replace(/^v/i, '');
+      return compareSemver(vB, vA);
+    });
+
+    let gitCheckFailed = false;
+
     // 2. Prüfe Git-Commits auf master (detached HEAD abfangen: dann origin/master vergleichen)
     try {
       const { stdout: bOut } = await execAsync('git rev-parse --abbrev-ref HEAD', { cwd: projectRoot });
@@ -177,6 +186,7 @@ export async function GET(req: Request) {
         pendingCommits = diffOut.trim().split('\n');
       }
     } catch {
+      gitCheckFailed = true;
       checkNotes.push('Git-Commit-Vergleich fehlgeschlagen (kein .git/Remote?).');
     }
 
@@ -187,7 +197,9 @@ export async function GET(req: Request) {
       ? 'HOTFIX'
       : 'NONE';
 
-    const checkIncomplete = !hasUpdate && (updateCheckWarning !== null || checkNotes.length > 0);
+    // Ein Detached HEAD oder lokale Info-Notizen sind keine Fehler.
+    // checkIncomplete ist nur wahr, wenn weder Tags noch Commits geprüft werden konnten oder ein echtes Warning vorliegt.
+    const checkIncomplete = !hasUpdate && (updateCheckWarning !== null || (gitCheckFailed && availableTags.length === 0));
     let remoteStatus = checkIncomplete
       ? 'Update-Prüfung unvollständig – bitte erneut prüfen'
       : 'System ist auf dem neuesten Stand';

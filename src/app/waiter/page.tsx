@@ -181,14 +181,82 @@ function WaiterTablesContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ waiterName }),
       });
-      if (!res.ok) throw new Error();
       const data = await res.json();
-      showToast('ok', `X-Bon gedruckt auf ${data.printedOn || 'Drucker'}`);
+      if (!res.ok) {
+        showToast('err', data.error || 'Fehler beim Drucken des X-Bons');
+      } else {
+        showToast('ok', `X-Bon gedruckt auf ${data.printedOn || 'Drucker'}`);
+      }
     } catch {
       showToast('err', 'Fehler beim Drucken des X-Bons');
     } finally {
       setPrintingXBon(false);
     }
+  };
+
+  const handlePrintBrowserXBon = () => {
+    if (!xBonData) return;
+    const printWindow = window.open('', '_blank', 'width=400,height=600');
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>X-Bon - ${waiterName}</title>
+          <style>
+            body { font-family: monospace, sans-serif; padding: 20px; color: #000; font-size: 13px; }
+            h2, h3 { text-align: center; margin: 4px 0; }
+            .line { border-top: 1px dashed #000; margin: 10px 0; }
+            .row { display: flex; justify-content: space-between; margin: 4px 0; }
+            .bold { font-weight: bold; }
+            .highlight { font-size: 16px; font-weight: bold; margin: 12px 0; }
+            .center { text-align: center; }
+          </style>
+        </head>
+        <body>
+          <h2>*** X-BON / ZWISCHENSTAND ***</h2>
+          <div class="center">Bedienung: ${waiterName}</div>
+          <div class="center">Periode: #${xBonData.periodNumber || 1} | ${new Date().toLocaleString('de-DE')}</div>
+          <div class="line"></div>
+          <div class="row highlight">
+            <span>BARGELD-SOLL:</span>
+            <span>${formatCurrency(xBonData.totalCash || 0)}</span>
+          </div>
+          <div class="line"></div>
+          <div class="row">
+            <span>Gesamtumsatz (Brutto):</span>
+            <span class="bold">${formatCurrency(xBonData.totalGross || 0)}</span>
+          </div>
+          <div class="row">
+            <span>Kartenzahlungen:</span>
+            <span>${formatCurrency(xBonData.totalCard || 0)}</span>
+          </div>
+          <div class="row">
+            <span>Trinkgeld:</span>
+            <span>${formatCurrency(xBonData.totalTips || 0)}</span>
+          </div>
+          <div class="row">
+            <span>Ausbezahltes Pfand:</span>
+            <span>${formatCurrency(xBonData.totalDepositReturned || 0)}</span>
+          </div>
+          <div class="row">
+            <span>Abgeschlossene Bons:</span>
+            <span>${xBonData.transactionCount || 0}</span>
+          </div>
+          <div class="line"></div>
+          <div class="center" style="font-size: 11px; margin-top: 15px;">
+            (Zwischenbericht - Kasse bleibt geöffnet)
+          </div>
+          <script>
+            window.onload = function() { window.print(); };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   const openTableFromNumber = async (rawInput: string) => {
@@ -199,7 +267,7 @@ function WaiterTablesContent() {
     const num = parseInt(raw, 10);
 
     // 1. Suche nach existierendem Tisch
-    let target = tables.find(
+    const target = tables.find(
       (t) =>
         t.tableNumber === num ||
         t.label.toLowerCase() === raw.toLowerCase() ||
@@ -212,35 +280,8 @@ function WaiterTablesContent() {
       return;
     }
 
-    // 2. Tisch on-the-fly erstellen wenn Nummer noch nicht existiert
-    if (isNaN(num) || num <= 0) {
-      showToast('err', 'Bitte eine gültige Tischnummer eingeben');
-      return;
-    }
-
-    setIsCreatingTable(true);
-    try {
-      const res = await fetch('/api/tables', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tableNumber: num,
-          label: `Tisch ${num}`,
-          status: 'FREE',
-        }),
-      });
-      const newTable = await res.json();
-      if (newTable && newTable.id) {
-        setShowTableKeypadModal(false);
-        router.push(`/waiter/order?tableId=${newTable.id}&waiterName=${encodeURIComponent(waiterName)}`);
-      } else {
-        showToast('err', 'Tisch konnte nicht angelegt werden');
-      }
-    } catch {
-      showToast('err', 'Netzwerkfehler beim Anlegen des Tisches');
-    } finally {
-      setIsCreatingTable(false);
-    }
+    // 2. Tisch existiert nicht im Tischplan -> Fehlermeldung, nicht neu erstellen
+    showToast('err', `Tisch "${raw}" existiert nicht im Tischplan!`);
   };
 
   const handleDirectTableOrder = async (e: React.FormEvent) => {
@@ -1309,6 +1350,15 @@ function WaiterTablesContent() {
                     className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-bold"
                   >
                     Schließen
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handlePrintBrowserXBon}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-blue-300 border border-slate-700 hover:border-blue-500 rounded-xl text-xs font-bold shadow flex items-center gap-1.5"
+                    title="Druckansicht für Standard-Drucker öffnen"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Druckansicht</span>
                   </button>
                   <button
                     type="button"

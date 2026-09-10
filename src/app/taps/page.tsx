@@ -485,11 +485,19 @@ export default function TapsMonitorPage() {
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white text-xs"
                 >
                   <option value="">-- Kein Artikel verknüpft --</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.price.toFixed(2)} €)
-                    </option>
-                  ))}
+                  {products.map((p) => {
+                    const priceFormatted =
+                      typeof (p as any).priceCents === 'number'
+                        ? ((p as any).priceCents / 100).toFixed(2)
+                        : typeof p.price === 'number'
+                        ? p.price.toFixed(2)
+                        : '0.00';
+                    return (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({priceFormatted} €)
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

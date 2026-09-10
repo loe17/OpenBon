@@ -216,6 +216,21 @@ export async function POST(req: Request) {
 
     const tipDist = calculateTipDistribution(checkout.tipAmount, waiterProfile?.tipProfile);
 
+    // Validiere Fremdschluessel vor der Transaktion, um SQLite Foreign-Key-Fehler zu verhindern
+    let validTableId: string | null = null;
+    if (body.tableId) {
+      const t = await prisma.diningTable.findUnique({ where: { id: body.tableId }, select: { id: true } });
+      if (t) validTableId = t.id;
+    }
+
+    let validOrderId: string | null = null;
+    if (body.orderId) {
+      const o = await prisma.order.findUnique({ where: { id: body.orderId }, select: { id: true } });
+      if (o) validOrderId = o.id;
+    }
+
+    const validWaiterId = waiterProfile?.id || null;
+
     const period = await getOrCreateOpenPeriod();
     const paymentMethod = body.paymentMethod || 'CASH';
 
@@ -273,10 +288,10 @@ export async function POST(req: Request) {
       const createdPayment = await tx.payment.create({
         data: {
           invoiceNumber,
-          tableId: body.tableId || null,
-          orderId: body.orderId || null,
+          tableId: validTableId,
+          orderId: validOrderId,
           periodId: period.id,
-          waiterId: waiterProfile?.id || null,
+          waiterId: validWaiterId,
           waiterName: body.waiterName || 'Bedienung',
           deviceId: body.deviceId || null,
           digitalReceiptCode,
@@ -306,7 +321,7 @@ export async function POST(req: Request) {
           isTraining,
           items: {
             create: pricedLines.map((i) => ({
-              orderItemId: i.orderItemId || null,
+              orderItemId: (i.orderItemId && orderItemMap.has(i.orderItemId)) ? i.orderItemId : null,
               productName: i.productName,
               quantity: i.quantity,
               unitPriceCents: i.unitPriceCents,
@@ -418,6 +433,7 @@ export async function POST(req: Request) {
           cardAuthCode: payment.cardAuthCode,
           taxSplits: checkout.splits.filter((s: any) => (s.grossCents ?? s.gross ?? 0) > 0),
           isTraining: payment.isTraining,
+          enableTax: Boolean(config.enableTax),
           eventName: config.name,
           subHeader: config.receiptSubHeader || undefined,
           customHeader: config.receiptHeader || undefined,

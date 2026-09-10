@@ -179,13 +179,23 @@ export default function AdminProductsPage() {
   };
 
   const openNewModal = () => {
+    if (categories.length === 0) {
+      alert('Bitte legen Sie zuerst mindestens eine Warengruppe an (z. B. Getränke oder Speisen), bevor Sie Artikel anlegen können.');
+      setEditingCat(null);
+      setNewCatName('');
+      setShowCatModal(true);
+      return;
+    }
+
+    const defaultTaxRate = config?.enableTax !== false ? (config?.taxRateNormal ?? 19.0) : 0.0;
+
     setEditingProduct(null);
     setFormData({
       name: '',
       alternativeTicketName: '',
       price: 4.5,
       deposit: 0.0,
-      taxRate: 19.0,
+      taxRate: defaultTaxRate,
       buttonColor: '#3b82f6',
       categoryId: selectedCatId || (categories[0]?.id || ''),
       printGroupId: printGroups[0]?.id || '',

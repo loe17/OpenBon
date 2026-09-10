@@ -166,6 +166,8 @@ export const AtomicCheckoutSchema = z.object({
   openDrawer: z.boolean().default(true),
   printReceipt: z.boolean().default(false),
   idempotencyKey: z.string().optional(),
+  targetPrinterId: z.string().nullable().optional(),
+  cashierStationName: z.string().nullable().optional(),
   /** @deprecated Legacy Euro-Aliase (Migration Gruppen 2/3) */
   givenAmount: z.number().nonnegative().optional(),
   /** @deprecated Legacy Euro-Alias */

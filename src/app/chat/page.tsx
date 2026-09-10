@@ -136,22 +136,20 @@ function ChatPageContent() {
           </div>
         </div>
 
-        {/* Sender Name Identifier Pill & Broadcast Button */}
+        {/* Sender Name Identifier Pill & Unified Emergency Button */}
         <div className="flex items-center gap-2">
-          {userRole !== 'WAITER' && (
-            <button
-              type="button"
-              onClick={() => {
-                setBroadcastSender(senderName.trim() || 'Leitung / Theke');
-                setShowBroadcastModal(true);
-              }}
-              className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-lg shadow-rose-950/60 transition active:scale-95 animate-pulse"
-              title="Sendet sofort ein Pop-up an alle Bedienungs-Mobilteile"
-            >
-              <Radio className="w-3.5 h-3.5" />
-              <span>Eildurchsage</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              setBroadcastSender(senderName.trim() || 'Team-Funk');
+              setShowBroadcastModal(true);
+            }}
+            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-lg shadow-rose-950/60 transition active:scale-95 animate-pulse"
+            title="Sendet sofort einen Notruf / Eildurchsage mit Ton an alle Geräte"
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span>Eildurchsage & Notruf</span>
+          </button>
 
           <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-700 px-3 py-1.5 rounded-xl text-xs">
             <User className="w-3.5 h-3.5 text-blue-400" />
@@ -213,18 +211,6 @@ function ChatPageContent() {
 
       {/* Input Bar */}
       <form onSubmit={handleSendMessage} className="p-3 bg-slate-900 border-t border-slate-800 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setIsUrgent(!isUrgent)}
-          className={`p-2.5 rounded-xl border transition ${
-            isUrgent
-              ? 'bg-rose-600 border-rose-400 text-white animate-pulse'
-              : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
-          }`}
-          title={isUrgent ? 'Dringend aktiviert' : 'Als dringenden Notruf markieren'}
-        >
-          <AlertTriangle className="w-5 h-5" />
-        </button>
 
         <input
           type="text"

@@ -16,6 +16,7 @@ import {
   Beer,
 } from 'lucide-react';
 import type { ProductDTO } from '@/types/domain';
+import { useToast } from '@/components/ui/toast';
 
 /** Eine Zeile aus /api/inventory */
 interface InventoryRow {
@@ -29,8 +30,10 @@ interface InventoryRow {
 
 export default function AdminInventoryPage() {
   const { socket } = useSocket();
+  const { success } = useToast();
   const [stockItems, setStockItems] = useState<InventoryRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [restockModal, setRestockModal] = useState<InventoryRow | null>(null);
   const [addAmount, setAddAmount] = useState<number>(50);
 
@@ -46,6 +49,13 @@ export default function AdminInventoryPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchStock();
+    setIsRefreshing(false);
+    success('Lagerbestände erfolgreich aktualisiert!');
   };
 
   useEffect(() => {
@@ -119,11 +129,12 @@ export default function AdminInventoryPage() {
         </div>
 
         <button
-          onClick={fetchStock}
-          className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-semibold text-slate-300 transition"
+          onClick={handleManualRefresh}
+          disabled={isRefreshing}
+          className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 rounded-xl text-xs font-semibold text-slate-300 transition active:scale-95 shadow"
         >
-          <RefreshCw className="w-4 h-4" />
-          <span>Aktualisieren</span>
+          <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-amber-400' : ''}`} />
+          <span>{isRefreshing ? 'Aktualisiert...' : 'Aktualisieren'}</span>
         </button>
       </div>
 

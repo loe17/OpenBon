@@ -663,14 +663,44 @@ export function GeneralTab({
           Bereinige Testbuchungen vor einem Fest oder setze einzelne Bereiche wie Artikel, Tische oder Umsätze selektiv zurück.
         </p>
 
-        <button
-          type="button"
-          onClick={() => setShowResetModal(true)}
-          className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-rose-950/60 hover:bg-rose-900/80 text-rose-200 border border-rose-800 font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 touch-manipulation"
-        >
-          <Trash2 className="w-4 h-4 text-rose-400" />
-          <span>Veranstaltungsdaten selektiv zurücksetzen...</span>
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setResetOrders(true);
+              setResetPayments(true);
+              setResetTables(true);
+              setResetProducts(true);
+              setResetWaiters(true);
+              setResetEventMetadata(true);
+              setResetPrinters(false);
+              setResetConfig(false);
+              setShowResetModal(true);
+            }}
+            className="px-5 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs flex items-center justify-center gap-2 transition active:scale-95 touch-manipulation shadow-lg shadow-rose-950/50"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>Vollständiger Reset (Neues Fest starten)...</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setResetOrders(true);
+              setResetPayments(true);
+              setResetTables(false);
+              setResetProducts(false);
+              setResetWaiters(false);
+              setResetEventMetadata(false);
+              setResetPrinters(false);
+              setResetConfig(false);
+              setShowResetModal(true);
+            }}
+            className="px-5 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-rose-300 border border-rose-900/60 font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 touch-manipulation"
+          >
+            <Trash2 className="w-4 h-4 text-rose-400" />
+            <span>Testbuchungen selektiv bereinigen...</span>
+          </button>
+        </div>
       </div>
 
       {/* Selective Reset Modal Dialog */}
@@ -705,19 +735,74 @@ export function GeneralTab({
                     </div>
                   ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowResetModal(false);
-                    window.location.reload();
-                  }}
-                  className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-xs shadow"
-                >
-                  Schließen &amp; Seite aktualisieren
-                </button>
+                {resetTables && resetProducts ? (
+                  <div className="space-y-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.location.href = '/setup';
+                      }}
+                      className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-black text-sm shadow-lg flex items-center justify-center gap-2 transition active:scale-95"
+                    >
+                      <span>🚀 Zum Einrichtungsassistenten wechseln</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowResetModal(false);
+                        window.location.reload();
+                      }}
+                      className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl font-bold text-xs"
+                    >
+                      Auf dieser Seite bleiben &amp; aktualisieren
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowResetModal(false);
+                      window.location.reload();
+                    }}
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-xs shadow"
+                  >
+                    Schließen &amp; Seite aktualisieren
+                  </button>
+                )}
               </div>
             ) : (
               <>
+                <div className="flex gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResetOrders(true);
+                      setResetPayments(true);
+                      setResetTables(true);
+                      setResetProducts(true);
+                      setResetWaiters(true);
+                      setResetEventMetadata(true);
+                    }}
+                    className="flex-1 py-1.5 px-2.5 bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-800 rounded-xl text-[11px] font-bold"
+                  >
+                    Alles auswählen (Voll-Reset)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResetOrders(true);
+                      setResetPayments(true);
+                      setResetTables(false);
+                      setResetProducts(false);
+                      setResetWaiters(false);
+                      setResetEventMetadata(false);
+                    }}
+                    className="flex-1 py-1.5 px-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-[11px] font-bold"
+                  >
+                    Nur Buchungen leeren
+                  </button>
+                </div>
+
                 <p className="text-xs text-slate-300">
                   Wähle genau aus, welche Datenbereiche unwiderruflich gelöscht werden sollen:
                 </p>

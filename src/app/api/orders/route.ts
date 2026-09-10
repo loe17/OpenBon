@@ -225,6 +225,17 @@ export async function POST(req: Request) {
             });
           }
         }
+
+        if (prod.trackStock && !isTraining) {
+          const newStockQty = Math.max(0, (prod.stockQuantity ?? 0) - item.quantity);
+          await tx.product.update({
+            where: { id: prod.id },
+            data: {
+              stockQuantity: newStockQty,
+              isSoldOut: newStockQty === 0 ? true : prod.isSoldOut,
+            },
+          });
+        }
       }
 
       // Verbrauch der Lagerposten abbuchen und leergelaufene Artikel sperren

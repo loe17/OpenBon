@@ -91,6 +91,11 @@ export interface TicketData {
   enableTax?: boolean;
   showQr?: boolean;
   qrUrl?: string;
+  hideHeader?: boolean;
+  hideTable?: boolean;
+  hideWaiter?: boolean;
+  hideTimestamp?: boolean;
+  tableFirst?: boolean;
 }
 
 export interface VirtualTicketRecord {

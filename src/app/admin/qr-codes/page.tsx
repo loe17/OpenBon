@@ -233,7 +233,7 @@ export default function QrCodesPage() {
   return (
     <div className="flex-1 flex flex-col h-full overflow-y-auto bg-slate-950 text-white p-4 sm:p-6 max-w-7xl mx-auto w-full">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-800">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-800 no-print">
         <div className="flex items-center gap-3">
           <div className="bg-blue-600 text-white p-2.5 rounded-2xl shadow">
             <QrCode className="w-6 h-6" />
@@ -266,7 +266,7 @@ export default function QrCodesPage() {
       </div>
 
       {/* Domain / IP Toggle Bar */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-6 flex flex-wrap items-center justify-between gap-4 shadow-md">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-6 flex flex-wrap items-center justify-between gap-4 shadow-md no-print">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-slate-800 rounded-xl text-blue-400">
             <Globe className="w-5 h-5" />
@@ -308,6 +308,7 @@ export default function QrCodesPage() {
           {printers.length > 0 && (
             <div className="flex items-center gap-2">
               <Printer className="w-4 h-4 text-slate-400" />
+              <span className="text-xs font-semibold text-slate-400">Bondrucker für Helfer-Bons:</span>
               <select
                 value={selectedPrinterId}
                 onChange={(e) => setSelectedPrinterId(e.target.value)}
@@ -400,7 +401,7 @@ export default function QrCodesPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="w-full grid grid-cols-2 gap-2 mt-auto">
+              <div className="w-full grid grid-cols-2 gap-2 mt-auto no-print">
                 <a
                   href={station.fullUrl}
                   target="_blank"
@@ -422,6 +423,41 @@ export default function QrCodesPage() {
           );
         })}
       </div>
+
+      <style jsx global>{`
+        @media print {
+          body {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+          }
+          .no-print, nav, header, aside {
+            display: none !important;
+          }
+          .grid {
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 16px !important;
+          }
+          .bg-slate-900 {
+            background-color: #ffffff !important;
+            border: 2px dashed #475569 !important;
+            box-shadow: none !important;
+            page-break-inside: avoid !important;
+            color: #000000 !important;
+          }
+          .bg-slate-900 * {
+            color: #000000 !important;
+          }
+          .bg-slate-950 {
+            background-color: #f8fafc !important;
+            border-color: #cbd5e1 !important;
+          }
+          .bg-blue-950 {
+            background-color: #e2e8f0 !important;
+            border-color: #94a3b8 !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
