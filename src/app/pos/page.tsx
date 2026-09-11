@@ -795,13 +795,6 @@ function PosCounterContent() {
                   }`}
                   style={{ borderLeftColor: isOut ? '#991b1b' : prod.buttonColor || '#10b981', borderLeftWidth: '6px' }}
                 >
-                  {/* Zähler je Artikel: Zeigt sofort an, wie oft man darauf getippt hat */}
-                  {inCartCount > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-emerald-500 text-white font-black font-mono text-xs px-2 py-0.5 rounded-full shadow-lg border-2 border-slate-900 flex items-center justify-center animate-in zoom-in-75 z-10">
-                      {inCartCount}x
-                    </span>
-                  )}
-
                   <div>
                     <div className="flex items-start justify-between gap-1">
                       <div className="font-extrabold text-sm sm:text-base text-white line-clamp-2">

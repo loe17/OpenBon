@@ -36,6 +36,7 @@ import {
   X,
   ChevronUp,
   ChevronDown,
+  Calculator,
 } from 'lucide-react';
 import { isAudioMuted, setAudioMuted } from '@/lib/socket-client';
 import { sendWithOutboxFallback } from '@/lib/offline/outbox';
@@ -87,7 +88,7 @@ function extractPayableItems(orders: any[]): PayableItem[] {
           deposit: dep,
           taxRate: Number(item.taxRate || 19),
           totalUnpaidQty: unpaid,
-          selectedQty: unpaid,
+          selectedQty: 0,
         });
       }
     }
@@ -371,11 +372,11 @@ function WaiterPaymentContent() {
     haptic();
     setTipCents(0);
     setItems((prev) =>
-      prev.map((i) =>
-        i.orderItemId === orderItemId
-          ? { ...i, selectedQty: i.selectedQty > 0 ? 0 : i.totalUnpaidQty }
-          : i
-      )
+      prev.map((i) => {
+        if (i.orderItemId !== orderItemId) return i;
+        const nextQty = i.selectedQty >= i.totalUnpaidQty ? 0 : i.selectedQty + 1;
+        return { ...i, selectedQty: nextQty };
+      })
     );
   };
 
@@ -638,7 +639,7 @@ function WaiterPaymentContent() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white">
+    <div className="flex-1 flex flex-col h-[100dvh] max-h-[100dvh] overflow-hidden bg-slate-950 text-white">
       {/* ===================== STICKY TOP CONTAINER (Permanent ganz oben über der Tischnummer fixiert) ===================== */}
       <div className="sticky top-0 z-20 shadow-2xl bg-slate-950 shrink-0">
         {/* XXL Gast-Display Banner (Ganz oben) */}
@@ -713,76 +714,125 @@ function WaiterPaymentContent() {
           </div>
         </div>
 
-        {/* Zeile 2: Linke Pfeile (1 €), Großer Betrag + Stufen-Punkte in der Mitte, Rechte Pfeile (0,50 €) */}
-        <div className="px-3 py-2 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-3">
-          {/* Linke Pfeile: 1,00 € Schritte vor dem Komma */}
-          <div className="flex flex-col items-center gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={roundUpEuro}
-              disabled={stage === 'DONE' || !hasSelection}
-              aria-label="Auf nächsten vollen Euro aufrunden"
-              className="w-11 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 flex items-center justify-center text-emerald-400 font-bold transition disabled:opacity-30 disabled:pointer-events-none shadow"
-            >
-              <ChevronUp className="w-5 h-5" />
-            </button>
-            <span className="text-[10px] font-mono font-bold text-slate-400">1 €</span>
-            <button
-              type="button"
-              onClick={roundDownEuro}
-              disabled={stage === 'DONE' || tipCents <= 0}
-              aria-label="1 Euro abziehen"
-              className="w-11 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition disabled:opacity-30 disabled:pointer-events-none shadow"
-            >
-              <ChevronDown className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Mitte: Großer Betrag (ohne "Auswahl:"), Trinkgeld-Hinweis und Fortschrittspunkte */}
-          <div className="flex-1 text-center py-0.5">
-            <div className="font-mono font-black text-3xl sm:text-4xl text-emerald-400 leading-tight">
-              {formatCents((checkout as any).amountDueWithTipCents ?? Math.round(((checkout as any).amountDueWithTip ?? 0) * 100))}
-            </div>
-            {tipCents > 0 && (
-              <div className="text-[11px] font-bold text-amber-400 mt-0.5">
-                + {formatCents(tipCents)} Trinkgeld
+        {/* In Stage CASH: Rückgeldrechner steht GANZ OBEN */}
+        {stage === 'CASH' && paymentMethod === 'CASH' && (
+          <div className="p-2 sm:p-3 bg-slate-950 border-b border-slate-800">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 shadow-md space-y-1.5 max-w-2xl mx-auto">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-400">
+                <span className="flex items-center gap-1.5 text-white">
+                  <Calculator className="w-4 h-4 text-emerald-400" />
+                  <span>Rückgeldrechner</span>
+                </span>
+                {givenAmount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptic();
+                      setKeypadValue('');
+                    }}
+                    className="text-[11px] text-rose-400 hover:text-rose-300 flex items-center gap-1 font-bold"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Zurücksetzen</span>
+                  </button>
+                )}
               </div>
-            )}
-            <div className="flex items-center justify-center gap-1.5 mt-1.5">
-              {[1, 2, 3, 4].map((s) => (
-                <span
-                  key={s}
-                  className={`h-1.5 rounded-full transition-all ${
-                    s === stageIndex ? 'w-6 bg-emerald-400' : s < stageIndex ? 'w-3 bg-emerald-800' : 'w-3 bg-slate-700'
-                  }`}
-                />
-              ))}
+
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400 font-bold">Gegeben:</span>
+                  <span className="text-xl sm:text-2xl font-black font-mono text-amber-300">
+                    {formatCents(Math.round(givenAmount * 100))}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 text-right">
+                  <span className="text-xs text-slate-400 font-bold">Rückgeld:</span>
+                  <span
+                    className={`text-xl sm:text-2xl font-black font-mono ${
+                      isCashSufficient ? 'text-emerald-400 animate-pulse' : 'text-slate-500'
+                    }`}
+                  >
+                    {formatCents(Math.max(0, Math.round((givenAmount - ((checkout as any).amountDueWithTip ?? 0)) * 100)))}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
+        )}
 
-          {/* Rechte Pfeile: 0,50 € Schritte nach dem Komma */}
-          <div className="flex flex-col items-center gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={roundUp50Cents}
-              disabled={stage === 'DONE' || !hasSelection}
-              aria-label="Auf nächste 50 Cent aufrunden"
-              className="w-11 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 flex items-center justify-center text-blue-400 font-bold transition disabled:opacity-30 disabled:pointer-events-none shadow"
-            >
-              <ChevronUp className="w-5 h-5" />
-            </button>
-            <span className="text-[10px] font-mono font-bold text-slate-400">0,50 €</span>
-            <button
-              type="button"
-              onClick={roundDown50Cents}
-              disabled={stage === 'DONE' || tipCents <= 0}
-              aria-label="50 Cent abziehen"
-              className="w-11 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition disabled:opacity-30 disabled:pointer-events-none shadow"
-            >
-              <ChevronDown className="w-5 h-5" />
-            </button>
+        {/* Zeile 2: Linke Pfeile (1 €), Großer Betrag + Stufen-Punkte in der Mitte, Rechte Pfeile (0,50 €) - NUR in METHOD oder CASH */}
+        {(stage === 'METHOD' || stage === 'CASH') && (
+          <div className="px-3 py-2 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-3">
+            {/* Linke Pfeile: 1,00 € Schritte vor dem Komma */}
+            <div className="flex flex-col items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={roundUpEuro}
+                disabled={!hasSelection}
+                aria-label="Auf nächsten vollen Euro aufrunden"
+                className="w-11 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 flex items-center justify-center text-emerald-400 font-bold transition disabled:opacity-30 disabled:pointer-events-none shadow"
+              >
+                <ChevronUp className="w-5 h-5" />
+              </button>
+              <span className="text-[10px] font-mono font-bold text-slate-400">1 €</span>
+              <button
+                type="button"
+                onClick={roundDownEuro}
+                disabled={tipCents <= 0}
+                aria-label="1 Euro abziehen"
+                className="w-11 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition disabled:opacity-30 disabled:pointer-events-none shadow"
+              >
+                <ChevronDown className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Mitte: Großer Betrag (ohne "Auswahl:"), Trinkgeld-Hinweis und Fortschrittspunkte */}
+            <div className="flex-1 text-center py-0.5">
+              <div className="font-mono font-black text-3xl sm:text-4xl text-emerald-400 leading-tight">
+                {formatCents((checkout as any).amountDueWithTipCents ?? Math.round(((checkout as any).amountDueWithTip ?? 0) * 100))}
+              </div>
+              {tipCents > 0 && (
+                <div className="text-[11px] font-bold text-amber-400 mt-0.5">
+                  + {formatCents(tipCents)} Trinkgeld
+                </div>
+              )}
+              <div className="flex items-center justify-center gap-1.5 mt-1.5">
+                {[1, 2, 3, 4].map((s) => (
+                  <span
+                    key={s}
+                    className={`h-1.5 rounded-full transition-all ${
+                      s === stageIndex ? 'w-6 bg-emerald-400' : s < stageIndex ? 'w-3 bg-emerald-800' : 'w-3 bg-slate-700'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Rechte Pfeile: 0,50 € Schritte nach dem Komma */}
+            <div className="flex flex-col items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={roundUp50Cents}
+                disabled={!hasSelection}
+                aria-label="Auf nächste 50 Cent aufrunden"
+                className="w-11 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 flex items-center justify-center text-blue-400 font-bold transition disabled:opacity-30 disabled:pointer-events-none shadow"
+              >
+                <ChevronUp className="w-5 h-5" />
+              </button>
+              <span className="text-[10px] font-mono font-bold text-slate-400">0,50 €</span>
+              <button
+                type="button"
+                onClick={roundDown50Cents}
+                disabled={tipCents <= 0}
+                aria-label="50 Cent abziehen"
+                className="w-11 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition disabled:opacity-30 disabled:pointer-events-none shadow"
+              >
+                <ChevronDown className="w-5 h-5" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {error && (
@@ -795,7 +845,7 @@ function WaiterPaymentContent() {
       {/* ============================ STUFE 1: SPLIT ============================ */}
       {stage === 'SPLIT' && (
         <>
-          <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3">
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
                 Zu zahlende Posten wählen
@@ -929,8 +979,8 @@ function WaiterPaymentContent() {
             )}
           </div>
 
-          {/* Leuchtbalken (Spec 5.1) */}
-          <div className="shrink-0 border-t border-slate-800 bg-slate-900 p-3 sm:p-4 shadow-[0_-8px_24px_rgba(0,0,0,0.5)]">
+          {/* Leuchtbalken (Spec 5.1) - fest am unteren Rand verankert (Sticky Bottom) */}
+          <div className="shrink-0 border-t border-slate-800 bg-slate-900 p-3 sm:p-4 shadow-[0_-8px_24px_rgba(0,0,0,0.5)] sticky bottom-0 z-20">
             <div className="flex items-center justify-between mb-3 px-1">
               <span className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
                 Zwischenbetrag
@@ -963,7 +1013,7 @@ function WaiterPaymentContent() {
 
       {/* =========================== STUFE 2: ZAHLART =========================== */}
       {stage === 'METHOD' && (
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 flex flex-col">
           <div className="text-center mb-5">
             <div className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
               Zu zahlen
@@ -1046,9 +1096,9 @@ function WaiterPaymentContent() {
 
       {/* ====================== STUFE 3: BARGELD-RECHENCENTER ==================== */}
       {stage === 'CASH' && (
-        <div className="flex-1 flex flex-col overflow-hidden max-w-2xl w-full mx-auto">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden max-w-2xl w-full mx-auto">
           {/* Scrollbarer Bereich für Wechselgeld-Rechner und Grund-Eingabe */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4">
             {/* Stückelungs-Rechner mit Scheinen (5€–200€), Münzen (1ct–2€) und Ziffernblock */}
             {paymentMethod === 'CASH' && (
               <ChangeCalculator
@@ -1060,6 +1110,7 @@ function WaiterPaymentContent() {
                   setKeypadValue(val > 0 ? val.toFixed(2).replace('.', ',') : '');
                 }}
                 defaultExpanded={true}
+                hideSummary={true}
               />
             )}
 
@@ -1087,7 +1138,7 @@ function WaiterPaymentContent() {
           </div>
 
           {/* Zentraler Kassieren-Button - fest am unteren Rand verankert (Sticky Bottom) */}
-          <div className="p-3 sm:p-4 bg-slate-950/95 backdrop-blur-sm border-t border-slate-800 shrink-0 sticky bottom-0 z-10">
+          <div className="p-3 sm:p-4 bg-slate-950/95 backdrop-blur-sm border-t border-slate-800 shrink-0 sticky bottom-0 z-20">
             <button
               onClick={() => void submitPayment({ printReceipt: false })}
               disabled={

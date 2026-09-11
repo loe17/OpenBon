@@ -190,6 +190,29 @@ export default function AdminSystemUpdatePage() {
     setTerminalHistory((prev) => [...prev, newLog]);
   };
 
+  const fetchLiveHardwareMetrics = async () => {
+    try {
+      const res = await fetch('/api/system/update?metricsOnly=1');
+      if (!res.ok) return;
+      const data = await res.json();
+      setSysInfo((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          cpu: data.cpu ?? prev.cpu,
+          memory: data.memory ?? prev.memory,
+          diskSpace: data.diskSpace ?? prev.diskSpace,
+          uptime: typeof data.uptime === 'number' ? data.uptime : prev.uptime,
+        };
+      });
+      if (typeof data.uptime === 'number') {
+        setLiveUptime(data.uptime);
+      }
+    } catch {
+      // Leise ignorieren, kein Terminal-Log
+    }
+  };
+
   const fetchSystemStatus = async () => {
     setChecking(true);
     triggerHapticFeedback();
@@ -243,10 +266,10 @@ export default function AdminSystemUpdatePage() {
     );
     fetchSystemStatus();
 
-    // Automatisches 10-Sekunden-Intervall für Live-Metriken (CPU, RAM, Festplatte)
+    // Automatisches 10-Sekunden-Intervall für Live-Metriken (CPU, RAM, Festplatte, Uptime) ohne Git/GitHub-Poll
     const interval = setInterval(() => {
       if (!updating) {
-        fetchSystemStatus();
+        fetchLiveHardwareMetrics();
       }
     }, 10000);
 

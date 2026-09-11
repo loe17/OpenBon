@@ -79,6 +79,39 @@ export async function GET(req: Request) {
   const denied = await requireAdmin(req);
   if (denied) return denied;
   try {
+    const url = new URL(req.url);
+    if (url.searchParams.get('metricsOnly') === '1' || url.searchParams.get('metricsOnly') === 'true') {
+      const totalMem = os.totalmem();
+      const freeMem = os.freemem();
+      const usedMem = Math.max(0, totalMem - freeMem);
+      const usedPercentage = totalMem > 0 ? Math.round((usedMem / totalMem) * 100) : 0;
+      const formatMem = (bytes: number) => (bytes / (1024 * 1024 * 1024)).toFixed(1).replace('.', ',') + ' GB';
+      const memory = {
+        totalBytes: totalMem,
+        freeBytes: freeMem,
+        usedBytes: usedMem,
+        usedPercentage,
+        formattedTotal: formatMem(totalMem),
+        formattedFree: formatMem(freeMem),
+        formattedUsed: formatMem(usedMem),
+      };
+
+      const cpuUsagePercent = await getCpuUsage();
+      const cpus = os.cpus();
+      const cpu = {
+        usedPercentage: cpuUsagePercent,
+        cores: cpus.length,
+        model: cpus[0]?.model ? cpus[0].model.trim() : 'Standard-CPU',
+      };
+
+      return NextResponse.json({
+        uptime: Math.round(process.uptime()),
+        diskSpace: getDiskSpace(projectRoot),
+        memory,
+        cpu,
+      });
+    }
+
     let localCommit = 'Unbekannt';
     let branch = 'master';
     let pendingCommits: string[] = [];

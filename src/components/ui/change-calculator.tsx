@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Coins, Banknote, RotateCcw, Check, X, Calculator } from 'lucide-react';
 import { formatCents } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
@@ -16,6 +16,7 @@ interface ChangeCalculatorProps {
   onGivenChange?: (amountEuro: number) => void;
   className?: string;
   defaultExpanded?: boolean;
+  hideSummary?: boolean;
 }
 
 function toCents(v: number | undefined): number {
@@ -35,8 +36,17 @@ export function ChangeCalculator({
   givenAmount,
   onGivenChange,
   className = '',
+  hideSummary = false,
 }: ChangeCalculatorProps) {
   const [keypadBuffer, setKeypadBuffer] = useState('');
+
+  // Synchronisiere internen Puffer bei externem Zurücksetzen
+  useEffect(() => {
+    const giv = typeof givenCents === 'number' ? toCents(givenCents) : euroToCents(givenAmount);
+    if (giv === 0 && keypadBuffer !== '') {
+      setKeypadBuffer('');
+    }
+  }, [givenCents, givenAmount, keypadBuffer]);
 
   // Cent-hart auflösen (Legacy-Euro fallback)
   const dueCents = typeof amountDueCents === 'number' ? toCents(amountDueCents) : euroToCents(amountDue);
@@ -126,44 +136,46 @@ export function ChangeCalculator({
 
   return (
     <div className={`space-y-3 ${className}`}>
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 shadow-md space-y-2">
-        <div className="flex items-center justify-between text-xs font-bold text-slate-400">
-          <span className="flex items-center gap-1.5 text-white">
-            <Calculator className="w-4 h-4 text-emerald-400" />
-            <span>Rückgeldrechner</span>
-          </span>
-          {givCents > 0 && (
-            <button
-              type="button"
-              onClick={handleClear}
-              className="text-[11px] text-rose-400 hover:text-rose-300 flex items-center gap-1 font-bold"
-            >
-              <X className="w-3.5 h-3.5" />
-              <span>Zurücksetzen</span>
-            </button>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 font-bold">Gegeben:</span>
-            <span className="text-xl sm:text-2xl font-black font-mono text-amber-300">
-              {formatCents(givCents)}
+      {!hideSummary && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 shadow-md space-y-2">
+          <div className="flex items-center justify-between text-xs font-bold text-slate-400">
+            <span className="flex items-center gap-1.5 text-white">
+              <Calculator className="w-4 h-4 text-emerald-400" />
+              <span>Rückgeldrechner</span>
             </span>
+            {givCents > 0 && (
+              <button
+                type="button"
+                onClick={handleClear}
+                className="text-[11px] text-rose-400 hover:text-rose-300 flex items-center gap-1 font-bold"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Zurücksetzen</span>
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center gap-2 text-right">
-            <span className="text-xs text-slate-400 font-bold">Rückgeld:</span>
-            <span
-              className={`text-xl sm:text-2xl font-black font-mono ${
-                isSufficient ? 'text-emerald-400 animate-pulse' : 'text-slate-500'
-              }`}
-            >
-              {formatCents(changeCents)}
-            </span>
+          <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-bold">Gegeben:</span>
+              <span className="text-xl sm:text-2xl font-black font-mono text-amber-300">
+                {formatCents(givCents)}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 text-right">
+              <span className="text-xs text-slate-400 font-bold">Rückgeld:</span>
+              <span
+                className={`text-xl sm:text-2xl font-black font-mono ${
+                  isSufficient ? 'text-emerald-400 animate-pulse' : 'text-slate-500'
+                }`}
+              >
+                {formatCents(changeCents)}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div>
         <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1">
