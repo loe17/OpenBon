@@ -69,6 +69,11 @@ interface SystemInfo {
     formattedFree: string;
     formattedUsed: string;
   };
+  cpu?: {
+    usedPercentage: number;
+    cores: number;
+    model: string;
+  };
 }
 
 interface TerminalLog {
@@ -237,7 +242,16 @@ export default function AdminSystemUpdatePage() {
       `[OPENBON SYSTEM-UPDATE & VERSIONS-MANAGER v${APP_VERSION}]\nBereit für Releases, Tags, Rollbacks und Git-Befehle. Repository: ${GITHUB_REPO_URL}`
     );
     fetchSystemStatus();
-  }, []);
+
+    // Automatisches 10-Sekunden-Intervall für Live-Metriken (CPU, RAM, Festplatte)
+    const interval = setInterval(() => {
+      if (!updating) {
+        fetchSystemStatus();
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [updating]);
 
   const handleExecuteCommand = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -389,16 +403,8 @@ export default function AdminSystemUpdatePage() {
       : [`v${APP_VERSION}`];
     if (!onlyReleases) return baseTags;
 
-    const officialSet = new Set((sysInfo?.officialReleases || []).map((r) => r.toLowerCase().trim()));
-    if (officialSet.size > 0) {
-      const filtered = baseTags.filter((t) => {
-        const clean = t.toLowerCase().replace(/^v/i, '').trim();
-        return officialSet.has(t.toLowerCase().trim()) || officialSet.has(clean) || officialSet.has(`v${clean}`);
-      });
-      return filtered.length > 0 ? filtered : baseTags;
-    }
-    // Fallback falls API noch lädt oder offline: nur saubere SemVer-Release-Tags
-    return baseTags.filter((t) => /^v?\d+\.\d+\.\d+$/.test(t.trim()));
+    // Nur offizielle Releases: Strikte Beschränkung auf verifizierte GitHub Releases (keine Git-Tags)
+    return (sysInfo?.officialReleases || []).map((r) => r.trim()).filter(Boolean);
   }, [sysInfo?.availableTags, sysInfo?.officialReleases, onlyReleases]);
 
   return (
@@ -492,11 +498,17 @@ export default function AdminSystemUpdatePage() {
                 className="bg-slate-950 border border-slate-700 text-white text-xs font-bold font-mono rounded-xl px-3 py-2.5 focus:border-blue-500"
               >
                 <optgroup label={onlyReleases ? '🏷️ Offizielle Releases' : '🏷️ Versionen & Git-Tags'}>
-                  {tagsList.map((t) => (
-                    <option key={t} value={t}>
-                      {t} {t === `v${APP_VERSION}` ? '(Aktuell installiert)' : ''}
+                  {tagsList.length === 0 ? (
+                    <option disabled value="">
+                      Keine separaten GitHub-Releases vorhanden (Tags ausgeblendet)
                     </option>
-                  ))}
+                  ) : (
+                    tagsList.map((t) => (
+                      <option key={t} value={t}>
+                        {t} {t === `v${APP_VERSION}` ? '(Aktuell installiert)' : ''}
+                      </option>
+                    ))
+                  )}
                 </optgroup>
                 {!onlyReleases && (
                   <optgroup label="🌿 Entwicklungs-Branch">
@@ -507,7 +519,7 @@ export default function AdminSystemUpdatePage() {
 
               <button
                 onClick={() => handleInstallTarget(selectedTarget)}
-                disabled={updating}
+                disabled={updating || (onlyReleases && tagsList.length === 0)}
                 className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg transition active:scale-95 disabled:opacity-50"
               >
                 {updating ? (
@@ -518,7 +530,7 @@ export default function AdminSystemUpdatePage() {
                 ) : (
                   <>
                     <ArrowDownCircle className="w-4 h-4" />
-                    <span>Auf {selectedTarget} wechseln</span>
+                    <span>Auf {selectedTarget || 'Version'} wechseln</span>
                   </>
                 )}
               </button>
@@ -613,12 +625,24 @@ export default function AdminSystemUpdatePage() {
         </div>
 
         <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800 flex items-center gap-3">
-          <Cpu className="w-5 h-5 text-emerald-400 shrink-0" />
-          <div className="min-w-0">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">Umgebung</span>
+          <Cpu className={`w-5 h-5 shrink-0 ${(sysInfo?.cpu?.usedPercentage ?? 0) > 85 ? 'text-rose-400' : (sysInfo?.cpu?.usedPercentage ?? 0) > 70 ? 'text-amber-400' : 'text-emerald-400'}`} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Prozessor (CPU)</span>
+              {sysInfo?.cpu && (
+                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${(sysInfo.cpu.usedPercentage > 85) ? 'text-rose-400 bg-rose-950/80 font-black animate-pulse' : (sysInfo.cpu.usedPercentage > 70) ? 'text-amber-400 bg-amber-950/60' : 'text-emerald-400 bg-emerald-950/60'}`}>
+                  {sysInfo.cpu.usedPercentage}%
+                </span>
+              )}
+            </div>
             <span className="text-xs font-mono font-bold text-slate-200 truncate block">
-              Node {sysInfo?.nodeVersion || process.version} ({sysInfo?.arch || 'x64'})
+              {sysInfo?.cpu ? `${sysInfo.cpu.usedPercentage}% Auslastung` : 'Wird geprüft...'}
             </span>
+            {sysInfo?.cpu && (
+              <span className="text-[10px] text-slate-500 block truncate">
+                {sysInfo.cpu.cores} Kerne ({sysInfo.cpu.model.slice(0, 18)})
+              </span>
+            )}
           </div>
         </div>
 
@@ -722,29 +746,29 @@ export default function AdminSystemUpdatePage() {
             </div>
           </div>
 
-          {/* Progress Bar Track & Glow Fill */}
-          <div className="w-full bg-slate-950 h-3.5 rounded-full overflow-hidden border border-slate-800 p-0.5">
+          {/* Progress Bar Track & Glow Fill - High contrast border & vibrant glow */}
+          <div className="w-full bg-slate-800/90 h-3.5 rounded-full overflow-hidden border-2 border-slate-600 p-0.5 shadow-inner">
             <div
-              className="bg-gradient-to-r from-blue-500 via-emerald-400 to-emerald-500 h-full rounded-full transition-all duration-500 ease-out shadow-[0_0_12px_rgba(16,185,129,0.5)]"
+              className="bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 h-full rounded-full transition-all duration-500 ease-out shadow-[0_0_14px_rgba(52,211,153,0.9)]"
               style={{ width: `${Math.max(5, Math.min(100, updateProgress))}%` }}
             />
           </div>
 
           {/* Progress Stages Pills */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 pt-1 text-center">
-            <div className={`p-1.5 rounded-xl text-[10px] font-bold border transition ${updateProgress >= 15 ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300' : 'bg-slate-950/60 border-slate-800 text-slate-500'}`}>
+            <div className={`p-1.5 rounded-xl text-[10px] font-bold border transition ${updateProgress >= 15 ? 'bg-emerald-950/90 border-emerald-500 text-emerald-300 shadow-sm' : 'bg-slate-950/80 border-slate-700 text-slate-400'}`}>
               💾 1. Backup
             </div>
-            <div className={`p-1.5 rounded-xl text-[10px] font-bold border transition ${updateProgress >= 32 ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300' : 'bg-slate-950/60 border-slate-800 text-slate-500'}`}>
+            <div className={`p-1.5 rounded-xl text-[10px] font-bold border transition ${updateProgress >= 32 ? 'bg-emerald-950/90 border-emerald-500 text-emerald-300 shadow-sm' : 'bg-slate-950/80 border-slate-700 text-slate-400'}`}>
               📥 2. Checkout
             </div>
-            <div className={`p-1.5 rounded-xl text-[10px] font-bold border transition ${updateProgress >= 52 ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300' : 'bg-slate-950/60 border-slate-800 text-slate-500'}`}>
+            <div className={`p-1.5 rounded-xl text-[10px] font-bold border transition ${updateProgress >= 52 ? 'bg-emerald-950/90 border-emerald-500 text-emerald-300 shadow-sm' : 'bg-slate-950/80 border-slate-700 text-slate-400'}`}>
               📦 3. npm install
             </div>
-            <div className={`p-1.5 rounded-xl text-[10px] font-bold border transition ${updateProgress >= 68 ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300' : 'bg-slate-950/60 border-slate-800 text-slate-500'}`}>
+            <div className={`p-1.5 rounded-xl text-[10px] font-bold border transition ${updateProgress >= 68 ? 'bg-emerald-950/90 border-emerald-500 text-emerald-300 shadow-sm' : 'bg-slate-950/80 border-slate-700 text-slate-400'}`}>
               🗄️ 4. Prisma DB
             </div>
-            <div className={`p-1.5 rounded-xl text-[10px] font-bold border transition ${updateProgress >= 85 ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300 animate-pulse' : 'bg-slate-950/60 border-slate-800 text-slate-500'}`}>
+            <div className={`p-1.5 rounded-xl text-[10px] font-bold border transition ${updateProgress >= 85 ? 'bg-emerald-950/90 border-emerald-500 text-emerald-300 animate-pulse shadow-sm' : 'bg-slate-950/80 border-slate-700 text-slate-400'}`}>
               ⚙️ 5. Build
             </div>
           </div>

@@ -836,14 +836,6 @@ function WaiterTablesContent() {
             {/* Action Buttons */}
             <div className="grid grid-cols-2 gap-3 pt-2">
               <button
-                onClick={() => router.push(`/waiter/order?tableId=${selectedTable.id}&waiterName=${encodeURIComponent(waiterName)}`)}
-                className="h-14 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-950/50 transition"
-              >
-                <PlusCircle className="w-5 h-5" />
-                <span>Bestellen</span>
-              </button>
-
-              <button
                 onClick={() => router.push(`/waiter/payment?tableId=${selectedTable.id}&waiterName=${encodeURIComponent(waiterName)}`)}
                 className={`h-14 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition ${
                   selectedTable.openItemCount > 0
@@ -855,27 +847,18 @@ function WaiterTablesContent() {
                 <CreditCard className="w-5 h-5" />
                 <span>Kassieren</span>
               </button>
+
+              <button
+                onClick={() => router.push(`/waiter/order?tableId=${selectedTable.id}&waiterName=${encodeURIComponent(waiterName)}`)}
+                className="h-14 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-950/50 transition"
+              >
+                <PlusCircle className="w-5 h-5" />
+                <span>Bestellen</span>
+              </button>
             </div>
 
             {/* Spec 6.4 / 6.6 / 6.7 / 6.10: Schnellfunktionen am Tisch */}
             <div className="grid grid-cols-2 gap-2.5">
-              <button
-                onClick={() => void handleRepeatRound(selectedTable)}
-                disabled={busyAction !== null}
-                className="touch-target h-14 bg-slate-800 border border-slate-700 hover:border-blue-500 text-slate-100 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
-              >
-                <Repeat className="w-4 h-4 text-blue-400" />
-                <span>Gleiche Runde</span>
-              </button>
-
-              <button
-                onClick={() => void handlePreliminaryBill(selectedTable)}
-                disabled={busyAction !== null || selectedTable.openItemCount === 0}
-                className="touch-target h-14 bg-slate-800 border border-slate-700 hover:border-blue-500 text-slate-100 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
-              >
-                <Receipt className="w-4 h-4 text-emerald-400" />
-                <span>Zwischenrechnung</span>
-              </button>
 
               <button
                 onClick={() => void openVoidModal(selectedTable)}

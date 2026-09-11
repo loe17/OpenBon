@@ -55,7 +55,7 @@ function PosCounterContent() {
   const [showAllergenFilter, setShowAllergenFilter] = useState(false);
   const [enableDigitalReceipt, setEnableDigitalReceipt] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [posEBonMode, setPosEBonMode] = useState<'QR' | 'NFC'>('NFC');
+  const [posEBonMode, setPosEBonMode] = useState<'QR' | 'NFC'>('QR');
   const [posNfcStatus, setPosNfcStatus] = useState<'IDLE' | 'WRITING' | 'SUCCESS' | 'ERROR' | 'UNSUPPORTED'>('IDLE');
   const [posNfcMessage, setPosNfcMessage] = useState<string>('');
   const [showNfcTransmission, setShowNfcTransmission] = useState(false);
@@ -320,6 +320,16 @@ function PosCounterContent() {
 
   const totalAmount = cart.reduce((sum, item) => sum + (item.price + item.deposit) * item.quantity, 0);
   const changeAmount = Math.max(0, givenAmount - totalAmount);
+
+  const productCartCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const item of cart) {
+      if (item.productId) {
+        counts[item.productId] = (counts[item.productId] || 0) + item.quantity;
+      }
+    }
+    return counts;
+  }, [cart]);
 
   const openDrawer = async () => {
     triggerHapticFeedback();
@@ -769,6 +779,7 @@ function PosCounterContent() {
             {displayedProducts?.map((prod) => {
               const isOut = prod.isSoldOut;
               const { price: effectivePrice, priceCents: effectivePriceCents, isHappyHour } = getEffectiveProductPrice(prod as any);
+              const inCartCount = productCartCounts[prod.id] || 0;
 
               return (
                 <button
@@ -778,26 +789,42 @@ function PosCounterContent() {
                   className={`pos-touch-btn relative flex flex-col justify-between ${isAutoFitScreen ? 'p-2.5 rounded-2xl min-h-[95px]' : 'p-4 rounded-3xl min-h-[120px]'} border-2 shadow-lg text-left transition ${
                     isOut
                       ? 'bg-slate-950/60 border-rose-900/40 opacity-40 cursor-not-allowed line-through'
+                      : inCartCount > 0
+                      ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/70 border-emerald-500 shadow-md ring-1 ring-emerald-500/40'
                       : 'bg-slate-900 border-slate-700 hover:border-emerald-500 active:scale-95'
                   }`}
                   style={{ borderLeftColor: isOut ? '#991b1b' : prod.buttonColor || '#10b981', borderLeftWidth: '6px' }}
                 >
+                  {/* Zähler je Artikel: Zeigt sofort an, wie oft man darauf getippt hat */}
+                  {inCartCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-emerald-500 text-white font-black font-mono text-xs px-2 py-0.5 rounded-full shadow-lg border-2 border-slate-900 flex items-center justify-center animate-in zoom-in-75 z-10">
+                      {inCartCount}x
+                    </span>
+                  )}
+
                   <div>
                     <div className="flex items-start justify-between gap-1">
                       <div className="font-extrabold text-sm sm:text-base text-white line-clamp-2">
                         {prod.name}
                       </div>
-                      {prod.allergens && (
-                        <span
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedProductInfo(prod);
-                          }}
-                          className="text-slate-500 hover:text-amber-400 p-0.5"
-                        >
-                          <AlertCircle className="w-3.5 h-3.5" />
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {inCartCount > 0 && (
+                          <span className="bg-emerald-600/90 text-white font-black font-mono text-[10px] sm:text-xs px-1.5 py-0.2 rounded-md shadow">
+                            {inCartCount}x
+                          </span>
+                        )}
+                        {prod.allergens && (
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedProductInfo(prod);
+                            }}
+                            className="text-slate-500 hover:text-amber-400 p-0.5"
+                          >
+                            <AlertCircle className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap gap-1 mt-1">
@@ -835,19 +862,19 @@ function PosCounterContent() {
           </div>
         </div>
 
-        {/* Right: Cart Sidebar (Reines Hinzufügen & Übersicht) */}
-        <div className={`w-full lg:w-[380px] bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-700 ${isAutoFitScreen ? 'p-3' : 'p-4 sm:p-5'} flex flex-col justify-between overflow-hidden shadow-2xl`}>
+        {/* Right: Cart Sidebar (Vergrößert & besser lesbar) */}
+        <div className={`w-full lg:w-[420px] bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-700 ${isAutoFitScreen ? 'p-3' : 'p-4 sm:p-5'} flex flex-col justify-between overflow-hidden shadow-2xl`}>
           <div className="flex-1 flex flex-col min-h-0">
             {/* Header: Titel & Warenkorb Leeren */}
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
               <div className="flex items-center gap-2">
-                <LayoutList className="w-4 h-4 text-emerald-400" />
-                <span className="font-extrabold text-sm text-white">Warenkorb ({cart.reduce((s, i) => s + i.quantity, 0)})</span>
+                <LayoutList className="w-5 h-5 text-emerald-400" />
+                <span className="font-black text-base text-white">Warenkorb ({cart.reduce((s, i) => s + i.quantity, 0)})</span>
               </div>
               {cart.length > 0 && (
                 <button
                   onClick={() => setCart([])}
-                  className="text-xs text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 transition"
+                  className="text-xs sm:text-sm text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 transition"
                   title="Warenkorb leeren"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -865,41 +892,41 @@ function PosCounterContent() {
             )}
 
             {/* Cart Items List - Scrollbar wenn mehr Artikel als Höhe */}
-            <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 min-h-0">
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
               {cart.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center py-12 text-xs text-slate-500 font-medium">
+                <div className="h-full flex flex-col items-center justify-center text-center py-12 text-sm text-slate-400 font-medium">
                   <Package className="w-10 h-10 text-slate-700 mb-2 stroke-[1.5]" />
                   <span>Noch keine Artikel im Warenkorb.</span>
-                  <span className="text-[11px] text-slate-600 mt-1">Tippe links auf Artikel zum Hinzufügen.</span>
+                  <span className="text-xs text-slate-500 mt-1">Tippe links auf Artikel zum Hinzufügen.</span>
                 </div>
               ) : (
                 cart.map((item) => (
                   <div
                     key={item.id}
-                    className="p-2.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between shadow-sm"
+                    className="p-3 sm:p-3.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between shadow-sm"
                   >
                     <div className="flex-1 min-w-0 pr-2">
-                      <div className="font-extrabold text-xs sm:text-sm text-white truncate">{item.name}</div>
+                      <div className="font-black text-sm sm:text-base text-white truncate">{item.name}</div>
                       {item.variantName && (
-                        <div className="text-[10px] font-semibold text-emerald-400">{item.variantName}</div>
+                        <div className="text-xs font-semibold text-emerald-400">{item.variantName}</div>
                       )}
-                      <div className="text-[11px] text-slate-400 font-mono font-bold">
+                      <div className="text-xs sm:text-sm text-amber-300 font-mono font-bold mt-0.5">
                         {formatCents(Math.round(((item.price + item.deposit) * item.quantity) * 100))}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => updateQty(item.id, -1)}
-                        className="w-7 h-7 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-200 font-black text-xs flex items-center justify-center active:scale-95"
+                        className="w-9 h-9 sm:w-10 sm:h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-200 font-black text-base flex items-center justify-center active:scale-95"
                       >
-                        <Minus className="w-3.5 h-3.5" />
+                        <Minus className="w-4 h-4" />
                       </button>
-                      <span className="w-6 text-center font-black font-mono text-sm">{item.quantity}</span>
+                      <span className="w-8 sm:w-9 text-center font-black font-mono text-base sm:text-lg text-white">{item.quantity}</span>
                       <button
                         onClick={() => updateQty(item.id, 1)}
-                        className="w-7 h-7 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white font-black text-xs flex items-center justify-center active:scale-95 shadow"
+                        className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-white font-black text-base flex items-center justify-center active:scale-95 shadow"
                       >
-                        <Plus className="w-3.5 h-3.5" />
+                        <Plus className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -1254,20 +1281,19 @@ function PosCounterContent() {
                     </button>
                   )}
 
-                  {/* E-Bon per NFC: Wie in Bild 1 */}
+                  {/* E-Bon: Digitaler Beleg per QR-Code / NFC */}
                   {isPosEBonAvailable && (
                     <button
                       type="button"
                       onClick={() => {
                         triggerHapticFeedback();
                         setShowNfcTransmission(true);
-                        setPosEBonMode('NFC');
-                        void startPosNfcBeam();
+                        setPosEBonMode('QR');
                       }}
                       className="pos-touch-btn flex-1 min-w-[130px] h-20 rounded-3xl bg-emerald-600 hover:bg-emerald-500 text-white font-black flex flex-col items-center justify-center gap-1 transition active:scale-95 shadow shadow-emerald-950/60"
                     >
-                      <Radio className="w-6 h-6" />
-                      <span className="text-sm">E-Bon per NFC</span>
+                      <QrCode className="w-6 h-6" />
+                      <span className="text-sm">Digitaler E-Bon</span>
                     </button>
                   )}
 
@@ -1310,20 +1336,6 @@ function PosCounterContent() {
                       type="button"
                       onClick={() => {
                         triggerHapticFeedback();
-                        setPosEBonMode('NFC');
-                        void startPosNfcBeam();
-                      }}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
-                        posEBonMode === 'NFC' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <Radio className="w-3.5 h-3.5" />
-                      <span>Per NFC senden</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        triggerHapticFeedback();
                         setPosEBonMode('QR');
                         setPosNfcStatus('IDLE');
                       }}
@@ -1334,18 +1346,32 @@ function PosCounterContent() {
                       <QrCode className="w-3.5 h-3.5" />
                       <span>QR-Code</span>
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHapticFeedback();
+                        setPosEBonMode('NFC');
+                        void startPosNfcBeam();
+                      }}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                        posEBonMode === 'NFC' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Radio className="w-3.5 h-3.5" />
+                      <span>Per NFC senden</span>
+                    </button>
                   </div>
                 )}
 
                 {/* NFC Modus */}
                 {posEBonMode === 'NFC' && (
-                  <div className="space-y-4 py-2">
-                    <div className="relative w-24 h-24 mx-auto rounded-full bg-emerald-950/60 border-2 border-emerald-500 flex items-center justify-center shadow-lg">
+                  <div className="space-y-3 py-2">
+                    <div className="relative w-20 h-20 mx-auto rounded-full bg-emerald-950/60 border-2 border-emerald-500 flex items-center justify-center shadow-lg">
                       {posNfcStatus === 'WRITING' && (
                         <span className="absolute inset-0 rounded-full animate-ping bg-emerald-500/20" />
                       )}
                       <Radio
-                        className={`w-10 h-10 ${
+                        className={`w-9 h-9 ${
                           posNfcStatus === 'SUCCESS'
                             ? 'text-emerald-400'
                             : posNfcStatus === 'ERROR'
@@ -1356,7 +1382,11 @@ function PosCounterContent() {
                     </div>
 
                     <div className="text-xs text-slate-300 font-semibold px-2 leading-relaxed">
-                      {posNfcMessage || 'Halte das Kunden-Smartphone jetzt an das Kassen-NFC-Feld...'}
+                      {posNfcMessage || 'Physischen NFC-Tag oder Bon-Chip an das Kassen-NFC-Feld halten...'}
+                    </div>
+
+                    <div className="p-2.5 bg-blue-950/40 border border-blue-800/60 rounded-xl text-[11px] text-blue-300 text-left leading-tight">
+                      💡 <strong>Tipp für Gästegeräte:</strong> Moderne Smartphones (iOS &amp; Android) blockieren die direkte Übertragung von Handy zu Handy via NFC. Nutzen Sie für Kunden-Smartphones einfach den <strong>QR-Code</strong>!
                     </div>
 
                     {posNfcStatus !== 'WRITING' && (
@@ -1366,7 +1396,7 @@ function PosCounterContent() {
                         className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow"
                       >
                         <Radio className="w-3.5 h-3.5" />
-                        <span>NFC Übertragung erneut starten</span>
+                        <span>NFC-Tag erneut beschreiben</span>
                       </button>
                     )}
                   </div>

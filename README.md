@@ -31,7 +31,7 @@ npm install
 npx prisma db push
 node prisma/seed.js
 
-# 3. Testsuite ausführen (33 Suiten, 100% grün)
+# 3. Testsuite ausführen (34 Suiten, 100% grün)
 npm test
 
 # 4. Server starten

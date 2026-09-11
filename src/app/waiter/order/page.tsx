@@ -470,6 +470,14 @@ function WaiterOrderContent() {
   );
   const totalItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  const productCartCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const item of cart) {
+      counts[item.productId] = (counts[item.productId] || 0) + item.quantity;
+    }
+    return counts;
+  }, [cart]);
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white max-w-full">
       {/* Top Header */}
@@ -480,22 +488,43 @@ function WaiterOrderContent() {
             className="pos-touch-btn px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 flex items-center gap-1.5 text-xs font-bold transition active:scale-95 shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Zurück</span>
+            <span className="hidden sm:inline">Tische</span>
           </button>
 
-          <span className="text-xs font-bold text-slate-400 truncate">{waiterName}</span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-base sm:text-lg font-black text-white truncate">
+                {table ? table.label : 'Tisch lädt...'}
+              </h1>
+              {table?.section && (
+                <span className="text-[10px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded font-bold">
+                  {table.section}
+                </span>
+              )}
+            </div>
+            <div className="text-[11px] text-slate-400 font-medium truncate">
+              Bedienung: <span className="text-slate-200 font-bold">{waiterName}</span>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <h2 className="text-sm sm:text-base font-black text-white">
-            {table ? table.label : (tableId ? `Tisch ${tableId}` : 'Bestellung')}
-          </h2>
+          <button
+            onClick={() => setSoundMuted(!soundMuted)}
+            className={`p-2 rounded-xl border transition ${
+              soundMuted
+                ? 'bg-rose-950/40 text-rose-400 border-rose-800/60'
+                : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+            }`}
+            title={soundMuted ? 'Ton stummgeschaltet' : 'Ton aktiv'}
+          >
+            {soundMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          </button>
 
           <button
-            type="button"
             onClick={() => setShowHistoryModal(true)}
-            className="p-1.5 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl text-blue-300 hover:text-white flex items-center gap-1 text-xs font-bold transition active:scale-95 shadow"
-            title="Bestellverlauf an diesem Tisch anzeigen"
+            className="pos-touch-btn px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl flex items-center gap-1.5 text-xs font-bold transition border border-slate-700"
+            title="Bestellverlauf anzeigen"
           >
             <History className="w-4 h-4 text-blue-400" />
             <span className="hidden sm:inline">Tisch-Verlauf</span>
@@ -622,7 +651,7 @@ function WaiterOrderContent() {
         </div>
       )}
 
-      {/* Hauptbereich: Kompakte Artikelkacheln ohne Preise & ohne Plus für maximalen Platz */}
+      {/* Hauptbereich: Kompakte Artikelkacheln mit Zähler je Klick */}
       <div className="flex-1 flex flex-col overflow-hidden min-h-0 relative">
         <div className="flex-1 min-h-0 overflow-y-auto p-2 sm:p-3">
           <div className="grid grid-cols-[repeat(auto-fill,minmax(105px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2">
@@ -631,6 +660,7 @@ function WaiterOrderContent() {
               const hasOptions = product.options && product.options.length > 0;
               const isOut = product.isSoldOut;
               const { isHappyHour } = getEffectiveProductPrice(product as any);
+              const inCartCount = productCartCounts[product.id] || 0;
 
               return (
                 <button
@@ -640,6 +670,8 @@ function WaiterOrderContent() {
                   className={`pos-touch-btn relative flex flex-col justify-between p-2.5 sm:p-3 rounded-2xl border-2 shadow-sm text-left transition min-h-[72px] sm:min-h-[82px] active:scale-95 ${
                     isOut
                       ? 'bg-slate-950/60 border-rose-900/40 opacity-40 cursor-not-allowed line-through'
+                      : inCartCount > 0
+                      ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/70 border-blue-500 shadow-md ring-1 ring-blue-500/40'
                       : hasVariants || hasOptions
                       ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/40 border-slate-700 hover:border-blue-400 shadow-md ring-1 ring-blue-500/20'
                       : 'bg-slate-900 border-slate-700 hover:border-blue-500'
@@ -649,23 +681,37 @@ function WaiterOrderContent() {
                     borderLeftWidth: '5px',
                   }}
                 >
+                  {/* Auffälliger Zähler-Badge je Artikel */}
+                  {inCartCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-blue-600 text-white font-black font-mono text-xs px-2 py-0.5 rounded-full shadow-lg border-2 border-slate-900 flex items-center justify-center animate-in zoom-in-75 z-10">
+                      {inCartCount}x
+                    </span>
+                  )}
+
                   <div className="w-full">
                     <div className="flex items-start justify-between gap-1">
                       <h3 className="font-extrabold text-xs sm:text-sm text-white line-clamp-2 leading-tight tracking-tight pr-1">
                         {product.name}
                       </h3>
-                      {product.allergens && (
-                        <span
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedProductInfo(product);
-                          }}
-                          className="text-slate-500 hover:text-amber-400 p-0.5 shrink-0"
-                          title="Allergene"
-                        >
-                          <AlertCircle className="w-3 h-3 text-slate-400" />
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {inCartCount > 0 && (
+                          <span className="bg-blue-600/90 text-white font-black font-mono text-[10px] sm:text-xs px-1.5 py-0.2 rounded-md shadow">
+                            {inCartCount}x
+                          </span>
+                        )}
+                        {product.allergens && (
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedProductInfo(product);
+                            }}
+                            className="text-slate-500 hover:text-amber-400 p-0.5 shrink-0"
+                            title="Allergene"
+                          >
+                            <AlertCircle className="w-3 h-3 text-slate-400" />
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-1 mt-1.5">
@@ -687,33 +733,33 @@ function WaiterOrderContent() {
           </div>
         </div>
 
-        {/* EINKLAPPBARER TISCHBESTELLUNGS-DRAWER (Unten) */}
+        {/* EINKLAPPBARER TISCHBESTELLUNGS-DRAWER (Unten) - Vergrößert & optimierte Lesbarkeit */}
         <div
-          className={`bg-slate-900 border-t-2 border-slate-800 shadow-2xl transition-all duration-300 flex flex-col z-20 shrink-0 ${
-            cartExpanded ? 'h-[65vh] max-h-[600px]' : 'h-auto'
+          className={`bg-slate-900 border-t-2 border-slate-700 shadow-2xl transition-all duration-300 flex flex-col z-20 shrink-0 ${
+            cartExpanded ? 'h-[75vh] max-h-[720px]' : 'h-auto'
           }`}
         >
           {/* Header Bar / Toggle Button */}
           <div
             onClick={() => setCartExpanded((prev) => !prev)}
-            className="p-3 bg-slate-900 hover:bg-slate-850 cursor-pointer flex items-center justify-between border-b border-slate-800/80 select-none"
+            className="p-3.5 sm:p-4 bg-slate-900 hover:bg-slate-850 cursor-pointer flex items-center justify-between border-b border-slate-800 select-none"
           >
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-xl bg-blue-600/30 border border-blue-500/50 flex items-center justify-center text-blue-400">
-                <ShoppingBag className="w-4 h-4" />
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-2xl bg-blue-600/30 border border-blue-500/50 flex items-center justify-center text-blue-400">
+                <ShoppingBag className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-xs font-black text-white block">
+                <span className="text-sm sm:text-base font-black text-white block">
                   Tischbestellung ({totalItemCount} Pos.)
                 </span>
-                <span className="text-[11px] text-slate-400 font-bold font-mono">
+                <span className="text-xs sm:text-sm text-slate-300 font-bold font-mono">
                   Summe: {formatCurrency(totalAmount)}
                 </span>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs text-blue-400 font-bold flex items-center gap-1 bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-700">
+              <span className="text-xs sm:text-sm text-blue-400 font-bold flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">
                 {cartExpanded ? (
                   <>
                     <ChevronDown className="w-4 h-4" />
@@ -734,9 +780,9 @@ function WaiterOrderContent() {
                     handleClearCart();
                   }}
                   disabled={cart.length === 0}
-                  className="text-xs text-rose-400 hover:text-rose-300 disabled:opacity-30 font-bold flex items-center gap-1 bg-rose-950/40 px-2.5 py-1 rounded-xl border border-rose-800/50"
+                  className="text-xs sm:text-sm text-rose-400 hover:text-rose-300 disabled:opacity-30 font-bold flex items-center gap-1.5 bg-rose-950/40 px-3 py-1.5 rounded-xl border border-rose-800/50"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-4 h-4" />
                   <span>Leeren</span>
                 </button>
               )}
@@ -745,75 +791,75 @@ function WaiterOrderContent() {
 
           {/* Ausgeklappte Postenliste (Scrollbar) */}
           {cartExpanded && (
-            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2 bg-slate-950/70">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3 bg-slate-950/70">
               {cart.length === 0 ? (
-                <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center text-xs text-slate-500 font-medium">
+                <div className="h-full min-h-[160px] flex flex-col items-center justify-center text-center text-sm text-slate-400 font-medium">
                   <span>Tippe oben auf Artikel, um sie zur Bestellung hinzuzufügen.</span>
                 </div>
               ) : (
                 cart.map((item) => (
                   <div
                     key={item.id}
-                    className="p-3 bg-slate-900 border-2 border-slate-800 rounded-2xl flex flex-col gap-2 shadow-sm"
+                    className="p-3.5 sm:p-4 bg-slate-900 border-2 border-slate-800 rounded-2xl flex flex-col gap-2.5 shadow-sm"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0 pr-3">
-                        <div className="font-black text-sm sm:text-base text-white truncate leading-snug">
+                        <div className="font-black text-base sm:text-lg text-white truncate leading-snug">
                           {item.name}
                           {item.variantName && (
-                            <span className="ml-1.5 text-xs text-blue-400 font-bold">
+                            <span className="ml-1.5 text-xs sm:text-sm text-blue-400 font-bold">
                               ({item.variantName})
                             </span>
                           )}
                         </div>
                         {item.selectedOptions && item.selectedOptions.length > 0 && (
-                          <div className="text-xs text-emerald-400 font-bold mt-0.5">
+                          <div className="text-xs sm:text-sm text-emerald-400 font-bold mt-1">
                             +{' '}
                             {item.selectedOptions
                               .map((o) => (o.quantity > 1 ? `${o.quantity}x ${o.name}` : o.name))
                               .join(', ')}
                           </div>
                         )}
-                        <div className="text-sm font-mono font-black text-amber-300 mt-1">
+                        <div className="text-base sm:text-lg font-mono font-black text-amber-300 mt-1">
                           {formatCurrency((item.price + item.deposit) * item.quantity)}
                         </div>
                       </div>
 
-                      {/* Quantity Controls */}
-                      <div className="flex items-center gap-2 shrink-0">
+                      {/* Quantity Controls - Vergrößert für leichtere Bedienung */}
+                      <div className="flex items-center gap-2.5 shrink-0">
                         <button
                           onClick={() => updateQuantity(item.id, -1)}
-                          className="w-10 h-10 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-100 flex items-center justify-center font-black active:scale-95 border border-slate-700 text-lg"
+                          className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-100 flex items-center justify-center font-black active:scale-95 border border-slate-700 text-lg"
                         >
-                          <Minus className="w-4 h-4" />
+                          <Minus className="w-5 h-5" />
                         </button>
-                        <span className="w-8 text-center font-black text-base font-mono text-white">
+                        <span className="w-9 text-center font-black text-lg sm:text-xl font-mono text-white">
                           {item.quantity}
                         </span>
                         <button
                           onClick={() => updateQuantity(item.id, 1)}
-                          className="w-10 h-10 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center font-black active:scale-95 shadow-md shadow-blue-950 text-lg"
+                          className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center font-black active:scale-95 shadow-md shadow-blue-950 text-lg"
                         >
-                          <Plus className="w-4 h-4" />
+                          <Plus className="w-5 h-5" />
                         </button>
                       </div>
                     </div>
 
                     {/* Sonderwunsch Button & Text */}
-                    <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-[11px]">
+                    <div className="flex items-center justify-between pt-1.5 border-t border-slate-800/60 text-xs sm:text-sm">
                       {item.customizationText ? (
                         <span className="text-amber-300 font-semibold italic truncate">
                           Wunsch: {item.customizationText}
                         </span>
                       ) : (
-                        <span className="text-slate-500">Kein Sonderwunsch</span>
+                        <span className="text-slate-400">Kein Sonderwunsch</span>
                       )}
 
                       <button
                         onClick={() => openCustomizer(item)}
-                        className="text-blue-400 hover:text-blue-300 font-bold flex items-center gap-1 bg-blue-950/60 px-2 py-0.5 rounded-lg border border-blue-800/60 shrink-0"
+                        className="text-blue-400 hover:text-blue-300 font-bold flex items-center gap-1.5 bg-blue-950/60 px-2.5 py-1 rounded-xl border border-blue-800/60 shrink-0 text-xs sm:text-sm"
                       >
-                        <MessageSquarePlus className="w-3 h-3" />
+                        <MessageSquarePlus className="w-3.5 h-3.5" />
                         <span>{item.customizationText ? 'Ändern' : '+ Wunsch'}</span>
                       </button>
                     </div>
@@ -824,12 +870,12 @@ function WaiterOrderContent() {
           )}
 
           {/* Action Buttons: Immer sichtbar unten (Groß & Prominent für Touch) */}
-          <div className="p-3 bg-slate-900 border-t border-slate-800 shrink-0">
+          <div className="p-3 sm:p-4 bg-slate-900 border-t border-slate-800 shrink-0">
             <button
               type="button"
               disabled={cart.length === 0 || isSubmitting}
               onClick={() => submitOrder(true)}
-              className={`w-full min-h-[58px] px-4 py-3 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-3 shadow-xl transition active:scale-95 touch-manipulation ${
+              className={`w-full min-h-[62px] px-4 py-3.5 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-3 shadow-xl transition active:scale-95 touch-manipulation ${
                 cart.length > 0 && !isSubmitting
                   ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-2 border-emerald-400 shadow-emerald-950/80'
                   : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'

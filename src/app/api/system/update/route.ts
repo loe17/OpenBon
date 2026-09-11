@@ -47,6 +47,31 @@ function runGit(args: string[], timeoutMs = 30000): Promise<{ stdout: string; st
 /** M6.1 Strenger Git-Refname (Tags/Branches ohne Meta-Zeichen). */
 const SAFE_GIT_REF_RE = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$/;
 
+function getCpuUsage(): Promise<number> {
+  return new Promise((resolve) => {
+    const startCpus = os.cpus();
+    setTimeout(() => {
+      const endCpus = os.cpus();
+      let idleDiff = 0;
+      let totalDiff = 0;
+      for (let i = 0; i < startCpus.length; i++) {
+        const start = startCpus[i].times;
+        const end = endCpus[i].times;
+        const idle = end.idle - start.idle;
+        const total = (end.user - start.user) +
+                      (end.nice - start.nice) +
+                      (end.sys - start.sys) +
+                      (end.irq - start.irq) +
+                      idle;
+        idleDiff += idle;
+        totalDiff += total;
+      }
+      const usage = totalDiff > 0 ? Math.round(((totalDiff - idleDiff) / totalDiff) * 100) : 0;
+      resolve(Math.min(100, Math.max(0, usage)));
+    }, 120);
+  });
+}
+
 export async function GET(req: Request) {
   const auth = await requireApiAuth(req, ['ADMIN']);
   if (!auth.ok) return auth.response;
@@ -244,6 +269,14 @@ export async function GET(req: Request) {
       formattedUsed: formatMem(usedMem),
     };
 
+    const cpuUsagePercent = await getCpuUsage();
+    const cpus = os.cpus();
+    const cpu = {
+      usedPercentage: cpuUsagePercent,
+      cores: cpus.length,
+      model: cpus[0]?.model ? cpus[0].model.trim() : 'Standard-CPU',
+    };
+
     return NextResponse.json({
       system: 'OpenBon',
       version: APP_VERSION,
@@ -269,6 +302,7 @@ export async function GET(req: Request) {
       uptime: Math.round(process.uptime()),
       diskSpace: getDiskSpace(projectRoot),
       memory,
+      cpu,
     });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });

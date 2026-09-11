@@ -976,6 +976,7 @@ function WaiterPaymentContent() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-3xl w-full mx-auto">
             {PAYMENT_METHODS.filter((m) => {
               if (m.id.startsWith('CARD_')) return false; // Nur der einheitliche "Kartenzahlung"-Button
+              if (m.id === 'DISCOUNT' || m.id === 'NON_PAID_STAFF') return false; // In der Bedienansicht entfernt
               return isPaymentMethodAvailable(m.id, config);
             }).map((m) => {
               const Icon = m.icon;
@@ -1335,7 +1336,7 @@ function WaiterPaymentContent() {
                         Generiere QR-Code...
                       </div>
                     )}
-                    <p className="text-xs text-slate-400">Gast scannt den QR-Code mit der Smartphone-Kamera:</p>
+                    <p className="text-xs font-bold text-slate-200">Gast scannt diesen QR-Code mit der normalen Smartphone-Kamera:</p>
                     {completedDigitalReceiptUrl && (
                       <div className="bg-slate-950 p-2 rounded-xl border border-slate-800 font-mono text-[11px] text-emerald-400 break-all select-all">
                         {completedDigitalReceiptUrl}
@@ -1346,13 +1347,13 @@ function WaiterPaymentContent() {
 
                 {/* NFC Ansicht */}
                 {eBonMode === 'NFC' && (
-                  <div className="space-y-4 py-2">
-                    <div className="relative w-24 h-24 mx-auto rounded-full bg-emerald-950/60 border-2 border-emerald-500 flex items-center justify-center shadow-lg">
+                  <div className="space-y-3 py-2">
+                    <div className="relative w-20 h-20 mx-auto rounded-full bg-emerald-950/60 border-2 border-emerald-500 flex items-center justify-center shadow-lg">
                       {nfcStatus === 'WRITING' && (
                         <span className="absolute inset-0 rounded-full animate-ping bg-emerald-500/20" />
                       )}
                       <Radio
-                        className={`w-10 h-10 ${
+                        className={`w-9 h-9 ${
                           nfcStatus === 'SUCCESS'
                             ? 'text-emerald-400'
                             : nfcStatus === 'ERROR'
@@ -1363,7 +1364,11 @@ function WaiterPaymentContent() {
                     </div>
 
                     <div className="text-xs text-slate-300 font-semibold px-2 leading-relaxed">
-                      {nfcMessage || 'Smartphone an die Geräterückseite halten...'}
+                      {nfcMessage || 'Physischen NFC-Tag oder Bon-Chip an die Geräterückseite halten...'}
+                    </div>
+
+                    <div className="p-2.5 bg-blue-950/40 border border-blue-800/60 rounded-xl text-[11px] text-blue-300 text-left leading-tight">
+                      💡 <strong>Tipp für Gästegeräte:</strong> Moderne Smartphones (iOS &amp; Android) blockieren die direkte Übertragung von Handy zu Handy via NFC. Nutzen Sie für Kunden-Smartphones einfach den <strong>QR-Code</strong>!
                     </div>
 
                     {nfcStatus !== 'WRITING' && (
@@ -1373,7 +1378,7 @@ function WaiterPaymentContent() {
                         className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow"
                       >
                         <Radio className="w-3.5 h-3.5" />
-                        <span>NFC Übertragung erneut starten</span>
+                        <span>NFC-Tag erneut beschreiben</span>
                       </button>
                     )}
                   </div>
