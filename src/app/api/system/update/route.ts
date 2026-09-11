@@ -606,7 +606,7 @@ export async function POST(req: Request) {
 
         if (dbPushFailed) {
           if (/data loss/i.test(dbPushOutput)) {
-            if (process.env.OPENBON_ALLOW_DATA_LOSS === '1') {
+            if (process.env.OPENBON_ALLOW_DATA_LOSS === '1' || body?.allowDataLoss === true) {
               logs.push('[WARNUNG] Freigabe aktiv - Schema-Abgleich MIT Datenverlustrisiko wird ausgefuehrt...');
               const { stdout } = await execAsync('npx prisma db push --accept-data-loss --skip-generate', pushEnv);
               logs.push(String(stdout).trim() || 'Schema-Abgleich abgeschlossen.');
