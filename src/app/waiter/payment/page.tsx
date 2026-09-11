@@ -157,30 +157,7 @@ function WaiterPaymentContent() {
 
   const { socket } = useSocket();
 
-  useEffect(() => {
-    if (!socket) return;
-    const handleWaiterSettled = (data: any) => {
-      const saved =
-        localStorage.getItem('openbon_waiter_name') ||
-        localStorage.getItem('pos_waiter_name') ||
-        localStorage.getItem('waiterName');
-      if (
-        saved &&
-        data?.waiterName &&
-        (saved.trim().toLowerCase() === data.waiterName.trim().toLowerCase() ||
-          data.waiterName.trim().toLowerCase().startsWith(saved.trim().toLowerCase()))
-      ) {
-        localStorage.removeItem('openbon_waiter_name');
-        localStorage.removeItem('pos_waiter_name');
-        localStorage.removeItem('waiterName');
-        router.push('/waiter');
-      }
-    };
-    socket.on('waiter:settled', handleWaiterSettled);
-    return () => {
-      socket.off('waiter:settled', handleWaiterSettled);
-    };
-  }, [socket, router]);
+
 
   // WICHTIG: Der Idempotenz-Schluessel gilt fuer GENAU EINEN Kassiervorgang.
   // Bleibt er ueber mehrere Zahlungen gleich, erkennt der Server die zweite
@@ -239,16 +216,82 @@ function WaiterPaymentContent() {
   }, [tableId]);
 
   useEffect(() => {
-    fetch('/api/config/public')
-      .then((r) => r.json())
-      .then((cfg) => {
-        if (cfg && !cfg.error) {
-          setConfig(cfg);
-        }
-      })
-      .catch(() => {});
+    if (!socket) return;
+    const handleWaiterSettled = (data: any) => {
+      const saved =
+        localStorage.getItem('openbon_waiter_name') ||
+        localStorage.getItem('pos_waiter_name') ||
+        localStorage.getItem('waiterName');
+      if (
+        saved &&
+        data?.waiterName &&
+        (saved.trim().toLowerCase() === data.waiterName.trim().toLowerCase() ||
+          data.waiterName.trim().toLowerCase().startsWith(saved.trim().toLowerCase()))
+      ) {
+        localStorage.removeItem('openbon_waiter_name');
+        localStorage.removeItem('pos_waiter_name');
+        localStorage.removeItem('waiterName');
+        router.push('/waiter');
+      }
+    };
+
+    const handleConfigUpdate = (updated: any) => {
+      if (updated && typeof updated === 'object') {
+        setConfig((prev: any) => ({ ...(prev || {}), ...updated }));
+      }
+    };
+
+    const handleTableOrOrderChange = () => {
+      void fetchTableOrders();
+    };
+
+    socket.on('waiter:settled', handleWaiterSettled);
+    socket.on('config:updated', handleConfigUpdate);
+    socket.on('table:updated', handleTableOrOrderChange);
+    socket.on('order:new', handleTableOrOrderChange);
+    socket.on('order:voided', handleTableOrOrderChange);
+
+    return () => {
+      socket.off('waiter:settled', handleWaiterSettled);
+      socket.off('config:updated', handleConfigUpdate);
+      socket.off('table:updated', handleTableOrOrderChange);
+      socket.off('order:new', handleTableOrOrderChange);
+      socket.off('order:voided', handleTableOrOrderChange);
+    };
+  }, [socket, router, fetchTableOrders]);
+
+  useEffect(() => {
+    const loadConfig = () => {
+      fetch('/api/config/public', { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((cfg) => {
+          if (cfg && !cfg.error) {
+            setConfig(cfg);
+          }
+        })
+        .catch(() => {});
+    };
+    loadConfig();
+
+    const handleFocus = () => {
+      loadConfig();
+      void fetchTableOrders();
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadConfig();
+        void fetchTableOrders();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     void fetchTableOrders();
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [fetchTableOrders]);
 
   /* -------------------------------------------------- Berechnung (Spec 5.1) */

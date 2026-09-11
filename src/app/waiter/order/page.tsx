@@ -131,19 +131,41 @@ function WaiterOrderContent() {
   };
 
   useEffect(() => {
-    fetch('/api/config/public')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((cfg) => {
-        if (cfg && !cfg.error) {
-          setEnableCourses(Boolean(cfg.enableCourses));
-          setEnableAgeAlerts(Boolean(cfg.enableAgeVerificationAlerts ?? true));
-        }
-      })
-      .catch(() => {});
+    const loadConfig = () => {
+      fetch('/api/config/public', { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((cfg) => {
+          if (cfg && !cfg.error) {
+            setEnableCourses(Boolean(cfg.enableCourses));
+            setEnableAgeAlerts(Boolean(cfg.enableAgeVerificationAlerts ?? true));
+          }
+        })
+        .catch(() => {});
+    };
+    loadConfig();
+
+    const handleFocus = () => loadConfig();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') loadConfig();
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     if (socket) {
       const handleInventory = () => {
         fetchCategories();
+      };
+
+      const handleConfigUpdate = (updated: any) => {
+        if (updated && typeof updated === 'object') {
+          if ('enableCourses' in updated) {
+            setEnableCourses(Boolean(updated.enableCourses));
+          }
+          if ('enableAgeVerificationAlerts' in updated) {
+            setEnableAgeAlerts(Boolean(updated.enableAgeVerificationAlerts ?? true));
+          }
+        }
+        loadConfig();
       };
 
       const handleWaiterSettled = (data: any) => {
@@ -161,14 +183,23 @@ function WaiterOrderContent() {
 
       socket.on('inventory:updated', handleInventory);
       socket.on('product:updated', handleInventory);
+      socket.on('config:updated', handleConfigUpdate);
       socket.on('waiter:settled', handleWaiterSettled);
 
       return () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibility);
         socket.off('inventory:updated', handleInventory);
         socket.off('product:updated', handleInventory);
+        socket.off('config:updated', handleConfigUpdate);
         socket.off('waiter:settled', handleWaiterSettled);
       };
     }
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [socket, router]);
 
   useEffect(() => {

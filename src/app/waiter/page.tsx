@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '@/components/providers/socket-provider';
 import { formatCurrency, formatCents } from '@/lib/utils';
@@ -72,6 +72,10 @@ function WaiterTablesContent() {
   const { socket } = useSocket();
   const [tables, setTables] = useState<TableData[]>([]);
   const [selectedTable, setSelectedTable] = useState<TableData | null>(null);
+  const selectedTableRef = useRef<TableData | null>(selectedTable);
+  useEffect(() => {
+    selectedTableRef.current = selectedTable;
+  }, [selectedTable]);
   const [filter, setFilter] = useState<'ALL' | 'MY_TABLES' | 'OCCUPIED' | 'FREE'>('ALL');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -95,7 +99,38 @@ function WaiterTablesContent() {
     return () => clearInterval(timer);
   }, []);
 
+  const loadPublicConfig = useCallback(async () => {
+    try {
+      const res = await fetch('/api/config/public', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && !data.error) {
+          setConfig(data);
+          return data;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }, []);
 
+  const refreshSelectedTableOrders = useCallback(async (tableId: string) => {
+    try {
+      // Frische Bestellungen abfragen: /api/orders?tableId=${selectedTable.id}
+      const res = await fetch(`/api/orders?tableId=${tableId}`, { cache: 'no-store' });
+      if (res.ok) {
+        const orders = await res.json();
+        if (Array.isArray(orders)) {
+          const fetchTime = Date.now();
+          const stamped = orders.map((o: any) => ({ ...o, _fetchedAt: fetchTime }));
+          setSelectedTable((prev) => (prev && prev.id === tableId ? { ...prev, orders: stamped } : prev));
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // Synchronisiere selectedTable, wenn sich tables im Hintergrund aktualisieren
   useEffect(() => {
@@ -110,21 +145,8 @@ function WaiterTablesContent() {
   // Wenn ein Tisch geöffnet wird, frische Bestellungen direkt vom Server laden
   useEffect(() => {
     if (!selectedTable?.id) return;
-    let isMounted = true;
-    fetch(`/api/orders?tableId=${selectedTable.id}`, { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((orders) => {
-        if (isMounted && Array.isArray(orders)) {
-          const fetchTime = Date.now();
-          const stamped = orders.map((o: any) => ({ ...o, _fetchedAt: fetchTime }));
-          setSelectedTable((prev) => (prev && prev.id === selectedTable.id ? { ...prev, orders: stamped } : prev));
-        }
-      })
-      .catch(() => {});
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedTable?.id]);
+    refreshSelectedTableOrders(selectedTable.id);
+  }, [selectedTable?.id, refreshSelectedTableOrders]);
 
   const activeDelayedOrder = useMemo(() => {
     if (!config?.enableOrderPrintDelay || !selectedTable?.orders) return null;
@@ -218,39 +240,38 @@ function WaiterTablesContent() {
   const [xBonTarget, setXBonTarget] = useState<string>('pdf');
 
   // Auto-Lock nach Inaktivität
+  const autoLockTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoLockMinutesRef = useRef<number>(0);
+
+  const resetInactivityTimer = useCallback(() => {
+    if (autoLockTimerRef.current) clearTimeout(autoLockTimerRef.current);
+    if (autoLockMinutesRef.current > 0) {
+      autoLockTimerRef.current = setTimeout(() => {
+        sessionStorage.removeItem('openbon_station_pin_WAITER');
+        window.location.reload();
+      }, autoLockMinutesRef.current * 60 * 1000);
+    }
+  }, []);
+
   useEffect(() => {
-    let timer: NodeJS.Timeout | null = null;
-    let autoLockMinutes = 0;
+    if (config?.waiterAutoLockMinutes && config.waiterAutoLockMinutes > 0) {
+      autoLockMinutesRef.current = config.waiterAutoLockMinutes;
+      resetInactivityTimer();
+    } else {
+      autoLockMinutesRef.current = 0;
+      if (autoLockTimerRef.current) clearTimeout(autoLockTimerRef.current);
+    }
+  }, [config?.waiterAutoLockMinutes, resetInactivityTimer]);
 
-    fetch('/api/config/public', { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => {
-        setConfig(data);
-        if (data?.waiterAutoLockMinutes && data.waiterAutoLockMinutes > 0) {
-          autoLockMinutes = data.waiterAutoLockMinutes;
-          resetTimer();
-        }
-      })
-      .catch(() => {});
-
-    const resetTimer = () => {
-      if (timer) clearTimeout(timer);
-      if (autoLockMinutes > 0) {
-        timer = setTimeout(() => {
-          sessionStorage.removeItem('openbon_station_pin_WAITER');
-          window.location.reload();
-        }, autoLockMinutes * 60 * 1000);
-      }
-    };
-
+  useEffect(() => {
     const events = ['mousedown', 'mousemove', 'touchstart', 'scroll', 'keydown'];
-    events.forEach((ev) => window.addEventListener(ev, resetTimer, { passive: true }));
+    events.forEach((ev) => window.addEventListener(ev, resetInactivityTimer, { passive: true }));
 
     return () => {
-      if (timer) clearTimeout(timer);
-      events.forEach((ev) => window.removeEventListener(ev, resetTimer));
+      if (autoLockTimerRef.current) clearTimeout(autoLockTimerRef.current);
+      events.forEach((ev) => window.removeEventListener(ev, resetInactivityTimer));
     };
-  }, []);
+  }, [resetInactivityTimer]);
 
   const handleOpenXBon = async () => {
     triggerHapticFeedback();
@@ -409,6 +430,10 @@ function WaiterTablesContent() {
   const fetchTables = async () => {
     try {
       const res = await fetch('/api/tables', { cache: 'no-store' });
+      const serverDate = res.headers.get('date');
+      if (serverDate) {
+        setServerTimeOffset(Date.now() - new Date(serverDate).getTime());
+      }
       const data = await res.json();
       if (Array.isArray(data)) {
         const fetchTime = Date.now();
@@ -421,7 +446,6 @@ function WaiterTablesContent() {
     } catch (e) {
       console.error(e);
     } finally {
-
       setLoading(false);
     }
   };
@@ -450,15 +474,47 @@ function WaiterTablesContent() {
     };
     fetchAvailableWaiters();
 
+    loadPublicConfig();
     fetchTables();
 
+    const handleTableOrOrderChange = () => {
+      fetchTables();
+      if (selectedTableRef.current) {
+        refreshSelectedTableOrders(selectedTableRef.current.id);
+      }
+    };
+
+    const handleConfigUpdate = (updated: any) => {
+      if (updated && typeof updated === 'object') {
+        setConfig((prev: any) => ({ ...(prev || {}), ...updated }));
+      }
+      loadPublicConfig();
+      handleTableOrOrderChange();
+    };
+
+    const handleWakeOrFocus = () => {
+      loadPublicConfig();
+      handleTableOrOrderChange();
+    };
+
+    window.addEventListener('focus', handleWakeOrFocus);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleWakeOrFocus();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     if (socket) {
-      socket.on('table:updated', () => fetchTables());
-      socket.on('table:status_changed', () => fetchTables());
-      socket.on('order:new', () => fetchTables());
-      socket.on('order:delayed', () => fetchTables());
-      socket.on('payment:completed', () => fetchTables());
-      socket.on('tables:regenerated', () => fetchTables());
+      socket.on('table:updated', handleTableOrOrderChange);
+      socket.on('table:status_changed', handleTableOrOrderChange);
+      socket.on('order:new', handleTableOrOrderChange);
+      socket.on('order:delayed', handleTableOrOrderChange);
+      socket.on('order:delay_completed', handleTableOrOrderChange);
+      socket.on('order:voided', handleTableOrOrderChange);
+      socket.on('payment:completed', handleTableOrOrderChange);
+      socket.on('tables:regenerated', handleTableOrOrderChange);
+      socket.on('config:updated', handleConfigUpdate);
 
       // Automatische Abmeldung wenn die Bedienung abgerechnet wurde
       socket.on('waiter:settled', (data: any) => {
@@ -484,23 +540,28 @@ function WaiterTablesContent() {
         if (data?.orderNumber) {
           showToast('ok', `Bestellung #${data.orderNumber} für Tisch ${data.tableNumber || data.tableLabel || ''} ist abholbereit!`);
         }
-        fetchTables();
+        handleTableOrOrderChange();
       });
     }
 
     return () => {
+      window.removeEventListener('focus', handleWakeOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (socket) {
-        socket.off('table:updated');
-        socket.off('table:status_changed');
-        socket.off('order:new');
-        socket.off('order:delayed');
-        socket.off('payment:completed');
-        socket.off('tables:regenerated');
+        socket.off('table:updated', handleTableOrOrderChange);
+        socket.off('table:status_changed', handleTableOrOrderChange);
+        socket.off('order:new', handleTableOrOrderChange);
+        socket.off('order:delayed', handleTableOrOrderChange);
+        socket.off('order:delay_completed', handleTableOrOrderChange);
+        socket.off('order:voided', handleTableOrOrderChange);
+        socket.off('payment:completed', handleTableOrOrderChange);
+        socket.off('tables:regenerated', handleTableOrOrderChange);
+        socket.off('config:updated', handleConfigUpdate);
         socket.off('order:ready');
         socket.off('waiter:settled');
       }
     };
-  }, [socket]);
+  }, [socket, loadPublicConfig, refreshSelectedTableOrders]);
 
   const showToast = (kind: 'ok' | 'err', text: string) => {
     setToast({ kind, text });
