@@ -94,6 +94,8 @@ function WaiterTablesContent() {
   const [waiterName, setWaiterName] = useState('Bedienung');
   const [showWaiterPrompt, setShowWaiterPrompt] = useState(false);
   const [inputWaiterName, setInputWaiterName] = useState('');
+  const [availableWaiters, setAvailableWaiters] = useState<string[]>([]);
+  const [waiterError, setWaiterError] = useState('');
 
   // Direkte Tischnummer-Eingabe & Keypad-Modal
   const [directTableNumber, setDirectTableNumber] = useState('');
@@ -104,11 +106,22 @@ function WaiterTablesContent() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('openbon_auto_open_table_keypad');
-      const isAuto = saved === null ? true : saved === '1';
+      const savedKeypad = localStorage.getItem('openbon_auto_open_table_keypad');
+      const isAuto = savedKeypad === null ? true : savedKeypad === '1';
       setAutoReopenKeypad(isAuto);
-      if (isAuto) {
-        setShowTableKeypadModal(true);
+
+      const savedWaiter = localStorage.getItem('pos_waiter_name')?.trim();
+      const hasValidWaiter = !!savedWaiter && savedWaiter !== '' && savedWaiter !== 'Bedienung';
+
+      if (hasValidWaiter) {
+        setWaiterName(savedWaiter);
+        if (isAuto) {
+          setShowTableKeypadModal(true);
+        }
+      } else {
+        setWaiterName('Bedienung');
+        setShowWaiterPrompt(true);
+        setShowTableKeypadModal(false);
       }
     }
   }, []);
@@ -330,12 +343,27 @@ function WaiterTablesContent() {
 
   useEffect(() => {
     setSoundMuted(isAudioMuted());
-    const savedWaiter = localStorage.getItem('pos_waiter_name');
-    if (savedWaiter && savedWaiter.trim() !== '' && savedWaiter.trim() !== 'Bedienung') {
-      setWaiterName(savedWaiter.trim());
-    } else {
-      setShowWaiterPrompt(true);
-    }
+
+    const fetchAvailableWaiters = async () => {
+      try {
+        const res = await fetch('/api/waiters');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            const rawNames = data
+              .map((w: any) => (w.originalWaiterName || w.name || '').trim())
+              .filter((n: string) => n && n !== 'Bedienung');
+            const unique = Array.from(new Set(rawNames));
+            if (unique.length > 0) {
+              setAvailableWaiters(unique);
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    fetchAvailableWaiters();
 
     fetchTables();
 
@@ -358,6 +386,7 @@ function WaiterTablesContent() {
           localStorage.removeItem('pos_waiter_name');
           setWaiterName('Bedienung');
           setInputWaiterName('');
+          setShowTableKeypadModal(false);
           setShowWaiterPrompt(true);
           showToast('err', `Schicht von ${data.waiterName} wurde abgerechnet. Bitte neu anmelden.`);
         }
@@ -528,14 +557,23 @@ function WaiterTablesContent() {
   };
 
   const handleSaveWaiterName = (name: string) => {
-    const finalName = name.trim() || 'Bedienung';
+    const finalName = name.trim();
+    if (!finalName || finalName.length < 2 || finalName.toLowerCase() === 'bedienung') {
+      setWaiterError('Bitte gib deinen Namen ein (mindestens 2 Zeichen).');
+      return;
+    }
+    setWaiterError('');
     localStorage.setItem('pos_waiter_name', finalName);
     setWaiterName(finalName);
     setShowWaiterPrompt(false);
 
+    // Erst NACH erfolgreicher Namenseingabe: Tischnummern-Ziffernblock öffnen (wenn Auto-Öffnen aktiv ist)
+    if (autoReopenKeypad) {
+      setShowTableKeypadModal(true);
+    }
+
     // Bedienung serverseitig anmelden, damit sie in der Schichtabrechnung und
-    // in der Trinkgeldverteilung auftaucht. Bisher blieb der Name ausschliesslich
-    // im localStorage des Geraets – die Kellnerliste war deshalb immer leer.
+    // in der Trinkgeldverteilung auftaucht.
     void fetch('/api/waiters/checkin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1167,49 +1205,77 @@ function WaiterTablesContent() {
                   <p className="text-xs text-slate-400">Wer bedient gerade an diesem Smartphone?</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowWaiterPrompt(false)}
-                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700 transition"
-                title="Schließen"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              {waiterName !== 'Bedienung' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWaiterError('');
+                    setShowWaiterPrompt(false);
+                  }}
+                  className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700 transition"
+                  title="Schließen"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
             </div>
 
-            <input
-              type="text"
-              autoFocus
-              placeholder="z. B. Lisa, Johannes, Max"
-              value={inputWaiterName}
-              onChange={(e) => setInputWaiterName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSaveWaiterName(inputWaiterName);
-              }}
-              className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white font-bold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div>
+              <input
+                type="text"
+                autoFocus
+                placeholder="z. B. Lisa, Johannes, Max"
+                value={inputWaiterName}
+                onChange={(e) => {
+                  setInputWaiterName(e.target.value);
+                  if (waiterError) setWaiterError('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveWaiterName(inputWaiterName);
+                }}
+                className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white font-bold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {waiterError && (
+                <p className="text-xs font-bold text-rose-400 mt-2 flex items-center gap-1.5 animate-in fade-in">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{waiterError}</span>
+                </p>
+              )}
+            </div>
 
-            {/* Quick Suggestions */}
-            <div className="flex flex-wrap gap-1.5">
-              {['Lisa', 'Max', 'Johannes', 'Anna', 'Thomas', 'Sophie'].map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => setInputWaiterName(name)}
-                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold"
-                >
-                  {name}
-                </button>
-              ))}
+            {/* Quick Suggestions & Registered Waiters */}
+            <div>
+              <p className="text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                {availableWaiters.length > 0 ? 'Mitarbeiter auswählen:' : 'Schnellauswahl:'}
+              </p>
+              <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+                {(availableWaiters.length > 0
+                  ? availableWaiters
+                  : ['Lisa', 'Max', 'Johannes', 'Anna', 'Thomas', 'Sophie']
+                ).map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => {
+                      setInputWaiterName(name);
+                      handleSaveWaiterName(name);
+                    }}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-200 border border-slate-700 hover:border-blue-500 rounded-xl text-xs font-bold transition active:scale-95"
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => handleSaveWaiterName(inputWaiterName || waiterName)}
-                className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-950/50 transition"
+                onClick={() => handleSaveWaiterName(inputWaiterName)}
+                className="w-full h-12 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-950/50 transition flex items-center justify-center gap-2"
               >
-                Anmelden & Weiter
+                <UserCheck className="w-4 h-4" />
+                <span>Anmelden &amp; Weiter</span>
               </button>
             </div>
           </div>
