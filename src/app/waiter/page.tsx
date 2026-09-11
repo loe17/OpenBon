@@ -88,6 +88,7 @@ function WaiterTablesContent() {
 
   const [config, setConfig] = useState<any>(null);
   const [now, setNow] = useState(Date.now());
+  const [serverTimeOffset, setServerTimeOffset] = useState<number>(0);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -99,10 +100,33 @@ function WaiterTablesContent() {
     if (selectedTable) {
       const updated = tables.find((t) => t.id === selectedTable.id);
       if (updated && updated !== selectedTable) {
-        setSelectedTable(updated);
+        setSelectedTable((prev) => (prev ? { ...updated, orders: prev.orders || updated.orders } : updated));
       }
     }
   }, [tables]);
+
+  // Wenn ein Tisch geöffnet wird, frische Bestellungen direkt vom Server laden
+  useEffect(() => {
+    if (!selectedTable?.id) return;
+    let isMounted = true;
+    fetch(`/api/orders?tableId=${selectedTable.id}`, { cache: 'no-store' })
+      .then((res) => {
+        const serverDate = res.headers.get('date');
+        if (serverDate) {
+          setServerTimeOffset(Date.now() - new Date(serverDate).getTime());
+        }
+        return res.json();
+      })
+      .then((orders) => {
+        if (isMounted && Array.isArray(orders)) {
+          setSelectedTable((prev) => (prev && prev.id === selectedTable.id ? { ...prev, orders } : prev));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedTable?.id]);
 
   const activeDelayedOrder = useMemo(() => {
     if (!config?.enableOrderPrintDelay || !selectedTable?.orders) return null;
@@ -112,13 +136,14 @@ function WaiterTablesContent() {
       .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     if (active.length === 0) return null;
     const newest = active[0];
-    const ageMs = now - new Date(newest.createdAt).getTime();
+    const effectiveNow = now - serverTimeOffset;
+    const ageMs = Math.max(0, effectiveNow - new Date(newest.createdAt).getTime());
     if (ageMs < delaySec * 1000) {
       const remainingSeconds = Math.max(0, Math.ceil((delaySec * 1000 - ageMs) / 1000));
       return { order: newest, remainingSeconds };
     }
     return null;
-  }, [config?.enableOrderPrintDelay, config?.orderPrintDelaySeconds, selectedTable?.orders, now]);
+  }, [config?.enableOrderPrintDelay, config?.orderPrintDelaySeconds, selectedTable?.orders, now, serverTimeOffset]);
 
   const isStornoEnabled = Boolean(config?.enableOrderPrintDelay && activeDelayedOrder && activeDelayedOrder.remainingSeconds > 0);
 
@@ -181,7 +206,7 @@ function WaiterTablesContent() {
     let timer: NodeJS.Timeout | null = null;
     let autoLockMinutes = 0;
 
-    fetch('/api/config/public')
+    fetch('/api/config/public', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         setConfig(data);
@@ -367,7 +392,11 @@ function WaiterTablesContent() {
 
   const fetchTables = async () => {
     try {
-      const res = await fetch('/api/tables');
+      const res = await fetch('/api/tables', { cache: 'no-store' });
+      const serverDate = res.headers.get('date');
+      if (serverDate) {
+        setServerTimeOffset(Date.now() - new Date(serverDate).getTime());
+      }
       const data = await res.json();
       if (Array.isArray(data)) {
         setTables(data);
@@ -384,7 +413,7 @@ function WaiterTablesContent() {
 
     const fetchAvailableWaiters = async () => {
       try {
-        const res = await fetch('/api/waiters');
+        const res = await fetch('/api/waiters', { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {
@@ -409,6 +438,7 @@ function WaiterTablesContent() {
       socket.on('table:updated', () => fetchTables());
       socket.on('table:status_changed', () => fetchTables());
       socket.on('order:new', () => fetchTables());
+      socket.on('order:delayed', () => fetchTables());
       socket.on('payment:completed', () => fetchTables());
       socket.on('tables:regenerated', () => fetchTables());
 
@@ -445,6 +475,7 @@ function WaiterTablesContent() {
         socket.off('table:updated');
         socket.off('table:status_changed');
         socket.off('order:new');
+        socket.off('order:delayed');
         socket.off('payment:completed');
         socket.off('tables:regenerated');
         socket.off('order:ready');

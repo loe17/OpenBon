@@ -478,6 +478,58 @@ function WaiterOrderContent() {
     return counts;
   }, [cart]);
 
+  // Long-press Steuerung für Artikel-Informationen (Allergene / Hinweise)
+  const longPressTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const isLongPressRef = React.useRef(false);
+  const touchStartPosRef = React.useRef<{ x: number; y: number } | null>(null);
+
+  const handlePointerDown = (product: any, e: React.PointerEvent) => {
+    isLongPressRef.current = false;
+    touchStartPosRef.current = { x: e.clientX, y: e.clientY };
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressRef.current = true;
+      triggerHapticFeedback();
+      setSelectedProductInfo(product);
+    }, 500);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (touchStartPosRef.current) {
+      const dx = Math.abs(e.clientX - touchStartPosRef.current.x);
+      const dy = Math.abs(e.clientY - touchStartPosRef.current.y);
+      if (dx > 10 || dy > 10) {
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+        }
+      }
+    }
+  };
+
+  const handlePointerUp = (product: any) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    touchStartPosRef.current = null;
+    if (!isLongPressRef.current) {
+      handleProductClick(product);
+    }
+    isLongPressRef.current = false;
+  };
+
+  const handlePointerCancel = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    touchStartPosRef.current = null;
+    isLongPressRef.current = false;
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white max-w-full">
       {/* Top Header */}
@@ -626,8 +678,15 @@ function WaiterOrderContent() {
                 <button
                   key={product.id}
                   disabled={isOut}
-                  onClick={() => handleProductClick(product)}
-                  className={`pos-touch-btn relative flex flex-col justify-between p-2.5 sm:p-3 rounded-2xl border-2 shadow-sm text-left transition min-h-[72px] sm:min-h-[82px] active:scale-95 ${
+                  onPointerDown={(e) => handlePointerDown(product, e)}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={() => handlePointerUp(product)}
+                  onPointerCancel={handlePointerCancel}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setSelectedProductInfo(product);
+                  }}
+                  className={`pos-touch-btn relative flex flex-col justify-between p-2.5 sm:p-3 rounded-2xl border-2 shadow-sm text-left transition min-h-[76px] sm:min-h-[86px] active:scale-95 select-none ${
                     isOut
                       ? 'bg-slate-950/60 border-rose-900/40 opacity-40 cursor-not-allowed line-through'
                       : inCartCount > 0
@@ -640,32 +699,12 @@ function WaiterOrderContent() {
                     borderLeftColor: isOut ? '#991b1b' : product.buttonColor || '#3b82f6',
                     borderLeftWidth: '5px',
                   }}
+                  title={`${product.name} (Gedrückt halten für Details)`}
                 >
                   <div className="w-full">
-                    <div className="flex items-start justify-between gap-1">
-                      <h3 className="font-extrabold text-xs sm:text-sm text-white line-clamp-2 leading-tight tracking-tight pr-1">
-                        {product.name}
-                      </h3>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        {product.allergens && (
-                          <span
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedProductInfo(product);
-                            }}
-                            className="text-slate-500 hover:text-amber-400 p-0.5 shrink-0"
-                            title="Allergene"
-                          >
-                            <AlertCircle className="w-3.5 h-3.5 text-slate-400" />
-                          </span>
-                        )}
-                        {inCartCount > 0 && (
-                          <span className="bg-blue-600/90 text-white font-black font-mono text-[10px] sm:text-xs px-1.5 py-0.2 rounded-md shadow">
-                            {inCartCount}x
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                    <h3 className="font-extrabold text-xs sm:text-sm text-white leading-tight tracking-tight break-words pr-1">
+                      {product.name}
+                    </h3>
 
                     <div className="flex flex-wrap items-center gap-1 mt-1.5">
                       {isHappyHour && (
@@ -680,71 +719,91 @@ function WaiterOrderContent() {
                       )}
                     </div>
                   </div>
+
+                  {inCartCount > 0 && (
+                    <div className="absolute bottom-2 right-2 pointer-events-none">
+                      <span className="bg-blue-600 text-white font-black font-mono text-[11px] sm:text-xs px-2 py-0.5 rounded-lg shadow-md border border-blue-400/50">
+                        {inCartCount}x
+                      </span>
+                    </div>
+                  )}
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* EINKLAPPBARER TISCHBESTELLUNGS-DRAWER (Unten) - Vergrößert & optimierte Lesbarkeit */}
+        {/* Abdunkelungs-Backdrop wenn das Bestellfach ausgeklappt ist */}
+        {cartExpanded && (
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 transition-opacity"
+            onClick={() => setCartExpanded(false)}
+          />
+        )}
+
+        {/* EINKLAPPBARER TISCHBESTELLUNGS-DRAWER (Unten) - Optimiert mit fixiertem Kassenbutton */}
         <div
-          className={`bg-slate-900 border-t-2 border-slate-700 shadow-2xl transition-all duration-300 flex flex-col z-20 shrink-0 ${
-            cartExpanded ? 'h-[75vh] max-h-[720px]' : 'h-auto'
+          className={`bg-slate-900 border-t-2 border-slate-700 shadow-2xl transition-all duration-300 flex flex-col ${
+            cartExpanded
+              ? 'fixed inset-x-0 bottom-0 z-40 max-h-[82dvh] animate-in slide-in-from-bottom'
+              : 'relative z-20 shrink-0 h-auto'
           }`}
         >
-          {/* Header Bar / Toggle Button */}
-          <div
-            onClick={() => setCartExpanded((prev) => !prev)}
-            className="p-3.5 sm:p-4 bg-slate-900 hover:bg-slate-850 cursor-pointer flex items-center justify-between border-b border-slate-800 select-none"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-2xl bg-blue-600/30 border border-blue-500/50 flex items-center justify-center text-blue-400">
+          {/* Header Bar: Links Titel/Info, mittig Papierkorb, rechts großer Pfeil (ohne Schrift) */}
+          <div className="p-3 sm:p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-2 select-none shrink-0">
+            {/* Links: Icon + Titel + Info */}
+            <div
+              onClick={() => setCartExpanded((prev) => !prev)}
+              className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+            >
+              <div className="w-9 h-9 rounded-2xl bg-blue-600/30 border border-blue-500/50 flex items-center justify-center text-blue-400 shrink-0">
                 <ShoppingBag className="w-5 h-5" />
               </div>
-              <div>
-                <span className="text-sm sm:text-base font-black text-white block leading-tight">
+              <div className="min-w-0">
+                <span className="text-sm sm:text-base font-black text-white block leading-tight truncate">
                   Tischbestellung
                 </span>
-                <span className="text-xs sm:text-sm text-slate-300 font-bold font-mono">
+                <span className="text-xs sm:text-sm text-slate-300 font-bold font-mono block truncate">
                   ({totalItemCount} Pos.) · Summe: {formatCurrency(totalAmount)}
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-xs sm:text-sm text-blue-400 font-bold flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">
-                {cartExpanded ? (
-                  <>
-                    <ChevronDown className="w-4 h-4" />
-                    <span>Einklappen</span>
-                  </>
-                ) : (
-                  <>
-                    <ChevronUp className="w-4 h-4" />
-                    <span>Details &amp; Bearbeiten</span>
-                  </>
-                )}
-              </span>
-              {cartExpanded && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleClearCart();
-                  }}
-                  disabled={cart.length === 0}
-                  className="text-xs sm:text-sm text-rose-400 hover:text-rose-300 disabled:opacity-30 font-bold flex items-center gap-1.5 bg-rose-950/40 px-3 py-1.5 rounded-xl border border-rose-800/50"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>Leeren</span>
-                </button>
+            {/* Mittig: Papierkorb (ohne Schrift) */}
+            {cart.length > 0 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClearCart();
+                }}
+                className="w-11 h-11 rounded-2xl bg-rose-950/60 hover:bg-rose-900/80 active:scale-95 border border-rose-800/80 text-rose-400 flex items-center justify-center shrink-0 transition"
+                title="Bestellung leeren"
+                aria-label="Bestellung leeren"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            )}
+
+            {/* Rechts: Großer Pfeil-Button zum Ein-/Ausklappen (ohne Schrift) */}
+            <button
+              type="button"
+              onClick={() => setCartExpanded((prev) => !prev)}
+              className="w-12 h-12 rounded-2xl bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-blue-400 flex items-center justify-center shrink-0 transition shadow-md"
+              title={cartExpanded ? 'Einklappen' : 'Details & Bearbeiten'}
+              aria-label={cartExpanded ? 'Einklappen' : 'Details & Bearbeiten'}
+            >
+              {cartExpanded ? (
+                <ChevronDown className="w-7 h-7" />
+              ) : (
+                <ChevronUp className="w-7 h-7" />
               )}
-            </div>
+            </button>
           </div>
 
           {/* Ausgeklappte Postenliste (Scrollbar) */}
           {cartExpanded && (
-            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-3 bg-slate-950/70">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-3 bg-slate-950/80">
               {cart.length === 0 ? (
                 <div className="h-full min-h-[160px] flex flex-col items-center justify-center text-center text-sm text-slate-400 font-medium">
                   <span>Tippe oben auf Artikel, um sie zur Bestellung hinzuzufügen.</span>
@@ -822,8 +881,8 @@ function WaiterOrderContent() {
             </div>
           )}
 
-          {/* Action Buttons: Immer sichtbar unten (Groß & Prominent für Touch) */}
-          <div className="p-3 sm:p-4 bg-slate-900 border-t border-slate-800 shrink-0">
+          {/* Action Buttons: Immer sichtbar unten (Permanent Sticky & Prominent) */}
+          <div className="p-3 sm:p-4 bg-slate-900 border-t border-slate-800 shrink-0 sticky bottom-0 z-10">
             <button
               type="button"
               disabled={cart.length === 0 || isSubmitting}

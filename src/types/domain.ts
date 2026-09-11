@@ -117,7 +117,6 @@ export interface EventConfigDTO {
   enableNfcWaiter?: boolean;
   enableNfcPos?: boolean;
   enableGuestSelfOrder?: boolean;
-  enableGuestFacingDisplay?: boolean;
   lockStartScreen?: boolean;
   enableKioskMode?: boolean;
   lowStockAlertPrinterId?: string | null;

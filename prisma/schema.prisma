@@ -31,7 +31,6 @@ model EventConfig {
   enableNfcWaiter             Boolean @default(true)
   enableNfcPos                Boolean @default(true)
   enableGuestSelfOrder        Boolean @default(false) // Standardmäßig deaktiviert
-  enableGuestFacingDisplay    Boolean @default(false) // Gastansicht beim Kassieren standardmäßig deaktiviert
   enableKioskMode             Boolean @default(false)
   // Startseite verlangt eine PIN-Anmeldung, bevor eine Station gewaehlt werden kann
   lockStartScreen             Boolean @default(true)

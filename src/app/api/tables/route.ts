@@ -6,6 +6,9 @@ import { EscPosBuilder } from '@/lib/printer/escpos-builder';
 import { TicketData } from '@/lib/printer/types';
 import { requireApiAuth } from '@/lib/api-guard';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(req: Request) {
   const auth = await requireApiAuth(req);
   if (!auth.ok) return auth.response;
@@ -68,7 +71,13 @@ export async function GET(req: Request) {
       };
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }

@@ -151,8 +151,6 @@ function WaiterPaymentContent() {
   const [eBonMode, setEBonMode] = useState<'QR' | 'NFC'>('QR');
   const [nfcStatus, setNfcStatus] = useState<'IDLE' | 'WRITING' | 'SUCCESS' | 'ERROR' | 'UNSUPPORTED'>('IDLE');
   const [nfcMessage, setNfcMessage] = useState<string>('');
-  const [guestFacingMode, setGuestFacingMode] = useState(false);
-  const [guestFacingRotated, setGuestFacingRotated] = useState(true);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [soundMuted, setSoundMuted] = useState(true);
   const [waiterName, setWaiterName] = useState(() => {
@@ -218,9 +216,6 @@ function WaiterPaymentContent() {
       .then((cfg) => {
         if (cfg && !cfg.error) {
           setConfig(cfg);
-          // Die Kundenanzeige ist eine Einstellungssache: ist sie deaktiviert,
-          // darf sie sich auch nicht ueber den Knopf einschalten lassen.
-          setGuestFacingMode(Boolean(cfg.enableGuestFacingDisplay));
         }
       })
       .catch(() => {});
@@ -627,8 +622,6 @@ function WaiterPaymentContent() {
 
   /* ------------------------------------------------------------- Rendering */
 
-  const guestFacingAllowed = Boolean(config?.enableGuestFacingDisplay);
-
   const stageIndex = { SPLIT: 1, METHOD: 2, CASH: 3, CARD: 3, DONE: 4 }[stage];
 
   const goBack = () => {
@@ -642,27 +635,7 @@ function WaiterPaymentContent() {
     <div className="flex-1 flex flex-col h-[100dvh] max-h-[100dvh] overflow-hidden bg-slate-950 text-white">
       {/* ===================== STICKY TOP CONTAINER (Permanent ganz oben über der Tischnummer fixiert) ===================== */}
       <div className="sticky top-0 z-20 shadow-2xl bg-slate-950 shrink-0">
-        {/* XXL Gast-Display Banner (Ganz oben) */}
-        {guestFacingAllowed && guestFacingMode && (
-          <div
-            className={`p-5 sm:p-7 bg-gradient-to-br from-blue-950 via-slate-950 to-blue-950 border-b-4 border-blue-500 shadow-2xl transition-transform ${
-              guestFacingRotated ? 'rotate-180 origin-center' : ''
-            }`}
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-center sm:text-left">
-              <div>
-                <span className="text-xs font-mono font-extrabold uppercase tracking-widest text-blue-300 block mb-1">
-                  FÜR DEN GAST • ZU ZAHLENDER BETRAG
-                </span>
-                <span className="text-5xl sm:text-6xl font-mono font-black text-white tracking-tight drop-shadow-md">
-                  {formatCents((checkout as any).amountDueWithTipCents ?? Math.round(((checkout as any).amountDueWithTip ?? 0) * 100))}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Zeile 1: Zurück + Kassieren links, Tisch rechts, optional Gast-Sicht */}
+        {/* Zeile 1: Zurück + Kassieren links, Tisch rechts */}
         <div className="p-2 sm:p-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between shadow-md">
           <div className="flex items-center gap-2">
             <button
@@ -676,38 +649,9 @@ function WaiterPaymentContent() {
             </button>
 
             <span className="text-sm font-black text-white">Kassieren</span>
-
-            {guestFacingAllowed && (
-              <button
-                onClick={() => {
-                  haptic();
-                  setGuestFacingMode(!guestFacingMode);
-                }}
-                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold transition border ml-1 ${
-                  guestFacingMode
-                    ? 'bg-blue-600 border-blue-400 text-white shadow-md'
-                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
-                }`}
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Gast-Sicht</span>
-              </button>
-            )}
           </div>
 
           <div className="flex items-center gap-2">
-            {guestFacingAllowed && guestFacingMode && (
-              <button
-                onClick={() => {
-                  haptic();
-                  setGuestFacingRotated(!guestFacingRotated);
-                }}
-                className="text-[11px] font-bold text-blue-300 bg-blue-950/80 border border-blue-800 px-2 py-1 rounded-lg flex items-center gap-1 shadow"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>{guestFacingRotated ? '180°' : '0°'}</span>
-              </button>
-            )}
             <div className="text-xs sm:text-sm font-black text-slate-300 bg-slate-800/80 px-2.5 py-1 rounded-xl border border-slate-700/80">
               {table?.label || (tableId ? `Tisch ${tableId}` : 'Direktverkauf')}
             </div>

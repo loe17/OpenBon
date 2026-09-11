@@ -25,8 +25,8 @@ describe('OpenBon v0.4.38: Order Print Delay, Storno Countdown & POS Polish', ()
     vi.restoreAllMocks();
   });
 
-  it('should verify APP_VERSION is 0.4.38', () => {
-    expect(APP_VERSION).toBe('0.4.38');
+  it('should verify APP_VERSION is 0.4.38 or higher', () => {
+    expect(['0.4.38', '0.4.39']).toContain(APP_VERSION);
   });
 
   describe('Order Delay Manager', () => {
@@ -131,14 +131,16 @@ describe('OpenBon v0.4.38: Order Print Delay, Storno Countdown & POS Polish', ()
       expect(posContent).not.toContain('<span>Allergene {selectedAllergens');
     });
 
-    it('should stack counter badge vertically under info icon in waiter order and pos', () => {
+    it('should place counter badge in bottom right corner and support long press for product info', () => {
       const waiterOrderPath = path.join(process.cwd(), 'src', 'app', 'waiter', 'order', 'page.tsx');
       const waiterContent = fs.readFileSync(waiterOrderPath, 'utf-8');
-      expect(waiterContent).toContain('flex flex-col items-end gap-1 shrink-0');
+      expect(waiterContent).toContain('handlePointerDown');
+      expect(waiterContent).toContain('bottom-2 right-2');
 
       const posPath = path.join(process.cwd(), 'src', 'app', 'pos', 'page.tsx');
       const posContent = fs.readFileSync(posPath, 'utf-8');
-      expect(posContent).toContain('flex flex-col items-end gap-1 shrink-0');
+      expect(posContent).toContain('handlePointerDown');
+      expect(posContent).toContain('{inCartCount}x');
     });
 
     it('should put (x Pos.) on a second line under Tischbestellung in drawer', () => {

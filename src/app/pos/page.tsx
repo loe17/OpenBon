@@ -331,6 +331,58 @@ function PosCounterContent() {
     return counts;
   }, [cart]);
 
+  // Long-press Steuerung für Artikel-Informationen (Allergene / Hinweise)
+  const longPressTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const isLongPressRef = React.useRef(false);
+  const touchStartPosRef = React.useRef<{ x: number; y: number } | null>(null);
+
+  const handlePointerDown = (product: any, e: React.PointerEvent) => {
+    isLongPressRef.current = false;
+    touchStartPosRef.current = { x: e.clientX, y: e.clientY };
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressRef.current = true;
+      triggerHapticFeedback();
+      setSelectedProductInfo(product);
+    }, 500);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (touchStartPosRef.current) {
+      const dx = Math.abs(e.clientX - touchStartPosRef.current.x);
+      const dy = Math.abs(e.clientY - touchStartPosRef.current.y);
+      if (dx > 10 || dy > 10) {
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+        }
+      }
+    }
+  };
+
+  const handlePointerUp = (product: any) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    touchStartPosRef.current = null;
+    if (!isLongPressRef.current) {
+      handleProductClick(product);
+    }
+    isLongPressRef.current = false;
+  };
+
+  const handlePointerCancel = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    touchStartPosRef.current = null;
+    isLongPressRef.current = false;
+  };
+
   const openDrawer = async () => {
     triggerHapticFeedback();
     const drawerConnected = localStorage.getItem('pos_drawer_connected') !== '0';
@@ -745,8 +797,15 @@ function PosCounterContent() {
                 <button
                   key={prod.id}
                   disabled={isOut}
-                  onClick={() => handleProductClick(prod)}
-                  className={`pos-touch-btn relative flex flex-col justify-between ${isAutoFitScreen ? 'p-2.5 rounded-2xl min-h-[95px]' : 'p-4 rounded-3xl min-h-[120px]'} border-2 shadow-lg text-left transition ${
+                  onPointerDown={(e) => handlePointerDown(prod, e)}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={() => handlePointerUp(prod)}
+                  onPointerCancel={handlePointerCancel}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setSelectedProductInfo(prod);
+                  }}
+                  className={`pos-touch-btn relative flex flex-col justify-between ${isAutoFitScreen ? 'p-2.5 rounded-2xl min-h-[95px]' : 'p-4 rounded-3xl min-h-[120px]'} border-2 shadow-lg text-left transition select-none ${
                     isOut
                       ? 'bg-slate-950/60 border-rose-900/40 opacity-40 cursor-not-allowed line-through'
                       : inCartCount > 0
@@ -754,31 +813,11 @@ function PosCounterContent() {
                       : 'bg-slate-900 border-slate-700 hover:border-emerald-500 active:scale-95'
                   }`}
                   style={{ borderLeftColor: isOut ? '#991b1b' : prod.buttonColor || '#10b981', borderLeftWidth: '6px' }}
+                  title={`${prod.name} (Gedrückt halten für Details)`}
                 >
-                  <div>
-                    <div className="flex items-start justify-between gap-1">
-                      <div className="font-extrabold text-sm sm:text-base text-white line-clamp-2">
-                        {prod.name}
-                      </div>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        {prod.allergens && (
-                          <span
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedProductInfo(prod);
-                            }}
-                            className="text-slate-500 hover:text-amber-400 p-0.5 shrink-0"
-                            title="Allergene"
-                          >
-                            <AlertCircle className="w-3.5 h-3.5" />
-                          </span>
-                        )}
-                        {inCartCount > 0 && (
-                          <span className="bg-emerald-600/90 text-white font-black font-mono text-[10px] sm:text-xs px-1.5 py-0.2 rounded-md shadow">
-                            {inCartCount}x
-                          </span>
-                        )}
-                      </div>
+                  <div className="w-full">
+                    <div className="font-extrabold text-sm sm:text-base text-white leading-tight tracking-tight break-words">
+                      {prod.name}
                     </div>
 
                     <div className="flex flex-wrap gap-1 mt-1">
@@ -805,9 +844,15 @@ function PosCounterContent() {
                       {formatCents(effectivePriceCents)}
                     </span>
                     {!isOut && (
-                      <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200">
-                        <Plus className="w-4 h-4" />
-                      </div>
+                      inCartCount > 0 ? (
+                        <span className="bg-emerald-600 text-white font-black font-mono text-xs sm:text-sm px-2 py-0.5 rounded-lg shadow-md border border-emerald-400/50">
+                          {inCartCount}x
+                        </span>
+                      ) : (
+                        <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200">
+                          <Plus className="w-4 h-4" />
+                        </div>
+                      )
                     )}
                   </div>
                 </button>

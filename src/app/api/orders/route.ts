@@ -9,6 +9,9 @@ import { checkAndTriggerLowStockAlert } from '@/lib/low-stock-notifier';
 import { validateBody, CreateOrderSchema } from '@/lib/validations/schemas';
 import { requireApiAuth } from '@/lib/api-guard';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { assertStockUnitsAvailable, applyStockConsumption } from '@/lib/stock';
 import { resolveOrderItem } from '@/lib/product-resolve';
 export async function GET(req: Request) {
@@ -54,7 +57,13 @@ export async function GET(req: Request) {
       },
     });
 
-    return NextResponse.json(orders);
+    return NextResponse.json(orders, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }

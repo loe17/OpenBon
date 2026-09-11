@@ -378,14 +378,6 @@ export function GeneralTab({
             onToggle={() => onChange({ enableDigitalReceipt: !config.enableDigitalReceipt })}
           />
           <Toggle
-            label="Gast-Sicht beim Kassieren"
-            hint="Zeigt dem Gast den Betrag auf dem gedrehten Bildschirm."
-            value={Boolean(config.enableGuestFacingDisplay)}
-            onToggle={() =>
-              onChange({ enableGuestFacingDisplay: !config.enableGuestFacingDisplay })
-            }
-          />
-          <Toggle
             label="Gast bestellt selbst (QR am Tisch)"
             hint="Gäste bestellen über den QR-Code auf dem Tischaufsteller."
             value={Boolean(config.enableGuestSelfOrder)}

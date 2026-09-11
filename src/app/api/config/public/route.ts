@@ -35,8 +35,8 @@ export async function GET() {
         enableOrderPrintDelay: false,
         orderPrintDelaySeconds: 60,
         enableGuestSelfOrder: false,
-        enableGuestFacingDisplay: false,
         enableKioskMode: false,
+
         lockStartScreen: true,
         activeTheme: 'dark',
         waiterAutoLockMinutes: 0,
@@ -109,7 +109,6 @@ export async function GET() {
       enableNfcWaiter: config.enableNfcWaiter,
       enableNfcPos: config.enableNfcPos,
       enableGuestSelfOrder: config.enableGuestSelfOrder,
-      enableGuestFacingDisplay: config.enableGuestFacingDisplay,
       enableKioskMode: config.enableKioskMode,
       lockStartScreen: config.lockStartScreen,
       activeTheme: config.activeTheme,
