@@ -26,7 +26,7 @@ describe('OpenBon v0.4.38: Order Print Delay, Storno Countdown & POS Polish', ()
   });
 
   it('should verify APP_VERSION is 0.4.38 or higher', () => {
-    expect(['0.4.38', '0.4.39']).toContain(APP_VERSION);
+    expect(['0.4.38', '0.4.39', '0.4.40']).toContain(APP_VERSION);
   });
 
   describe('Order Delay Manager', () => {

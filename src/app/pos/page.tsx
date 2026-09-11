@@ -34,7 +34,7 @@ import {
   History,
 } from 'lucide-react';
 import { SubCategoryIcon } from '@/components/ui/subcategory-icon';
-import { calculateMinBirthdate, EU_ALLERGENS, filterProductsByExcludedAllergens } from '@/lib/compliance';
+import { calculateMinBirthdate, EU_ALLERGENS } from '@/lib/compliance';
 import { getEffectiveProductPrice } from '@/lib/pricing';
 import { hasAnyCardPaymentConfigured, getActiveCardPaymentMethod } from '@/lib/payment/methods';
 import { sendWithOutboxFallback } from '@/lib/offline/outbox';
@@ -51,8 +51,6 @@ function PosCounterContent() {
   const [categories, setCategories] = useState<ProductCategoryDTO[]>([]);
   const [selectedCatId, setSelectedCatId] = useState<string>('');
   const [selectedSubCat, setSelectedSubCat] = useState<string>('ALL');
-  const [selectedAllergens, setSelectedAllergens] = useState<string[]>([]);
-  const [showAllergenFilter, setShowAllergenFilter] = useState(false);
   const [enableDigitalReceipt, setEnableDigitalReceipt] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [posEBonMode, setPosEBonMode] = useState<'QR' | 'NFC'>('QR');
@@ -346,7 +344,7 @@ function PosCounterContent() {
       isLongPressRef.current = true;
       triggerHapticFeedback();
       setSelectedProductInfo(product);
-    }, 500);
+    }, 750);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {

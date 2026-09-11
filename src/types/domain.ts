@@ -266,6 +266,7 @@ export interface DiningTableDTO {
   /** @deprecated Anzeige-Euro */
   openTotal?: number;
   openItemCount?: number;
+  orders?: OrderDTO[];
 }
 
 export interface OrderItemDTO {

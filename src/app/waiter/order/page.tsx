@@ -33,7 +33,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { COURSES } from '@/types/domain';
-import { calculateMinBirthdate, EU_ALLERGENS, filterProductsByExcludedAllergens } from '@/lib/compliance';
+import { calculateMinBirthdate, EU_ALLERGENS } from '@/lib/compliance';
 import { getEffectiveProductPrice } from '@/lib/pricing';
 import { isAudioMuted, setAudioMuted } from '@/lib/socket-client';
 import { WaiterOrderHistoryModal } from '@/components/waiter/waiter-order-history-modal';
@@ -91,8 +91,6 @@ function WaiterOrderContent() {
   const [table, setTable] = useState<DiningTableDTO | null>(null);
   const [categories, setCategories] = useState<ProductCategoryDTO[]>([]);
   const [selectedCatId, setSelectedCatId] = useState<string>('');
-  const [selectedAllergens, setSelectedAllergens] = useState<string[]>([]);
-  const [showAllergenFilter, setShowAllergenFilter] = useState(false);
   const [selectedProductInfo, setSelectedProductInfo] = useState<any | null>(null);
   const [enableAgeAlerts, setEnableAgeAlerts] = useState(true);
 
@@ -493,7 +491,7 @@ function WaiterOrderContent() {
       isLongPressRef.current = true;
       triggerHapticFeedback();
       setSelectedProductInfo(product);
-    }, 500);
+    }, 750);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {

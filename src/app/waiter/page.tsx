@@ -567,18 +567,51 @@ function WaiterTablesContent() {
   const openVoidModal = async (table: TableData) => {
     setBusyAction('void');
     try {
+      let orders: OrderDTO[] = [];
       const res = await fetch(`/api/orders?tableId=${table.id}`);
-      const orders = (await res.json()) as OrderDTO[];
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          orders = data;
+        }
+      }
+
+      // Notfall-Fallback auf table.orders, falls Serverabfrage fehlschlug oder leer war
+      if (orders.length === 0 && table.orders && Array.isArray(table.orders)) {
+        orders = table.orders;
+      }
+
       const active = orders.filter(
         (o) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED'
       );
+
+      if (active.length === 0) {
+        showToast('err', 'Keine offenen Positionen zum Stornieren gefunden.');
+        return;
+      }
+
       setTableOrders(active);
       setVoidItemIds([]);
       setVoidPin('');
       setVoidReason(isStornoEnabled ? 'Fehleingabe (vor Bondruck)' : VOID_REASONS[0]);
       setVoidMarkUnpaid(false);
       setShowVoidModal(true);
-    } catch {
+    } catch (err) {
+      console.warn('[openVoidModal] Fehler beim Laden, prüfe Fallback:', err);
+      if (table.orders && Array.isArray(table.orders)) {
+        const active = table.orders.filter(
+          (o) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED'
+        );
+        if (active.length > 0) {
+          setTableOrders(active);
+          setVoidItemIds([]);
+          setVoidPin('');
+          setVoidReason(isStornoEnabled ? 'Fehleingabe (vor Bondruck)' : VOID_REASONS[0]);
+          setVoidMarkUnpaid(false);
+          setShowVoidModal(true);
+          return;
+        }
+      }
       showToast('err', 'Positionen konnten nicht geladen werden.');
     } finally {
       setBusyAction(null);

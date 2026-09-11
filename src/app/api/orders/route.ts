@@ -36,26 +36,42 @@ export async function GET(req: Request) {
       where.status = { in: ['OPEN', 'IN_PREPARATION', 'READY'] };
     }
 
-    const orders = await prisma.order.findMany({
-      where,
-      orderBy: { createdAt: sort === 'desc' ? 'desc' : 'asc' },
-      take: limit,
-      include: {
-        table: true,
-        items: {
-          include: {
-            product: {
-              include: {
-                category: true,
-                printGroup: {
-                  include: { printer: true },
+    let orders;
+    try {
+      orders = await prisma.order.findMany({
+        where,
+        orderBy: { createdAt: sort === 'desc' ? 'desc' : 'asc' },
+        take: limit,
+        include: {
+          table: true,
+          items: {
+            include: {
+              product: {
+                include: {
+                  category: true,
                 },
               },
             },
           },
         },
-      },
-    });
+      });
+    } catch (primaryErr) {
+      console.warn('[GET /api/orders] Primäre Abfrage mit Produkt-Relationen fehlgeschlagen, nutze sicheren Fallback:', primaryErr);
+      try {
+        orders = await prisma.order.findMany({
+          where,
+          orderBy: { createdAt: sort === 'desc' ? 'desc' : 'asc' },
+          take: limit,
+          include: {
+            table: true,
+            items: true,
+          },
+        });
+      } catch (fallbackErr) {
+        console.error('[GET /api/orders] Auch Notfall-Abfrage fehlgeschlagen:', fallbackErr);
+        throw fallbackErr;
+      }
+    }
 
     return NextResponse.json(orders, {
       headers: {
@@ -65,6 +81,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error) {
+    console.error('[GET /api/orders] Unbehandelter Fehler:', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

@@ -25,8 +25,6 @@ import {
   Receipt,
   CreditCard,
   DoorOpen,
-  Eye,
-  RotateCcw,
   History,
   Volume2,
   VolumeX,
@@ -198,17 +196,32 @@ function WaiterPaymentContent() {
     if (!tableId) return;
     try {
       const res = await fetch(`/api/orders?tableId=${tableId}`);
-      if (!res.ok) return;
-      const orders = await res.json();
-      const openOrders = (orders as any[]).filter(
-        (o) => o.status !== 'PAID' && o.status !== 'CANCELLED'
+      if (res.ok) {
+        const orders = await res.json();
+        if (Array.isArray(orders)) {
+          const openOrders = orders.filter(
+            (o) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED' && o.status !== 'PAID'
+          );
+          const payables = extractPayableItems(openOrders);
+          setItems(payables);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('[fetchTableOrders] Abfrage fehlgeschlagen, versuche Notfall-Fallback:', err);
+    }
+
+    // Notfall-Fallback auf Tischdaten, falls /api/orders keine Daten lieferte
+    if (table?.orders && Array.isArray(table.orders)) {
+      const openOrders = table.orders.filter(
+        (o: any) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED' && o.status !== 'PAID'
       );
       const payables = extractPayableItems(openOrders);
-      setItems(payables);
-    } catch {
-      /* Leise ignorieren */
+      if (payables.length > 0) {
+        setItems(payables);
+      }
     }
-  }, [tableId]);
+  }, [tableId, table?.orders]);
 
   useEffect(() => {
     fetch('/api/config/public')
@@ -225,7 +238,19 @@ function WaiterPaymentContent() {
       .then((r) => r.json())
       .then((tables: DiningTableDTO[]) => {
         const found = tables.find((t) => t.id === tableId);
-        if (found) setTable(found);
+        if (found) {
+          setTable(found);
+          // Sofortiger Fallback für Positionen, falls items noch leer ist
+          setItems((prev) => {
+            if (prev.length === 0 && found.orders && Array.isArray(found.orders)) {
+              const openOrders = found.orders.filter(
+                (o: any) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED' && o.status !== 'PAID'
+              );
+              return extractPayableItems(openOrders);
+            }
+            return prev;
+          });
+        }
       })
       .catch(() => undefined);
     void fetchTableOrders();
