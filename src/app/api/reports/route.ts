@@ -185,15 +185,16 @@ export async function GET(req: Request) {
       salesLastHour: w.salesLastHour / 100,
     }));
 
-    // Top selling items (Cents intern -> Euro für Display)
+    // Top selling items (Cents intern -> Euro für Display, inkl. Varianten)
     const productStats = new Map<string, { name: string; quantity: number; revenue: number }>();
     for (const ord of orders) {
       for (const item of ord.items) {
         if (item.isCancelled) continue;
-        if (!productStats.has(item.productName)) {
-          productStats.set(item.productName, { name: item.productName, quantity: 0, revenue: 0 });
+        const displayName = item.variantName ? `${item.productName} (${item.variantName})` : item.productName;
+        if (!productStats.has(displayName)) {
+          productStats.set(displayName, { name: displayName, quantity: 0, revenue: 0 });
         }
-        const s = productStats.get(item.productName)!;
+        const s = productStats.get(displayName)!;
         s.quantity += item.quantity;
         s.revenue += ((item.unitPriceCents + (item.depositCents || 0)) * item.quantity) / 100;
       }

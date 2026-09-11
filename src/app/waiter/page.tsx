@@ -115,6 +115,7 @@ function WaiterTablesContent() {
 
   // Bestellverlauf & Stummschaltung
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [tableHistoryTarget, setTableHistoryTarget] = useState<{ id: string; label: string } | null>(null);
   const [soundMuted, setSoundMuted] = useState(false);
 
   // X-Bon (Zwischenstand)
@@ -582,7 +583,7 @@ function WaiterTablesContent() {
             className="flex items-center gap-2 px-3 py-1.5 bg-blue-950 text-blue-300 border border-blue-800 hover:border-blue-500 rounded-xl text-xs font-bold transition active:scale-95"
           >
             <UserCheck className="w-4 h-4 text-blue-400" />
-            <span>Bedienung: <strong className="text-white">{waiterName}</strong> <span className="text-[10px] text-blue-300 underline font-normal ml-0.5">(Wechseln)</span></span>
+            <span>Bedienung: <strong className="text-white">{waiterName}</strong></span>
             <Edit3 className="w-3 h-3 text-blue-400" />
           </button>
 
@@ -883,6 +884,17 @@ function WaiterTablesContent() {
                 <FileBarChart className="w-4 h-4 text-amber-400" />
                 <span>X-Bon Schicht</span>
               </button>
+
+              <button
+                onClick={() => {
+                  setTableHistoryTarget({ id: selectedTable.id, label: selectedTable.label });
+                }}
+                className="col-span-2 touch-target h-12 bg-slate-800/80 border border-slate-700 hover:border-blue-500 text-blue-300 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow"
+                title="Alle bisherigen Bestellungen an diesem Tisch anzeigen"
+              >
+                <History className="w-4 h-4 text-blue-400" />
+                <span>Bestellverlauf an {selectedTable.label}</span>
+              </button>
             </div>
           </div>
         </div>
@@ -1145,14 +1157,24 @@ function WaiterTablesContent() {
       {showWaiterPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-blue-600/20 text-blue-400 rounded-2xl border border-blue-500/30">
-                <UserCheck className="w-6 h-6" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-blue-600/20 text-blue-400 rounded-2xl border border-blue-500/30">
+                  <UserCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-lg text-white">Bedienungsname</h3>
+                  <p className="text-xs text-slate-400">Wer bedient gerade an diesem Smartphone?</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-extrabold text-lg text-white">Bedienungsname</h3>
-                <p className="text-xs text-slate-400">Wer bedient gerade an diesem Smartphone?</p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowWaiterPrompt(false)}
+                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700 transition"
+                title="Schließen"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <input
@@ -1453,6 +1475,14 @@ function WaiterTablesContent() {
         isOpen={showHistoryModal}
         onClose={() => setShowHistoryModal(false)}
         waiterName={waiterName}
+      />
+
+      {/* Bestellverlauf je Tisch (kellnerübergreifend) */}
+      <WaiterOrderHistoryModal
+        isOpen={Boolean(tableHistoryTarget)}
+        onClose={() => setTableHistoryTarget(null)}
+        tableId={tableHistoryTarget?.id}
+        tableLabel={tableHistoryTarget?.label}
       />
     </div>
   );

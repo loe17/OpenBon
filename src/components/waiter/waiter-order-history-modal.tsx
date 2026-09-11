@@ -50,23 +50,30 @@ interface WaiterOrder {
 interface WaiterOrderHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  waiterName: string;
+  waiterName?: string;
+  tableId?: string;
+  tableLabel?: string;
 }
 
 export function WaiterOrderHistoryModal({
   isOpen,
   onClose,
   waiterName,
+  tableId,
+  tableLabel,
 }: WaiterOrderHistoryModalProps) {
   const [orders, setOrders] = useState<WaiterOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   const fetchOrders = async () => {
-    if (!waiterName) return;
+    if (!waiterName && !tableId) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/orders?waiterName=${encodeURIComponent(waiterName)}&limit=50&sort=desc`);
+      const url = tableId
+        ? `/api/orders?tableId=${encodeURIComponent(tableId)}&limit=50&sort=desc`
+        : `/api/orders?waiterName=${encodeURIComponent(waiterName || '')}&limit=50&sort=desc`;
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -87,7 +94,7 @@ export function WaiterOrderHistoryModal({
     if (isOpen) {
       fetchOrders();
     }
-  }, [isOpen, waiterName]);
+  }, [isOpen, waiterName, tableId]);
 
   if (!isOpen) return null;
 
@@ -124,14 +131,18 @@ export function WaiterOrderHistoryModal({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-extrabold text-base sm:text-lg text-white">Mein Bestellverlauf</h2>
+                <h2 className="font-extrabold text-base sm:text-lg text-white">
+                  {tableLabel ? `Bestellverlauf: ${tableLabel}` : 'Mein Bestellverlauf'}
+                </h2>
                 <span className="px-2.5 py-0.5 rounded-full bg-blue-950 border border-blue-800 text-blue-300 text-xs font-bold flex items-center gap-1">
                   <User className="w-3 h-3" />
-                  {waiterName || 'Bedienung'}
+                  {tableLabel ? `Tisch ${tableLabel}` : (waiterName || 'Bedienung')}
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                Vergangene Bestellungen dieser Schicht (Schreibgeschützt)
+                {tableLabel
+                  ? 'Alle bisherigen Bestellungen an diesem Tisch (kellnerübergreifend)'
+                  : 'Vergangene Bestellungen dieser Schicht (Schreibgeschützt)'}
               </p>
             </div>
           </div>
@@ -168,7 +179,7 @@ export function WaiterOrderHistoryModal({
             ) : orders.length === 0 ? (
               <div className="p-8 text-center text-slate-500 space-y-2">
                 <ShoppingBag className="w-8 h-8 mx-auto stroke-1" />
-                <p className="text-xs font-bold">Keine Bestellungen für &bdquo;{waiterName}&ldquo; gefunden.</p>
+                <p className="text-xs font-bold">Keine Bestellungen für &bdquo;{tableLabel || waiterName}&ldquo; gefunden.</p>
               </div>
             ) : (
               orders.map((ord) => {
@@ -180,7 +191,9 @@ export function WaiterOrderHistoryModal({
                   hour: '2-digit',
                   minute: '2-digit',
                 });
-                const tableLabel = ord.table ? `Tisch ${ord.table.tableNumber}` : 'Direktverkauf / Theke';
+                const cardTitle = tableLabel
+                  ? (ord.waiterName ? `Kellner: ${ord.waiterName}` : 'Bestellung')
+                  : (ord.table ? `Tisch ${ord.table.tableNumber}` : 'Direktverkauf / Theke');
 
                 return (
                   <button
@@ -194,7 +207,7 @@ export function WaiterOrderHistoryModal({
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-extrabold text-sm text-white">{tableLabel}</span>
+                      <span className="font-extrabold text-sm text-white">{cardTitle}</span>
                       <div className="flex items-center gap-1.5">
                         <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1">
                           <Clock className="w-3 h-3" />

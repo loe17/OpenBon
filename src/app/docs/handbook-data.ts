@@ -1,5 +1,5 @@
 /**
- * Umfassendes Handbuch und Referenz-Dokumentation für OpenBon v0.4.34.
+ * Umfassendes Handbuch und Referenz-Dokumentation für OpenBon v0.4.35.
  * Offline verfügbar, druckoptimiert (A4) und thematisch gegliedert.
  */
 
@@ -199,19 +199,20 @@ export const HANDBOOK: DocChapter[] = [
         id: '2.8',
         heading: '2.8 Rechnungs-Splitting (Getrennt zahlen)',
         paragraphs: [
-          'OpenBon bietet mächtige Splitting-Werkzeuge:',
-          '1. Postenweises Splitten: Einzelne Artikel auswählen (z. B. 2 von 5 Bieren).',
-          '2. Schnell-Split: Mit den Tasten "1/2", "1/3", "1/4" den Tischbetrag blitzschnell aufteilen.',
-          '3. Nach dem Kassieren ermöglicht "Nächsten Gast am selben Tisch kassieren" das direkte Weiterkassieren des Restbetrags.',
+          'OpenBon bietet ein intuitives, touch-optimiertes Splitting-Werkzeug:',
+          '1. Postenweises Splitten: Einzelne Artikel auswählen oder über "Alles" / "Keine" gesammelt markieren.',
+          '2. Transparente Abrechnung: Der Rechnungsbetrag der ausgewählten Positionen wird in Echtzeit berechnet.',
+          '3. Nahtloses Weiterkassieren: Nach dem Bezahlvorgang ermöglicht "Nächsten Gast am selben Tisch kassieren" das direkte Abrechnen der verbleibenden Speisen und Getränke.',
         ],
       },
       {
         id: '2.9',
-        heading: '2.9 Bezahlvorgang & Stückelungs-Rückgeldrechner',
+        heading: '2.9 Bezahlvorgang, Trinkgeld-Schnellrundung & Rückgeldrechner',
         paragraphs: [
-          'Beim Kassieren steht der interaktive Bargeldrechner bereit:',
-          'Tippen Sie auf die Scheine (100, 50, 20, 10, 5 €) und Münzen (2, 1, 0.50, 0.20, 0.10, 0.05 €), die der Gast hingelegt hat. Die Beträge addieren sich automatisch.',
-          'Das genaue Rückgeld wird in 48px Bernsteinschrift berechnet und angezeigt.',
+          'Beim Kassieren stehen praktische Hilfen für schnellen Durchsatz bereit:',
+          '1. Schnelle Trinkgeld-Rundung per Pfeiltasten: Mit den 4 Touch-Pfeilen (▲/▼ links für 1,00 € und ▲/▼ rechts für 0,50 €) kann der Zahlbetrag blitzschnell aufgerundet werden. Der Trinkgeldbetrag wird automatisch ermittelt und verbucht.',
+          '2. Interaktiver Stückelungs-Bargeldrechner: Tippen Sie auf die Scheine (100, 50, 20, 10, 5 €) und Münzen (2, 1, 0.50, 0.20, 0.10, 0.05 €), die der Gast hingelegt hat. Die Beträge addieren sich automatisch.',
+          '3. Große Rückgeld-Anzeige: Das genaue Wechselgeld wird gut lesbar berechnet und angezeigt.',
         ],
       },
       {
@@ -219,6 +220,13 @@ export const HANDBOOK: DocChapter[] = [
         heading: '2.10 Gastansicht & Display-Drehung',
         paragraphs: [
           'Mit der Gastansicht-Funktion kann das Tablet zum Gast gedreht werden. Der Gast sieht eine aufgeräumte Zusammenfassung seiner Bestellung sowie Zahlungsoptionen (z. B. QR-Code).',
+        ],
+      },
+      {
+        id: '2.11',
+        heading: '2.11 Tisch-Bestellhistorie',
+        paragraphs: [
+          'Über das Verlauf-Symbol (Uhr) am Tisch oder in der Bestellmaske kann die vollständige Bestellhistorie des Tisches eingesehen werden – unabhängig davon, welche Bedienung die jeweilige Runde boniert hat.',
         ],
       },
     ],
@@ -454,18 +462,22 @@ export const HANDBOOK: DocChapter[] = [
       },
       {
         id: '7.2',
-        heading: '7.2 Trinkgeld-Modelle',
+        heading: '7.2 Trinkgeld-Modelle & Personalverwaltung',
         paragraphs: [
+          'Unter "Personal & Abrechnung" (/admin/settle) im Reiter "Bedienungen & Trinkgeld-Regeln" können Mitarbeiter angelegt, PINs vergeben und flexible Trinkgeld-Verteilungsregeln definiert werden:',
           '1. Bedienung behält alles: Trinkgeld verbleibt zu 100 % beim Kellner.',
           '2. Team-Pool: Trinkgeld wird an die Hauptkasse abgegeben und anteilig an Küche/Theke verteilt.',
-          '3. Mischprofile: Frei definierbare prozentuale Aufteilung.',
+          '3. Mischprofile: Frei definierbare prozentuale Aufteilung zwischen Bedienung, Bar-Pool, Küchen-Pool und Service-Pool.',
         ],
       },
       {
         id: '7.3',
-        heading: '7.3 Geführter 5-Stufen-Kassensturz (/admin/settle)',
+        heading: '7.3 Personal & Abrechnung: Geführter Kassensturz & Live-Umsatz',
         paragraphs: [
-          'Die Schichtabrechnung erfolgt revisionssicher durch die Kassenleitung in 5 Schritten: Bedienungsauswahl -> Umsatzprüfung -> Zählen -> Differenzbestätigung -> Belegausdruck (inkl. Unterschriftenfeldern).',
+          'Die Seite "Personal & Abrechnung" (/admin/settle) bündelt alle Mitarbeiter- und Abrechnungsfunktionen in drei klaren Reitern:',
+          'Reiter 1: Kassensturz & Schichtabrechnung: Geführter 5-Schritte-Ablauf (Kellner-Auswahl -> Umsatzprüfung -> Bargeld & Ist-Trinkgeld zählen -> Differenzprüfung von Hauptkassen-Abgabe und Trinkgeld-Soll/Ist -> Abrechnungsbeleg drucken).',
+          'Reiter 2: Bedienungen & Trinkgeld-Regeln: Mitarbeiter pflegen, PINs setzen und Trinkgeld-Profile zuweisen.',
+          'Reiter 3: Live-Umsatzübersicht: Sofortige Übersicht über Umsätze, Bar- und Kartenzahlungen aller Kellner mit 1-Klick-Sprung zum Kassensturz.',
         ],
       },
       {
@@ -513,6 +525,14 @@ export const HANDBOOK: DocChapter[] = [
           'OpenBon generiert unter /admin/fiscal/kassenmeldung das amtliche Meldeformular für das Finanzamt bei Inbetriebnahme, Außerbetriebnahme oder Standortwechsel.',
         ],
       },
+      {
+        id: '8.5',
+        heading: '8.5 Vorlagen herunterladen & hochladen (Snapshots)',
+        paragraphs: [
+          'In den Einstellungen unter "Vorlagen & Snapshots" (/admin/settings) können gespeicherte Fest-Konfigurationen (Tische, Warengruppen, Artikel, Bon-Layouts) als handliche JSON-Datei heruntergeladen und auf anderen Kassen oder Folge-Events wieder hochgeladen werden.',
+          'Der Import aktualisiert die Event-Konfiguration, ohne bestehende Buchungen oder Kassenabschlüsse zu berühren.',
+        ],
+      },
     ],
   },
   {
@@ -534,6 +554,16 @@ export const HANDBOOK: DocChapter[] = [
         heading: '9.2 ActionLog: Revisionssicheres Audit-Protokoll',
         paragraphs: [
           'Jede Buchung, Stornierung, Tischumbuchung und Stammdatenänderung wird mit Zeitstempel, Benutzer, Beträgen und Details protokolliert und kann gefiltert exportiert werden.',
+        ],
+      },
+      {
+        id: '9.3',
+        heading: '9.3 System-Update & Versions-Manager (/admin/system-update)',
+        paragraphs: [
+          'Unter /admin/system-update kann der Server bequem aktualisiert und überwacht werden:',
+          '1. Arbeitsspeicher-Anzeige: Zeigt den belegten und gesamten RAM in Gigabyte und Prozent live an.',
+          '2. Schalter "Nur Releases anzeigen": Standardmäßig aktiv, um ausschließlich geprüfte, offizielle Hauptversionen anzuzeigen und nicht-technische Benutzer vor Vorab-Versionen zu schützen.',
+          '3. 1-Klick Hotfix-Aktualisierung: Selbst wenn man bereits auf der neuesten Hauptversion ist, können neu erschienene Zwischen-Verbesserungen und Fehlerbehebungen mit einem Klick installiert werden.',
         ],
       },
     ],

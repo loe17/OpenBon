@@ -187,6 +187,32 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, message: `Profil "${profile.name}" erfolgreich wiederhergestellt.` });
     }
 
+    // 3. Vorlage aus JSON-Datei importieren
+    if (action === 'IMPORT') {
+      const { name, description, snapshot } = body;
+      if (!name || typeof name !== 'string' || !name.trim()) {
+        return NextResponse.json({ error: 'Name für das Profil ist erforderlich' }, { status: 400 });
+      }
+      if (!snapshot || typeof snapshot !== 'object') {
+        return NextResponse.json({ error: 'Ungültige Profildaten (Snapshot-Objekt erforderlich)' }, { status: 400 });
+      }
+
+      const profile = await prisma.eventProfile.upsert({
+        where: { name: name.trim() },
+        create: {
+          name: name.trim(),
+          description: description || null,
+          profileJson: JSON.stringify(snapshot),
+        },
+        update: {
+          description: description || undefined,
+          profileJson: JSON.stringify(snapshot),
+        },
+      });
+
+      return NextResponse.json({ success: true, profile: { id: profile.id, name: profile.name } });
+    }
+
     return NextResponse.json({ error: 'Unbekannte Aktion' }, { status: 400 });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });

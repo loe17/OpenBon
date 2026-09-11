@@ -48,6 +48,7 @@ Jedes Smartphone, Tablet, Touchscreen-Terminal oder PC kann direkt im Webbrowser
 | :--- | :--- | :--- |
 | **🚀 Erststart-Assistent** | `http://openbon.local/setup` | Schnelleinrichtung: Event-Daten, PINs, Tische & Drucker |
 | **👑 Admin Dashboard** | `http://openbon.local/admin/dashboard` | Live-Umsatz, Leitstand, Artikelpflege & Kassenbuch |
+| **💼 Personal & Abrechnung** | `http://openbon.local/admin/settle` | Geführter Kassensturz, Kellner-PINs, Trinkgeld-Pools & Live-Umsatz |
 | **📱 Kellner-Mobilteil** | `http://openbon.local/waiter` | Offline-fähige Tischaufnahme, Gänge, Funk & Kassieren |
 | **💳 Bonkasse / Theke** | `http://openbon.local/pos` | Schneller Direktverkauf, Wertmarken, ZVT/EC & Bar |
 | **🖥️ SB-Kiosk Terminal** | `http://openbon.local/kiosk` | Eigenständiges Gäste-Bestellterminal |
@@ -103,8 +104,11 @@ Jedes Smartphone, Tablet, Touchscreen-Terminal oder PC kann direkt im Webbrowser
 - **Konfigurierbarer Papierbon-Knopf an der Bonkasse:** Schnellwahlschalter in Kopfzeile und Warenkorb sowie Nachdruckfunktion (`Erneut drucken`) bei Kundenwunsch oder Papierstau.
 - **Schutz vor Datenverlust bei ungespeicherten Einstellungen:** Lückenloser In-App-Navigationsschutz beim Verlassen editierter Admin-Einstellungen.
 - **Keine blockierenden Browser-Popups:** Alle Bestätigungen und Warnungen erfolgen über animierte Toasts und barrierefreie Touch-Dialoge.
-- **Kellner-Schichtabrechnung (`/waiter/settle`):** Touch-optimierter Soll/Ist-Kassensturz mit Trinkgeld-Ausschüttung und digitalem Kassenabschlussbeleg.
-- **1-Klick EventProfile-Snapshots:** Speichern und blitzschnelles Wiederherstellen kompletter Fest-Konfigurationen (Tische, Drucker-Routing, Warengruppen, Artikel) im Einstellungsmenü.
+- **Personal & Abrechnung (`/admin/settle`):** Vereinte Zentrale mit 3 Reitern für geführten Kassensturz (inkl. Ist-Trinkgeld-Zählung und Soll/Ist-Vergleich), Kellner-PINs & Trinkgeld-Verteilungsregeln sowie Live-Umsatzübersicht aller Bedienungen.
+- **Trinkgeld-Schnellrundung per Pfeiltasten:** Am Kellner-Terminal runden 4 Pfeile (▲/▼ für 1,00 € und 0,50 €) Beträge sekundenschnell auf; Trinkgeld wird automatisch errechnet und verbucht.
+- **Tisch-Bestellhistorie:** 1-Klick-Einsicht aller bisherigen Bestellungen an einem Tisch über alle Kellner hinweg.
+- **System-Update & RAM-Monitor (`/admin/system-update`):** RAM-Auslastung in GB und %, Schalter "Nur Releases anzeigen" und 1-Klick Hotfix-Aktualisierung.
+- **1-Klick Vorlagen-Download & Upload (EventProfiles):** Fest-Vorlagen als handliche JSON-Datei sichern, teilen und auf beliebigen Kassen wieder hochladen.
 
 ---
 

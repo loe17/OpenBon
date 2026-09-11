@@ -27,10 +27,13 @@ Willkommen bei **OpenBon**, dem plattformunabhängigen, hochverfügbaren Kassens
   - **1-Klick-Sonderwünsche**: Tippe auf einen Artikel im Korb, um blitzschnell Wortgruppen wie `"ohne Zwiebeln"` oder `"extra Soße"` auszuwählen.
   - Mit Klick auf **"Bestellen"** wird der Auftrag sofort an die zuständigen Drucker (Küche, Schenke) und den Küchenmonitor gesendet.
 - **Kassieren & Rechnungs-Splitting (Teilzahlung)**:
-  - Wähle pro Gast nur die tatsächlich zu zahlenden Positionen aus.
+  - Wähle pro Gast nur die tatsächlich zu zahlenden Positionen aus (oder über "Alles" / "Keine").
+  - **Trinkgeld-Schnellrundung**: 4 Pfeiltasten (▲/▼ links für 1,00 € und ▲/▼ rechts für 0,50 €) runden den Betrag schnell auf. Das Trinkgeld wird automatisch erfasst und gebucht.
   - **Rückpfand**: Erfasse zurückgegebenes Leergut (1€, 2€) direkt im Kassierdialog – wird automatisch vom Betrag abgezogen.
   - **Rückgeld-Rechner**: Schnelltasten für 10€, 20€, 50€, 100€ berechnen sofort das korrekte Wechselgeld.
-  - Zahlarten: Bar, Karte (SumUp / Terminal), Rabatt, Personal/Bewirtung.
+  - Zahlarten: Bar, Rabatt / Freiverzehr, Karte (SumUp / Terminal), Personal/Bewirtung.
+- **Tisch-Bestellhistorie**: Über das Uhr-Symbol kann die gesamte Bestellhistorie des Tisches eingesehen werden.
+- **Bedienungswechsel**: Schneller Wechsel durch Antippen des Kellnernamens (mit Schließen-Knopf im PIN-Dialog).
 
 ### 2. Bonkasse / Thekenverkauf (Counter Express)
 - Für den Direktverkauf an der Theke ohne Tischauswahl.
@@ -75,4 +78,18 @@ Willkommen bei **OpenBon**, dem plattformunabhängigen, hochverfügbaren Kassens
 
 ### 9. Integriertes Handbuch & Offline-Dokumentation (`/docs`)
 - Vollständiges, thematisch gegliedertes Benutzerhandbuch direkt in der Anwendung für alle Stationen und Einstellungen verfügbar (auch offline).
+
+### 10. Personal & Abrechnung (`/admin/settle`)
+- Zentrale Schaltzentrale für Mitarbeiter und Kassenabschlüsse mit 3 Reitern:
+  - **Reiter 1: Kassensturz & Schichtabrechnung**: Revisionssicherer 5-Schritte-Ablauf. Ermöglicht die Erfassung des gezählten Ist-Trinkgelds und stellt Soll-Trinkgeld, Ist-Trinkgeld und Differenz transparent gegenüber.
+  - **Reiter 2: Bedienungen & Trinkgeld-Regeln**: Mitarbeiter anlegen, PINs vergeben und flexible Trinkgeld-Verteilungsregeln (Bedienung, Bar-Pool, Küchen-Pool, Service-Pool) definieren.
+  - **Reiter 3: Live-Umsatzübersicht**: Umsätze, Bar- und Karteneinnahmen aller Kellner auf einen Blick mit Direktsprung zum Kassensturz.
+
+### 11. System-Update & Versions-Manager (`/admin/system-update`)
+- **Arbeitsspeicher-Monitor**: Zeigt RAM-Gesamtkapazität, belegten Speicher in GB und prozentuale Auslastung live an.
+- **Schalter "Nur Releases anzeigen"**: Standardmäßig aktiv, blendet unfertige Entwicklungs-Tags aus und zeigt ausschließlich geprüfte Versionen.
+- **1-Klick Hotfix-Update**: Auch wenn bereits die neueste Version installiert ist, können neu erschienene Zwischen-Updates direkt per Knopfdruck eingespielt werden.
+
+### 12. Vorlagen & Snapshots herunterladen & hochladen (`/admin/settings`)
+- Fest-Vorlagen (Tische, Warengruppen, Artikel, Bon-Layouts) können im Reiter *Vorlagen & Snapshots* als Datei heruntergeladen und auf anderen Kassenrechnern importiert werden, ohne Verkaufs- oder Finanzdaten zu überschreiben.
 

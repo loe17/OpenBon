@@ -477,48 +477,28 @@ function WaiterOrderContent() {
         <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={() => router.push('/waiter')}
-            className="pos-touch-btn p-2 bg-slate-800 hover:bg-slate-700 rounded-2xl text-slate-300 flex items-center gap-1.5 text-xs font-bold transition active:scale-95 shrink-0"
+            className="pos-touch-btn px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 flex items-center gap-1.5 text-xs font-bold transition active:scale-95 shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Zurück</span>
           </button>
 
-          <div className="min-w-0 flex items-center gap-1.5 pl-1">
-            <span className="text-xs sm:text-sm font-bold text-slate-400 truncate">{waiterName}</span>
-            <span className="text-slate-600 font-bold">•</span>
-            <h2 className="text-sm sm:text-base font-black text-white truncate">
-              {table ? table.label : `Tisch ${tableId}`}
-            </h2>
-          </div>
+          <span className="text-xs font-bold text-slate-400 truncate">{waiterName}</span>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          <h2 className="text-sm sm:text-base font-black text-white">
+            {table ? table.label : (tableId ? `Tisch ${tableId}` : 'Bestellung')}
+          </h2>
+
           <button
             type="button"
             onClick={() => setShowHistoryModal(true)}
-            className="px-3 py-1.5 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl text-slate-300 hover:text-white flex items-center gap-1.5 text-xs font-bold transition active:scale-95 shadow"
-            title="Bestellverlauf anzeigen"
+            className="p-1.5 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl text-blue-300 hover:text-white flex items-center gap-1 text-xs font-bold transition active:scale-95 shadow"
+            title="Bestellverlauf an diesem Tisch anzeigen"
           >
-            <History className="w-3.5 h-3.5 text-blue-400" />
-            <span className="hidden sm:inline">Verlauf</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              const next = !soundMuted;
-              setSoundMuted(next);
-              setAudioMuted(next);
-            }}
-            className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-bold transition active:scale-95 ${
-              soundMuted
-                ? 'bg-rose-950/50 border-rose-800 text-rose-400'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-            }`}
-            title={soundMuted ? 'Ton stumm' : 'Ton aktiv'}
-          >
-            {soundMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{soundMuted ? 'Stumm' : 'Ton'}</span>
+            <History className="w-4 h-4 text-blue-400" />
+            <span className="hidden sm:inline">Tisch-Verlauf</span>
           </button>
         </div>
       </div>
@@ -1187,6 +1167,8 @@ function WaiterOrderContent() {
         isOpen={showHistoryModal}
         onClose={() => setShowHistoryModal(false)}
         waiterName={waiterName}
+        tableId={table?.id || tableId || undefined}
+        tableLabel={table ? table.label : (tableId ? `Tisch ${tableId}` : undefined)}
       />
     </div>
   );

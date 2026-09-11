@@ -11,6 +11,8 @@ import {
   Trash2,
   AlertTriangle,
   FileText,
+  Download,
+  Upload,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 import { formatCurrency, formatCents } from '@/lib/utils';
@@ -99,6 +101,61 @@ export function SnapshotsTab() {
     }
   };
 
+  const handleExportProfile = (prof: any) => {
+    const exportData = {
+      type: 'OPENBON_EVENT_PROFILE',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      name: prof.name,
+      description: prof.description,
+      snapshot: prof.snapshot,
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vorlage-${prof.name.toLowerCase().replace(/[^a-z0-9]/gi, '_')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    success(`Vorlage "${prof.name}" als JSON-Datei heruntergeladen.`);
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const snapshot = parsed.snapshot || parsed;
+      const name = parsed.name || file.name.replace(/\.json$/i, '');
+      const description = parsed.description || 'Aus Datei importiert';
+
+      const res = await fetch('/api/profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'IMPORT',
+          name,
+          description,
+          snapshot,
+        }),
+      });
+
+      if (res.ok) {
+        success(`Vorlage "${name}" erfolgreich importiert!`);
+        loadProfiles();
+      } else {
+        const j = await res.json().catch(() => ({}));
+        error(j.error || 'Fehler beim Importieren der Vorlage');
+      }
+    } catch {
+      error('Ungültige Vorlagendatei (JSON-Format erwartet).');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
   const handleDeleteProfile = async (profileId: string) => {
     try {
       const res = await fetch(`/api/profiles?id=${encodeURIComponent(profileId)}`, {
@@ -173,11 +230,19 @@ export function SnapshotsTab() {
 
       {/* Gespeicherte Profile */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-        <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
-          <HardDrive className="w-5 h-5 text-blue-400" />
-          <h3 className="font-bold text-base text-white">
-            Gespeicherte Veranstaltungs-Vorlagen ({profiles.length})
-          </h3>
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-2">
+          <div className="flex items-center gap-3">
+            <HardDrive className="w-5 h-5 text-blue-400" />
+            <h3 className="font-bold text-base text-white">
+              Gespeicherte Veranstaltungs-Vorlagen ({profiles.length})
+            </h3>
+          </div>
+
+          <label className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition cursor-pointer flex items-center gap-2 shadow active:scale-95">
+            <Upload className="w-3.5 h-3.5 text-blue-400" />
+            <span>Vorlage aus Datei laden (.json)</span>
+            <input type="file" accept=".json" onChange={handleImportFile} className="hidden" />
+          </label>
         </div>
 
         {loading ? (
@@ -207,6 +272,16 @@ export function SnapshotsTab() {
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => handleExportProfile(prof)}
+                      className="min-h-[40px] px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 text-xs font-bold transition flex items-center gap-1.5"
+                      title="Vorlage als JSON-Datei herunterladen"
+                    >
+                      <Download className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Download</span>
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => {

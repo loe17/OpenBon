@@ -19,12 +19,12 @@ export interface PaymentMethodDef {
 
 export const PAYMENT_METHODS: PaymentMethodDef[] = [
   {
-    id: 'CASH',
-    label: 'Bargeld',
-    color: '#10B981',
-    icon: Banknote,
+    id: 'DISCOUNT',
+    label: 'Rabatt / Freiverzehr',
+    color: '#8B5CF6',
+    icon: Percent,
     isCard: false,
-    isNonPaid: false,
+    isNonPaid: true,
   },
   {
     id: 'CARD' as any,
@@ -99,12 +99,12 @@ export const PAYMENT_METHODS: PaymentMethodDef[] = [
     isNonPaid: true,
   },
   {
-    id: 'DISCOUNT',
-    label: 'Rabatt / Freiverzehr',
-    color: '#8B5CF6',
-    icon: Percent,
+    id: 'CASH',
+    label: 'Bargeld',
+    color: '#10B981',
+    icon: Banknote,
     isCard: false,
-    isNonPaid: true,
+    isNonPaid: false,
   },
 ];
 

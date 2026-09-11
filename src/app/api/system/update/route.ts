@@ -6,6 +6,7 @@ import { APP_VERSION, GITHUB_REPO_URL } from '@/lib/version';
 import { compareSemver } from '@/lib/version-compare';
 import { requireAdmin } from '@/lib/admin-guard';
 import { requireApiAuth } from '@/lib/api-guard';
+import os from 'os';
 import { getDiskSpace } from '@/lib/disk-space';
 
 const execAsync = promisify(exec);
@@ -64,6 +65,7 @@ export async function GET(req: Request) {
     let latestReleaseUrl: string | null = null;
 
     let availableTags: string[] = [];
+    let officialReleases: string[] = [];
     // Diagnose: Warum wird ggf. kein Update gefunden (statt "neuester Stand" zu behaupten)?
     let updateCheckWarning: string | null = null;
     const checkNotes: string[] = [];
@@ -76,8 +78,26 @@ export async function GET(req: Request) {
       checkNotes.push('Lokale Tags konnten nicht gelesen werden.');
     }
 
-    // 1. Prüfe offizielle GitHub Tags & Releases via GitHub API (15s Timeout,
-    //    Rate-Limit wird an UI durchgereicht statt "neuester Stand" zu behaupten)
+    // 1. Prüfe offizielle GitHub Releases & Tags via GitHub API
+    try {
+      const ghReleasesRes = await fetch('https://api.github.com/repos/loe17/OpenBon/releases?per_page=100', {
+        headers: { 'User-Agent': 'OpenBon-POS-System', Accept: 'application/vnd.github+json' },
+        signal: AbortSignal.timeout(12000),
+      }).catch(() => null);
+
+      if (ghReleasesRes && ghReleasesRes.ok) {
+        const relData = await ghReleasesRes.json();
+        if (Array.isArray(relData)) {
+          officialReleases = relData
+            .filter((r: any) => !r.draft && !r.prerelease)
+            .map((r: any) => (r.tag_name || r.name || '').trim())
+            .filter(Boolean);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     try {
       const ghTagsRes = await fetch('https://api.github.com/repos/loe17/OpenBon/tags?per_page=100', {
         headers: { 'User-Agent': 'OpenBon-POS-System', Accept: 'application/vnd.github+json' },
@@ -209,6 +229,21 @@ export async function GET(req: Request) {
       remoteStatus = `${pendingCommits.length} neue(r) Hotfix-Commit(s) verfügbar`;
     }
 
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
+    const usedMem = Math.max(0, totalMem - freeMem);
+    const usedPercentage = totalMem > 0 ? Math.round((usedMem / totalMem) * 100) : 0;
+    const formatMem = (bytes: number) => (bytes / (1024 * 1024 * 1024)).toFixed(1).replace('.', ',') + ' GB';
+    const memory = {
+      totalBytes: totalMem,
+      freeBytes: freeMem,
+      usedBytes: usedMem,
+      usedPercentage,
+      formattedTotal: formatMem(totalMem),
+      formattedFree: formatMem(freeMem),
+      formattedUsed: formatMem(usedMem),
+    };
+
     return NextResponse.json({
       system: 'OpenBon',
       version: APP_VERSION,
@@ -224,6 +259,7 @@ export async function GET(req: Request) {
       latestReleaseBody,
       latestReleaseUrl,
       availableTags,
+      officialReleases,
       pendingCommits,
       updateCheckWarning,
       checkNotes,
@@ -232,6 +268,7 @@ export async function GET(req: Request) {
       arch: process.arch,
       uptime: Math.round(process.uptime()),
       diskSpace: getDiskSpace(projectRoot),
+      memory,
     });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });

@@ -34,6 +34,8 @@ import {
   Radio,
   Smartphone,
   X,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { isAudioMuted, setAudioMuted } from '@/lib/socket-client';
 import { sendWithOutboxFallback } from '@/lib/offline/outbox';
@@ -130,6 +132,7 @@ function WaiterPaymentContent() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
   const [nonPaidReason, setNonPaidReason] = useState('');
   const [keypadValue, setKeypadValue] = useState('');
+  const [tipCents, setTipCents] = useState(0);
 
   const [cardStatus, setCardStatus] = useState<'WAITING' | 'OK' | 'FAILED'>('WAITING');
   const [cardMessage, setCardMessage] = useState('Bitte Karte an das Terminal halten...');
@@ -246,10 +249,43 @@ function WaiterPaymentContent() {
             taxRate: i.taxRate,
           })),
         returnDepositAmount: totalReturnDeposit,
+        tipCents,
         givenAmount: Number(keypadValue.replace(',', '.')) || 0,
       }),
-    [items, totalReturnDeposit, keypadValue]
+    [items, totalReturnDeposit, tipCents, keypadValue]
   );
+
+  const baseDueCents = checkout.amountDueCents;
+
+  const roundUpEuro = () => {
+    haptic();
+    const current = baseDueCents + tipCents;
+    let next = (Math.floor(current / 100) + 1) * 100;
+    if (next <= current) next = current + 100;
+    setTipCents(Math.max(0, next - baseDueCents));
+  };
+
+  const roundDownEuro = () => {
+    haptic();
+    const current = baseDueCents + tipCents;
+    const next = Math.max(baseDueCents, current - 100);
+    setTipCents(Math.max(0, next - baseDueCents));
+  };
+
+  const roundUp50Cents = () => {
+    haptic();
+    const current = baseDueCents + tipCents;
+    let next = Math.ceil((current + 1) / 50) * 50;
+    if (next <= current) next = current + 50;
+    setTipCents(Math.max(0, next - baseDueCents));
+  };
+
+  const roundDown50Cents = () => {
+    haptic();
+    const current = baseDueCents + tipCents;
+    const next = Math.max(baseDueCents, current - 50);
+    setTipCents(Math.max(0, next - baseDueCents));
+  };
 
   const hasSelection = items.some((i) => i.selectedQty > 0) || totalReturnDeposit > 0;
   const givenAmount = Number(keypadValue.replace(',', '.')) || 0;
@@ -315,11 +351,13 @@ function WaiterPaymentContent() {
 
   const toggleSelectAll = (select: boolean) => {
     haptic();
+    setTipCents(0);
     setItems((prev) => prev.map((i) => ({ ...i, selectedQty: select ? i.totalUnpaidQty : 0 })));
   };
 
   const updateItemQty = (orderItemId: string, delta: number) => {
     haptic();
+    setTipCents(0);
     setItems((prev) =>
       prev.map((i) =>
         i.orderItemId === orderItemId
@@ -331,6 +369,7 @@ function WaiterPaymentContent() {
 
   const toggleItem = (orderItemId: string) => {
     haptic();
+    setTipCents(0);
     setItems((prev) =>
       prev.map((i) =>
         i.orderItemId === orderItemId
@@ -466,6 +505,8 @@ function WaiterPaymentContent() {
           returnDepositCount: Object.values(returnDeposits).reduce((a, b) => a + b, 0),
           returnDepositAmountCents: Math.round(totalReturnDeposit * 100),
           returnDepositAmount: totalReturnDeposit,
+          tipAmountCents: tipCents,
+          tipAmount: tipCents / 100,
           givenAmountCents: paymentMethod === 'CASH' ? Math.round(givenAmount * 100) : 0,
           givenAmount: paymentMethod === 'CASH' ? givenAmount : 0,
           printReceipt: opts.printReceipt,
@@ -519,6 +560,7 @@ function WaiterPaymentContent() {
       } else {
         setEBonQrDataUrl(null);
       }
+      setTipCents(0);
       setStage('DONE');
     } catch {
       setError('Verbindungsfehler beim Kassieren.');
@@ -619,94 +661,94 @@ function WaiterPaymentContent() {
           </div>
         )}
 
-        {/* Gast-Sicht Widget Steuerung
-            Nur sichtbar, wenn die Kundenanzeige in den Einstellungen freigegeben
-            ist - sonst bliebe ein Knopf stehen, der nichts bewirken darf. */}
-        <div className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-800 p-2 px-4 flex items-center justify-between">
-          {guestFacingAllowed ? (
-          <button
-            onClick={() => {
-              haptic();
-              setGuestFacingMode(!guestFacingMode);
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
-              guestFacingMode
-                ? 'bg-blue-600 border-blue-400 text-white shadow-md'
-                : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
-            }`}
-          >
-            <Eye className="w-4 h-4" />
-            <span>Gast-Sicht</span>
-            <span className="text-[10px] opacity-75">{guestFacingMode ? '(Aktiv)' : ''}</span>
-          </button>
-          ) : (
-            <span className="text-xs text-slate-500 font-bold">Kassieren</span>
-          )}
-
-          {guestFacingAllowed && guestFacingMode ? (
-            <button
-              onClick={() => {
-                haptic();
-                setGuestFacingRotated(!guestFacingRotated);
-              }}
-              className="text-xs font-bold text-blue-300 bg-blue-950/80 border border-blue-800 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span>180°</span>
-              <span>{guestFacingRotated ? 'Gedreht (Zum Gast)' : 'Normal (Zu mir)'}</span>
-            </button>
-          ) : (
-            <span className="text-xs text-slate-400 font-mono font-bold">
-              Auswahl: {formatCents((checkout as any).amountDueWithTipCents ?? Math.round(((checkout as any).amountDueWithTip ?? 0) * 100))}
-            </span>
-          )}
-        </div>
-
-        {/* Kopfzeile mit Tischnummer & Stufenanzeige */}
-        <div className="p-2.5 sm:p-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between shadow-md">
-          <div className="flex items-center gap-1.5">
+        {/* Zeile 1: Zurück + Kassieren links, Tisch rechts, optional Gast-Sicht */}
+        <div className="p-2 sm:p-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between shadow-md">
+          <div className="flex items-center gap-2">
             <button
               onClick={goBack}
               disabled={stage === 'DONE'}
-              className="touch-target flex items-center gap-2 text-slate-300 hover:text-white px-3.5 py-1.5 rounded-2xl bg-slate-800 border border-slate-700 text-sm font-bold transition active:scale-95 disabled:opacity-40"
+              className="pos-touch-btn px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 flex items-center gap-1.5 text-xs font-bold transition active:scale-95 disabled:opacity-40"
+              title="Zurück"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Zurück</span>
+              <span>Zurück</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => setShowHistoryModal(true)}
-              className="p-2 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-2xl text-slate-300 hover:text-white flex items-center gap-1 text-xs font-bold transition active:scale-95 shadow"
-              title="Bestellverlauf anzeigen"
-            >
-              <History className="w-4 h-4 text-blue-400" />
-              <span className="hidden md:inline">Verlauf</span>
-            </button>
+            <span className="text-sm font-black text-white">Kassieren</span>
 
+            {guestFacingAllowed && (
+              <button
+                onClick={() => {
+                  haptic();
+                  setGuestFacingMode(!guestFacingMode);
+                }}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold transition border ml-1 ${
+                  guestFacingMode
+                    ? 'bg-blue-600 border-blue-400 text-white shadow-md'
+                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                }`}
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Gast-Sicht</span>
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {guestFacingAllowed && guestFacingMode && (
+              <button
+                onClick={() => {
+                  haptic();
+                  setGuestFacingRotated(!guestFacingRotated);
+                }}
+                className="text-[11px] font-bold text-blue-300 bg-blue-950/80 border border-blue-800 px-2 py-1 rounded-lg flex items-center gap-1 shadow"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>{guestFacingRotated ? '180°' : '0°'}</span>
+              </button>
+            )}
+            <div className="text-xs sm:text-sm font-black text-slate-300 bg-slate-800/80 px-2.5 py-1 rounded-xl border border-slate-700/80">
+              {table?.label || (tableId ? `Tisch ${tableId}` : 'Direktverkauf')}
+            </div>
+          </div>
+        </div>
+
+        {/* Zeile 2: Linke Pfeile (1 €), Großer Betrag + Stufen-Punkte in der Mitte, Rechte Pfeile (0,50 €) */}
+        <div className="px-3 py-2 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-3">
+          {/* Linke Pfeile: 1,00 € Schritte vor dem Komma */}
+          <div className="flex flex-col items-center gap-1 shrink-0">
             <button
               type="button"
-              onClick={() => {
-                const next = !soundMuted;
-                setSoundMuted(next);
-                setAudioMuted(next);
-              }}
-              className={`p-2 rounded-2xl border transition active:scale-95 ${
-                soundMuted
-                  ? 'bg-rose-950/50 border-rose-800 text-rose-400'
-                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-              }`}
-              title={soundMuted ? 'Ton stumm' : 'Ton aktiv'}
+              onClick={roundUpEuro}
+              disabled={stage === 'DONE' || !hasSelection}
+              aria-label="Auf nächsten vollen Euro aufrunden"
+              className="w-11 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 flex items-center justify-center text-emerald-400 font-bold transition disabled:opacity-30 disabled:pointer-events-none shadow"
             >
-              {soundMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              <ChevronUp className="w-5 h-5" />
+            </button>
+            <span className="text-[10px] font-mono font-bold text-slate-400">1 €</span>
+            <button
+              type="button"
+              onClick={roundDownEuro}
+              disabled={stage === 'DONE' || tipCents <= 0}
+              aria-label="1 Euro abziehen"
+              className="w-11 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition disabled:opacity-30 disabled:pointer-events-none shadow"
+            >
+              <ChevronDown className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="text-center">
-            <div className="font-black text-base sm:text-lg leading-tight">
-              {table?.label || 'Direktverkauf'}
+          {/* Mitte: Großer Betrag (ohne "Auswahl:"), Trinkgeld-Hinweis und Fortschrittspunkte */}
+          <div className="flex-1 text-center py-0.5">
+            <div className="font-mono font-black text-3xl sm:text-4xl text-emerald-400 leading-tight">
+              {formatCents((checkout as any).amountDueWithTipCents ?? Math.round(((checkout as any).amountDueWithTip ?? 0) * 100))}
             </div>
-            <div className="flex items-center justify-center gap-1.5 mt-0.5">
+            {tipCents > 0 && (
+              <div className="text-[11px] font-bold text-amber-400 mt-0.5">
+                + {formatCents(tipCents)} Trinkgeld
+              </div>
+            )}
+            <div className="flex items-center justify-center gap-1.5 mt-1.5">
               {[1, 2, 3, 4].map((s) => (
                 <span
                   key={s}
@@ -718,16 +760,28 @@ function WaiterPaymentContent() {
             </div>
           </div>
 
-          {stage === 'SPLIT' ? (
+          {/* Rechte Pfeile: 0,50 € Schritte nach dem Komma */}
+          <div className="flex flex-col items-center gap-1 shrink-0">
             <button
-              onClick={() => toggleSelectAll(items.some((i) => i.selectedQty < i.totalUnpaidQty))}
-              className="touch-target px-3.5 py-1.5 text-xs font-bold text-blue-300 bg-blue-950 rounded-2xl border border-blue-800"
+              type="button"
+              onClick={roundUp50Cents}
+              disabled={stage === 'DONE' || !hasSelection}
+              aria-label="Auf nächste 50 Cent aufrunden"
+              className="w-11 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 flex items-center justify-center text-blue-400 font-bold transition disabled:opacity-30 disabled:pointer-events-none shadow"
             >
-              {items.every((i) => i.selectedQty === i.totalUnpaidQty) ? 'Alle ab' : 'Alle an'}
+              <ChevronUp className="w-5 h-5" />
             </button>
-          ) : (
-            <div className="w-[72px]" />
-          )}
+            <span className="text-[10px] font-mono font-bold text-slate-400">0,50 €</span>
+            <button
+              type="button"
+              onClick={roundDown50Cents}
+              disabled={stage === 'DONE' || tipCents <= 0}
+              aria-label="50 Cent abziehen"
+              className="w-11 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition disabled:opacity-30 disabled:pointer-events-none shadow"
+            >
+              <ChevronDown className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -744,7 +798,7 @@ function WaiterPaymentContent() {
           <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
-                Zu zahlende Posten wählen (Rechnung teilen)
+                Zu zahlende Posten wählen
               </div>
               {/* Quick Split Buttons */}
               <div className="flex items-center gap-1.5 text-xs flex-wrap">
@@ -754,16 +808,6 @@ function WaiterPaymentContent() {
                 >
                   Alles
                 </button>
-                {[2, 3, 4].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => applyValueSplit(n)}
-                    className="px-2.5 py-1 rounded-xl bg-slate-800 border border-slate-700 hover:border-blue-500 text-slate-300 font-mono font-bold text-[11px] transition"
-                    title={`Rechnung wertmäßig auf ${n} Personen aufteilen`}
-                  >
-                    1/{n}
-                  </button>
-                ))}
                 <button
                   onClick={() => toggleSelectAll(false)}
                   className="px-2.5 py-1 rounded-xl bg-slate-800 border border-slate-700 hover:bg-rose-950 text-slate-400 font-bold text-[11px] transition"
@@ -1001,60 +1045,65 @@ function WaiterPaymentContent() {
 
       {/* ====================== STUFE 3: BARGELD-RECHENCENTER ==================== */}
       {stage === 'CASH' && (
-        <div className="flex-1 flex flex-col p-4 sm:p-6 overflow-y-auto max-w-2xl w-full mx-auto space-y-4">
-          {/* Stückelungs-Rechner mit Scheinen (5€–200€), Münzen (1ct–2€) und Ziffernblock */}
-          {paymentMethod === 'CASH' && (
-            <ChangeCalculator
-              amountDueCents={(checkout as any).amountDueWithTipCents ?? Math.round(checkout.amountDueWithTip * 100)}
-              amountDue={checkout.amountDueWithTip}
-              givenCents={Math.round(givenAmount * 100)}
-              givenAmount={givenAmount}
-              onGivenChange={(val) => {
-                setKeypadValue(val > 0 ? val.toFixed(2).replace('.', ',') : '');
-              }}
-              defaultExpanded={true}
-            />
-          )}
-
-          {paymentMethod.startsWith('NON_PAID') && (
-            <div className="rounded-3xl bg-slate-900 border border-slate-800 p-5 space-y-3">
-              <div className="flex justify-between text-sm font-bold text-slate-300">
-                <span>Zu buchender Betrag</span>
-                <span className="font-mono text-amber-400 text-2xl">
-                  {formatCents((checkout as any).amountDueWithTipCents ?? Math.round(((checkout as any).amountDueWithTip ?? 0) * 100))}
-                </span>
-              </div>
-              <div>
-                <label className="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">
-                  Grund (Pflicht)
-                </label>
-                <input
-                  value={nonPaidReason}
-                  onChange={(e) => setNonPaidReason(e.target.value)}
-                  placeholder="z. B. Ehrengast, Musiker, Helfer"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Zentraler Kassieren-Button */}
-          <button
-            onClick={() => void submitPayment({ printReceipt: false })}
-            disabled={
-              isProcessing ||
-              (paymentMethod === 'CASH' && givenAmount > 0 && !isCashSufficient) ||
-              (paymentMethod.startsWith('NON_PAID') && !nonPaidReason.trim())
-            }
-            className="pos-touch-btn w-full h-16 sm:h-20 rounded-3xl font-black text-xl flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xl shadow-emerald-950/60 disabled:bg-slate-800 disabled:text-slate-500 transition active:scale-95"
-          >
-            {isProcessing ? (
-              <RefreshCw className="w-6 h-6 animate-spin" />
-            ) : (
-              <Check className="w-7 h-7" />
+        <div className="flex-1 flex flex-col overflow-hidden max-w-2xl w-full mx-auto">
+          {/* Scrollbarer Bereich für Wechselgeld-Rechner und Grund-Eingabe */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+            {/* Stückelungs-Rechner mit Scheinen (5€–200€), Münzen (1ct–2€) und Ziffernblock */}
+            {paymentMethod === 'CASH' && (
+              <ChangeCalculator
+                amountDueCents={(checkout as any).amountDueWithTipCents ?? Math.round(checkout.amountDueWithTip * 100)}
+                amountDue={checkout.amountDueWithTip}
+                givenCents={Math.round(givenAmount * 100)}
+                givenAmount={givenAmount}
+                onGivenChange={(val) => {
+                  setKeypadValue(val > 0 ? val.toFixed(2).replace('.', ',') : '');
+                }}
+                defaultExpanded={true}
+              />
             )}
-            <span>Kassieren {formatCents((checkout as any).amountDueWithTipCents ?? Math.round(((checkout as any).amountDueWithTip ?? 0) * 100))}</span>
-          </button>
+
+            {paymentMethod.startsWith('NON_PAID') && (
+              <div className="rounded-3xl bg-slate-900 border border-slate-800 p-5 space-y-3">
+                <div className="flex justify-between text-sm font-bold text-slate-300">
+                  <span>Zu buchender Betrag</span>
+                  <span className="font-mono text-amber-400 text-2xl">
+                    {formatCents((checkout as any).amountDueWithTipCents ?? Math.round(((checkout as any).amountDueWithTip ?? 0) * 100))}
+                  </span>
+                </div>
+                <div>
+                  <label className="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">
+                    Grund (Pflicht)
+                  </label>
+                  <input
+                    value={nonPaidReason}
+                    onChange={(e) => setNonPaidReason(e.target.value)}
+                    placeholder="z. B. Ehrengast, Musiker, Helfer"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Zentraler Kassieren-Button - fest am unteren Rand verankert (Sticky Bottom) */}
+          <div className="p-3 sm:p-4 bg-slate-950/95 backdrop-blur-sm border-t border-slate-800 shrink-0 sticky bottom-0 z-10">
+            <button
+              onClick={() => void submitPayment({ printReceipt: false })}
+              disabled={
+                isProcessing ||
+                (paymentMethod === 'CASH' && givenAmount > 0 && !isCashSufficient) ||
+                (paymentMethod.startsWith('NON_PAID') && !nonPaidReason.trim())
+              }
+              className="pos-touch-btn w-full h-16 sm:h-20 rounded-3xl font-black text-xl flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xl shadow-emerald-950/60 disabled:bg-slate-800 disabled:text-slate-500 transition active:scale-95"
+            >
+              {isProcessing ? (
+                <RefreshCw className="w-6 h-6 animate-spin" />
+              ) : (
+                <Check className="w-7 h-7" />
+              )}
+              <span>Kassieren {formatCents((checkout as any).amountDueWithTipCents ?? Math.round(((checkout as any).amountDueWithTip ?? 0) * 100))}</span>
+            </button>
+          </div>
         </div>
       )}
 

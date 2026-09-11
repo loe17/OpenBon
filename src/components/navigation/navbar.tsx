@@ -86,8 +86,21 @@ export default function Navbar() {
   const { socket } = useSocket();
 
   useEffect(() => {
+    const getSessionStart = () => {
+      if (typeof window === 'undefined') return 0;
+      let sessionStart = Number(sessionStorage.getItem('openbon_session_start') || 0);
+      if (!sessionStart) {
+        sessionStart = Date.now();
+        sessionStorage.setItem('openbon_session_start', String(sessionStart));
+      }
+      return sessionStart;
+    };
+
     const checkUnread = (msgs?: any[]) => {
-      const lastRead = typeof window !== 'undefined' ? Number(localStorage.getItem('openbon_chat_last_read') || 0) : 0;
+      const sessionStart = getSessionStart();
+      const lastReadLocal = typeof window !== 'undefined' ? Number(localStorage.getItem('openbon_chat_last_read') || 0) : 0;
+      const effectiveCutoff = Math.max(lastReadLocal, sessionStart);
+
       if (pathname === '/chat') {
         if (typeof window !== 'undefined') {
           localStorage.setItem('openbon_chat_last_read', String(Date.now()));
@@ -96,7 +109,8 @@ export default function Navbar() {
         return;
       }
       if (Array.isArray(msgs)) {
-        const unread = msgs.some((m: any) => !m.isRead && new Date(m.createdAt).getTime() > lastRead);
+        // Nur neue Nachrichten werten, die NACH dem Anmeldezeitpunkt / letzten Lesen eingetroffen sind
+        const unread = msgs.some((m: any) => !m.isRead && new Date(m.createdAt).getTime() > effectiveCutoff);
         setHasUnreadChat(unread);
       }
     };
@@ -128,7 +142,11 @@ export default function Navbar() {
         }
         setHasUnreadChat(false);
       } else {
-        setHasUnreadChat(true);
+        const sessionStart = getSessionStart();
+        const msgTime = msg?.createdAt ? new Date(msg.createdAt).getTime() : Date.now();
+        if (msgTime >= sessionStart) {
+          setHasUnreadChat(true);
+        }
       }
     };
     socket.on('chat:incoming', handleChat);
@@ -333,8 +351,7 @@ export default function Navbar() {
         { href: '/admin/cashbook', label: 'Kassenbuch & Barverkehr', icon: Wallet, roles: ['ADMIN'] },
         { href: '/admin/accounting', label: 'DATEV Kassenbuch Export', icon: BookOpen, roles: ['ADMIN'] },
         { href: '/admin/fiscal', label: 'DSFinV-K & TSE Archiv', icon: ShieldCheck, roles: ['ADMIN'] },
-        { href: '/admin/settle', label: 'Schichtabrechnung (Kassensturz)', icon: Wallet, roles: ['ADMIN'] },
-        { href: '/admin/tips', label: 'Trinkgeld-Profile & Auswertung', icon: Coins, roles: ['ADMIN'] },
+        { href: '/admin/settle', label: 'Personal & Abrechnung', icon: Wallet, roles: ['ADMIN'] },
         { href: '/admin/tokens', label: 'Wertmarken & Bons', icon: Ticket, roles: ['ADMIN'] },
       ],
     },

@@ -20,6 +20,7 @@ import {
   Layers,
   ArrowDownCircle,
   HardDrive,
+  Activity,
 } from 'lucide-react';
 import { APP_VERSION, GITHUB_REPO_URL } from '@/lib/version';
 import { triggerHapticFeedback } from '@/lib/socket-client';
@@ -44,6 +45,7 @@ interface SystemInfo {
   latestReleaseBody?: string | null;
   latestReleaseUrl?: string | null;
   availableTags?: string[];
+  officialReleases?: string[];
   pendingCommits?: string[];
   updateCheckWarning?: string | null;
   checkNotes?: string[];
@@ -57,6 +59,15 @@ interface SystemInfo {
     formattedUsed: string;
     isSufficient: boolean;
     minRequiredMb: number;
+  };
+  memory?: {
+    totalBytes: number;
+    freeBytes: number;
+    usedBytes: number;
+    usedPercentage: number;
+    formattedTotal: string;
+    formattedFree: string;
+    formattedUsed: string;
   };
 }
 
@@ -78,6 +89,7 @@ export default function AdminSystemUpdatePage() {
   const [terminalHistory, setTerminalHistory] = useState<TerminalLog[]>([]);
   const [copiedAll, setCopiedAll] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<string>(`v${APP_VERSION}`);
+  const [onlyReleases, setOnlyReleases] = useState(true);
   const [liveUptime, setLiveUptime] = useState<number | null>(null);
   const [updateProgress, setUpdateProgress] = useState(0);
   const [updateStage, setUpdateStage] = useState('Vorbereitung...');
@@ -371,9 +383,23 @@ export default function AdminSystemUpdatePage() {
     setTerminalHistory([]);
   };
 
-  const tagsList = sysInfo?.availableTags && sysInfo.availableTags.length > 0
-    ? sysInfo.availableTags
-    : ['v0.4.2', 'v0.4.1', 'v0.4.0'];
+  const tagsList = React.useMemo(() => {
+    const baseTags = sysInfo?.availableTags && sysInfo.availableTags.length > 0
+      ? sysInfo.availableTags
+      : [`v${APP_VERSION}`];
+    if (!onlyReleases) return baseTags;
+
+    const officialSet = new Set((sysInfo?.officialReleases || []).map((r) => r.toLowerCase().trim()));
+    if (officialSet.size > 0) {
+      const filtered = baseTags.filter((t) => {
+        const clean = t.toLowerCase().replace(/^v/i, '').trim();
+        return officialSet.has(t.toLowerCase().trim()) || officialSet.has(clean) || officialSet.has(`v${clean}`);
+      });
+      return filtered.length > 0 ? filtered : baseTags;
+    }
+    // Fallback falls API noch lädt oder offline: nur saubere SemVer-Release-Tags
+    return baseTags.filter((t) => /^v?\d+\.\d+\.\d+$/.test(t.trim()));
+  }, [sysInfo?.availableTags, sysInfo?.officialReleases, onlyReleases]);
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-950 text-white p-3 sm:p-6 overflow-hidden">
@@ -434,49 +460,107 @@ export default function AdminSystemUpdatePage() {
                 </span>
               </div>
               <p className="text-xs text-slate-400 font-medium mt-0.5">
-                Wähle ein offizielles Release (Tag) für Festbetrieb oder den Master-Branch für Entwicklungsstände.
+                {onlyReleases
+                  ? 'Nur offizielle Releases sichtbar (höchste Stabilität).'
+                  : 'Alle Git-Tags und der Entwicklungs-Branch (master) sind eingeblendet.'}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <select
-              value={selectedTarget}
-              onChange={(e) => setSelectedTarget(e.target.value)}
-              className="bg-slate-950 border border-slate-700 text-white text-xs font-bold font-mono rounded-xl px-3 py-2.5 focus:border-blue-500"
-            >
-              <optgroup label="🏷️ Versionen &amp; Git-Tags">
-                {tagsList.map((t) => (
-                  <option key={t} value={t}>
-                    Tag {t} {t === `v${APP_VERSION}` ? '(Aktuell installiert)' : ''}
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="🌿 Entwicklungs-Branch">
-                <option value="master">Branch: master (Entwicklungsstand)</option>
-              </optgroup>
-            </select>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            {/* Filter Toggle: Nur offizielle Releases */}
+            <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 select-none hover:border-slate-700 transition">
+              <input
+                type="checkbox"
+                checked={onlyReleases}
+                onChange={(e) => {
+                  const val = e.target.checked;
+                  setOnlyReleases(val);
+                  if (val && selectedTarget === 'master') {
+                    setSelectedTarget(tagsList[0] || `v${APP_VERSION}`);
+                  }
+                }}
+                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-slate-900 border-slate-700"
+              />
+              <span className="font-bold">Nur Releases anzeigen</span>
+            </label>
 
-            <button
-              onClick={() => handleInstallTarget(selectedTarget)}
-              disabled={updating}
-              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg transition active:scale-95 disabled:opacity-50"
-            >
-              {updating ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Wird installiert...</span>
-                </>
-              ) : (
-                <>
-                  <ArrowDownCircle className="w-4 h-4" />
-                  <span>Auf {selectedTarget} wechseln</span>
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={selectedTarget}
+                onChange={(e) => setSelectedTarget(e.target.value)}
+                className="bg-slate-950 border border-slate-700 text-white text-xs font-bold font-mono rounded-xl px-3 py-2.5 focus:border-blue-500"
+              >
+                <optgroup label={onlyReleases ? '🏷️ Offizielle Releases' : '🏷️ Versionen & Git-Tags'}>
+                  {tagsList.map((t) => (
+                    <option key={t} value={t}>
+                      {t} {t === `v${APP_VERSION}` ? '(Aktuell installiert)' : ''}
+                    </option>
+                  ))}
+                </optgroup>
+                {!onlyReleases && (
+                  <optgroup label="🌿 Entwicklungs-Branch">
+                    <option value="master">Branch: master (Entwicklungsstand)</option>
+                  </optgroup>
+                )}
+              </select>
+
+              <button
+                onClick={() => handleInstallTarget(selectedTarget)}
+                disabled={updating}
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg transition active:scale-95 disabled:opacity-50"
+              >
+                {updating ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Wird installiert...</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowDownCircle className="w-4 h-4" />
+                    <span>Auf {selectedTarget} wechseln</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Hotfix Banner if hotfix commits are available */}
+      {sysInfo?.updateType === 'HOTFIX' && sysInfo.pendingCommits && sysInfo.pendingCommits.length > 0 && (
+        <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 border-2 border-blue-500/80 rounded-2xl p-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl animate-in slide-in-from-top shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-blue-500/20 text-blue-400 rounded-xl border border-blue-500/40">
+              <GitBranch className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-sm text-white">
+                  Neuer Hotfix verfügbar ({sysInfo.pendingCommits.length} Änderung{sysInfo.pendingCommits.length === 1 ? '' : 'en'})
+                </span>
+                <span className="text-[10px] bg-blue-900/80 text-blue-300 font-mono font-bold px-2 py-0.5 rounded border border-blue-700">
+                  Patch
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5 line-clamp-1">
+                Neueste Fehlerbehebung: {sysInfo.pendingCommits[0]}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => handleInstallTarget('master')}
+              disabled={updating}
+              className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg transition active:scale-95 disabled:opacity-50"
+            >
+              <DownloadCloud className="w-4 h-4" />
+              <span>⚡ Hotfix installieren ({sysInfo.pendingCommits.length})</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Release Banner if new official release is available */}
       {sysInfo?.isNewRelease && sysInfo.latestReleaseVersion && (
@@ -517,7 +601,7 @@ export default function AdminSystemUpdatePage() {
       )}
 
       {/* Status Info Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4 shrink-0">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4 shrink-0">
         <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800 flex items-center gap-3">
           <GitBranch className="w-5 h-5 text-blue-400 shrink-0" />
           <div className="min-w-0">
@@ -555,6 +639,28 @@ export default function AdminSystemUpdatePage() {
             {sysInfo?.diskSpace && (
               <span className="text-[10px] text-slate-500 block truncate">
                 von {sysInfo.diskSpace.formattedTotal} ({sysInfo.diskSpace.usedPercentage}% belegt)
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="p-3 bg-slate-900 rounded-2xl border border-slate-800 flex items-center gap-3">
+          <Activity className={`w-5 h-5 shrink-0 ${(sysInfo?.memory?.usedPercentage ?? 0) > 85 ? 'text-rose-400' : (sysInfo?.memory?.usedPercentage ?? 0) > 70 ? 'text-amber-400' : 'text-purple-400'}`} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Arbeitsspeicher</span>
+              {sysInfo?.memory && (
+                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${(sysInfo.memory.usedPercentage > 85) ? 'text-rose-400 bg-rose-950/80 font-black animate-pulse' : (sysInfo.memory.usedPercentage > 70) ? 'text-amber-400 bg-amber-950/60' : 'text-emerald-400 bg-emerald-950/60'}`}>
+                  {sysInfo.memory.usedPercentage}%
+                </span>
+              )}
+            </div>
+            <span className="text-xs font-mono font-bold text-slate-200 truncate block">
+              {sysInfo?.memory ? `${sysInfo.memory.formattedUsed} belegt` : 'Wird geprüft...'}
+            </span>
+            {sysInfo?.memory && (
+              <span className="text-[10px] text-slate-500 block truncate">
+                von {sysInfo.memory.formattedTotal} ({sysInfo.memory.formattedFree} frei)
               </span>
             )}
           </div>

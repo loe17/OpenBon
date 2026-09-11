@@ -196,7 +196,10 @@ export async function POST(req: Request) {
       discountCents: toCents(Number((body as any).discountAmount || 0)),
       surchargeFixedCents: toCents(Number((body as any).surchargeAmount || 0)),
       surchargePercent: Number((body as any).surchargePercent || 0),
-      tipCents: toCents(Number((body as any).tipAmount || 0)),
+      tipCents:
+        (body as any).tipAmountCents !== undefined
+          ? Number((body as any).tipAmountCents)
+          : toCents(Number((body as any).tipAmount || 0)),
       givenCents: toCents(Number((body as any).givenAmount || 0)),
     });
 
