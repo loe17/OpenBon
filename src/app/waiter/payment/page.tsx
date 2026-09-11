@@ -194,6 +194,9 @@ function WaiterPaymentContent() {
 
   const fetchTableOrders = useCallback(async () => {
     if (!tableId) return;
+    let ordersLoaded = false;
+
+    // 1. Primär: /api/orders abfragen
     try {
       const res = await fetch(`/api/orders?tableId=${tableId}`);
       if (res.ok) {
@@ -204,24 +207,36 @@ function WaiterPaymentContent() {
           );
           const payables = extractPayableItems(openOrders);
           setItems(payables);
-          return;
+          ordersLoaded = true;
         }
       }
     } catch (err) {
-      console.warn('[fetchTableOrders] Abfrage fehlgeschlagen, versuche Notfall-Fallback:', err);
+      console.warn('[fetchTableOrders] Abfrage /api/orders fehlgeschlagen:', err);
     }
 
-    // Notfall-Fallback auf Tischdaten, falls /api/orders keine Daten lieferte
-    if (table?.orders && Array.isArray(table.orders)) {
-      const openOrders = table.orders.filter(
-        (o: any) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED' && o.status !== 'PAID'
-      );
-      const payables = extractPayableItems(openOrders);
-      if (payables.length > 0) {
-        setItems(payables);
+    // 2. Tisch-Stammdaten laden (und Notfall-Fallback für Positionen nutzen, falls /api/orders fehlschlug)
+    try {
+      const res = await fetch('/api/tables');
+      if (res.ok) {
+        const tables: DiningTableDTO[] = await res.json();
+        const found = tables.find((t) => t.id === tableId);
+        if (found) {
+          setTable(found);
+          if (!ordersLoaded && found.orders && Array.isArray(found.orders)) {
+            const openOrders = found.orders.filter(
+              (o: any) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED' && o.status !== 'PAID'
+            );
+            const payables = extractPayableItems(openOrders);
+            if (payables.length > 0) {
+              setItems(payables);
+            }
+          }
+        }
       }
+    } catch (err) {
+      console.warn('[fetchTableOrders] Abfrage /api/tables fehlgeschlagen:', err);
     }
-  }, [tableId, table?.orders]);
+  }, [tableId]);
 
   useEffect(() => {
     fetch('/api/config/public')
@@ -233,28 +248,8 @@ function WaiterPaymentContent() {
       })
       .catch(() => {});
 
-    if (!tableId) return;
-    fetch('/api/tables')
-      .then((r) => r.json())
-      .then((tables: DiningTableDTO[]) => {
-        const found = tables.find((t) => t.id === tableId);
-        if (found) {
-          setTable(found);
-          // Sofortiger Fallback für Positionen, falls items noch leer ist
-          setItems((prev) => {
-            if (prev.length === 0 && found.orders && Array.isArray(found.orders)) {
-              const openOrders = found.orders.filter(
-                (o: any) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED' && o.status !== 'PAID'
-              );
-              return extractPayableItems(openOrders);
-            }
-            return prev;
-          });
-        }
-      })
-      .catch(() => undefined);
     void fetchTableOrders();
-  }, [tableId, fetchTableOrders]);
+  }, [fetchTableOrders]);
 
   /* -------------------------------------------------- Berechnung (Spec 5.1) */
 

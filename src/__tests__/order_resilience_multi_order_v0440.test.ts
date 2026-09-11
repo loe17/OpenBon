@@ -118,13 +118,15 @@ describe('Order Resilience, Multi-Order Payment & Cleanup (v0.4.40)', () => {
   });
 
   describe('Waiter Payment and Table Fallback', () => {
-    it('should fall back to table.orders in fetchTableOrders when /api/orders fails', () => {
+    it('should fall back to table.orders in fetchTableOrders when /api/orders fails and prevent infinite reload loops', () => {
       const paymentPath = path.join(process.cwd(), 'src', 'app', 'waiter', 'payment', 'page.tsx');
       const content = fs.readFileSync(paymentPath, 'utf-8');
 
-      expect(content).toContain('if (table?.orders && Array.isArray(table.orders))');
+      // Uses unified table fallback without depending on table state in useCallback
+      expect(content).toContain('if (!ordersLoaded && found.orders && Array.isArray(found.orders))');
       expect(content).toContain('extractPayableItems(openOrders)');
-      expect(content).toContain('setItems(payables)');
+      expect(content).toContain('}, [tableId]);');
+      expect(content).not.toContain('}, [tableId, table?.orders]);');
     });
 
     it('should fall back to table.orders in openVoidModal when /api/orders fails', () => {
