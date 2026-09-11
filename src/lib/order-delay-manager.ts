@@ -133,6 +133,37 @@ export function isDelayedPrintPending(orderId: string): boolean {
 }
 
 /**
+ * Berechnet verbleibende Verzögerungssekunden und Prüfstatus für eine Bestellung auf dem Server.
+ */
+export function getOrderDelayInfo(
+  order: { id: string; createdAt: Date | string; status?: string },
+  delaySeconds: number,
+  serverNow: number = Date.now()
+): { isDelayed: boolean; delayRemainingSeconds: number } {
+  if (!delaySeconds || delaySeconds <= 0) {
+    return { isDelayed: false, delayRemainingSeconds: 0 };
+  }
+  if (order.status === 'CANCELLED' || order.status === 'COMPLETED') {
+    return { isDelayed: false, delayRemainingSeconds: 0 };
+  }
+
+  const isPending = isDelayedPrintPending(order.id);
+  const createdMs = new Date(order.createdAt).getTime();
+  const ageMs = Math.max(0, serverNow - createdMs);
+  const totalDelayMs = delaySeconds * 1000;
+
+  if (isPending || ageMs < totalDelayMs) {
+    const delayRemainingSeconds = Math.max(0, Math.ceil((totalDelayMs - ageMs) / 1000));
+    return {
+      isDelayed: delayRemainingSeconds > 0 || isPending,
+      delayRemainingSeconds,
+    };
+  }
+
+  return { isDelayed: false, delayRemainingSeconds: 0 };
+}
+
+/**
  * Setzt alle laufenden Timer zurück (z. B. für Tests oder Server-Shutdown).
  */
 export function clearAllDelayedPrintTimers(): void {
@@ -142,3 +173,4 @@ export function clearAllDelayedPrintTimers(): void {
   }
   timers.clear();
 }
+

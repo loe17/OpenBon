@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import TicketSplitter from '@/lib/printer/ticket-splitter';
-import { scheduleDelayedPrint } from '@/lib/order-delay-manager';
+import { scheduleDelayedPrint, getOrderDelayInfo } from '@/lib/order-delay-manager';
 import haService from '@/lib/ha/ha-service';
 import { getEffectiveProductPrice, toCents } from '@/lib/pricing';
 import { checkAndTriggerLowStockAlert } from '@/lib/low-stock-notifier';
@@ -73,13 +73,30 @@ export async function GET(req: Request) {
       }
     }
 
-    return NextResponse.json(orders, {
+    const config = await prisma.eventConfig.findUnique({
+      where: { id: 'default' },
+      select: { enableOrderPrintDelay: true, orderPrintDelaySeconds: true },
+    });
+    const delaySeconds = config?.enableOrderPrintDelay ? (config.orderPrintDelaySeconds || 60) : 0;
+    const nowServer = Date.now();
+
+    const enrichedOrders = (orders || []).map((o: any) => {
+      const delayInfo = getOrderDelayInfo(o, delaySeconds, nowServer);
+      return {
+        ...o,
+        isDelayed: delayInfo.isDelayed,
+        delayRemainingSeconds: delayInfo.delayRemainingSeconds,
+      };
+    });
+
+    return NextResponse.json(enrichedOrders, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0',
       },
     });
+
   } catch (error) {
     console.error('[GET /api/orders] Unbehandelter Fehler:', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });

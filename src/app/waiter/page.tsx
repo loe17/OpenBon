@@ -95,12 +95,14 @@ function WaiterTablesContent() {
     return () => clearInterval(timer);
   }, []);
 
+
+
   // Synchronisiere selectedTable, wenn sich tables im Hintergrund aktualisieren
   useEffect(() => {
     if (selectedTable) {
       const updated = tables.find((t) => t.id === selectedTable.id);
       if (updated && updated !== selectedTable) {
-        setSelectedTable((prev) => (prev ? { ...updated, orders: prev.orders || updated.orders } : updated));
+        setSelectedTable((prev) => (prev ? { ...updated, orders: updated.orders ?? prev.orders } : updated));
       }
     }
   }, [tables]);
@@ -110,16 +112,12 @@ function WaiterTablesContent() {
     if (!selectedTable?.id) return;
     let isMounted = true;
     fetch(`/api/orders?tableId=${selectedTable.id}`, { cache: 'no-store' })
-      .then((res) => {
-        const serverDate = res.headers.get('date');
-        if (serverDate) {
-          setServerTimeOffset(Date.now() - new Date(serverDate).getTime());
-        }
-        return res.json();
-      })
+      .then((res) => res.json())
       .then((orders) => {
         if (isMounted && Array.isArray(orders)) {
-          setSelectedTable((prev) => (prev && prev.id === selectedTable.id ? { ...prev, orders } : prev));
+          const fetchTime = Date.now();
+          const stamped = orders.map((o: any) => ({ ...o, _fetchedAt: fetchTime }));
+          setSelectedTable((prev) => (prev && prev.id === selectedTable.id ? { ...prev, orders: stamped } : prev));
         }
       })
       .catch(() => {});
@@ -135,17 +133,35 @@ function WaiterTablesContent() {
       .filter((o: any) => o.status !== 'CANCELLED' && o.status !== 'COMPLETED')
       .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     if (active.length === 0) return null;
-    const newest = active[0];
-    const effectiveNow = now - serverTimeOffset;
-    const ageMs = Math.max(0, effectiveNow - new Date(newest.createdAt).getTime());
-    if (ageMs < delaySec * 1000) {
-      const remainingSeconds = Math.max(0, Math.ceil((delaySec * 1000 - ageMs) / 1000));
-      return { order: newest, remainingSeconds };
+
+    for (const order of active) {
+      // 1. Wenn der Server direkt delayRemainingSeconds berechnet hat (völlig unabhängig von der Handyuhr)
+      if (typeof order.delayRemainingSeconds === 'number' && order.delayRemainingSeconds > 0) {
+        const elapsedSec = Math.max(0, Math.floor((now - (order._fetchedAt || now)) / 1000));
+        const remainingSeconds = Math.max(0, order.delayRemainingSeconds - elapsedSec);
+        if (remainingSeconds > 0) {
+          return { order, remainingSeconds };
+        }
+      }
+
+      // 2. Fallback über createdAt (falls ohne delayRemainingSeconds)
+      const createdMs = new Date(order.createdAt).getTime();
+      if (!isNaN(createdMs)) {
+        const ageMs = Math.max(0, now - createdMs);
+        if (ageMs < delaySec * 1000) {
+          const remainingSeconds = Math.max(0, Math.ceil((delaySec * 1000 - ageMs) / 1000));
+          if (remainingSeconds > 0) {
+            return { order, remainingSeconds };
+          }
+        }
+      }
     }
+
     return null;
-  }, [config?.enableOrderPrintDelay, config?.orderPrintDelaySeconds, selectedTable?.orders, now, serverTimeOffset]);
+  }, [config?.enableOrderPrintDelay, config?.orderPrintDelaySeconds, selectedTable?.orders, now]);
 
   const isStornoEnabled = Boolean(config?.enableOrderPrintDelay && activeDelayedOrder && activeDelayedOrder.remainingSeconds > 0);
+
 
   // Spec 5: Tisch umbuchen & zusammenlegen
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -393,17 +409,19 @@ function WaiterTablesContent() {
   const fetchTables = async () => {
     try {
       const res = await fetch('/api/tables', { cache: 'no-store' });
-      const serverDate = res.headers.get('date');
-      if (serverDate) {
-        setServerTimeOffset(Date.now() - new Date(serverDate).getTime());
-      }
       const data = await res.json();
       if (Array.isArray(data)) {
-        setTables(data);
+        const fetchTime = Date.now();
+        const stamped = data.map((t: any) => ({
+          ...t,
+          orders: (t.orders || []).map((o: any) => ({ ...o, _fetchedAt: fetchTime })),
+        }));
+        setTables(stamped);
       }
     } catch (e) {
       console.error(e);
     } finally {
+
       setLoading(false);
     }
   };
@@ -581,13 +599,23 @@ function WaiterTablesContent() {
         orders = table.orders;
       }
 
-      const active = orders.filter(
+      let active = orders.filter(
         (o) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED'
       );
 
       if (active.length === 0) {
         showToast('err', 'Keine offenen Positionen zum Stornieren gefunden.');
         return;
+      }
+
+      // Wenn Sofort-Storno aktiv ist: Nur die Artikel der noch nicht gedruckten Bestellung anzeigen
+      if (isStornoEnabled) {
+        const delayedOrders = active.filter(
+          (o: any) => o.id === activeDelayedOrder?.order?.id || (o.delayRemainingSeconds && o.delayRemainingSeconds > 0) || o.isDelayed === true
+        );
+        if (delayedOrders.length > 0) {
+          active = delayedOrders;
+        }
       }
 
       setTableOrders(active);
@@ -599,10 +627,19 @@ function WaiterTablesContent() {
     } catch (err) {
       console.warn('[openVoidModal] Fehler beim Laden, prüfe Fallback:', err);
       if (table.orders && Array.isArray(table.orders)) {
-        const active = table.orders.filter(
+        let active = table.orders.filter(
           (o) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED'
         );
         if (active.length > 0) {
+          if (isStornoEnabled) {
+            const delayedOrders = active.filter(
+              (o: any) => o.id === activeDelayedOrder?.order?.id || (o.delayRemainingSeconds && o.delayRemainingSeconds > 0) || o.isDelayed === true
+            );
+            if (delayedOrders.length > 0) {
+              active = delayedOrders;
+            }
+          }
+
           setTableOrders(active);
           setVoidItemIds([]);
           setVoidPin('');
@@ -613,6 +650,7 @@ function WaiterTablesContent() {
         }
       }
       showToast('err', 'Positionen konnten nicht geladen werden.');
+
     } finally {
       setBusyAction(null);
     }
@@ -623,10 +661,12 @@ function WaiterTablesContent() {
       showToast('err', 'Bitte mindestens eine Position auswählen.');
       return;
     }
-    const orderId = tableOrders.find((o) =>
+    const targetOrder = tableOrders.find((o) =>
       o.items.some((i) => voidItemIds.includes(i.id))
-    )?.id;
+    );
+    const orderId = targetOrder?.id || activeDelayedOrder?.order?.id;
     if (!orderId) return;
+
 
     setBusyAction('voidSubmit');
     try {
@@ -969,7 +1009,12 @@ function WaiterTablesContent() {
               <button
                 onClick={() => void openVoidModal(selectedTable)}
                 disabled={busyAction !== null || !isStornoEnabled}
-                className="touch-target h-14 bg-rose-950/60 border border-rose-800 hover:border-rose-500 text-rose-200 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                className={`touch-target h-14 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${
+                  isStornoEnabled
+                    ? 'bg-rose-600 hover:bg-rose-500 text-white border border-rose-400 shadow-lg shadow-rose-950/50'
+                    : 'bg-rose-950/60 border border-rose-800 text-rose-200'
+                }`}
+
                 title={
                   !config?.enableOrderPrintDelay
                     ? 'Storno deaktiviert (Bestellverzögerung in den Einstellungen nicht aktiv)'

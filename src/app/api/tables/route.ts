@@ -5,6 +5,7 @@ import networkSpooler from '@/lib/printer/network-spooler';
 import { EscPosBuilder } from '@/lib/printer/escpos-builder';
 import { TicketData } from '@/lib/printer/types';
 import { requireApiAuth } from '@/lib/api-guard';
+import { getOrderDelayInfo } from '@/lib/order-delay-manager';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -39,6 +40,13 @@ export async function GET(req: Request) {
       },
     });
 
+    const config = await prisma.eventConfig.findUnique({
+      where: { id: 'default' },
+      select: { enableOrderPrintDelay: true, orderPrintDelaySeconds: true },
+    });
+    const delaySeconds = config?.enableOrderPrintDelay ? (config.orderPrintDelaySeconds || 60) : 0;
+    const nowServer = Date.now();
+
     // Calculate unpaid open balance for each table
     const result = tables.map((t) => {
       let openGrossAmount = 0;
@@ -56,6 +64,15 @@ export async function GET(req: Request) {
 
       const status = openItemCount > 0 ? 'OCCUPIED' : t.status;
 
+      const enrichedOrders = t.orders.map((o) => {
+        const delayInfo = getOrderDelayInfo(o, delaySeconds, nowServer);
+        return {
+          ...o,
+          isDelayed: delayInfo.isDelayed,
+          delayRemainingSeconds: delayInfo.delayRemainingSeconds,
+        };
+      });
+
       return {
         id: t.id,
         tableNumber: t.tableNumber,
@@ -67,9 +84,10 @@ export async function GET(req: Request) {
         activeWaiterName: t.activeWaiterName,
         openGrossAmount,
         openItemCount,
-        orders: t.orders,
+        orders: enrichedOrders,
       };
     });
+
 
     return NextResponse.json(result, {
       headers: {

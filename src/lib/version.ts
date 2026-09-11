@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.4.41';
+export const APP_VERSION = '0.4.42';
 export const APP_NAME = 'OpenBon';
 export const APP_BUILD_DATE = '2026-09-11';
 export const APP_IS_BETA = false;

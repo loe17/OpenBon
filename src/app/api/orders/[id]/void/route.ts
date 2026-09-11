@@ -7,7 +7,7 @@ import { round2, toCents } from '@/lib/pricing';
 import { VOID_REASONS } from '@/types/domain';
 import { requireApiAuth } from '@/lib/api-guard';
 import { verifyPinHash } from '@/lib/auth-pin';
-import { cancelDelayedPrint } from '@/lib/order-delay-manager';
+import { cancelDelayedPrint, isDelayedPrintPending } from '@/lib/order-delay-manager';
 
 /**
  * Spec 6.4: Storno- & Korrektur-Workflow nach dem Abschicken.
@@ -57,7 +57,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     const delaySeconds = config.enableOrderPrintDelay ? (config.orderPrintDelaySeconds || 60) : 0;
     const ageMs = Date.now() - new Date(order.createdAt).getTime();
-    const isWithinDelayWindow = delaySeconds > 0 && ageMs <= (delaySeconds * 1000 + 4000);
+    const isWithinDelayWindow =
+      delaySeconds > 0 &&
+      (isDelayedPrintPending(order.id) || ageMs <= delaySeconds * 1000 + 4000);
 
     // Berechtigungsprüfung:
     // 1. Innerhalb des Storno-Zeitfensters darf die angemeldete Bedienung stornieren.

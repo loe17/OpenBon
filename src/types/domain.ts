@@ -312,7 +312,12 @@ export interface OrderDTO {
   updatedAt: string;
   items: OrderItemDTO[];
   table?: DiningTableDTO | null;
+  isDelayed?: boolean;
+  delayRemainingSeconds?: number;
+  _fetchedAt?: number;
 }
+
+
 
 export interface PaymentItemDTO {
   id: string;
