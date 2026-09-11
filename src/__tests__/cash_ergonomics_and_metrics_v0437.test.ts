@@ -4,8 +4,8 @@ import fs from 'fs';
 import path from 'path';
 
 describe('OpenBon v0.4.37: Cash Ergonomics, Hardware Metrics & Item Counter Polish', () => {
-  it('should verify APP_VERSION is 0.4.37', () => {
-    expect(APP_VERSION).toBe('0.4.37');
+  it('should verify APP_VERSION is at least 0.4.37', () => {
+    expect(['0.4.37', '0.4.38']).toContain(APP_VERSION);
   });
 
   describe('Payable items initial selection and tap logic', () => {
@@ -65,14 +65,14 @@ describe('OpenBon v0.4.37: Cash Ergonomics, Hardware Metrics & Item Counter Poli
   });
 
   describe('Cashier layout hierarchy in waiter payment page', () => {
-    it('should place ChangeCalculator summary above rounding bar in CASH stage and hide rounding bar in SPLIT stage', () => {
+    it('should place ChangeCalculator summary above rounding bar in CASH stage and hide rounding bar in SPLIT and METHOD stages', () => {
       const filePath = path.join(process.cwd(), 'src', 'app', 'waiter', 'payment', 'page.tsx');
       const content = fs.readFileSync(filePath, 'utf-8');
 
-      expect(content).toContain("(stage === 'METHOD' || stage === 'CASH') && (");
+      expect(content).toContain("stage === 'CASH' && (");
 
       const calcIndex = content.indexOf("stage === 'CASH' && paymentMethod === 'CASH'");
-      const roundingBarIndex = content.indexOf("(stage === 'METHOD' || stage === 'CASH') && (");
+      const roundingBarIndex = content.indexOf("stage === 'CASH' && (");
       expect(calcIndex).toBeGreaterThan(0);
       expect(roundingBarIndex).toBeGreaterThan(calcIndex);
 

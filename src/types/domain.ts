@@ -124,6 +124,8 @@ export interface EventConfigDTO {
   receiptPrinterId?: string | null;
   enableWaiterReceiptPrint?: boolean;
   enablePosReceiptPrint?: boolean;
+  enableOrderPrintDelay?: boolean;
+  orderPrintDelaySeconds?: number;
   cardSumupEnabled?: boolean;
   cardVrPayEnabled?: boolean;
   cardSparkasseEnabled?: boolean;

@@ -462,7 +462,7 @@ function WaiterOrderContent() {
 
   const currentCategory = categories.find((c) => c.id === selectedCatId);
   const rawProducts = currentCategory?.products || [];
-  const displayedProducts = filterProductsByExcludedAllergens(rawProducts, selectedAllergens);
+  const displayedProducts = rawProducts;
 
   const totalAmount = cart.reduce(
     (sum, item) => sum + (item.price + item.deposit) * item.quantity,
@@ -543,46 +543,6 @@ function WaiterOrderContent() {
             <span className="text-slate-600">|</span>
             <span>Ab 18 J: <strong className="text-red-400 font-bold">≤ {minBirth18.formattedDate}</strong></span>
           </div>
-
-          <button
-            onClick={() => setShowAllergenFilter(!showAllergenFilter)}
-            className={`px-2 py-0.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition ${
-              selectedAllergens.length > 0
-                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
-            }`}
-          >
-            <Filter className="w-3 h-3" />
-            <span>Allergene {selectedAllergens.length > 0 && `(${selectedAllergens.length})`}</span>
-          </button>
-        </div>
-      )}
-
-      {/* Allergen Filter Dropdown */}
-      {showAllergenFilter && (
-        <div className="bg-slate-900 border-b border-slate-800 p-2 flex flex-wrap gap-1.5 items-center shrink-0">
-          <span className="text-[11px] font-bold text-slate-400 mr-1">Ausschließen:</span>
-          {EU_ALLERGENS.slice(0, 8).map((a) => {
-            const active = selectedAllergens.includes(a.code);
-            return (
-              <button
-                key={a.code}
-                onClick={() => {
-                  setSelectedAllergens((prev) =>
-                    active ? prev.filter((c) => c !== a.code) : [...prev, a.code]
-                  );
-                }}
-                className={`text-[10px] px-2 py-0.5 rounded-md font-semibold border transition flex items-center gap-1 ${
-                  active
-                    ? 'bg-red-500/20 text-red-300 border-red-500/40 font-bold'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                }`}
-              >
-                {active && <X className="w-2.5 h-2.5" />}
-                <span>{active ? `Ohne ${a.name}` : a.name}</span>
-              </button>
-            );
-          })}
         </div>
       )}
 
@@ -686,12 +646,7 @@ function WaiterOrderContent() {
                       <h3 className="font-extrabold text-xs sm:text-sm text-white line-clamp-2 leading-tight tracking-tight pr-1">
                         {product.name}
                       </h3>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {inCartCount > 0 && (
-                          <span className="bg-blue-600/90 text-white font-black font-mono text-[10px] sm:text-xs px-1.5 py-0.2 rounded-md shadow">
-                            {inCartCount}x
-                          </span>
-                        )}
+                      <div className="flex flex-col items-end gap-1 shrink-0">
                         {product.allergens && (
                           <span
                             onClick={(e) => {
@@ -701,7 +656,12 @@ function WaiterOrderContent() {
                             className="text-slate-500 hover:text-amber-400 p-0.5 shrink-0"
                             title="Allergene"
                           >
-                            <AlertCircle className="w-3 h-3 text-slate-400" />
+                            <AlertCircle className="w-3.5 h-3.5 text-slate-400" />
+                          </span>
+                        )}
+                        {inCartCount > 0 && (
+                          <span className="bg-blue-600/90 text-white font-black font-mono text-[10px] sm:text-xs px-1.5 py-0.2 rounded-md shadow">
+                            {inCartCount}x
                           </span>
                         )}
                       </div>
@@ -742,11 +702,11 @@ function WaiterOrderContent() {
                 <ShoppingBag className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-sm sm:text-base font-black text-white block">
-                  Tischbestellung ({totalItemCount} Pos.)
+                <span className="text-sm sm:text-base font-black text-white block leading-tight">
+                  Tischbestellung
                 </span>
                 <span className="text-xs sm:text-sm text-slate-300 font-bold font-mono">
-                  Summe: {formatCurrency(totalAmount)}
+                  ({totalItemCount} Pos.) · Summe: {formatCurrency(totalAmount)}
                 </span>
               </div>
             </div>

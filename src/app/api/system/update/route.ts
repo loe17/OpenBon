@@ -276,10 +276,14 @@ export async function GET(req: Request) {
       : 'NONE';
 
     // Ein Detached HEAD oder lokale Info-Notizen sind keine Fehler.
-    // checkIncomplete ist nur wahr, wenn weder Tags noch Commits geprüft werden konnten oder ein echtes Warning vorliegt.
-    const checkIncomplete = !hasUpdate && (updateCheckWarning !== null || (gitCheckFailed && availableTags.length === 0));
+    // Wenn GitHub-API ein temporäres Abfragelimit meldet (403/429), aber der Git-Check erfolgreich war,
+    // gilt das System dennoch als aktuell und nicht als unvollständig fehlgeschlagen.
+    const isRateLimited = updateCheckWarning !== null && (updateCheckWarning.includes('403') || updateCheckWarning.includes('429'));
+    const checkIncomplete = !hasUpdate && ((updateCheckWarning !== null && !isRateLimited) || (gitCheckFailed && availableTags.length === 0));
     let remoteStatus = checkIncomplete
       ? 'Update-Prüfung unvollständig – bitte erneut prüfen'
+      : isRateLimited && !hasUpdate
+      ? 'System ist auf dem neuesten Stand (Online-Prüfung pausiert kurz wegen GitHub-Limit)'
       : 'System ist auf dem neuesten Stand';
     if (updateType === 'RELEASE') {
       remoteStatus = `Neues offizielles Release v${latestReleaseVersion} verfügbar`;

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { logSystemActionSafe } from '@/lib/action-logger';
 import prisma from '@/lib/db';
 import TicketSplitter from '@/lib/printer/ticket-splitter';
+import { scheduleDelayedPrint } from '@/lib/order-delay-manager';
 import haService from '@/lib/ha/ha-service';
 import { getEffectiveProductPrice, toCents } from '@/lib/pricing';
 import { checkAndTriggerLowStockAlert } from '@/lib/low-stock-notifier';
@@ -291,7 +292,7 @@ export async function POST(req: Request) {
         });
       }
 
-      return { order: createdOrder, tokenNumber };
+      return { order: createdOrder, tokenNumber, config };
     });
 
     if ('isReplay' in result && result.isReplay) {
@@ -301,7 +302,7 @@ export async function POST(req: Request) {
       });
     }
 
-    const { order, tokenNumber } = result as { order: any; tokenNumber: number | null };
+    const { order, tokenNumber, config } = result as { order: any; tokenNumber: number | null; config: any };
 
     // 3. Low-Stock Alerts prüfen
     for (const item of order.items) {
@@ -313,36 +314,51 @@ export async function POST(req: Request) {
       }
     }
 
-    // 4. Ticket Routing & ESC/POS Printing (async ACK: PENDING bis Spooler-ACK)
-    try {
-      const { jobIds } = await TicketSplitter.routeAndPrintOrder({
-        id: order.id,
-        orderNumber: order.orderNumber,
-        tableLabel: order.table?.label || (tokenNumber ? `Abholmarke #${tokenNumber}` : 'Theke'),
-        waiterName: order.waiterName,
-        tokenNumber: order.tokenNumber,
-        isTraining: order.isTraining,
-        createdAt: order.createdAt,
-        items: order.items.map((i: any) => ({
-          id: i.id,
-          productId: i.productId,
-          productName: i.productName,
-          alternativeName: i.product?.alternativeTicketName,
-          quantity: i.quantity,
-          unitPriceCents: i.unitPriceCents,
-          depositCents: i.depositCents ?? 0,
-          variantName: i.variantName,
-          selectedOptions: i.selectedOptions,
-          customizationText: i.customizationText,
-          courseNumber: i.courseNumber,
-          isHold: i.isHold,
-        })),
-      });
-      if (global.io && jobIds.length > 0) {
-        global.io.emit('print:queued', { orderId: order.id, jobIds });
+    // 4. Ticket Routing & ESC/POS Printing
+    // Wenn Bestellverzögerung aktiv ist, wird der Druck um X Sekunden verzögert,
+    // damit die Bedienung versehentlich getippte Artikel am Tisch direkt stornieren kann.
+    const isDelayEnabled = Boolean(config?.enableOrderPrintDelay && (config.orderPrintDelaySeconds || 60) > 0);
+    if (isDelayEnabled) {
+      const delaySeconds = config.orderPrintDelaySeconds || 60;
+      scheduleDelayedPrint(order.id, delaySeconds);
+      if (global.io) {
+        global.io.emit('order:delayed', {
+          orderId: order.id,
+          tableId: order.tableId,
+          delaySeconds,
+        });
       }
-    } catch (printErr) {
-      console.error('Error during ticket print spooling:', printErr);
+    } else {
+      try {
+        const { jobIds } = await TicketSplitter.routeAndPrintOrder({
+          id: order.id,
+          orderNumber: order.orderNumber,
+          tableLabel: order.table?.label || (tokenNumber ? `Abholmarke #${tokenNumber}` : 'Theke'),
+          waiterName: order.waiterName,
+          tokenNumber: order.tokenNumber,
+          isTraining: order.isTraining,
+          createdAt: order.createdAt,
+          items: order.items.map((i: any) => ({
+            id: i.id,
+            productId: i.productId,
+            productName: i.productName,
+            alternativeName: i.product?.alternativeTicketName,
+            quantity: i.quantity,
+            unitPriceCents: i.unitPriceCents,
+            depositCents: i.depositCents ?? 0,
+            variantName: i.variantName,
+            selectedOptions: i.selectedOptions,
+            customizationText: i.customizationText,
+            courseNumber: i.courseNumber,
+            isHold: i.isHold,
+          })),
+        });
+        if (global.io && jobIds.length > 0) {
+          global.io.emit('print:queued', { orderId: order.id, jobIds });
+        }
+      } catch (printErr) {
+        console.error('Error during ticket print spooling:', printErr);
+      }
     }
 
     // 5. HA Replikations-Log

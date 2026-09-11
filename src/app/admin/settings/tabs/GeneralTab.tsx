@@ -443,6 +443,36 @@ export function GeneralTab({
               />
             </div>
           )}
+          <Toggle
+            label="Bestellverzögerung für Storno"
+            hint="Sendet Küchen- und Ausschankbons erst nach einer Wartezeit an die Drucker, damit die Bedienung versehentlich getippte Artikel am Tisch direkt stornieren kann."
+            color="blue"
+            value={Boolean(config.enableOrderPrintDelay)}
+            onToggle={() => onChange({ enableOrderPrintDelay: !config.enableOrderPrintDelay })}
+          />
+          {config.enableOrderPrintDelay && (
+            <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+              <label className="block text-xs font-bold text-slate-300">
+                Storno-Zeitfenster vor Bondruck
+              </label>
+              <select
+                value={config.orderPrintDelaySeconds ?? 60}
+                onChange={(e) => onChange({ orderPrintDelaySeconds: parseInt(e.target.value, 10) || 60 })}
+                className="w-full min-h-[44px] px-3 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-white focus:border-blue-500"
+              >
+                <option value={30}>30 Sekunden (schnell)</option>
+                <option value={45}>45 Sekunden</option>
+                <option value={60}>1 Minute (60 Sekunden, Standard)</option>
+                <option value={90}>1,5 Minuten (90 Sekunden)</option>
+                <option value={120}>2 Minuten (120 Sekunden)</option>
+                <option value={180}>3 Minuten (180 Sekunden)</option>
+                <option value={300}>5 Minuten (300 Sekunden)</option>
+              </select>
+              <p className="text-[11px] text-slate-400 leading-snug">
+                Solange dieser Timer am Tisch läuft, kann die Bedienung Artikel direkt stornieren. Nach Ablauf startet der Druck.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

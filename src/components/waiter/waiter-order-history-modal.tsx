@@ -134,10 +134,12 @@ export function WaiterOrderHistoryModal({
                 <h2 className="font-extrabold text-base sm:text-lg text-white">
                   {tableLabel ? `Bestellverlauf: ${tableLabel}` : 'Mein Bestellverlauf'}
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-blue-950 border border-blue-800 text-blue-300 text-xs font-bold flex items-center gap-1">
-                  <User className="w-3 h-3" />
-                  {tableLabel ? `Tisch ${tableLabel}` : (waiterName || 'Bedienung')}
-                </span>
+                {!tableLabel && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-blue-950 border border-blue-800 text-blue-300 text-xs font-bold flex items-center gap-1">
+                    <User className="w-3 h-3" />
+                    {waiterName || 'Bedienung'}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-400">
                 {tableLabel

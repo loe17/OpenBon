@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '@/components/providers/socket-provider';
 import { formatCurrency, formatCents } from '@/lib/utils';
@@ -32,6 +32,7 @@ import {
   Printer,
   Sparkles,
   FileText,
+  Clock,
 } from 'lucide-react';
 import { VOID_REASONS, type OrderDTO } from '@/types/domain';
 import { playConfirm, playVoidAlert, playOrderReadyChime } from '@/lib/audio-feedback';
@@ -84,6 +85,42 @@ function WaiterTablesContent() {
   const [tableOrders, setTableOrders] = useState<OrderDTO[]>([]);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [toast, setToast] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+
+  const [config, setConfig] = useState<any>(null);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Synchronisiere selectedTable, wenn sich tables im Hintergrund aktualisieren
+  useEffect(() => {
+    if (selectedTable) {
+      const updated = tables.find((t) => t.id === selectedTable.id);
+      if (updated && updated !== selectedTable) {
+        setSelectedTable(updated);
+      }
+    }
+  }, [tables]);
+
+  const activeDelayedOrder = useMemo(() => {
+    if (!config?.enableOrderPrintDelay || !selectedTable?.orders) return null;
+    const delaySec = config.orderPrintDelaySeconds || 60;
+    const active = (selectedTable.orders || [])
+      .filter((o: any) => o.status !== 'CANCELLED' && o.status !== 'COMPLETED')
+      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    if (active.length === 0) return null;
+    const newest = active[0];
+    const ageMs = now - new Date(newest.createdAt).getTime();
+    if (ageMs < delaySec * 1000) {
+      const remainingSeconds = Math.max(0, Math.ceil((delaySec * 1000 - ageMs) / 1000));
+      return { order: newest, remainingSeconds };
+    }
+    return null;
+  }, [config?.enableOrderPrintDelay, config?.orderPrintDelaySeconds, selectedTable?.orders, now]);
+
+  const isStornoEnabled = Boolean(config?.enableOrderPrintDelay && activeDelayedOrder && activeDelayedOrder.remainingSeconds > 0);
 
   // Spec 5: Tisch umbuchen & zusammenlegen
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -147,6 +184,7 @@ function WaiterTablesContent() {
     fetch('/api/config/public')
       .then((res) => res.json())
       .then((data) => {
+        setConfig(data);
         if (data?.waiterAutoLockMinutes && data.waiterAutoLockMinutes > 0) {
           autoLockMinutes = data.waiterAutoLockMinutes;
           resetTimer();
@@ -506,7 +544,7 @@ function WaiterTablesContent() {
       setTableOrders(active);
       setVoidItemIds([]);
       setVoidPin('');
-      setVoidReason(VOID_REASONS[0]);
+      setVoidReason(isStornoEnabled ? 'Fehleingabe (vor Bondruck)' : VOID_REASONS[0]);
       setVoidMarkUnpaid(false);
       setShowVoidModal(true);
     } catch {
@@ -539,10 +577,15 @@ function WaiterTablesContent() {
           markAsUnpaid: voidMarkUnpaid,
         }),
       });
-      const data = (await res.json()) as { error?: string; voidedItems?: number };
+      const data = (await res.json()) as { error?: string; voidedItems?: number; ticketsGenerated?: number };
       if (res.ok) {
         playVoidAlert();
-        showToast('ok', `${data.voidedItems} Position(en) storniert. Storno-Bon gedruckt.`);
+        showToast(
+          'ok',
+          data.ticketsGenerated && data.ticketsGenerated > 0
+            ? `${data.voidedItems} Position(en) storniert. Storno-Bon gedruckt.`
+            : `${data.voidedItems} Position(en) vor Druck storniert.`
+        );
         setShowVoidModal(false);
         setSelectedTable(null);
         void fetchTables();
@@ -859,14 +902,24 @@ function WaiterTablesContent() {
 
             {/* Spec 6.4 / 6.6 / 6.7 / 6.10: Schnellfunktionen am Tisch */}
             <div className="grid grid-cols-2 gap-2.5">
-
               <button
                 onClick={() => void openVoidModal(selectedTable)}
-                disabled={busyAction !== null || selectedTable.openItemCount === 0}
-                className="touch-target h-14 bg-rose-950/60 border border-rose-800 hover:border-rose-500 text-rose-200 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
+                disabled={busyAction !== null || !isStornoEnabled}
+                className="touch-target h-14 bg-rose-950/60 border border-rose-800 hover:border-rose-500 text-rose-200 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                title={
+                  !config?.enableOrderPrintDelay
+                    ? 'Storno deaktiviert (Bestellverzögerung in den Einstellungen nicht aktiv)'
+                    : !activeDelayedOrder || activeDelayedOrder.remainingSeconds <= 0
+                    ? 'Stornozeitfenster abgelaufen (Bon bereits im Druck)'
+                    : `Storno möglich (${activeDelayedOrder.remainingSeconds}s verbleibend)`
+                }
               >
                 <Ban className="w-4 h-4 text-rose-400" />
-                <span>Storno</span>
+                <span>
+                  {activeDelayedOrder && activeDelayedOrder.remainingSeconds > 0
+                    ? `Storno (${activeDelayedOrder.remainingSeconds}s)`
+                    : 'Storno'}
+                </span>
               </button>
 
               <button
@@ -898,23 +951,14 @@ function WaiterTablesContent() {
               </button>
 
               <button
-                onClick={() => void handleOpenXBon()}
-                disabled={busyAction !== null}
-                className="touch-target h-14 bg-slate-800 border border-slate-700 hover:border-amber-500 text-slate-100 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
-              >
-                <FileBarChart className="w-4 h-4 text-amber-400" />
-                <span>X-Bon Schicht</span>
-              </button>
-
-              <button
                 onClick={() => {
                   setTableHistoryTarget({ id: selectedTable.id, label: selectedTable.label });
                 }}
-                className="col-span-2 touch-target h-12 bg-slate-800/80 border border-slate-700 hover:border-blue-500 text-blue-300 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow"
+                className="touch-target h-14 bg-slate-800 border border-slate-700 hover:border-blue-500 text-slate-100 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow"
                 title="Alle bisherigen Bestellungen an diesem Tisch anzeigen"
               >
                 <History className="w-4 h-4 text-blue-400" />
-                <span>Bestellverlauf an {selectedTable.label}</span>
+                <span>Bestellverlauf</span>
               </button>
             </div>
           </div>
@@ -1029,8 +1073,14 @@ function WaiterTablesContent() {
                   <Ban className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-lg text-white">Positionen stornieren</h3>
-                  <p className="text-xs text-slate-400">Erzeugt einen Storno-Bon in der Station</p>
+                  <h3 className="font-black text-lg text-white">
+                    {isStornoEnabled ? 'Sofort-Storno (vor Druck)' : 'Positionen stornieren'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {isStornoEnabled
+                      ? `Noch ${activeDelayedOrder?.remainingSeconds ?? 0}s bis zum Bondruck – keine Admin-PIN nötig`
+                      : 'Erzeugt einen Storno-Bon in der Station'}
+                  </p>
                 </div>
               </div>
               <button
@@ -1041,6 +1091,18 @@ function WaiterTablesContent() {
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {isStornoEnabled && (
+              <div className="p-3 bg-blue-950/60 border border-blue-800 rounded-2xl flex items-center justify-between text-xs font-bold text-blue-200">
+                <span className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-blue-400 shrink-0" />
+                  <span>Wähle die fehlerhaften Artikel zum Stornieren aus:</span>
+                </span>
+                <span className="px-2 py-0.5 bg-blue-600 rounded-lg text-white font-mono shrink-0">
+                  {activeDelayedOrder?.remainingSeconds ?? 0}s verbleibend
+                </span>
+              </div>
+            )}
 
             <div className="space-y-2">
               <div className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
@@ -1126,30 +1188,32 @@ function WaiterTablesContent() {
               />
             </label>
 
-            <div>
-              <label className="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">
-                Admin- oder Kassen-PIN
-              </label>
-              <input
-                type="password"
-                inputMode="numeric"
-                value={voidPin}
-                onChange={(e) => setVoidPin(e.target.value)}
-                placeholder="••••"
-                className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-lg font-mono font-bold text-white tracking-[0.4em] text-center focus:outline-none focus:ring-2 focus:ring-rose-500"
-              />
-            </div>
+            {!isStornoEnabled && (
+              <div>
+                <label className="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-1.5">
+                  Admin- oder Kassen-PIN
+                </label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  value={voidPin}
+                  onChange={(e) => setVoidPin(e.target.value)}
+                  placeholder="••••"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-lg font-mono font-bold text-white tracking-[0.4em] text-center focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
+              </div>
+            )}
 
             <button
               onClick={() => void submitVoid()}
-              disabled={busyAction === 'voidSubmit' || voidItemIds.length === 0 || !voidPin}
+              disabled={busyAction === 'voidSubmit' || voidItemIds.length === 0 || (!isStornoEnabled && !voidPin)}
               className="w-full h-14 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 disabled:bg-slate-800 disabled:text-slate-500 transition"
             >
               <AlertTriangle className="w-5 h-5" />
               <span>
                 {busyAction === 'voidSubmit'
                   ? 'Storniere...'
-                  : `${voidItemIds.length} Position(en) stornieren`}
+                  : `${voidItemIds.length} Position(en) ${isStornoEnabled ? 'vor Druck ' : ''}stornieren`}
               </span>
             </button>
           </div>

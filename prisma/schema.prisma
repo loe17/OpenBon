@@ -41,6 +41,8 @@ model EventConfig {
   receiptPrinterId            String?
   enableWaiterReceiptPrint    Boolean @default(false)
   enablePosReceiptPrint       Boolean @default(false)
+  enableOrderPrintDelay       Boolean @default(false)
+  orderPrintDelaySeconds      Int     @default(60)
 
   // Beleg- & Bon-Druck Layout & Schriftgrößen
   receiptHeader                 String? @default("")

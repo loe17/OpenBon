@@ -549,7 +549,7 @@ function PosCounterContent() {
     return true;
   }) || [];
 
-  const displayedProducts = filterProductsByExcludedAllergens(rawProducts, selectedAllergens);
+  const displayedProducts = rawProducts;
 
   return (
     <div className={`flex-1 flex flex-col ${isAutoFitScreen ? 'h-[calc(100vh-4rem)] overflow-hidden' : 'h-full overflow-hidden'} bg-slate-950 text-white font-sans`}>
@@ -689,47 +689,7 @@ function PosCounterContent() {
           <span className="text-slate-600">|</span>
           <span>Ab 18 J. (Spirituosen): <strong className="text-red-400 font-bold">≤ {minBirth18.formattedDate}</strong></span>
         </div>
-
-        <button
-          onClick={() => setShowAllergenFilter(!showAllergenFilter)}
-          className={`px-2 py-0.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition ${
-            selectedAllergens.length > 0
-              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-              : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
-          }`}
-        >
-          <Filter className="w-3 h-3" />
-          <span>Allergene {selectedAllergens.length > 0 && `(${selectedAllergens.length})`}</span>
-        </button>
       </div>
-
-      {/* Allergen Filter Dropdown */}
-      {showAllergenFilter && (
-        <div className="bg-slate-900 border-b border-slate-800 p-2.5 flex flex-wrap gap-1.5 items-center text-xs">
-          <span className="font-bold text-slate-400 mr-1">Ausschließen:</span>
-          {EU_ALLERGENS.map((a) => {
-            const active = selectedAllergens.includes(a.code);
-            return (
-              <button
-                key={a.code}
-                onClick={() => {
-                  setSelectedAllergens((prev) =>
-                    active ? prev.filter((c) => c !== a.code) : [...prev, a.code]
-                  );
-                }}
-                className={`text-[10px] px-2 py-0.5 rounded-md font-semibold border transition flex items-center gap-1 ${
-                  active
-                    ? 'bg-red-500/20 text-red-300 border-red-500/40 font-bold'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                }`}
-              >
-                {active && <X className="w-2.5 h-2.5" />}
-                <span>{active ? `Ohne ${a.name}` : a.name}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
 
       {/* Suche */}
       <div className="bg-slate-900 px-3 py-2 border-b border-slate-800 flex items-center gap-2">
@@ -800,21 +760,22 @@ function PosCounterContent() {
                       <div className="font-extrabold text-sm sm:text-base text-white line-clamp-2">
                         {prod.name}
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {inCartCount > 0 && (
-                          <span className="bg-emerald-600/90 text-white font-black font-mono text-[10px] sm:text-xs px-1.5 py-0.2 rounded-md shadow">
-                            {inCartCount}x
-                          </span>
-                        )}
+                      <div className="flex flex-col items-end gap-1 shrink-0">
                         {prod.allergens && (
                           <span
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedProductInfo(prod);
                             }}
-                            className="text-slate-500 hover:text-amber-400 p-0.5"
+                            className="text-slate-500 hover:text-amber-400 p-0.5 shrink-0"
+                            title="Allergene"
                           >
                             <AlertCircle className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                        {inCartCount > 0 && (
+                          <span className="bg-emerald-600/90 text-white font-black font-mono text-[10px] sm:text-xs px-1.5 py-0.2 rounded-md shadow">
+                            {inCartCount}x
                           </span>
                         )}
                       </div>

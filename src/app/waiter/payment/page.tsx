@@ -761,8 +761,8 @@ function WaiterPaymentContent() {
           </div>
         )}
 
-        {/* Zeile 2: Linke Pfeile (1 €), Großer Betrag + Stufen-Punkte in der Mitte, Rechte Pfeile (0,50 €) - NUR in METHOD oder CASH */}
-        {(stage === 'METHOD' || stage === 'CASH') && (
+        {/* Zeile 2: Linke Pfeile (1 €), Großer Betrag + Stufen-Punkte in der Mitte, Rechte Pfeile (0,50 €) - NUR in CASH */}
+        {stage === 'CASH' && (
           <div className="px-3 py-2 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-3">
             {/* Linke Pfeile: 1,00 € Schritte vor dem Komma */}
             <div className="flex flex-col items-center gap-1 shrink-0">
@@ -1067,29 +1067,6 @@ function WaiterPaymentContent() {
                 </button>
               );
             })}
-          </div>
-
-          <div className="max-w-3xl w-full mx-auto mt-4 p-4 rounded-3xl bg-slate-900 border border-slate-800">
-            <div className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Betragssplit („50 € jetzt, Rest später“)</div>
-            <div className="mt-2 flex gap-2">
-              <input id="split-amount" placeholder="Betrag €, z. B. 50,00" inputMode="decimal" aria-label="Teilbetrag" className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white min-h-[48px]" />
-              <button
-                onClick={async () => {
-                  const el = document.getElementById('split-amount') as HTMLInputElement | null;
-                  const v = Number((el?.value || '').replace(',', '.'));
-                  if (!Number.isFinite(v) || v <= 0) { setError('Bitte gültigen Teilbetrag eingeben.'); return; }
-                  const params = new URLSearchParams(window.location.search);
-                  const res = await fetch('/api/payments/amount-split', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: params.get('orderId') || undefined, tableId: params.get('tableId') || undefined, amountCents: Math.round(v * 100), paymentMethod: 'CASH', waiterName: waiterName || 'Bedienung' }) });
-                  const j = await res.json().catch(() => ({}));
-                  if (!res.ok) { setError(j.error || 'Split fehlgeschlagen.'); return; }
-                  setError(null);
-                  toastSuccess(`Teilbetrag ${(v).toFixed(2)} € als ${j.payment.invoiceNumber} gebucht.`);
-                }}
-                className="px-4 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl min-h-[48px]"
-              >
-                Teilbetrag buchen
-              </button>
-            </div>
           </div>
         </div>
       )}

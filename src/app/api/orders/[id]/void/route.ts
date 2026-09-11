@@ -7,18 +7,18 @@ import { round2, toCents } from '@/lib/pricing';
 import { VOID_REASONS } from '@/types/domain';
 import { requireApiAuth } from '@/lib/api-guard';
 import { verifyPinHash } from '@/lib/auth-pin';
+import { cancelDelayedPrint } from '@/lib/order-delay-manager';
 
 /**
  * Spec 6.4: Storno- & Korrektur-Workflow nach dem Abschicken.
  *
- * - Nur mit Admin-/Leitungs-PIN
+ * - Wenn innerhalb des Storno-Zeitfensters (Bestellverzögerung): Bedienung kann direkt stornieren (kein Bon-Druck erfolgt).
+ * - Nach Ablauf des Zeitfensters: Admin-Rechte oder Admin-PIN erforderlich mit Storno-Bon-Druck.
  * - Pflicht-Stornogrund
- * - Automatischer Druck eines Storno-Bons in der betroffenen Station
  * - Optionale Kennzeichnung als "Nicht bezahlt" (Freiverzehr / Schwund)
  */
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  // Storno ist Admin-Sache (kein Body-PIN mehr – Session entscheidet).
-  const auth = await requireApiAuth(req, ['ADMIN']);
+  const auth = await requireApiAuth(req);
   if (!auth.ok) return auth.response;
   const { checkSimpleRateLimit, registerSimpleAttempt, getClientKey } = await import('@/lib/rate-limiter');
   const rlKey = getClientKey(req, `void:${auth.session.waiterName || auth.session.role}`);
@@ -35,6 +35,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   try {
     const body = (await req.json()) as {
+      pin?: string;
       reason?: string;
       cancelledBy?: string;
       itemIds?: string[];
@@ -46,21 +47,48 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: 'Keine Konfiguration gefunden' }, { status: 500 });
     }
 
-    // 2. Pflicht-Stornogrund
-    const reason = (body.reason || '').trim();
-    if (!reason) {
-      return NextResponse.json(
-        { error: 'Ein Stornogrund ist zwingend erforderlich.', allowedReasons: VOID_REASONS },
-        { status: 400 }
-      );
-    }
-
     const order = await prisma.order.findUnique({
       where: { id: params.id },
       include: { items: true, table: true },
     });
     if (!order) {
       return NextResponse.json({ error: 'Bestellung nicht gefunden' }, { status: 404 });
+    }
+
+    const delaySeconds = config.enableOrderPrintDelay ? (config.orderPrintDelaySeconds || 60) : 0;
+    const ageMs = Date.now() - new Date(order.createdAt).getTime();
+    const isWithinDelayWindow = delaySeconds > 0 && ageMs <= (delaySeconds * 1000 + 4000);
+
+    // Berechtigungsprüfung:
+    // 1. Innerhalb des Storno-Zeitfensters darf die angemeldete Bedienung stornieren.
+    // 2. Außerhalb muss Admin-Rolle aktiv sein oder eine gültige Admin-PIN eingegeben werden.
+    if (!isWithinDelayWindow && auth.session.role !== 'ADMIN') {
+      const pin = (body.pin || '').trim();
+      let pinValid = false;
+      if (pin) {
+        if (config.adminPin && (await verifyPinHash(pin, config.adminPin))) {
+          pinValid = true;
+        } else {
+          const adminStaff = await prisma.staff.findFirst({ where: { role: 'ADMIN', isActive: true } });
+          if (adminStaff && (await verifyPinHash(pin, adminStaff.pinHash))) {
+            pinValid = true;
+          }
+        }
+      }
+      if (!pinValid) {
+        return NextResponse.json(
+          { error: 'Diese Aktion erfordert die Rolle ADMIN oder eine gültige Admin-PIN (Storno-Zeitfenster abgelaufen).' },
+          { status: 403 }
+        );
+      }
+    }
+
+    const reason = (body.reason || (isWithinDelayWindow ? 'Fehleingabe (vor Bondruck)' : '')).trim();
+    if (!reason) {
+      return NextResponse.json(
+        { error: 'Ein Stornogrund ist zwingend erforderlich.', allowedReasons: VOID_REASONS },
+        { status: 400 }
+      );
     }
 
     const targetItems = order.items.filter((i) => {
@@ -154,26 +182,36 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     });
 
     // 4. Storno-Bon in der Kueche / am Ausschank drucken
+    // WICHTIG: Wenn die Bestellung innerhalb des Storno-Zeitfensters storniert wurde,
+    // ist die Bestellung physisch noch gar nicht gedruckt worden! Daher kein Storno-Bon nötig.
     let ticketsGenerated = 0;
-    try {
-      const result = await TicketSplitter.printVoidTickets({
-        orderNumber: order.orderNumber,
-        orderId: order.id,
-        tableLabel: order.table?.label ?? (order.tokenNumber ? `Abholmarke #${order.tokenNumber}` : 'Theke'),
-        waiterName: order.waiterName,
-        cancelledBy,
-        reason,
-        isTraining: order.isTraining,
-        items: targetItems.map((i) => ({
-          productId: i.productId,
-          productName: i.productName,
-          quantity: i.quantity,
-          variantName: i.variantName,
-        })),
-      });
-      ticketsGenerated = result.ticketsGenerated;
-    } catch (printErr) {
-      console.error('Storno-Bon konnte nicht gedruckt werden:', printErr);
+    if (!isWithinDelayWindow) {
+      try {
+        const result = await TicketSplitter.printVoidTickets({
+          orderNumber: order.orderNumber,
+          orderId: order.id,
+          tableLabel: order.table?.label ?? (order.tokenNumber ? `Abholmarke #${order.tokenNumber}` : 'Theke'),
+          waiterName: order.waiterName,
+          cancelledBy,
+          reason,
+          isTraining: order.isTraining,
+          items: targetItems.map((i) => ({
+            productId: i.productId,
+            productName: i.productName,
+            quantity: i.quantity,
+            variantName: i.variantName,
+          })),
+        });
+        ticketsGenerated = result.ticketsGenerated;
+      } catch (printErr) {
+        console.error('Storno-Bon konnte nicht gedruckt werden:', printErr);
+      }
+    } else {
+      // Wurden alle verbleibenden Positionen storniert, den ausstehenden Druck komplett abbrechen
+      const remainingCount = order.items.filter((i) => !i.isCancelled && !targetItems.some((t) => t.id === i.id)).length;
+      if (remainingCount === 0) {
+        cancelDelayedPrint(order.id);
+      }
     }
 
     // 5. Optional als "Nicht bezahlt" fuer Buchhaltung / Schwundstatistik buchen
