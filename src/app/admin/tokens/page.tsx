@@ -101,8 +101,11 @@ export default function AdminTokensPage() {
     );
   }
 
-  const openCirculationValue = totals.totalIssuedValue - totals.totalRedeemedValue - totals.totalReturnedValue;
-  const openCirculationQty = totals.totalIssuedQty - totals.totalRedeemedQty - totals.totalReturnedQty;
+  const totalIssuedVal = Number(totals.totalIssuedValue ?? 0);
+  const totalRedeemedVal = Number(totals.totalRedeemedValue ?? 0);
+  const totalReturnedVal = Number(totals.totalReturnedValue ?? 0);
+  const openCirculationValue = totalIssuedVal - totalRedeemedVal - totalReturnedVal;
+  const openCirculationQty = (totals.totalIssuedQty ?? 0) - (totals.totalRedeemedQty ?? 0) - (totals.totalReturnedQty ?? 0);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-10 font-sans">
@@ -129,10 +132,10 @@ export default function AdminTokensPage() {
               Ausgegeben (Verkauf)
             </span>
             <div className="text-2xl font-mono font-black text-emerald-400">
-              {totals.totalIssuedValue.toFixed(2)} €
+              {totalIssuedVal.toFixed(2)} €
             </div>
             <span className="text-xs text-slate-500 font-mono mt-1 block">
-              {totals.totalIssuedQty} Stück
+              {totals.totalIssuedQty ?? 0} Stück
             </span>
           </div>
 
@@ -141,10 +144,10 @@ export default function AdminTokensPage() {
               Eingelöst (Theke/Küche)
             </span>
             <div className="text-2xl font-mono font-black text-blue-400">
-              {totals.totalRedeemedValue.toFixed(2)} €
+              {totalRedeemedVal.toFixed(2)} €
             </div>
             <span className="text-xs text-slate-500 font-mono mt-1 block">
-              {totals.totalRedeemedQty} Stück
+              {totals.totalRedeemedQty ?? 0} Stück
             </span>
           </div>
 
@@ -153,10 +156,10 @@ export default function AdminTokensPage() {
               Rückkauf (Rückgabe)
             </span>
             <div className="text-2xl font-mono font-black text-amber-400">
-              {totals.totalReturnedValue.toFixed(2)} €
+              {totalReturnedVal.toFixed(2)} €
             </div>
             <span className="text-xs text-slate-500 font-mono mt-1 block">
-              {totals.totalReturnedQty} Stück
+              {totals.totalReturnedQty ?? 0} Stück
             </span>
           </div>
 
@@ -286,9 +289,11 @@ export default function AdminTokensPage() {
                       </td>
                       <td className="py-2.5 text-slate-300">{t.tokenType}</td>
                       <td className="py-2.5 text-white font-bold">{t.quantity} Stk</td>
-                      <td className="py-2.5 text-slate-400">{t.unitValue.toFixed(2)} €</td>
+                      <td className="py-2.5 text-slate-400">
+                        {Number(t.unitValue ?? ((t as any).unitValueCents != null ? (t as any).unitValueCents / 100 : 0)).toFixed(2)} €
+                      </td>
                       <td className="py-2.5 text-emerald-400 font-black text-sm">
-                        {t.totalValue.toFixed(2)} €
+                        {Number(t.totalValue ?? ((t as any).totalValueCents != null ? (t as any).totalValueCents / 100 : 0)).toFixed(2)} €
                       </td>
                       <td className="py-2.5 text-slate-400 text-right font-sans">{t.waiterName}</td>
                     </tr>

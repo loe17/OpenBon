@@ -66,7 +66,32 @@ export default function DigitalReceiptPage() {
           return;
         }
         const data = await res.json();
-        setPayment(data.payment);
+        const raw = data.payment;
+        if (raw) {
+          const norm: PaymentData = {
+            ...raw,
+            totalGross: Number(raw.totalGross ?? (raw.totalGrossCents != null ? raw.totalGrossCents / 100 : 0)),
+            totalNet: Number(raw.totalNet ?? (raw.totalNetCents != null ? raw.totalNetCents / 100 : 0)),
+            totalTax: Number(raw.totalTax ?? (raw.totalTaxCents != null ? raw.totalTaxCents / 100 : 0)),
+            taxBase19: Number(raw.taxBase19 ?? (raw.taxBase19Cents != null ? raw.taxBase19Cents / 100 : 0)),
+            taxAmount19: Number(raw.taxAmount19 ?? (raw.taxAmount19Cents != null ? raw.taxAmount19Cents / 100 : 0)),
+            taxBase7: Number(raw.taxBase7 ?? (raw.taxBase7Cents != null ? raw.taxBase7Cents / 100 : 0)),
+            taxAmount7: Number(raw.taxAmount7 ?? (raw.taxAmount7Cents != null ? raw.taxAmount7Cents / 100 : 0)),
+            taxBase0: Number(raw.taxBase0 ?? (raw.taxBase0Cents != null ? raw.taxBase0Cents / 100 : 0)),
+            totalDeposit: Number(raw.totalDeposit ?? (raw.totalDepositCents != null ? raw.totalDepositCents / 100 : 0)),
+            returnDeposit: Number(raw.returnDeposit ?? (raw.returnDepositCents != null ? raw.returnDepositCents / 100 : 0)),
+            discountAmount: Number(raw.discountAmount ?? (raw.discountAmountCents != null ? raw.discountAmountCents / 100 : 0)),
+            tipAmount: Number(raw.tipAmount ?? (raw.tipAmountCents != null ? raw.tipAmountCents / 100 : 0)),
+            givenAmount: Number(raw.givenAmount ?? (raw.givenAmountCents != null ? raw.givenAmountCents / 100 : 0)),
+            changeAmount: Number(raw.changeAmount ?? (raw.changeAmountCents != null ? raw.changeAmountCents / 100 : 0)),
+            items: (raw.items || []).map((it: any) => ({
+              ...it,
+              unitPrice: Number(it.unitPrice ?? (it.unitPriceCents != null ? it.unitPriceCents / 100 : 0)),
+              deposit: Number(it.deposit ?? (it.depositCents != null ? it.depositCents / 100 : 0)),
+            })),
+          };
+          setPayment(norm);
+        }
         if (data.eventConfig?.name) setEventName(data.eventConfig.name);
       } catch (err) {
         setError('Verbindungsfehler beim Laden des Belegs.');
@@ -194,7 +219,7 @@ export default function DigitalReceiptPage() {
           <div className="flex justify-between items-center text-sm font-black pt-1">
             <span>GESAMTBETRAG:</span>
             <span className="text-base font-extrabold">
-              {(payment.totalGross + (payment.tipAmount || 0)).toFixed(2)} €
+              {(Number(payment.totalGross || 0) + Number(payment.tipAmount || 0)).toFixed(2)} €
             </span>
           </div>
 

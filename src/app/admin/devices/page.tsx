@@ -134,7 +134,10 @@ export default function AdminDevicesPage() {
   };
 
   const calculateUptime = (connectedAt: string) => {
-    const diff = Math.max(0, Date.now() - new Date(connectedAt).getTime());
+    if (!connectedAt) return '0m';
+    const timestamp = new Date(connectedAt).getTime();
+    if (isNaN(timestamp)) return '0m';
+    const diff = Math.max(0, Date.now() - timestamp);
     const hours = Math.floor(diff / 3600000);
     const mins = Math.floor((diff % 3600000) / 60000);
     if (hours > 0) return `${hours}h ${mins}m`;

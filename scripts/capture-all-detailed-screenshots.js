@@ -54,6 +54,20 @@ async function setDarkThemeAndAuth(page, token) {
 async function captureScreen(page, filename, width = 1280, height = 800) {
   await page.setViewport({ width, height, deviceScaleFactor: 2 });
   await sleep(2500); // 2.5s Render-Puffer
+
+  // Qualitäts-Sicherheitsnetz 1: Fehler-Seiten ("Unerwarteter Anwendungsfehler") erkennen
+  const isErrorScreen = await page.evaluate(() => {
+    const text = document.body ? document.body.innerText : '';
+    return text.includes('Unerwarteter Anwendungsfehler') ||
+           text.includes('Application error: a client-side exception has occurred') ||
+           text.includes('Cannot read properties of undefined');
+  }).catch(() => false);
+
+  if (isErrorScreen) {
+    console.error(`[FEHLER-EXCEPTION] ${filename}.png zeigt einen Anwendungsfehler-Dialog! Nicht in docs/artifact kopiert.`);
+    throw new Error(`[CRITICAL] Screenshot ${filename} crashed with application error!`);
+  }
+
   const targetPath = path.join(TARGET_DIR, `${filename}.png`);
   const docsPath = path.join(DOCS_DIR, `${filename}.png`);
   const artifactPath = path.join(ARTIFACT_DIR, `${filename}.png`);
@@ -61,7 +75,7 @@ async function captureScreen(page, filename, width = 1280, height = 800) {
   await page.screenshot({ path: targetPath, fullPage: false });
   let stat = fs.statSync(targetPath);
 
-  // Qualitäts-Sicherheitsnetz: Leere / weiße Screenshots (typisch 7-15 KB) erkennen
+  // Qualitäts-Sicherheitsnetz 2: Leere / weiße Screenshots (typisch 7-15 KB) erkennen
   if (stat.size < 25000) {
     console.warn(`[WARNUNG-WEISSBILD] ${filename}.png ist nur ${stat.size} Bytes gross! Warte erneut 3s und wiederhole Aufnahme...`);
     await sleep(3000);
@@ -237,16 +251,23 @@ async function run() {
     // 03a: Leerer Warenkorb
     await captureScreen(page, '03a_pos_leer', 1280, 800);
 
-    // 03b: Artikel in den Warenkorb legen (Klicke auf 3 Produkte und bestätige eventuelle Options-Modals)
+    // 03b: Artikel in den Warenkorb legen (Pointer-Events auf die Produktkacheln)
     await page.evaluate(async () => {
-      const productButtons = Array.from(document.querySelectorAll('.grid button'));
+      const productButtons = Array.from(document.querySelectorAll('.pos-product-item-btn'));
       for (let i = 0; i < Math.min(3, productButtons.length); i++) {
-        productButtons[i].click();
+        const btn = productButtons[i];
+        btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX: 20, clientY: 20 }));
+        await new Promise((r) => setTimeout(r, 60));
+        btn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, clientX: 20, clientY: 20 }));
         await new Promise((r) => setTimeout(r, 400));
         const confirmBtn = Array.from(document.querySelectorAll('.fixed button')).find((b) =>
-          b.textContent && (b.textContent.includes('Warenkorb') || b.textContent.includes('Hinzufügen') || b.textContent.includes('Auswählen'))
+          b.textContent && (b.textContent.includes('Warenkorb') || b.textContent.includes('Hinzufügen') || b.textContent.includes('Auswählen') || b.textContent.includes('Übernehmen'))
         );
-        if (confirmBtn) confirmBtn.click();
+        if (confirmBtn) {
+          confirmBtn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+          confirmBtn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true }));
+          confirmBtn.click();
+        }
         await new Promise((r) => setTimeout(r, 400));
       }
     });
@@ -255,8 +276,8 @@ async function run() {
 
     // 03c: Kassiermodal öffnen (Vollständig)
     await page.evaluate(() => {
-      const btns = Array.from(document.querySelectorAll('button'));
-      const kassierenBtn = btns.find((b) => b.textContent && b.textContent.includes('Kassieren'));
+      const kassierenBtn = document.getElementById('pos-checkout-btn') ||
+        Array.from(document.querySelectorAll('button')).find((b) => b.textContent && b.textContent.includes('Kassieren (') && !b.textContent.includes('Nur'));
       if (kassierenBtn) kassierenBtn.click();
     });
     await sleep(2000);
@@ -264,7 +285,7 @@ async function run() {
 
     // 03d: Kassiermodal Teilzahlung (Deselektiere 1 Artikel)
     await page.evaluate(() => {
-      const itemRows = Array.from(document.querySelectorAll('.fixed .overflow-y-auto > div'));
+      const itemRows = Array.from(document.querySelectorAll('[data-testid="checkout-item-row"]'));
       if (itemRows.length > 1) {
         itemRows[0].click(); // Klicke auf erste Zeile zum Abwählen
       }
@@ -303,6 +324,7 @@ async function run() {
     await page.evaluate(() => {
       const btns = Array.from(document.querySelectorAll('header button, .bg-slate-900 button'));
       const histBtn = btns.find((b) => b.title && b.title.includes('Bestellhistorie')) ||
+                      btns.find((b) => b.textContent && b.textContent.includes('Bestellhistorie')) ||
                       btns.find((b) => b.querySelector('svg.lucide-history'));
       if (histBtn) histBtn.click();
     });

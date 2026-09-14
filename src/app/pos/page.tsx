@@ -805,7 +805,7 @@ function PosCounterContent() {
                     e.preventDefault();
                     setSelectedProductInfo(prod);
                   }}
-                  className={`pos-touch-btn relative flex flex-col justify-between ${isAutoFitScreen ? 'p-2.5 rounded-2xl min-h-[95px]' : 'p-4 rounded-3xl min-h-[120px]'} border-2 shadow-lg text-left transition select-none ${
+                  className={`pos-touch-btn pos-product-item-btn relative flex flex-col justify-between ${isAutoFitScreen ? 'p-2.5 rounded-2xl min-h-[95px]' : 'p-4 rounded-3xl min-h-[120px]'} border-2 shadow-lg text-left transition select-none ${
                     isOut
                       ? 'bg-slate-950/60 border-rose-900/40 opacity-40 cursor-not-allowed line-through'
                       : inCartCount > 0
@@ -967,6 +967,8 @@ function PosCounterContent() {
 
             {/* Kassieren Button - Öffnet den Bezahldialog */}
             <button
+              id="pos-checkout-btn"
+              data-testid="pos-checkout-btn"
               disabled={cart.length === 0 || isProcessing}
               onClick={() => {
                 triggerHapticFeedback();
@@ -1140,6 +1142,7 @@ function PosCounterContent() {
                         return (
                           <div
                             key={item.id}
+                            data-testid="checkout-item-row"
                             onClick={() => {
                               setSelectedCartItemIds((prev) =>
                                 prev.includes(item.id) ? prev.filter((id) => id !== item.id) : [...prev, item.id]

@@ -19,34 +19,50 @@ export async function GET(req: Request) {
     });
 
     // Aggregierte Summen
-    const totals = transactions.reduce(
+    const totalsCents = transactions.reduce(
       (acc, t) => {
         if (t.action === 'ISSUE') {
           acc.totalIssuedQty += t.quantity;
-          acc.totalIssuedValue += t.totalValueCents;
+          acc.totalIssuedValueCents += t.totalValueCents;
         } else if (t.action === 'REDEEM') {
           acc.totalRedeemedQty += t.quantity;
-          acc.totalRedeemedValue += t.totalValueCents;
+          acc.totalRedeemedValueCents += t.totalValueCents;
         } else if (t.action === 'RETURN') {
           acc.totalReturnedQty += t.quantity;
-          acc.totalReturnedValue += t.totalValueCents;
+          acc.totalReturnedValueCents += t.totalValueCents;
         }
         return acc;
       },
       {
         totalIssuedQty: 0,
-        totalIssuedValue: 0,
+        totalIssuedValueCents: 0,
         totalRedeemedQty: 0,
-        totalRedeemedValue: 0,
+        totalRedeemedValueCents: 0,
         totalReturnedQty: 0,
-        totalReturnedValue: 0,
+        totalReturnedValueCents: 0,
       }
     );
 
+    const mappedTransactions = transactions.map((t) => ({
+      ...t,
+      unitValue: (t.unitValueCents ?? 0) / 100,
+      totalValue: (t.totalValueCents ?? 0) / 100,
+    }));
+
     return NextResponse.json({
-      transactions,
+      transactions: mappedTransactions,
       tokenProducts: products,
-      totals,
+      totals: {
+        totalIssuedQty: totalsCents.totalIssuedQty,
+        totalIssuedValue: (totalsCents.totalIssuedValueCents ?? 0) / 100,
+        totalIssuedValueCents: totalsCents.totalIssuedValueCents,
+        totalRedeemedQty: totalsCents.totalRedeemedQty,
+        totalRedeemedValue: (totalsCents.totalRedeemedValueCents ?? 0) / 100,
+        totalRedeemedValueCents: totalsCents.totalRedeemedValueCents,
+        totalReturnedQty: totalsCents.totalReturnedQty,
+        totalReturnedValue: (totalsCents.totalReturnedValueCents ?? 0) / 100,
+        totalReturnedValueCents: totalsCents.totalReturnedValueCents,
+      },
     });
   } catch (error) {
     console.error('GET /api/tokens error:', error);

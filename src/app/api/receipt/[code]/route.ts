@@ -73,8 +73,31 @@ export async function GET(req: NextRequest, { params }: { params: { code: string
       },
     });
 
+    const mappedPayment = {
+      ...payment,
+      totalGross: (payment.totalGrossCents ?? 0) / 100,
+      totalNet: (payment.totalNetCents ?? 0) / 100,
+      totalTax: (payment.totalTaxCents ?? 0) / 100,
+      taxBase19: (payment.taxBase19Cents ?? 0) / 100,
+      taxAmount19: (payment.taxAmount19Cents ?? 0) / 100,
+      taxBase7: (payment.taxBase7Cents ?? 0) / 100,
+      taxAmount7: (payment.taxAmount7Cents ?? 0) / 100,
+      taxBase0: (payment.taxBase0Cents ?? 0) / 100,
+      totalDeposit: (payment.totalDepositCents ?? 0) / 100,
+      returnDeposit: (payment.returnDepositCents ?? 0) / 100,
+      discountAmount: (payment.discountAmountCents ?? 0) / 100,
+      tipAmount: (payment.tipAmountCents ?? 0) / 100,
+      givenAmount: (payment.givenAmountCents ?? 0) / 100,
+      changeAmount: (payment.changeAmountCents ?? 0) / 100,
+      items: (payment.items || []).map((item) => ({
+        ...item,
+        unitPrice: (item.unitPriceCents ?? 0) / 100,
+        deposit: (item.depositCents ?? 0) / 100,
+      })),
+    };
+
     return NextResponse.json({
-      payment,
+      payment: mappedPayment,
       eventConfig: config,
     });
   } catch (error) {

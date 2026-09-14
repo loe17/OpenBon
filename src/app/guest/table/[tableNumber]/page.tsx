@@ -92,7 +92,17 @@ export default function GuestTableOrderPage() {
           const catData = await catRes.json();
           const prodData = await prodRes.json();
           setCategories(catData);
-          setProducts(prodData);
+          const normalized = (prodData || []).map((p: any) => ({
+            ...p,
+            price: typeof p.price === 'number' ? p.price : (p.priceCents ?? 0) / 100,
+            deposit: typeof p.deposit === 'number' ? p.deposit : (p.depositCents ?? 0) / 100,
+            happyHourPrice: p.happyHourPrice ?? (p.happyHourPriceCents != null ? p.happyHourPriceCents / 100 : null),
+            variants: (p.variants || []).map((v: any) => ({
+              ...v,
+              priceDelta: typeof v.priceDelta === 'number' ? v.priceDelta : (v.priceDeltaCents ?? 0) / 100,
+            })),
+          }));
+          setProducts(normalized);
         }
       } catch (err) {
         console.error('Fehler beim Laden:', err);
@@ -136,8 +146,8 @@ export default function GuestTableOrderPage() {
   };
 
   const totalGross = cart.reduce((sum, item) => {
-    const basePrice = item.product.price + (item.selectedVariant?.priceDelta || 0);
-    return sum + (basePrice + (item.product.deposit || 0)) * item.quantity;
+    const basePrice = Number(item.product.price ?? 0) + Number(item.selectedVariant?.priceDelta || 0);
+    return sum + (basePrice + Number(item.product.deposit || 0)) * item.quantity;
   }, 0);
 
   const totalItems = cart.reduce((sum, i) => sum + i.quantity, 0);
@@ -348,9 +358,9 @@ export default function GuestTableOrderPage() {
                       <ShieldAlert className="w-3 h-3" /> Ab {product.minAge} J.
                     </span>
                   )}
-                  {product.deposit > 0 && (
+                  {Number(product.deposit || 0) > 0 && (
                     <span className="bg-slate-800 text-slate-400 text-[10px] font-semibold px-2 py-0.5 rounded-md">
-                      +{product.deposit.toFixed(2)} € Pfand
+                      +{Number(product.deposit || 0).toFixed(2)} € Pfand
                     </span>
                   )}
                 </div>
@@ -360,11 +370,11 @@ export default function GuestTableOrderPage() {
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-800/60">
                 <div className="font-mono">
                   <span className="text-lg font-extrabold text-emerald-400">
-                    {product.price.toFixed(2)} €
+                    {Number(product.price ?? 0).toFixed(2)} €
                   </span>
                   {product.happyHourPrice && (
                     <span className="text-xs text-slate-500 line-through ml-2">
-                      {(product.price * 1.2).toFixed(2)} €
+                      {(Number(product.price ?? 0) * 1.2).toFixed(2)} €
                     </span>
                   )}
                 </div>
@@ -382,7 +392,7 @@ export default function GuestTableOrderPage() {
                         className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        {v.name} ({(product.price + v.priceDelta).toFixed(2)} €)
+                        {v.name} ({(Number(product.price ?? 0) + Number(v.priceDelta ?? 0)).toFixed(2)} €)
                       </button>
                     ))}
                   </div>
@@ -439,8 +449,8 @@ export default function GuestTableOrderPage() {
                   <p className="text-slate-500 text-center py-8">Ihr Warenkorb ist leer.</p>
                 ) : (
                   cart.map((item, idx) => {
-                    const price = item.product.price + (item.selectedVariant?.priceDelta || 0);
-                    const itemTotal = (price + (item.product.deposit || 0)) * item.quantity;
+                    const price = Number(item.product.price ?? 0) + Number(item.selectedVariant?.priceDelta || 0);
+                    const itemTotal = (price + Number(item.product.deposit || 0)) * item.quantity;
                     return (
                       <div
                         key={idx}
@@ -454,7 +464,7 @@ export default function GuestTableOrderPage() {
                             )}
                           </h4>
                           <span className="font-mono text-xs text-slate-400">
-                            {price.toFixed(2)} € {item.product.deposit > 0 && `+ ${item.product.deposit.toFixed(2)} € Pfand`}
+                            {price.toFixed(2)} € {Number(item.product.deposit || 0) > 0 && `+ ${Number(item.product.deposit || 0).toFixed(2)} € Pfand`}
                           </span>
                         </div>
 

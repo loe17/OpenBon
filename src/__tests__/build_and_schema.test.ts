@@ -7,7 +7,7 @@ import { EscPosBuilder } from '../lib/printer/escpos-builder';
 
 describe('OpenBon v0.4.44: Schema, License, PIN & Print Sanity Tests', () => {
   it('should verify v0.4.44 version info', () => {
-    expect(['0.4.43', '0.4.44', '0.4.45', '0.4.46', '0.4.47']).toContain(APP_VERSION);
+    expect(['0.4.43', '0.4.44', '0.4.45', '0.4.46', '0.4.47', '0.4.48']).toContain(APP_VERSION);
   });
 
 
