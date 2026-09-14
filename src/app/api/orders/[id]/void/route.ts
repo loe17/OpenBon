@@ -103,23 +103,32 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: 'Keine stornierbaren Positionen gefunden.' }, { status: 400 });
     }
 
-    // Bereits bezahlte Positionen duerfen nicht still storniert werden
+    // Bereits bezahlte Positionen duerfen innerhalb des Storno-Zeitfensters mit automatischer Bar-Erstattung storniert werden
     const alreadyPaid = targetItems.filter((i) => i.paidQuantity > 0);
+    let refundGrossCents = 0;
     if (alreadyPaid.length > 0) {
-      return NextResponse.json(
-        {
-          error:
-            'Bereits kassierte Positionen können nicht storniert werden. Bitte eine Rückerstattung erfassen.',
-          paidItems: alreadyPaid.map((i) => i.productName),
-        },
-        { status: 409 }
-      );
+      if (!isWithinDelayWindow && auth.session.role !== 'ADMIN') {
+        return NextResponse.json(
+          {
+            error:
+              'Bereits kassierte Positionen können nach Ablauf des Storno-Zeitfensters nicht mehr storniert werden.',
+            paidItems: alreadyPaid.map((i) => i.productName),
+          },
+          { status: 409 }
+        );
+      }
+
+      for (const item of alreadyPaid) {
+        const qty = Math.min(item.paidQuantity, item.quantity);
+        refundGrossCents += (item.unitPriceCents + (item.depositCents || 0)) * qty;
+      }
     }
 
     const cancelledBy = body.cancelledBy || 'Leitung';
     const now = new Date();
 
-    // 3. Positionen stornieren und Bestand zurueckbuchen
+    // 3. Positionen stornieren, Gegenbuchung erfassen und Bestand zurueckbuchen
+    let refundPaymentId: string | null = null;
     await prisma.$transaction(async (tx) => {
       for (const item of targetItems) {
         await tx.orderItem.update({
@@ -129,6 +138,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
             cancellationReason: reason,
             cancelledBy,
             cancelledAt: now,
+            paidQuantity: Math.max(0, item.paidQuantity - item.quantity),
             kdsStatus: 'COMPLETED',
             kdsCompletedAt: now,
           },
@@ -155,6 +165,51 @@ export async function POST(req: Request, { params }: { params: { id: string } })
             });
           }
         }
+      }
+
+      // Automatische Bar-Erstattung (CASH_REFUND) fuer bereits kassierte Positionen
+      if (refundGrossCents > 0) {
+        const originalPayment = await tx.payment.findFirst({
+          where: { orderId: order.id, isCancelled: false, isRefund: false },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        const currentConfig = await tx.eventConfig.update({
+          where: { id: 'default' },
+          data: { invoiceSequence: { increment: 1 } },
+        });
+        const seq = currentConfig.invoiceSequence - 1;
+        const invNum = `ERSTATTUNG-${now.getFullYear()}-${String(seq).padStart(5, '0')}`;
+
+        const refund = await tx.payment.create({
+          data: {
+            invoiceNumber: invNum,
+            tableId: order.tableId,
+            orderId: order.id,
+            periodId: originalPayment?.periodId ?? null,
+            waiterName: order.waiterName,
+            totalGrossCents: -refundGrossCents,
+            totalNetCents: -Math.round(refundGrossCents / 1.19),
+            totalTaxCents: -(refundGrossCents - Math.round(refundGrossCents / 1.19)),
+            paymentMethod: 'CASH_REFUND',
+            isRefund: true,
+            refundOfPaymentId: originalPayment?.id || null,
+            refundReason: reason,
+            refundedBy: cancelledBy,
+            nonPaidReason: `Storno nach Zahlung: ${reason}`,
+            items: {
+              create: alreadyPaid.map((i) => ({
+                orderItemId: i.id,
+                productName: `STORNO: ${i.productName}`,
+                quantity: i.quantity,
+                unitPriceCents: -i.unitPriceCents,
+                depositCents: -(i.depositCents || 0),
+                taxRate: i.taxRate,
+              })),
+            },
+          },
+        });
+        refundPaymentId = refund.id;
       }
 
       // Wenn alle Positionen storniert sind, gilt die Bestellung als storniert
@@ -267,7 +322,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         itemIds: targetItems.map((i) => i.id),
         reason,
         cancelledBy,
+        refundGrossCents,
       });
+      if (refundGrossCents > 0) {
+        global.io.emit('payment:refunded', { orderId: order.id, refundGrossCents });
+        global.io.emit('payment:completed');
+      }
       if (order.tableId) {
         global.io.emit('table:updated', { tableId: order.tableId });
       }
@@ -278,13 +338,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       action: 'ORDER_VOIDED',
       category: 'ORDERS',
       actor: cancelledBy || 'Unbekannt',
-      details: `Storno an Bestellung #${order.orderNumber}: ${targetItems.length} Position(en), Grund: ${reason}`,
+      details: `Storno an Bestellung #${order.orderNumber}: ${targetItems.length} Position(en), Grund: ${reason}${refundGrossCents > 0 ? `, Bar-Erstattung: ${(refundGrossCents / 100).toFixed(2)} €` : ''}`,
       metadata: {
         orderId: order.id,
         orderNumber: order.orderNumber,
         itemIds: targetItems.map((i) => i.id),
         reason,
         cancelledBy,
+        refundGrossCents,
+        refundPaymentId,
         unpaidPaymentId,
       },
     }));
@@ -292,6 +354,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({
       success: true,
       voidedItems: targetItems.length,
+      refundGrossCents,
+      refundAmount: refundGrossCents / 100,
+      refundPaymentId,
       ticketsGenerated,
       unpaidPaymentId,
       reason,

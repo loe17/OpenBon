@@ -33,6 +33,7 @@ import {
   Sparkles,
   FileText,
   Clock,
+  Banknote,
 } from 'lucide-react';
 import { VOID_REASONS, type OrderDTO } from '@/types/domain';
 import { playConfirm, playVoidAlert, playOrderReadyChime } from '@/lib/audio-feedback';
@@ -152,7 +153,7 @@ function WaiterTablesContent() {
     if (!config?.enableOrderPrintDelay || !selectedTable?.orders) return null;
     const delaySec = config.orderPrintDelaySeconds || 60;
     const active = (selectedTable.orders || [])
-      .filter((o: any) => o.status !== 'CANCELLED' && o.status !== 'COMPLETED')
+      .filter((o: any) => o.status !== 'CANCELLED')
       .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     if (active.length === 0) return null;
 
@@ -661,11 +662,11 @@ function WaiterTablesContent() {
       }
 
       let active = orders.filter(
-        (o) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED'
+        (o) => o.status !== 'CANCELLED' && (isStornoEnabled ? true : o.status !== 'COMPLETED')
       );
 
       if (active.length === 0) {
-        showToast('err', 'Keine offenen Positionen zum Stornieren gefunden.');
+        showToast('err', 'Keine stornierbaren Positionen gefunden.');
         return;
       }
 
@@ -680,7 +681,10 @@ function WaiterTablesContent() {
       }
 
       setTableOrders(active);
-      setVoidItemIds([]);
+      const initialItemIds = isStornoEnabled
+        ? active.flatMap((o: any) => o.items || []).filter((i: any) => !i.isCancelled).map((i: any) => i.id)
+        : [];
+      setVoidItemIds(initialItemIds);
       setVoidPin('');
       setVoidReason(isStornoEnabled ? 'Fehleingabe (vor Bondruck)' : VOID_REASONS[0]);
       setVoidMarkUnpaid(false);
@@ -689,7 +693,7 @@ function WaiterTablesContent() {
       console.warn('[openVoidModal] Fehler beim Laden, prüfe Fallback:', err);
       if (table.orders && Array.isArray(table.orders)) {
         let active = table.orders.filter(
-          (o) => o.status !== 'COMPLETED' && o.status !== 'CANCELLED'
+          (o) => o.status !== 'CANCELLED' && (isStornoEnabled ? true : o.status !== 'COMPLETED')
         );
         if (active.length > 0) {
           if (isStornoEnabled) {
@@ -702,7 +706,10 @@ function WaiterTablesContent() {
           }
 
           setTableOrders(active);
-          setVoidItemIds([]);
+          const initialItemIds = isStornoEnabled
+            ? active.flatMap((o: any) => o.items || []).filter((i: any) => !i.isCancelled).map((i: any) => i.id)
+            : [];
+          setVoidItemIds(initialItemIds);
           setVoidPin('');
           setVoidReason(isStornoEnabled ? 'Fehleingabe (vor Bondruck)' : VOID_REASONS[0]);
           setVoidMarkUnpaid(false);
@@ -742,15 +749,28 @@ function WaiterTablesContent() {
           markAsUnpaid: voidMarkUnpaid,
         }),
       });
-      const data = (await res.json()) as { error?: string; voidedItems?: number; ticketsGenerated?: number };
+      const data = (await res.json()) as {
+        error?: string;
+        voidedItems?: number;
+        ticketsGenerated?: number;
+        refundGrossCents?: number;
+        refundAmount?: number;
+      };
       if (res.ok) {
         playVoidAlert();
-        showToast(
-          'ok',
-          data.ticketsGenerated && data.ticketsGenerated > 0
-            ? `${data.voidedItems} Position(en) storniert. Storno-Bon gedruckt.`
-            : `${data.voidedItems} Position(en) vor Druck storniert.`
-        );
+        if (data.refundGrossCents && data.refundGrossCents > 0) {
+          showToast(
+            'ok',
+            `Storno verbucht! Bitte ${formatCents(data.refundGrossCents)} in bar an den Gast auszahlen.`
+          );
+        } else {
+          showToast(
+            'ok',
+            data.ticketsGenerated && data.ticketsGenerated > 0
+              ? `${data.voidedItems} Position(en) storniert. Storno-Bon gedruckt.`
+              : `${data.voidedItems} Position(en) vor Druck storniert.`
+          );
+        }
         setShowVoidModal(false);
         setSelectedTable(null);
         void fetchTables();
@@ -1288,7 +1308,7 @@ function WaiterTablesContent() {
                     .filter((i) => !i.isCancelled)
                     .map((item) => {
                       const checked = voidItemIds.includes(item.id);
-                      const locked = item.paidQuantity > 0;
+                      const locked = !isStornoEnabled && item.paidQuantity > 0;
                       return (
                         <button
                           key={item.id}
@@ -1314,7 +1334,11 @@ function WaiterTablesContent() {
                             </span>
                             <span className="block text-[11px] text-slate-400 font-semibold">
                               Bon #{order.orderNumber}
-                              {locked ? ' · bereits kassiert' : ''}
+                              {locked
+                                ? ' · bereits kassiert'
+                                : item.paidQuantity > 0
+                                ? ` · Bar-Erstattung an Gast: ${formatCents((item.unitPriceCents + (item.depositCents || 0)) * item.quantity)}`
+                                : ''}
                             </span>
                           </span>
                           {checked && <CheckCircle2 className="w-5 h-5 text-rose-400 shrink-0" />}
@@ -1374,16 +1398,44 @@ function WaiterTablesContent() {
               </div>
             )}
 
+            {(() => {
+              const selectedRefundCents = tableOrders
+                .flatMap((o) => o.items || [])
+                .filter((i: any) => voidItemIds.includes(i.id) && i.paidQuantity > 0)
+                .reduce((sum: number, i: any) => sum + (i.unitPriceCents + (i.depositCents || 0)) * Math.min(i.paidQuantity, i.quantity), 0);
+
+              if (selectedRefundCents <= 0) return null;
+              return (
+                <div className="p-3 bg-amber-950/70 border-2 border-amber-500/80 rounded-2xl flex items-center justify-between text-xs font-bold text-amber-200 shadow-lg shadow-amber-950/50">
+                  <span className="flex items-center gap-2">
+                    <Banknote className="w-5 h-5 text-amber-400 shrink-0" />
+                    <span>Bar an den Gast auszahlen:</span>
+                  </span>
+                  <span className="px-3 py-1 bg-amber-400 text-slate-950 font-black rounded-xl text-base font-mono">
+                    {formatCents(selectedRefundCents)}
+                  </span>
+                </div>
+              );
+            })()}
+
             <button
               onClick={() => void submitVoid()}
               disabled={busyAction === 'voidSubmit' || voidItemIds.length === 0 || (!isStornoEnabled && !voidPin)}
-              className="w-full h-14 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 disabled:bg-slate-800 disabled:text-slate-500 transition"
+              className="w-full h-14 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 disabled:bg-slate-800 disabled:text-slate-500 transition shadow-lg shadow-rose-950/50"
             >
               <AlertTriangle className="w-5 h-5" />
               <span>
                 {busyAction === 'voidSubmit'
                   ? 'Storniere...'
-                  : `${voidItemIds.length} Position(en) ${isStornoEnabled ? 'vor Druck ' : ''}stornieren`}
+                  : (() => {
+                      const refundCents = tableOrders
+                        .flatMap((o) => o.items || [])
+                        .filter((i: any) => voidItemIds.includes(i.id) && i.paidQuantity > 0)
+                        .reduce((sum: number, i: any) => sum + (i.unitPriceCents + (i.depositCents || 0)) * Math.min(i.paidQuantity, i.quantity), 0);
+                      return refundCents > 0
+                        ? `Stornieren & ${formatCents(refundCents)} auszahlen`
+                        : `${voidItemIds.length} Position(en) ${isStornoEnabled ? 'vor Druck ' : ''}stornieren`;
+                    })()}
               </span>
             </button>
           </div>

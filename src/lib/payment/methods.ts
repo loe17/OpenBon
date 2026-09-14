@@ -113,6 +113,7 @@ export function getPaymentMethod(id: string): PaymentMethodDef | undefined {
 }
 
 export function getPaymentLabel(id: string): string {
+  if (id === 'CASH_REFUND') return 'Bar-Erstattung (Storno)';
   return getPaymentMethod(id)?.label ?? id;
 }
 

@@ -23,14 +23,29 @@ export async function GET(req: Request) {
       where.isActive = true;
     }
 
+    const config = await prisma.eventConfig.findUnique({
+      where: { id: 'default' },
+      select: { enableOrderPrintDelay: true, orderPrintDelaySeconds: true },
+    });
+    const delaySeconds = config?.enableOrderPrintDelay ? (config.orderPrintDelaySeconds || 60) : 0;
+    const nowServer = Date.now();
+    const delayCutoff = new Date(nowServer - (delaySeconds + 10) * 1000);
+
+    const ordersWhere: Record<string, unknown> = delaySeconds > 0
+      ? {
+          OR: [
+            { status: { in: ['OPEN', 'IN_PREPARATION', 'READY'] } },
+            { status: 'COMPLETED', createdAt: { gte: delayCutoff } },
+          ],
+        }
+      : { status: { in: ['OPEN', 'IN_PREPARATION', 'READY'] } };
+
     const tables = await prisma.diningTable.findMany({
       where: includeInactive ? {} : { isActive: true },
       orderBy: { tableNumber: 'asc' },
       include: {
         orders: {
-          where: {
-            status: { in: ['OPEN', 'IN_PREPARATION', 'READY'] },
-          },
+          where: ordersWhere,
           include: {
             items: {
               where: { isCancelled: false },
@@ -39,13 +54,6 @@ export async function GET(req: Request) {
         },
       },
     });
-
-    const config = await prisma.eventConfig.findUnique({
-      where: { id: 'default' },
-      select: { enableOrderPrintDelay: true, orderPrintDelaySeconds: true },
-    });
-    const delaySeconds = config?.enableOrderPrintDelay ? (config.orderPrintDelaySeconds || 60) : 0;
-    const nowServer = Date.now();
 
     // Calculate unpaid open balance for each table
     const result = tables.map((t) => {

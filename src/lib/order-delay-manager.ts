@@ -143,7 +143,7 @@ export function getOrderDelayInfo(
   if (!delaySeconds || delaySeconds <= 0) {
     return { isDelayed: false, delayRemainingSeconds: 0 };
   }
-  if (order.status === 'CANCELLED' || order.status === 'COMPLETED') {
+  if (order.status === 'CANCELLED') {
     return { isDelayed: false, delayRemainingSeconds: 0 };
   }
 

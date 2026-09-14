@@ -149,7 +149,9 @@ export async function GET(req: Request) {
       tipPoolShare += p.tipPoolShareCents;
 
       const method = p.paymentMethod || 'CASH';
-      if (method === 'CASH') cashGross += p.totalGrossCents;
+      if (method === 'CASH' || method === 'CASH_REFUND' || (p as any).isRefund) {
+        cashGross += p.totalGrossCents;
+      }
 
       const entry = methodMap.get(method) || { amount: 0, count: 0 };
       entry.amount += p.totalGrossCents;
