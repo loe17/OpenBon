@@ -120,6 +120,7 @@ function PosCounterContent() {
   useEffect(() => {
     if (!socket || !stationName) return;
     socket.emit('pos:station_online', { stationId, stationName });
+    socket.emit('pos:register_station', { stationId, stationName });
   }, [socket, stationId, stationName]);
 
   const totalGross = cart.reduce((sum, item) => sum + (item.price + item.deposit) * item.quantity, 0);
@@ -153,6 +154,7 @@ function PosCounterContent() {
     if (!socket) return;
     const handleCartRequest = (req?: { stationId?: string }) => {
       if (!req?.stationId || req.stationId === 'ALL' || req.stationId === stationId) {
+        socket.emit('pos:station_online', { stationId, stationName });
         if (cart.length > 0) {
           socket.emit('pos:cart_updated', {
             stationId,
@@ -879,14 +881,6 @@ function PosCounterContent() {
                 </button>
               )}
             </div>
-
-            {/* Last Token Banner */}
-            {lastToken && (
-              <div className="p-2 mb-2 rounded-xl bg-gradient-to-r from-emerald-950 to-blue-950 border border-emerald-500/80 text-center shadow">
-                <span className="text-[10px] text-slate-300 uppercase font-black tracking-wider">Letzte Abhol-Nr.:</span>
-                <div className="text-2xl font-black text-emerald-400 font-mono leading-none mt-0.5">#{lastToken}</div>
-              </div>
-            )}
 
             {/* Cart Items List - Scrollbar wenn mehr Artikel als Höhe */}
             <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
@@ -1683,6 +1677,7 @@ function PosCounterContent() {
                   localStorage.setItem('pos_drawer_connected', editDrawerConnected ? '1' : '0');
                   if (socket) {
                     socket.emit('pos:station_online', { stationId: cleanId, stationName: clean });
+                    socket.emit('pos:register_station', { stationId: cleanId, stationName: clean });
                   }
                   setShowStationModal(false);
                 }}

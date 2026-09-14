@@ -45,6 +45,7 @@ export async function POST(req: Request) {
       printItemsSold,
       printOrders,
       itemsSold,
+      itemsCancelled,
       orders,
     } = body;
 
@@ -150,6 +151,7 @@ export async function POST(req: Request) {
               printItemsSold: printItemsSold !== undefined ? Boolean(printItemsSold) : Boolean(printDetails),
               printOrders: printOrders !== undefined ? Boolean(printOrders) : Boolean(printDetails),
               itemsSold: Array.isArray(itemsSold) ? itemsSold : undefined,
+              itemsCancelled: Array.isArray(itemsCancelled) ? itemsCancelled : undefined,
               orders: Array.isArray(orders) ? orders : undefined,
               settledAt: new Date(),
               settledBy: auth.session.waiterName || auth.session.role,

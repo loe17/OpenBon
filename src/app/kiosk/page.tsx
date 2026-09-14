@@ -59,44 +59,11 @@ export default function KioskPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [kioskSearch, setKioskSearch] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [inactivitySeconds, setInactivitySeconds] = useState(60);
   const [step, setStep] = useState<'SELECT' | 'UPSELL' | 'PAYMENT' | 'SUCCESS'>('SELECT');
   const [orderResult, setOrderResult] = useState<{ tokenNumber: string; orderNumber: number } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Inaktivitäts-Timer
-  const resetTimer = () => {
-    setInactivitySeconds(60);
-  };
-
-  useEffect(() => {
-    const handleActivity = () => resetTimer();
-    window.addEventListener('touchstart', handleActivity);
-    window.addEventListener('mousedown', handleActivity);
-    window.addEventListener('keydown', handleActivity);
-
-    timerRef.current = setInterval(() => {
-      setInactivitySeconds((prev) => {
-        if (prev <= 1) {
-          // Reset Kiosk
-          setCart([]);
-          setStep('SELECT');
-          setOrderResult(null);
-          return 60;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      window.removeEventListener('touchstart', handleActivity);
-      window.removeEventListener('mousedown', handleActivity);
-      window.removeEventListener('keydown', handleActivity);
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
+  const resetTimer = () => {};
 
   useEffect(() => {
     async function load() {
@@ -224,24 +191,22 @@ export default function KioskPage() {
           </div>
         </div>
 
-        {/* Inaktivitäts-Anzeige */}
-        <div className="flex items-center gap-3 bg-slate-950 border border-slate-800 px-4 py-2 rounded-2xl">
-          <Clock className="w-5 h-5 text-amber-400 animate-spin" style={{ animationDuration: '6s' }} />
-          <span className="text-sm font-mono font-bold text-slate-300">
-            Automatischer Reset in <span className="text-amber-400 text-base">{inactivitySeconds}s</span>
-          </span>
-          <button
-            onClick={() => {
-              setCart([]);
-              setStep('SELECT');
-              setOrderResult(null);
-            }}
-            className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-all ml-2"
-            title="Abbrechen & Neu starten"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
-        </div>
+        {/* Alles löschen Button */}
+        <button
+          type="button"
+          onClick={() => {
+            setCart([]);
+            setStep('SELECT');
+            setOrderResult(null);
+            setKioskSearch('');
+          }}
+          disabled={cart.length === 0}
+          className="flex items-center gap-2 px-4 py-2.5 bg-rose-600/20 hover:bg-rose-600 active:bg-rose-700 text-rose-300 hover:text-white disabled:opacity-40 disabled:hover:bg-rose-600/20 disabled:hover:text-rose-300 border border-rose-500/40 hover:border-rose-400 rounded-2xl font-bold text-sm transition shadow-md active:scale-95 touch-manipulation"
+          title="Gesamten Warenkorb leeren"
+        >
+          <Trash2 className="w-4 h-4" />
+          <span>Alles löschen</span>
+        </button>
       </header>
 
       {/* Hauptinhalt */}

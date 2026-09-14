@@ -293,6 +293,22 @@ export default function DocsPage() {
                       <span className="leading-relaxed">{hint.text}</span>
                     </div>
                   ))}
+
+                  {section.image && (
+                    <div className="my-4 rounded-2xl overflow-hidden border border-slate-700 bg-slate-950 p-2 shadow-xl">
+                      <img
+                        src={section.image.src}
+                        alt={section.image.alt}
+                        className="w-full h-auto rounded-xl object-contain max-h-[440px] bg-slate-950"
+                        loading="lazy"
+                      />
+                      {section.image.caption && (
+                        <p className="text-xs text-slate-400 text-center font-semibold mt-2 mb-1">
+                          {section.image.caption}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </section>
               ))}
             </article>
@@ -409,6 +425,21 @@ export default function DocsPage() {
                       {hint.text}
                     </div>
                   ))}
+
+                  {section.image && (
+                    <div className="my-2 border border-slate-300 rounded-lg p-1 page-break-inside-avoid">
+                      <img
+                        src={section.image.src}
+                        alt={section.image.alt}
+                        className="w-full h-auto max-h-[260px] object-contain"
+                      />
+                      {section.image.caption && (
+                        <p className="text-[10px] text-slate-600 text-center font-bold mt-1">
+                          {section.image.caption}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

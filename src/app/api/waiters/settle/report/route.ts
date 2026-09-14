@@ -22,6 +22,7 @@ export interface SettlementItemSold {
   name: string;
   quantity: number;
   amountCents: number;
+  reason?: string;
 }
 
 export interface SettlementOrderSummary {
@@ -59,6 +60,7 @@ export interface SettlementReport {
   eventName: string;
   orderCount: number;
   itemsSold: SettlementItemSold[];
+  itemsCancelled: SettlementItemSold[];
   orders: SettlementOrderSummary[];
 }
 
@@ -97,7 +99,7 @@ export async function GET(req: Request) {
     // Bei neuer Schicht nur Umsätze nach dem vorherigen Abschluss zählen
     const shiftStartDate = !isCorrection && latestSettle ? latestSettle.createdAt : period.openedAt;
 
-    const [payments, ordersData, profile] = await Promise.all([
+    const [payments, ordersData, cancelledItemsData, profile] = await Promise.all([
       prisma.payment.findMany({
         where: {
           waiterName: cleanWaiterName,
@@ -128,6 +130,29 @@ export async function GET(req: Request) {
           },
         },
         orderBy: { createdAt: 'asc' },
+      }),
+      prisma.orderItem.findMany({
+        where: {
+          isCancelled: true,
+          OR: [
+            { cancelledAt: { gte: shiftStartDate } },
+            { order: { createdAt: { gte: shiftStartDate } } },
+          ],
+          order: {
+            OR: [
+              { waiterName: cleanWaiterName },
+              { payments: { some: { waiterName: cleanWaiterName } } },
+            ],
+          },
+        },
+        select: {
+          productName: true,
+          variantName: true,
+          quantity: true,
+          unitPriceCents: true,
+          cancellationReason: true,
+        },
+        orderBy: { cancelledAt: 'desc' },
       }),
       prisma.waiterProfile.findFirst({
         where: { name: cleanWaiterName },
@@ -204,6 +229,22 @@ export async function GET(req: Request) {
       }))
       .sort((a, b) => b.quantity - a.quantity || b.amountCents - a.amountCents);
 
+    const cancelledMap = new Map<string, { name: string; quantity: number; amountCents: number; reason: string }>();
+    for (const cItem of cancelledItemsData) {
+      const qty = cItem.quantity || 1;
+      const priceCents = (cItem.unitPriceCents || 0) * qty;
+      const itemName = cItem.variantName ? `${cItem.productName} (${cItem.variantName})` : cItem.productName;
+      const reason = cItem.cancellationReason || 'Storno';
+      const key = `${itemName}___${reason}`;
+      const existing = cancelledMap.get(key) || { name: itemName, quantity: 0, amountCents: 0, reason };
+      existing.quantity += qty;
+      existing.amountCents += priceCents;
+      cancelledMap.set(key, existing);
+    }
+
+    const itemsCancelled: SettlementItemSold[] = Array.from(cancelledMap.values())
+      .sort((a, b) => b.quantity - a.quantity || b.amountCents - a.amountCents);
+
     const cashExpectedCents = Math.round(cashGross - tipWaiterShare);
 
     const report: SettlementReport = {
@@ -238,6 +279,7 @@ export async function GET(req: Request) {
       eventName: config?.name || 'OpenBon',
       orderCount: orders.length,
       itemsSold,
+      itemsCancelled,
       orders,
     };
 

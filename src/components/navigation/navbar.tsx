@@ -86,6 +86,15 @@ export default function Navbar() {
   const { socket } = useSocket();
 
   useEffect(() => {
+    if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
     const getSessionStart = () => {
       if (typeof window === 'undefined') return 0;
       let sessionStart = Number(sessionStorage.getItem('openbon_session_start') || 0);
@@ -577,7 +586,7 @@ export default function Navbar() {
         <div className="fixed inset-0 z-[60] flex animate-in fade-in duration-150">
           <div className="fixed inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
 
-          <div className="relative w-84 max-w-[88vw] bg-slate-900 text-white h-full shadow-2xl flex flex-col z-10 border-r border-slate-700 animate-in slide-in-from-left duration-200">
+          <div className="relative w-84 max-w-[88vw] bg-slate-900 text-white h-full shadow-2xl flex flex-col z-10 border-r border-slate-700 animate-in slide-in-from-left duration-200 overscroll-contain">
             {/* Header */}
             <div className="p-4 border-b border-slate-800 flex items-center justify-between">
               <div>
@@ -622,7 +631,7 @@ export default function Navbar() {
             </div>
 
             {/* Navigation Links by Role */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            <div className="flex-1 overflow-y-auto p-3 space-y-3 overscroll-contain">
               {role === 'ADMIN' ? (
                 /* Admin Grouped Hubs */
                 adminGroups.map((group) => {

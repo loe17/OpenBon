@@ -34,6 +34,7 @@ import { useToast } from '@/components/ui/toast';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import { useSocket } from '@/components/providers/socket-provider';
 import PinModal from '@/components/auth/pin-modal';
+import { TouchNumberInput } from '@/components/ui/touch-numpad';
 
 /**
  * Schichtabrechnung als gefuehrter Ablauf - ausschliesslich in der Administration.
@@ -52,6 +53,7 @@ export interface SettlementItemSold {
   name: string;
   quantity: number;
   amountCents: number;
+  reason?: string;
 }
 
 export interface SettlementOrderSummary {
@@ -88,6 +90,7 @@ interface SettlementReport {
   eventName: string;
   orderCount?: number;
   itemsSold?: SettlementItemSold[];
+  itemsCancelled?: SettlementItemSold[];
   orders?: SettlementOrderSummary[];
 }
 
@@ -159,7 +162,7 @@ function AdminSettleContent() {
   const [report, setReport] = useState<SettlementReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [counted, setCounted] = useState('0');
+  const [counted, setCounted] = useState('');
   const [countedTip, setCountedTip] = useState('');
   const [notes, setNotes] = useState('');
   const [printerId, setPrinterId] = useState<string>('');
@@ -190,7 +193,7 @@ function AdminSettleContent() {
   const [isCorrection, setIsCorrection] = useState(false);
   const [printItemsSold, setPrintItemsSold] = useState(false);
   const [printOrders, setPrintOrders] = useState(false);
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'ARTICLES' | 'ORDERS'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'ARTICLES' | 'ORDERS' | 'CANCELLED_ARTICLES'>('OVERVIEW');
   const [articleSearch, setArticleSearch] = useState('');
 
   const { socket } = useSocket();
@@ -560,6 +563,7 @@ function AdminSettleContent() {
           printItemsSold,
           printOrders,
           itemsSold: report.itemsSold,
+          itemsCancelled: report.itemsCancelled,
           orders: report.orders,
         }),
       });
@@ -886,6 +890,18 @@ function AdminSettleContent() {
                 <ListOrdered className="w-3.5 h-3.5" />
                 Bestellungen ({report.orderCount ?? 0})
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('CANCELLED_ARTICLES')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                  activeTab === 'CANCELLED_ARTICLES'
+                    ? 'bg-rose-600 text-white shadow'
+                    : 'text-slate-400 hover:text-white bg-slate-950 border border-slate-800'
+                }`}
+              >
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                Stornierte Artikel ({(report.itemsCancelled || []).length})
+              </button>
             </div>
 
             {/* TAB 1: ZAHLARTEN & TRINKGELD */}
@@ -1012,6 +1028,41 @@ function AdminSettleContent() {
                 )}
               </div>
             )}
+
+            {/* TAB 4: STORNIERTE ARTIKEL */}
+            {activeTab === 'CANCELLED_ARTICLES' && (
+              <div className="space-y-3">
+                {(!report.itemsCancelled || report.itemsCancelled.length === 0) ? (
+                  <p className="text-sm text-slate-500 py-4 text-center">Keine stornierten Artikel in dieser Kassenperiode.</p>
+                ) : (
+                  <div className="max-h-[350px] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950 divide-y divide-slate-800/60">
+                    <div className="grid grid-cols-12 px-3.5 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-900/50 sticky top-0">
+                      <span className="col-span-5">Artikel</span>
+                      <span className="col-span-3">Stornogrund</span>
+                      <span className="col-span-2 text-center">Menge</span>
+                      <span className="col-span-2 text-right">Summe</span>
+                    </div>
+                    {report.itemsCancelled.map((it, idx) => (
+                      <div key={`${it.name}-${it.reason}-${idx}`} className="grid grid-cols-12 px-3.5 py-2.5 text-xs items-center hover:bg-slate-900/40">
+                        <span className="col-span-5 font-semibold truncate text-slate-200">{it.name}</span>
+                        <span className="col-span-3 text-slate-400 text-[11px] truncate">{it.reason || 'Storno'}</span>
+                        <span className="col-span-2 text-center font-mono font-bold text-rose-400">{it.quantity}×</span>
+                        <span className="col-span-2 text-right font-mono font-bold text-rose-300">-{formatCents(it.amountCents)}</span>
+                      </div>
+                    ))}
+                    <div className="grid grid-cols-12 px-3.5 py-2.5 text-xs items-center bg-slate-900/60 font-bold">
+                      <span className="col-span-8 text-slate-300">Gesamt storniert</span>
+                      <span className="col-span-2 text-center font-mono text-rose-400">
+                        {report.itemsCancelled.reduce((sum, it) => sum + it.quantity, 0)}×
+                      </span>
+                      <span className="col-span-2 text-right font-mono text-rose-300">
+                        -{formatCents(report.itemsCancelled.reduce((sum, it) => sum + it.amountCents, 0))}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2">
@@ -1050,12 +1101,12 @@ function AdminSettleContent() {
               <label className="block text-xs font-bold text-slate-300 mb-2 uppercase tracking-wider">
                 Gezähltes Bargeld (Ist-Bargeld)
               </label>
-              <input
-                type="text"
-                inputMode="decimal"
+              <TouchNumberInput
                 autoFocus
                 value={counted}
-                onChange={(e) => setCounted(e.target.value.replace(/[^0-9.,]/g, ''))}
+                onChangeValue={(val) => setCounted(val)}
+                title="Gezähltes Bargeld eingeben"
+                isCurrency={true}
                 placeholder="0,00"
                 className="w-full min-h-[72px] px-5 bg-slate-950 border-2 border-slate-700 rounded-2xl text-3xl text-white font-mono font-black text-right focus:border-blue-500"
               />
@@ -1065,11 +1116,11 @@ function AdminSettleContent() {
               <label className="block text-xs font-bold text-slate-300 mb-2 uppercase tracking-wider">
                 Gezähltes Trinkgeld (Ist-Trinkgeld)
               </label>
-              <input
-                type="text"
-                inputMode="decimal"
+              <TouchNumberInput
                 value={countedTip}
-                onChange={(e) => setCountedTip(e.target.value.replace(/[^0-9.,]/g, ''))}
+                onChangeValue={(val) => setCountedTip(val)}
+                title="Gezähltes Trinkgeld eingeben"
+                isCurrency={true}
                 placeholder="0,00"
                 className="w-full min-h-[56px] px-5 bg-slate-950 border-2 border-slate-700 rounded-2xl text-2xl text-white font-mono font-bold text-right focus:border-blue-500"
               />
@@ -1448,6 +1499,44 @@ function AdminSettleContent() {
                         </td>
                         <td className="py-2 px-3 text-right font-mono text-emerald-800">
                           {formatCents(report.itemsSold.reduce((sum, it) => sum + it.amountCents, 0))}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Stornierte Artikel */}
+              {report.itemsCancelled && report.itemsCancelled.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="font-black text-sm border-b-2 border-rose-900 pb-1 mb-2 uppercase text-rose-900">
+                    Stornierte Artikel ({report.itemsCancelled.length} Positionen)
+                  </h3>
+                  <table className="w-full text-sm border border-slate-300">
+                    <thead className="bg-rose-50 border-b border-slate-300 text-xs uppercase font-bold text-rose-900">
+                      <tr>
+                        <th className="py-1.5 px-3 text-left">Artikel</th>
+                        <th className="py-1.5 px-3 text-left">Stornogrund</th>
+                        <th className="py-1.5 px-3 text-center">Menge</th>
+                        <th className="py-1.5 px-3 text-right">Betrag</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.itemsCancelled.map((it, idx) => (
+                        <tr key={`${it.name}-${idx}`} className="border-b border-slate-200">
+                          <td className="py-1.5 px-3 font-semibold">{it.name}</td>
+                          <td className="py-1.5 px-3 text-slate-600 text-xs">{it.reason || 'Storno'}</td>
+                          <td className="py-1.5 px-3 text-center font-mono text-rose-700">{it.quantity}×</td>
+                          <td className="py-1.5 px-3 text-right font-mono font-bold text-rose-700">-{formatCents(it.amountCents)}</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-rose-50/50 font-black">
+                        <td colSpan={2} className="py-2 px-3">Gesamt storniert</td>
+                        <td className="py-2 px-3 text-center font-mono text-rose-700">
+                          {report.itemsCancelled.reduce((sum, it) => sum + it.quantity, 0)}×
+                        </td>
+                        <td className="py-2 px-3 text-right font-mono text-rose-700">
+                          -{formatCents(report.itemsCancelled.reduce((sum, it) => sum + it.amountCents, 0))}
                         </td>
                       </tr>
                     </tbody>

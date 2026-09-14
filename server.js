@@ -314,6 +314,11 @@ app.prepare().then(() => {
       io.emit('pos:station_online', payload);
     });
 
+    socket.on('pos:station_online', (payload) => {
+      if (!isStaffSocket()) return;
+      io.emit('pos:station_online', payload);
+    });
+
     socket.on('pos:request_cart_state', (payload) => {
       if (!isStaffSocket()) return;
       socket.broadcast.emit('pos:request_cart_state', payload);

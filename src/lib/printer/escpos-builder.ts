@@ -1122,6 +1122,7 @@ export class EscPosBuilder {
       printItemsSold?: boolean;
       printOrders?: boolean;
       itemsSold?: { name: string; quantity: number; amountCents: number }[];
+      itemsCancelled?: { name: string; quantity: number; amountCents: number; reason?: string }[];
       orders?: { orderNumber: number; time: string; tableName: string; totalCents: number; itemsSummary: string }[];
       settledAt?: string | Date;
       settledBy?: string;
@@ -1251,6 +1252,17 @@ export class EscPosBuilder {
       for (const it of data.itemsSold) {
         builder.twoColumn(`${it.quantity}x ${it.name}`, money(it.amountCents));
         add(`${it.quantity}x ${it.name}: ${money(it.amountCents)}`);
+      }
+    }
+
+    if (data.itemsCancelled && data.itemsCancelled.length > 0) {
+      builder.divider();
+      builder.bold(true).textLine(`STORNIERTE ARTIKEL (${data.itemsCancelled.length})`).bold(false);
+      add(`-- Stornierte Artikel (${data.itemsCancelled.length}) --`);
+      for (const it of data.itemsCancelled) {
+        const reasonStr = it.reason ? ` (${it.reason})` : '';
+        builder.twoColumn(`${it.quantity}x ${it.name}${reasonStr}`, `-${money(it.amountCents)}`);
+        add(`${it.quantity}x ${it.name}${reasonStr}: -${money(it.amountCents)}`);
       }
     }
 

@@ -142,17 +142,15 @@ export default function PrintTableOverviewPage() {
                     return (
                       <div
                         key={`t-${t.id}`}
-                        className={`p-2.5 rounded-lg border-2 text-center flex flex-col justify-between min-h-[72px] ${
+                        className={`p-2 rounded-lg border-2 text-center flex items-center justify-center min-h-[72px] ${
                           t.isActive !== false
                             ? 'border-black bg-white shadow-sm'
                             : 'border-slate-300 bg-slate-100 opacity-40 line-through'
                         }`}
                       >
-                        <div className="text-[10px] font-bold text-slate-700 font-mono">Nr. {t.tableNumber}</div>
-                        <div className="text-sm font-black truncate text-black">{t.label}</div>
-                        <div className="text-[9px] text-slate-500 font-mono">
-                          ({x},{y})
-                        </div>
+                        <span className="text-2xl sm:text-3xl font-black text-black font-mono leading-none">
+                          {t.tableNumber}
+                        </span>
                       </div>
                     );
                   }

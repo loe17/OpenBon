@@ -1,6 +1,7 @@
 /**
- * Umfassendes Handbuch und Referenz-Dokumentation für OpenBon v0.4.38.
+ * Umfassendes Handbuch und Referenz-Dokumentation für OpenBon.
  * Offline verfügbar, druckoptimiert (A4) und thematisch gegliedert.
+ * Enthält Screenshots aller Programmbereiche und lückenlose Erklärungen aller Funktionen.
  */
 
 export interface DocSection {
@@ -10,6 +11,7 @@ export interface DocSection {
   steps?: string[];
   hints?: { kind: 'tip' | 'warn'; text: string }[];
   table?: { headers: string[]; rows: string[][] };
+  image?: { src: string; alt: string; caption?: string };
 }
 
 export interface DocChapter {
@@ -25,42 +27,82 @@ export const HANDBOOK: DocChapter[] = [
   {
     id: 'system',
     chapterNumber: 1,
-    title: 'Systemarchitektur & Erste Schritte',
-    subtitle: 'Lokaler Betrieb, Netzwerk, PIN-Sicherheit und Progressive Web App (PWA)',
+    title: 'Systemarchitektur, Erststart & Sicherheit',
+    subtitle: 'Lokaler Betrieb, Stationsauswahl, Einrichtungsassistent, PIN-Schutz und Installation',
     icon: 'system',
     sections: [
       {
         id: '1.1',
-        heading: '1.1 Grundkonzept: Lokaler Fest-Server & Zero-Cloud',
+        heading: '1.1 Grundkonzept: Lokaler Fest-Server & Unabhängigkeit',
         paragraphs: [
-          'OpenBon ist speziell für Vereinsfeste, Biergärten, Feuerwehrfeste und Gastronomie konzipiert. Das System arbeitet zu 100 % lokal – es ist keine dauerhafte Internetverbindung erforderlich.',
-          'Alle Daten (Bestellungen, Zahlungen, TSE-Signaturen und Stammdaten) werden direkt auf dem lokalen Kassenrechner in einer transaktionssicheren SQLite-Datenbank mit WAL-Modus (Write-Ahead-Logging) gespeichert.',
-          'Kellner-Smartphones, stationäre Kassen und Küchendrucker kommunizieren ausschließlich über das lokale WLAN-Netzwerk.',
+          'OpenBon wurde speziell für Vereinsfeste, Feuerwehrfeste, Schützenfeste, Biergärten und die Gastronomie entwickelt. Das System läuft komplett auf Ihrem eigenen Computer vor Ort – eine ständige Internetverbindung ist zu keinem Zeitpunkt erforderlich.',
+          'Alle Daten (Bestellungen, Tische, Zahlungen und Berichte) werden direkt auf dem Kassenrechner in einer geschützten Datenbank gespeichert. Smartphones der Bedienungen, stationäre Kassen und Küchendrucker kommunizieren rein über das lokale WLAN-Netzwerk.',
         ],
         hints: [
           {
             kind: 'tip',
-            text: 'Fällt während des Festbetriebs das externe Internet aus, läuft OpenBon vollkommen unbeeinträchtigt weiter.',
+            text: 'Sollte während des Festbetriebs das externe Internet oder der Telefonanschluss ausfallen, arbeitet OpenBon völlig ungestört weiter.',
           },
         ],
       },
       {
         id: '1.2',
-        heading: '1.2 Netzwerk-Setup & Verbindung',
-        steps: [
-          'Verbinden Sie den Kassenrechner (Server) per LAN-Kabel mit dem WLAN-Router (z. B. FRITZ!Box).',
-          'Aktivieren Sie im Router die Option "Diesem Netzwerkgerät immer die gleiche IPv4-Adresse zuweisen" (z. B. 192.168.1.100).',
-          'Öffnen Sie auf den Mobilgeräten (Smartphones/Tablets) den Webbrowser und rufen Sie "http://openbon.local" oder die Server-IP "http://192.168.1.100:3000" auf.',
+        heading: '1.2 Startseite & Stationsauswahl',
+        paragraphs: [
+          'Beim Aufrufen von OpenBon erscheint die zentrale Stationsauswahl. Hier wählt jeder Mitarbeiter mit einer Berührung seinen Einsatzbereich aus:',
+          '• Bedienung (Kellner): Schnelle Tischaufnahme, Wünsche, Splitten und Kassieren auf Smartphones.',
+          '• Bonkasse / Theke: Schneller Direktverkauf für Einlass, Wertmarken und Schänken.',
+          '• Küche (KDS): Digitaler Küchen- und Ausschankmonitor zur Abarbeitung der Bestellungen.',
+          '• SB-Kiosk: Gästeterminal zur kontaktlosen Selbstbestellung mit Warenkorb und Sofort-Reset.',
+          '• Kundendisplay: Bildschirm mit Blick zum Gast zur Live-Anzeige der gebuchten Artikel.',
+          '• Administration: Alle Einstellungen, Artikel, Tische, Drucker, Berichte und Abrechnungen.',
         ],
+        image: {
+          src: '/docs/images/01_home_station_select.png',
+          alt: 'Stationsauswahl OpenBon',
+          caption: 'Die Startseite: Direkter Einstieg in alle Stationen mit Touch-Bedienung',
+        },
       },
       {
         id: '1.3',
-        heading: '1.3 PIN-Sicherheitsarchitektur',
+        heading: '1.3 Erststart-Assistent (Setup-Wizard)',
         paragraphs: [
-          'OpenBon schützt sensible Bereiche durch separate, rollenbasierte PIN-Codes. Alle PINs werden mittels PBKDF2-Hashing (100.000 Runden mit kryptografischem Salt) und signierten JWT-Cookies geschützt.',
+          'Wird OpenBon zum ersten Mal gestartet oder ist das System noch nicht konfiguriert, öffnet sich automatisch der geführte Erststart-Assistent. In 4 einfachen Schritten ist das System einsatzbereit:',
+          '1. Fest- & Betriebsdaten: Name der Veranstaltung, Währung und Standard-Steuersätze hinterlegen.',
+          '2. Sichere PIN-Vergabe: Festlegung von individuellen Geheimzahlen für Admin, Kasse, Küche und Kellner.',
+          '3. Tische & Räume: Blitzschnelle automatische Erstellung von Tischreihen (z. B. Tische 1 bis 50).',
+          '4. Drucker-Zuweisung: Auswahl der Netzwerkdrucker für Theke, Küche und Kassenbelege.',
+        ],
+        image: {
+          src: '/docs/images/02_setup_wizard.png',
+          alt: 'Erststart-Assistent Setup-Wizard',
+          caption: 'Geführter 4-Schritte-Assistent bei der Erstinbetriebnahme',
+        },
+        hints: [
+          {
+            kind: 'tip',
+            text: 'Sobald aktive Buchungen im System vorhanden sind, wird der Assistent automatisch gesperrt, damit keine Live-Daten versehentlich überschrieben werden.',
+          },
+        ],
+      },
+      {
+        id: '1.4',
+        heading: '1.4 Netzwerk-Setup & Mobilgeräte verbinden',
+        steps: [
+          'Schließen Sie den Kassenrechner (Server) per Netzwerkkabel an den WLAN-Router (z. B. FRITZ!Box) an.',
+          'Stellen Sie im Router ein, dass der Server immer die gleiche feste IP-Adresse erhält (z. B. 192.168.1.100).',
+          'Verbinden Sie die Smartphones und Tablets mit dem Fest-WLAN.',
+          'Öffnen Sie auf den Mobilgeräten den Browser und geben Sie die Kassen-Adresse ein (z. B. http://192.168.1.100:3000 oder http://openbon.local).',
+        ],
+      },
+      {
+        id: '1.5',
+        heading: '1.5 Rollenbasierte PIN-Sicherheit',
+        paragraphs: [
+          'Sensible Bereiche sind durch separate Geheimzahlen geschützt. Das Kassenpersonal kann Bestellungen aufnehmen und kassieren, aber nicht eigenmächtig Preise ändern oder Tage abschließen.',
         ],
         table: {
-          headers: ['Rolle / Station', 'Standard-PIN', 'Berechtigungen & Aufgaben'],
+          headers: ['Rolle / Station', 'Standard-PIN', 'Rechte & Aufgaben'],
           rows: [
             ['Administrator', '1234', 'Vollzugriff: Preise, Stammdaten, Berichte, Drucker, Backups & Kassensturz'],
             ['Kasse / Theke (POS)', '0000', 'Direktverkauf, Bon-Druck, Kassenladen-Öffnung, Kassenbuch'],
@@ -71,48 +113,27 @@ export const HANDBOOK: DocChapter[] = [
         hints: [
           {
             kind: 'warn',
-            text: 'Ändern Sie vor dem ersten öffentlichen Festbetrieb die Standard-PINs im Menü "System & Konfiguration".',
-          },
-        ],
-      },
-      {
-        id: '1.4',
-        heading: '1.4 Progressive Web App (PWA) Installation',
-        paragraphs: [
-          'OpenBon kann ohne App-Store-Installation auf jedem Android- und iOS-Gerät im Vollbildmodus genutzt werden.',
-        ],
-        steps: [
-          'Auf dem Smartphone die Kassen-URL im Browser (Chrome oder Safari) aufrufen.',
-          'Auf das Teilen-Symbol (iOS Safari) bzw. das Drei-Punkte-Menü (Android Chrome) tippen.',
-          '"Zum Home-Bildschirm hinzufügen" auswählen.',
-          'OpenBon öffnet sich fortan als native App ohne Adressleiste und mit optimaler Bildschirmfläche.',
-        ],
-      },
-      {
-        id: '1.5',
-        heading: '1.5 Erststart-Assistent & Setup Wizard (/setup)',
-        paragraphs: [
-          'Bei einer Neuinstallation oder dem ersten Aufruf führt OpenBon automatisch durch einen 4-Schritte-Einrichtungsassistenten:',
-          '1. Veranstaltungsdaten (Name des Fests, Währung, Steuersätze).',
-          '2. Sichere PIN-Festlegung: Vergabe individueller PINs für Admin, Kasse, Küche und Bedienung zur Ablösung der Standard-PINs.',
-          '3. Tische & Räume: Blitzschnelle Generierung von Tischreihen oder Übernahme vorhandener Pläne.',
-          '4. Drucker & Stationen: Zuweisung von Bon- und Küchendruckern.',
-        ],
-        hints: [
-          {
-            kind: 'tip',
-            text: 'Befinden sich bereits aktive Daten auf dem System, wird der Assistent automatisch gesperrt, um ein versehentliches Überschreiben zu verhindern.',
+            text: 'Bitte ändern Sie die Standard-PINs vor dem Festbetrieb in den Systemeinstellungen.',
           },
         ],
       },
       {
         id: '1.6',
-        heading: '1.6 Schutz vor Datenverlust bei ungespeicherten Einstellungen',
+        heading: '1.6 Progressive Web App (PWA) & Vollbild-Betrieb',
         paragraphs: [
-          'In den Systemeinstellungen (/admin/settings) überwacht OpenBon jede Eingabe. Werden Werte verändert, greift bei jeglichem Verlassen (Klick auf Chat, Artikel, Stationswechsel im Menü oder Browser-Zurück) ein In-App-Sicherheitsdialog:',
-          '• "Speichern & wechseln": Übernimmt alle Änderungen sofort und leitet zur gewählten Seite weiter.',
-          '• "Verwerfen & wechseln": Setzt ungespeicherte Änderungen zurück.',
-          '• "Hier bleiben": Bricht den Wechsel ab, sodass die Bearbeitung fortgeführt werden kann.',
+          'OpenBon lässt sich auf jedem Apple- und Android-Gerät als vollwertige App ohne App-Store installieren:',
+          '1. Kassen-Adresse auf dem Smartphone in Safari (iOS) oder Chrome (Android) öffnen.',
+          '2. Auf die Teilen-Taste bzw. das Drei-Punkte-Menü tippen.',
+          '3. "Zum Home-Bildschirm" auswählen.',
+          'OpenBon startet fortan im Vollbildmodus ohne störende Adresszeile.',
+        ],
+      },
+      {
+        id: '1.7',
+        heading: '1.7 Navigationsschutz & Menü-Scroll-Kapselung',
+        paragraphs: [
+          'Damit bei langen Menüs oder Listen auf Touch-Geräten kein versehentliches Verschieben des Hintergrunds auftritt, kapselt OpenBon das Hauptmenü vollständig ab. Das Scrollen bleibt exakt im Menüfenster gebunden.',
+          'Werden in den Systemeinstellungen Änderungen vorgenommen und der Benutzer möchte die Seite verlassen, erinnert ein automatischer Sicherheitsdialog an das Speichern ungesicherter Eingaben.',
         ],
       },
     ],
@@ -121,177 +142,257 @@ export const HANDBOOK: DocChapter[] = [
     id: 'waiter',
     chapterNumber: 2,
     title: 'Kellner- & Servicehandbuch',
-    subtitle: 'Direkteingabe, Bestellen, Wünsche, Gang-Steuerung, Splitting & Rückgeldrechner',
+    subtitle: 'Tischauswahl, Bestellungen, Wünsche, Stornierung, Splitting & Kassieren',
     icon: 'waiter',
     sections: [
       {
         id: '2.1',
-        heading: '2.1 Tischnummer-Direkteingabe (Ziffernblock)',
+        heading: '2.1 Schnelle Tischauswahl per Ziffernblock (Keypad)',
         paragraphs: [
-          'Ganz oben in der Kellneransicht befindet sich die Schnell-Eingabeleiste mit virtuellem Ziffernblock.',
-          'Tippen Sie die Tischnummer (z. B. "14") ein und drücken Sie "Bestellen". Existiert der Tisch noch nicht, legt das System ihn automatisch und verzögerungsfrei an.',
+          'Im hektischen Festbetrieb ist das Tippen der Tischnummer schneller als das Suchen auf großen Raumplänen. Die Kellneransicht bietet ganz oben eine Direkteingabe mit großen Touch-Tasten.',
+          'Geben Sie die Tischnummer (z. B. "12") ein und tippen Sie auf "Tisch öffnen". Existiert der Tisch noch nicht, wird er sofort automatisch angelegt.',
         ],
-        hints: [
-          {
-            kind: 'tip',
-            text: 'Die Ziffernblock-Eingabe spart im Festzelt-Trubel wertvolle Sekunden gegenüber dem Suchen auf großen Tischplänen.',
-          },
-        ],
+        image: {
+          src: '/docs/images/04b_waiter_tischnummer_keypad.png',
+          alt: 'Tischnummern Keypad',
+          caption: 'Schnelle Direkteingabe der Tischnummer über das Touch-Keypad',
+        },
       },
       {
         id: '2.2',
-        heading: '2.2 Tischplan & Statusfarben',
+        heading: '2.2 Tischplan & Statusfarben in Echtzeit',
         paragraphs: [
-          'Der Tischplan visualisiert alle Tische in Echtzeit über WebSockets:',
+          'Über den Reiter "Tischplan" werden alle Tische räumlich übersichtlich dargestellt. Statusänderungen synchronisieren sich sekundenschnell zwischen allen Geräten.',
         ],
         table: {
-          headers: ['Farbe', 'Bedeutung', 'Aktion'],
+          headers: ['Farbe', 'Bedeutung', 'Aktion bei Berührung'],
           rows: [
-            ['Dunkelgrau', 'Freier Tisch', 'Antippen zum Starten einer neuen Bestellung'],
-            ['Blau / Bernstein', 'Belegter Tisch (Offene Speisen / Getränke)', 'Zeigt offenen Gesamtbetrag und Verweildauer an'],
-            ['Rot blinkend', 'Wartezeit-Alarm (Küche überfällig)', 'Küche benötigt Unterstützung oder Speisen sind abholbereit'],
+            ['Dunkelgrau', 'Freier Tisch', 'Öffnet sofort eine neue Bestellung'],
+            ['Blau / Bernstein', 'Belegter Tisch mit offenen Posten', 'Öffnet das Tisch-Aktionsmenü (Bestellen, Kassieren, Storno)'],
+            ['Rot blinkend', 'Wartezeit-Warnung', 'Bestellung wartet schon ungewöhnlich lange auf Zubereitung'],
           ],
+        },
+        image: {
+          src: '/docs/images/04a_waiter_tischplan.png',
+          alt: 'Grafischer Tischplan mit Statusfarben',
+          caption: 'Tischplan-Übersicht mit Räumen und farbiger Belegungskennzeichnung',
         },
       },
       {
         id: '2.3',
-        heading: '2.3 Bestellaufnahme, Sorten & Optionen',
-        steps: [
-          'Warengruppe wählen (z. B. "Getränke", "Grill", "Kaffee & Kuchen").',
-          'Artikel antippen. Hat der Artikel Sorten oder Untervarianten (z. B. "0,5 l", "mit Pommes"), öffnet sich der Auswahldialog.',
-          'Unten im einklappbaren Warenkorb-Drawer werden Gesamtanzahl und Summe sofort berechnet.',
-          'Auf "Bestellen" tippen – die Bons werden sofort an die zuständigen Drucker (Küche, Ausschank) gesendet.',
+        heading: '2.3 Tisch-Aktionsmenü',
+        paragraphs: [
+          'Beim Antippen eines bereits belegten Tisches öffnet sich das zentrale Aktionsmenü. Hier stehen alle relevanten Werkzeuge auf einen Blick bereit:',
+          '• [ Bestellen ]: Neue Speisen und Getränke für diesen Tisch aufnehmen.',
+          '• [ Kassieren ]: Zur Abrechnung wechseln (Gesamt oder Getrennt zahlen).',
+          '• [ Bestellung stornieren ]: Macht fehlerhafte Buchungen innerhalb der eingestellten Frist rückgängig.',
+          '• [ Tisch umbuchen ]: Zieht die Gäste auf einen anderen Tisch um oder legt zwei Tische zusammen.',
+          '• [ Gleiche Runde ]: Lädt alle zuletzt bestellten Getränke mit einem Tipp erneut in den Warenkorb.',
+          '• [ Bestellhistorie ]: Zeigt alle bisher für diesen Tisch aufgenommenen Runden mit Uhrzeit und Kellner an.',
         ],
+        image: {
+          src: '/docs/images/04c_waiter_tisch_aktionen.png',
+          alt: 'Tisch Aktionsmenü',
+          caption: 'Das Aktionsmenü beim Klick auf einen belegten Tisch',
+        },
       },
       {
         id: '2.4',
-        heading: '2.4 Wünsche-Baukasten & Freitext',
+        heading: '2.4 Storno-Funktion mit Frist-Countdown & Barauszahlung',
         paragraphs: [
-          'Über "+ Wunsch" öffnet sich der interaktive Baukasten für Sonderwünsche. Dieser kombiniert Vorsatzwörter ("ohne", "extra", "wenig", "viel") mit Zutaten (z. B. "ohne Zwiebeln", "extra scharf").',
-          'Sonderwünsche werden auf dem Küchenbon groß, fett und mit Warnsymbolen hervorgehoben.',
+          'Tippfehler passieren. OpenBon bietet ein durchdachtes Storno-Verfahren:',
+          '1. Storno-Zeitfenster: In den Admin-Einstellungen wird festgelegt, wie viele Minuten nach der Bestellung eine Stornierung durch das Servicepersonal zulässig ist (z. B. 3 Minuten). Nach Ablauf dieser Zeit ist der Storno-Knopf gesperrt.',
+          '2. Countdown-Anzeige: Wenn die Option im Adminbereich aktiviert ist, zeigt der Storno-Knopf am Tisch minutengenau an, wie lange die Stornierung noch möglich ist.',
+          '3. Automatischer Auszahlvorgang: Wurde die Bestellung direkt mit "Bestellen & Kassieren" abgeschlossen und bezahlt, führt der Storno-Knopf einen Auszahlvorgang des Geldes an den Gast durch. Der Betrag wird ordnungsgemäß aus der Kellnerkasse ausgebucht.',
+          '4. Lager-Korrektur & Nachvollziehbarkeit: Verknüpfte Zutatenlagerbestände werden wieder gutgeschrieben und der Vorgang erscheint lückenlos im Schichtbericht unter "Stornierte Artikel".',
+        ],
+        hints: [
+          {
+            kind: 'tip',
+            text: 'Wird in den Admin-Einstellungen die Storno-Zeit auf 0 gesetzt oder deaktiviert, können Kellner gar nicht mehr nachträglich stornieren, sondern nur noch die Kassenleitung.',
+          },
         ],
       },
       {
         id: '2.5',
-        heading: '2.5 3-Gänge-Steuerung & HOLD (Zurückhalten)',
+        heading: '2.5 Bestellaufnahme & Warenkorb',
         paragraphs: [
-          'Unterstützt 3 Gänge: Gang 1 (Vorspeise / Sofort), Gang 2 (Hauptgang), Gang 3 (Dessert).',
-          'Mit "Zurückhalten" (HOLD) wird die Zubereitung pausiert. Der Küchenbon wird erst gedruckt, wenn die Bedienung den Gang später manuell abruft.',
+          'Die Bestellmaske listet alle Warengruppen auf. Ein Fingertipp auf ein Produkt legt es in den Warenkorb. Besitzt ein Artikel Untervarianten (z. B. Groß/Klein oder verschiedene Beilagen), öffnet sich automatisch das Auswahlfenster.',
+          'Der Warenkorb am unteren Bildschirmrand fasst Menge und Summe zusammen. Mit der Taste "Bestellen" werden die Bons an Küche und Schänke gedruckt.',
         ],
+        image: {
+          src: '/docs/images/05b_waiter_order_warenkorb.png',
+          alt: 'Bestellmaske mit Warenkorb',
+          caption: 'Bestellmaske mit Warengruppen und geöffnetem Warenkorb',
+        },
       },
       {
         id: '2.6',
-        heading: '2.6 Schnelle Wiederholung: Gleiche Runde',
+        heading: '2.6 Sonderwünsche-Baukasten & Freitext',
         paragraphs: [
-          'Möchte ein Tisch "nochmal die gleiche Runde", tippen Sie in der Tischübersicht auf "Gleiche Runde". Alle zuvor georderten Posten werden sofort in den Warenkorb geladen.',
+          'Über die Schaltfläche "+ Wunsch" öffnet sich der Wünsche-Baukasten. Hier können typische Gastwünsche ("ohne Zwiebeln", "extra Soße", "kross gebraten") kombiniert oder freie Notizen eingegeben werden.',
+          'Sonderwünsche werden auf dem Küchenausdruck und dem Monitor besonders auffällig markiert.',
         ],
       },
       {
         id: '2.7',
-        heading: '2.7 Tisch umbuchen & zusammenlegen',
-        steps: [
-          'In der Tischdetailansicht auf "Tisch umbuchen" tippen.',
-          'Ziel-Tischnummer eingeben.',
-          'Wahlweise "Ganzen Tisch umziehen" oder mit einem bestehenden Tisch "Zusammenlegen".',
+        heading: '2.7 Gänge-Steuerung & HOLD (Zurückhalten)',
+        paragraphs: [
+          'Speisen können Gängen zugeordnet werden (Gang 1: Vorspeise, Gang 2: Hauptgang, Gang 3: Dessert).',
+          'Wird ein Gang auf "Zurückhalten (HOLD)" gesetzt, wird der Küchenbon noch nicht gedruckt. Erst wenn die Bedienung den Gang später am Tisch freigibt, beginnt die Küche mit der Zubereitung.',
         ],
       },
       {
         id: '2.8',
         heading: '2.8 Rechnungs-Splitting (Getrennt zahlen)',
         paragraphs: [
-          'OpenBon bietet ein intuitives, touch-optimiertes Splitting-Werkzeug:',
-          '1. Postenweises Splitten: Einzelne Artikel auswählen oder über "Alles" / "Keine" gesammelt markieren.',
-          '2. Transparente Abrechnung: Der Rechnungsbetrag der ausgewählten Positionen wird in Echtzeit berechnet.',
-          '3. Nahtloses Weiterkassieren: Nach dem Bezahlvorgang ermöglicht "Nächsten Gast am selben Tisch kassieren" das direkte Abrechnen der verbleibenden Speisen und Getränke.',
+          'Wollen Gäste getrennt bezahlen, bietet OpenBon eine komfortable Splitting-Maske:',
+          '1. Auf "Getrennt zahlen" tippen.',
+          '2. Die Artikel antippen, die der erste Gast übernimmt (oder Mengen mit +/- anpassen).',
+          '3. Sofort kassieren. Nach dem Bezahlvorgang kehrt OpenBon direkt zum Tisch zurück, um den nächsten Gast abzurechnen.',
         ],
+        image: {
+          src: '/docs/images/06a_waiter_payment_splitting.png',
+          alt: 'Rechnungs-Splitting',
+          caption: 'Postenweises Auswählen beim getrennten Bezahlen',
+        },
       },
       {
         id: '2.9',
-        heading: '2.9 Bezahlvorgang, Trinkgeld-Schnellrundung & Rückgeldrechner',
+        heading: '2.9 Touch-Bargeldrechner & Trinkgeld-Schnellrundung',
         paragraphs: [
-          'Beim Kassieren stehen praktische Hilfen für schnellen Durchsatz bereit:',
-          '1. Schnelle Trinkgeld-Rundung per Pfeiltasten: Mit den 4 Touch-Pfeilen (▲/▼ links für 1,00 € und ▲/▼ rechts für 0,50 €) kann der Zahlbetrag blitzschnell aufgerundet werden. Der Trinkgeldbetrag wird automatisch ermittelt und verbucht.',
-          '2. Interaktiver Stückelungs-Bargeldrechner: Tippen Sie auf die Scheine (100, 50, 20, 10, 5 €) und Münzen (2, 1, 0.50, 0.20, 0.10, 0.05 €), die der Gast hingelegt hat. Die Beträge addieren sich automatisch.',
-          '3. Große Rückgeld-Anzeige: Das genaue Wechselgeld wird gut lesbar berechnet und angezeigt.',
+          'Der Bezahlbildschirm beschleunigt das Kassieren spürbar:',
+          '• Pfeiltasten-Schnellrundung: Mit den 4 Touch-Pfeilen kann die Rechnung schnell auf volle Euro oder 50-Cent aufgerundet werden. Das Trinkgeld wird automatisch errechnet.',
+          '• Geldscheine & Münzen: Ein Tipp auf die abgebildeten Euro-Scheine und Münzen summiert das übergebene Geld.',
+          '• Rückgeldanzeige: Das exakte Wechselgeld wird groß und fett in Grün angezeigt.',
         ],
+        image: {
+          src: '/docs/images/06c_waiter_payment_cash_rechner.png',
+          alt: 'Bargeldrechner und Trinkgeld-Rundung',
+          caption: 'Touch-Bargeldrechner mit Scheinen, Münzen und Schnellrundung',
+        },
       },
       {
         id: '2.10',
-        heading: '2.10 Gastansicht & Display-Drehung',
+        heading: '2.10 Pfandrückgabe-Matrix',
         paragraphs: [
-          'Mit der Gastansicht-Funktion kann das Tablet zum Gast gedreht werden. Der Gast sieht eine aufgeräumte Zusammenfassung seiner Bestellung sowie Zahlungsoptionen (z. B. QR-Code).',
+          'Bringen Gäste Gläser, Krüge oder Flaschen zurück, können diese direkt im Bezahlfenster über die Pfandmatrix verrechnet werden. Der Pfandbetrag wird sofort vom Zahlbetrag abgezogen.',
         ],
+        image: {
+          src: '/docs/images/06d_waiter_payment_pfand_matrix.png',
+          alt: 'Pfandrückgabe Matrix',
+          caption: 'Verrechnung von Pfandgut direkt im Bezahlprozess',
+        },
       },
       {
         id: '2.11',
-        heading: '2.11 Tisch-Bestellhistorie',
+        heading: '2.11 X-Bon Zwischenstand & Tischhistorie',
         paragraphs: [
-          'Über das Verlauf-Symbol (Uhr) am Tisch oder in der Bestellmaske kann die vollständige Bestellhistorie des Tisches eingesehen werden – unabhängig davon, welche Bedienung die jeweilige Runde boniert hat.',
+          'Jede Bedienung kann am Smartphone jederzeit ihren aktuellen Zwischenumsatz (X-Bon) abfragen, um den bisherigen Kassenstand zu kontrollieren.',
         ],
+        image: {
+          src: '/docs/images/04d_waiter_xbon_zwischenstand.png',
+          alt: 'X-Bon Zwischenstand',
+          caption: 'Kellner-Zwischenstand mit Umsatz, Baranteil und Kartenzahlungen',
+        },
       },
     ],
   },
   {
     id: 'pos',
     chapterNumber: 3,
-    title: 'Stationäre Kasse & Thekenverkauf',
-    subtitle: 'Direktverkauf, Bonkasse, Kassenlade, Wertmarken & digitaler E-Bon',
+    title: 'Stationäre Kasse, SB-Kiosk & Kundendisplay',
+    subtitle: 'Direktverkauf, Wertmarken, Kassenlade, E-Bon, SB-Terminal und Zweitbildschirm',
     icon: 'pos',
     sections: [
       {
         id: '3.1',
-        heading: '3.1 Sofortverkauf an der Theke',
+        heading: '3.1 Sofortverkauf an der Bonkasse',
         paragraphs: [
-          'Unter /pos befindet sich die Hochgeschwindigkeits-Kasse für Theken, Festzelteingänge und Bonverkaufsstellen.',
-          'Artikel werden mit einem Klick in den Warenkorb gelegt. Die Kasse schließt den Verkauf sofort ab und druckt wahlweise Kassenbelege oder Wertmarken.',
+          'Unter /pos befindet sich die optimierte Theken- und Bonkasse für feste Kassenplätze, Wertmarkenbuden und Zelteingänge.',
+          'Artikel werden mit einem Klick ausgewählt und erscheinen im übersichtlichen Warenkorb. Für maximale Übersicht wurde die alte Anzeige der Abholnummer entfernt.',
         ],
+        image: {
+          src: '/docs/images/03_pos_counter.png',
+          alt: 'Stationäre Bonkasse',
+          caption: 'Die Kassenansicht für Thekenverkauf und Wertmarkenausgabe',
+        },
       },
       {
         id: '3.2',
-        heading: '3.2 Automatische Kassenladen-Ansteuerung',
+        heading: '3.2 Kassiermodal & Zahlungsarten',
         paragraphs: [
-          'Über den ESC/POS-Impulsbefehl (Pin 2 / Pin 5 an der RJ12-Buchse des Bondruckers) öffnet sich die Kassenschublade bei Barzahlung automatisch.',
+          'Beim Klick auf "Kassieren" öffnet sich das Kassiermodal. Hier stehen Barzahlung, Kartenzahlung und Wertmarken zur Auswahl. Auch gemischte Teilzahlungen (z. B. 20 € bar und Rest per Karte) werden unterstützt.',
         ],
-        hints: [
-          {
-            kind: 'tip',
-            text: 'Im Adminbereich unter "Drucker" kann die Impulsdauer der Kassenlade eingestellt werden.',
-          },
-        ],
+        image: {
+          src: '/docs/images/03c_pos_kassiermodal_voll.png',
+          alt: 'Kassiermodal Bonkasse',
+          caption: 'Kassiermaske mit Zahlungsarten, Rückgeld und Belegoptionen',
+        },
       },
       {
         id: '3.3',
-        heading: '3.3 Wertmarken & Verzehrgutscheine',
+        heading: '3.3 Kassenladen-Steuerung (RJ12 Impuls)',
         paragraphs: [
-          'Artikel können als "Wertmarke / Festbon" deklariert werden. Beim Verkauf druckt OpenBon fälschungssichere Einzelabschnitte mit fortlaufender 3-stelliger Abholnummer aus.',
+          'Wird ein Barverkauf abgeschlossen, sendet OpenBon automatisch den Auslöseimpuls über das Druckerkabel an die Kassenlade, sodass sie sofort aufspringt.',
         ],
       },
       {
         id: '3.4',
-        heading: '3.4 Digitaler E-Bon & Web-NFC Übertragung',
+        heading: '3.4 Wertmarken- & Festbon-Druck',
         paragraphs: [
-          'Gäste können ihren Kassenbeleg nach § 33 KassenSichV papierlos empfangen:',
-          '• E-Bon per NFC: Der Gast hält sein Smartphone kurz an das Kassen-Tablet bzw. den NFC-Leser. Die Beleg-URL wird in Sekundenbruchteilen kontaktlos übertragen.',
-          '• E-Bon per QR-Code: Alternativ wird ein dynamischer QR-Code auf dem Bildschirm angezeigt, den der Gast mit der Kamera scannt.',
-          'Digitale Belege werden manipulationssicher mit kryptografischer Signatur und TSE-Daten als PDF ausgeliefert.',
+          'Artikel können als Wertmarken konfiguriert werden. Beim Verkauf druckt der Drucker für jede Marke einen separaten Bonabschnitt mit fortlaufender Festnummer.',
         ],
       },
       {
         id: '3.5',
-        heading: '3.5 Beleg-Auswahl & Papierbon-Steuerung an der Bonkasse',
+        heading: '3.5 Digitaler E-Bon & Web-NFC',
         paragraphs: [
-          'Nach Abschluss des Kassiervorgangs (Bar, Karte, Wertmarke) präsentiert OpenBon eine übersichtliche Touch-Auswahl:',
-          '• [ E-Bon per NFC ]: Startet die Web-NFC-Übertragung mit Statusanzeige und Scan-Alternative.',
-          '• [ Papierbon ]: Druckt den Beleg direkt am Kassen-Bondrucker aus. Ist bereits gedruckt, ermöglicht [ Erneut drucken ] jederzeit einen Nachdruck.',
-          '• [ Kein Beleg ]: Schließt die Kassiermaske mit einem Touch, sodass die Kasse sofort für die nächste Schlange frei ist.',
-          'Über die Option "Papierbon-Knopf an der Bonkasse anzeigen" in den Admin-Einstellungen kann die Papierbon-Funktion flexibel aktiviert werden. Ist sie aktiv, stehen an der Kasse Schnellwahlschalter in der oberen Menüleiste und im Warenkorb bereit.',
+          'Nach dem Kassieren kann dem Gast ein digitaler Beleg ausgestellt werden: Entweder hält der Gast sein Smartphone an das Kassentablet (Web-NFC) oder scannt den angezeigten QR-Code ab.',
         ],
-        hints: [
-          {
-            kind: 'tip',
-            text: 'Bleibt der Papierbon deaktiviert, spart OpenBon wertvolles Thermopapier und schont die Umwelt.',
-          },
+        image: {
+          src: '/docs/images/12_receipt_ebon.png',
+          alt: 'Digitaler E-Bon',
+          caption: 'Papierloser digitaler Kassenbeleg mit TSE-Signatur',
+        },
+      },
+      {
+        id: '3.6',
+        heading: '3.6 SB-Kiosk (Self-Order-Terminal) & "Alles löschen"',
+        paragraphs: [
+          'Das SB-Kiosk (/kiosk) erlaubt es Gästen, Speisen und Getränke selbstständig an einem Terminal auszuwählen und bargeldlos zu bezahlen.',
+          'Um Verwirrung durch unerwartete Zeitabläufe zu vermeiden, wurde der automatische 60-Sekunden-Countdown entfernt. Stattdessen befindet sich im Warenkorb ein deutlicher Button "Alles löschen", mit dem der Gast oder die nächste Person den Warenkorb bei Bedarf mit einem Klick vollständig leeren kann.',
         ],
+        image: {
+          src: '/docs/images/09_kiosk_self_order.png',
+          alt: 'SB-Kiosk Selbstbedienung',
+          caption: 'SB-Kiosk mit klarer Artikelauswahl und "Alles löschen"-Schaltfläche',
+        },
+      },
+      {
+        id: '3.7',
+        heading: '3.7 Kundendisplay (Customer-Facing-Display)',
+        paragraphs: [
+          'Ein zweites Tablet oder Monitor (/display) kann dem Gast zugewandt aufgestellt werden. Es spiegelt die Eingaben der Bonkasse in Echtzeit wider.',
+          'Die Bonkasse meldet sich automatisch beim Start am Kundendisplay an – auch dann, wenn der Warenkorb noch völlig leer ist. Das Kundendisplay erkennt die Kasse sofort im Auswahlmenü.',
+        ],
+        image: {
+          src: '/docs/images/10_customer_display.png',
+          alt: 'Kundendisplay',
+          caption: 'Live-Kundendisplay mit gebuchten Artikeln und Gesamtsumme',
+        },
+      },
+      {
+        id: '3.8',
+        heading: '3.8 Digitale Gästekarte am Tisch',
+        paragraphs: [
+          'Über am Tisch angebrachte QR-Codes können Gäste mit dem eigenen Smartphone die Speisekarte (/menu?table=...) aufrufen, Preise einsehen und Allergene prüfen.',
+        ],
+        image: {
+          src: '/docs/images/11_guest_table_menu.png',
+          alt: 'Digitale Speisekarte Gast',
+          caption: 'Speisekarte auf dem Smartphone des Gastes',
+        },
       },
     ],
   },
@@ -299,82 +400,138 @@ export const HANDBOOK: DocChapter[] = [
     id: 'kitchen',
     chapterNumber: 4,
     title: 'Küchen- & Ausschank-Monitor (KDS)',
-    subtitle: 'Digitale Bonleiste, Garzeiten, Zeittimer und Abruf-Steuerung',
+    subtitle: 'Digitale Bonleiste, Garzeiten, Alarmierung, Team-Chat und Schankanlagen-Monitor',
     icon: 'kitchen',
     sections: [
       {
         id: '4.1',
-        heading: '4.1 Digitale Bonleiste & Statusfarben',
+        heading: '4.1 Digitale Bonleiste & Farbsignalisierung',
         paragraphs: [
-          'Der Küchen-Monitor (/kitchen) ersetzt Papierbons in der Küche durch Touch-Monitore:',
+          'Der Küchen- und Schankmonitor (/kitchen) ersetzt Papierbons durch digitale Kacheln auf einem Touch-Bildschirm.',
         ],
         table: {
-          headers: ['Farbe / Zustand', 'Wartezeit', 'Bedeutung'],
+          headers: ['Farbe der Bonkarte', 'Wartezeit', 'Status & Bedeutung'],
           rows: [
-            ['Grün', '0 – 5 Minuten', 'Neu eingegangene Bestellung'],
-            ['Gelb / Orange', '5 – 12 Minuten', 'In Zubereitung'],
-            ['Rot blinkend mit Alarmton', '> 12 Minuten', 'Dringend / Überfällig'],
+            ['Grün', '0 bis 5 Minuten', 'Neu eingetroffene Bestellung'],
+            ['Gelb / Bernstein', '5 bis 12 Minuten', 'In Zubereitung am Grill / an der Schänke'],
+            ['Rot blinkend', 'Über 12 Minuten', 'Dringend! Akustischer Warnton ertönt'],
           ],
+        },
+        image: {
+          src: '/docs/images/08_kitchen_kds.png',
+          alt: 'Küchenmonitor KDS',
+          caption: 'Digitaler Küchenmonitor mit farblicher Wartezeit-Einstufung',
         },
       },
       {
         id: '4.2',
-        heading: '4.2 Gang-Freigaben & Erledigung',
+        heading: '4.2 Arbeitsablauf & Gang-Freigaben',
         steps: [
-          'Beim Start der Zubereitung: Bon antippen (Status wechselt auf "In Arbeit").',
-          'Wenn das Essen fertig ist: Bon antippen (Status wechselt auf "Fertig / Abholbereit").',
-          'Das Serviceteam sieht den Status sofort auf seinen Kellner-Smartphones.',
+          'Beim Start der Zubereitung: Den Bon einmal antippen (Status wechselt auf Gelb "In Arbeit").',
+          'Wenn Speisen oder Getränke fertig sind: Den Bon erneut antippen (wechselt auf Grün "Fertig").',
+          'Das Kellner-Team sieht den Status sofort auf den Smartphones und kann die Bestellung abholen.',
         ],
       },
       {
         id: '4.3',
-        heading: '4.3 Wiederherstellung erledigter Bons',
+        heading: '4.3 Bons wiederherstellen',
         paragraphs: [
-          'Versehentlich abgehakte Bons können mit einem Klick auf "Erledigte anzeigen" im KDS-Menü wieder reaktiviert werden.',
+          'Wurde ein Bon versehentlich als fertig abgehakt, tippt das Küchenpersonal auf "Erledigte anzeigen" und kann den Bon mit einer Berührung reaktivieren.',
         ],
+      },
+      {
+        id: '4.4',
+        heading: '4.4 Team-Chat & Durchsagen',
+        paragraphs: [
+          'Über das Chat-Symbol können Küche, Schänke, Kassenleitung und Kellner kurze Textdurchsagen austauschen (z. B. "Pommes dauert 5 Min", "Fasswechsel an Bar 2").',
+        ],
+        image: {
+          src: '/docs/images/13_team_chat.png',
+          alt: 'Team-Chat',
+          caption: 'Integrierter Funk-Ersatz: Schnelle Text-Durchsagen ans Team',
+        },
+      },
+      {
+        id: '4.5',
+        heading: '4.5 Schankanlagen-Überwachung (Flow Monitor)',
+        paragraphs: [
+          'Unter /taps können Durchflussmesser an den Bierzapfhähnen angebunden werden, um den Füllstand der Fässer in Litern und Prozent exakt im Blick zu behalten.',
+        ],
+        image: {
+          src: '/docs/images/14_taps_flow_monitor.png',
+          alt: 'Schankanlagen Monitor',
+          caption: 'Live-Füllstandsanzeige aller angeschlossenen Bierfässer',
+        },
       },
     ],
   },
   {
     id: 'products',
     chapterNumber: 5,
-    title: 'Stammdaten, Warengruppen & Inventar',
-    subtitle: 'Artikel, Rezepturen, Zutatenlager (StockUnit) und LMIV-Allergene',
+    title: 'Stammdaten, Speisekarte & Zutatenlager',
+    subtitle: 'Artikel, Warengruppen, Rezepturen, Zutatenlager (StockUnit) und Allergene',
     icon: 'products',
     sections: [
       {
         id: '5.1',
-        heading: '5.1 Warengruppen & Sortierung',
+        heading: '5.1 Warengruppen & Artikelpflege',
         paragraphs: [
-          'Warengruppen strukturieren das Sortiment (z. B. "Biere", "Alkoholfrei", "Grill", "Kuchen"). Jeder Gruppe kann eine eigene Erkennungsfarbe zugewiesen werden.',
+          'Unter /admin/products werden Speisen und Getränke angelegt. Warengruppen (z. B. "Biere", "Alkoholfrei", "Grill", "Kaffee & Kuchen") sorgen für Struktur und erhalten eigene Kennfarben.',
         ],
+        image: {
+          src: '/docs/images/17_admin_products.png',
+          alt: 'Artikelverwaltung',
+          caption: 'Verwaltung von Artikeln, Warengruppen, Preisen und Steuersätzen',
+        },
       },
       {
         id: '5.2',
-        heading: '5.2 Artikelstammdaten & Steuersätze',
+        heading: '5.2 Steuersätze & Pfandartikel',
         paragraphs: [
-          'Für jeden Artikel werden Preis, Pfand (z. B. 1.00 € Glaspfand) und Steuersatz (19 % Vor-Ort-Verzehr oder 7 % Außerhaus/Speisen) hinterlegt.',
+          'Jedem Artikel wird der korrekte Steuersatz (19 % Vor-Ort-Verzehr oder 7 % Mitnahme/Grundnahrungsmittel) zugewiesen. Bei Pfandartikeln (z. B. 1,00 € Glaspfand) wird der Pfandbetrag separat hinterlegt und finanzamtkonform als durchlaufender Posten geführt.',
         ],
       },
       {
         id: '5.3',
-        heading: '5.3 Zutaten-Lagerbestand (StockUnit) & Rezepturabzug',
+        heading: '5.3 Zutatenlager (StockUnit) & Rezepturabzug',
         paragraphs: [
-          'OpenBon verknüpft Artikel mit echten Lagerposten (z. B. "Brötchen", "Schnitzel", "Bierfass 50l").',
-          'Wird eine "Bratwurst mit Semmel" oder ein "Steakbrötchen" verkauft, bucht das System automatisch je 1 Brötchen aus dem gemeinsamen Vorratslager ab.',
+          'Verkaufsartikel können mit echten Rohstoffen verknüpft werden. Ein Beispiel: "Bratwurstsemmel" und "Steaksemmel" greifen beide auf die Zutat "Semmeln" zu. Beim Verkauf wird die Zutat automatisch abgebucht.',
         ],
-        hints: [
-          {
-            kind: 'tip',
-            text: 'Erreicht ein Lagerbestand den Meldebestand, warnt OpenBon das Kassenpersonal und blockiert auf Wunsch den Verkauf ausverkaufter Posten.',
-          },
-        ],
+        image: {
+          src: '/docs/images/27_admin_stock_units.png',
+          alt: 'Zutatenlager StockUnits',
+          caption: 'Verknüpfung von Verkaufsartikeln mit Zutaten und Gebinden',
+        },
       },
       {
         id: '5.4',
-        heading: '5.4 LMIV-Allergene & Jugendschutz',
+        heading: '5.4 Inventar & Meldebestand',
         paragraphs: [
-          'Gemäß EU-Lebensmittelinformationsverordnung (LMIV) können Allergene (Gluten, Laktose, Sellerie etc.) hinterlegt werden. Bei alkoholischen Getränken erzwingt das System eine Altersprüfung (ab 16 / ab 18 Jahren).',
+          'Für jeden Artikel oder jede Zutat kann ein Meldebestand hinterlegt werden. Fällt der Bestand unter diesen Wert, warnt OpenBon das Personal rechtzeitig vor dem Ausverkauf.',
+        ],
+        image: {
+          src: '/docs/images/26_admin_inventory.png',
+          alt: 'Lagerbestand Übersicht',
+          caption: 'Lagerbestände mit Warnanzeige bei knappem Vorrat',
+        },
+      },
+      {
+        id: '5.5',
+        heading: '5.5 Beschaffungsliste & Nachbestellungen',
+        paragraphs: [
+          'Unter /admin/procurement wird auf Basis der aktuellen Bestände automatisch eine druckbare Einkaufsliste generiert.',
+        ],
+        image: {
+          src: '/docs/images/28_admin_procurement.png',
+          alt: 'Beschaffungsliste',
+          caption: 'Automatisch berechnete Einkaufs- und Nachbestellungsliste',
+        },
+      },
+      {
+        id: '5.6',
+        heading: '5.6 Druckbare Speisekarte (4 Vorlagen)',
+        paragraphs: [
+          'Mit einem Klick lässt sich die Speisekarte in 4 verschiedenen A4- und A5-Layouts drucken oder als PDF speichern: Klassisch, Modernes Raster, Großschrift-Aushang für Kassenhäuschen und A5-Tischaufsteller.',
         ],
       },
     ],
@@ -382,56 +539,65 @@ export const HANDBOOK: DocChapter[] = [
   {
     id: 'printers',
     chapterNumber: 6,
-    title: 'Druckermanagement & Bon-Layouts',
-    subtitle: 'ESC/POS-Netzwerkdrucker, Tablett-Splits, Schriftgrößen und Speisekarten',
+    title: 'Druckermanagement & Raumpläne',
+    subtitle: 'ESC/POS-Netzwerkdrucker, Bon-Routing, Tischplan-Editor und Druckansicht',
     icon: 'printers',
     sections: [
       {
         id: '6.1',
-        heading: '6.1 Netzwerk-Bondrucker (ESC/POS)',
+        heading: '6.1 Netzwerkdrucker einrichten',
         paragraphs: [
-          'OpenBon steuert Thermodrucker (Epson, Star, Bixolon, Munbyn) direkt über das Netzwerk via TCP Port 9100 an.',
-          'Ist kein physischer Drucker angeschlossen, fängt der integrierte "Virtuelle Drucker" alle Belege ab und zeigt sie im Browser an.',
+          'OpenBon steuert Standard-Thermodrucker (Epson, Star, Munbyn etc.) direkt über das Netzwerk via TCP Port 9100 an. Es müssen keine Druckertreiber auf Windows installiert werden.',
         ],
+        image: {
+          src: '/docs/images/20_admin_printers.png',
+          alt: 'Druckerverwaltung',
+          caption: 'Konfiguration von Bondruckern mit IP-Adresse und Druckergruppen',
+        },
       },
       {
         id: '6.2',
-        heading: '6.2 Druckergruppen & Routing',
+        heading: '6.2 Virtueller Testdrucker',
         paragraphs: [
-          'Jeder Artikel ist einer Druckergruppe zugewiesen (z. B. Küche -> Drucker 1, Ausschank -> Drucker 2, Bar -> Drucker 3). Bei einer gemischten Bestellung werden die Bons automatisch getrennt und parallel ausgedruckt.',
+          'Ist kein echter Bondrucker angeschlossen, fängt der "Virtuelle Drucker" alle Belege ab und zeigt sie 1:1 im Browserfenster an. Perfekt zum Testen vor dem Fest.',
         ],
+        image: {
+          src: '/docs/images/15_virtual_printer.png',
+          alt: 'Virtueller Drucker',
+          caption: 'Simulation von Kassen- und Küchenbons direkt im Browser',
+        },
       },
       {
         id: '6.3',
-        heading: '6.3 Tablett-Splitting (Max. Posten je Bon)',
+        heading: '6.3 Druckergruppen & Bon-Splitting',
         paragraphs: [
-          'Werden z. B. 18 Bier auf einmal bestellt, teilt OpenBon den Auftrag automatisch in handliche Tablett-Bons (z. B. 3 Bons à 6 Bier mit Aufdruck "Bon 1 von 3").',
+          'Jeder Artikel ist einer Druckergruppe zugeordnet (z. B. Küche -> Grillstation, Getränke -> Ausschank 1). Bestellt ein Gast Steak und Bier zusammen, trennt OpenBon die Positionen automatisch und druckt parallel an den richtigen Stationen.',
+          'Werden viele Getränke auf einmal geordert, teilt das Tablett-Splitting den Druck automatisch in handliche Bons auf (z. B. max. 6 Krüge pro Bon).',
         ],
       },
       {
         id: '6.4',
-        heading: '6.4 Stufenlose Tischnummer-Schriftgröße (1× bis 8×)',
+        heading: '6.4 Tisch- & Raumplan-Editor',
         paragraphs: [
-          'Die Tischnummer kann für jede Bon-Art (Kassenbeleg, Speisen-Bon, Getränke-Bon) getrennt von 1× (Standard) bis 8× (Riesig invertiert) skaliert werden.',
+          'Unter /admin/tables können Räume (z. B. "Festzelt", "Biergarten", "Bar") und Tische per Drag-and-Drop angeordnet und beschriftet werden.',
         ],
+        image: {
+          src: '/docs/images/18_admin_tables.png',
+          alt: 'Tischplan Editor',
+          caption: 'Visueller Raumplan-Editor mit Tischen und Raumkategorien',
+        },
       },
       {
         id: '6.5',
-        heading: '6.5 Bon-Vorlagen (Templates)',
+        heading: '6.5 Tischplan drucken (Nur Tischnummern)',
         paragraphs: [
-          'Vier wählbare Vorlagen stehen bereit:',
-          '1. Klassisch: Ausgewogenes Standard-Layout.',
-          '2. Kompakt (Eco): Minimaler Papierverbrauch.',
-          '3. Großschrift / High-Visibility: Riesige Nummern und Boxen für hektische Küchen.',
-          '4. Gastro / Detail: Mit MwSt-Splits und Bewirtungsnachweis (§ 4 Abs. 5 EStG).',
+          'Für die Schichtleitung, die Feuerwehr oder den Ausschank kann der Tischplan ausgedruckt werden. Auf dem Ausdruck wird in jedem Tisch ausschließlich die Tischnummer groß und lesbar abgebildet – ohne störende Zusatzangaben wie Koordinaten oder Beschriftungs-Präfixe.',
         ],
-      },
-      {
-        id: '6.6',
-        heading: '6.6 Druckbare Speisekarte (4 Vorlagen)',
-        paragraphs: [
-          'Unter /admin/products kann die Speisekarte in 4 Designs als druckfertiges PDF generiert werden (Klassisch ohne Zierrahmen, Modern/Gastro-Grid, Großschrift-Aushang für Kassenhäuschen und A5-Tischaufsteller).',
-        ],
+        image: {
+          src: '/docs/images/19_admin_tables_print.png',
+          alt: 'Druckbarer Tischplan',
+          caption: 'Druckfertiger Tischplan mit klaren, großen Tischnummern',
+        },
       },
     ],
   },
@@ -439,98 +605,145 @@ export const HANDBOOK: DocChapter[] = [
     id: 'payment',
     chapterNumber: 7,
     title: 'Zahlungen, Trinkgeld & Abrechnung',
-    subtitle: 'Kartenzahlung, Trinkgeld-Pool, Schichtabschluss und Kassensturz',
+    subtitle: 'Kartenterminals, Kassensturz, Storno-Übersicht, Touch-Numpad und Kassenbuch',
     icon: 'payment',
     sections: [
       {
         id: '7.1',
-        heading: '7.1 Integrierte Kartenzahlungsanbieter',
+        heading: '7.1 Kartenzahlung & Terminals',
         paragraphs: [
-          'OpenBon unterstützt führende Kartenterminals und Payment-Apps. In den Einstellungen wird genau ein Anbieter aktiviert:',
+          'OpenBon unterstützt gängige Kartenterminals für bargeldlose Zahlung vor Ort:',
         ],
         table: {
-          headers: ['Anbieter', 'Schnittstelle', 'Besonderheit'],
+          headers: ['Anbieter', 'Verbindungsart', 'Einsatzgebiet'],
           rows: [
-            ['SumUp', 'App-to-App & Air/Solo', 'Direkter App-Start am Smartphone'],
-            ['VR-Pay:Me', 'Volksbanken / VR-Smart Guide', 'Offizielle Genossenschaftsbanken-Lösung'],
-            ['Sparkasse S-POS', 'Sparkassen App-to-App', 'Direkte Verrechnung über Sparkassen-Girokonto'],
+            ['SumUp', 'App-to-App & Bluetooth', 'Kompakte mobile Leser für Kellner'],
+            ['VR-Pay:Me', 'App-to-App (Volksbanken)', 'Mobiles Bezahlen mit VR-Smart Guide'],
+            ['Sparkasse S-POS', 'App-to-App (Sparkassen)', 'Direkte Abrechnung auf das Vereinskonto'],
             ['Zettle by PayPal', 'App-to-App', 'Zettle Card Reader Integration'],
             ['Stripe Terminal', 'Smart Reader & QR', 'Cloudbasierte Kreditkartenabwicklung'],
-            ['ZVT-over-IP', 'Klassisches EC-Terminal (Port 20007)', 'Stationäre Händlerterminals (Ingenico, Verifone, CCV)'],
+            ['ZVT-over-IP', 'Netzwerk (Port 20007)', 'Stationäre Standard-EC-Terminals an Theken'],
           ],
         },
       },
       {
         id: '7.2',
-        heading: '7.2 Trinkgeld-Modelle & Personalverwaltung',
+        heading: '7.2 Trinkgeld-Modelle & Personal',
         paragraphs: [
-          'Unter "Personal & Abrechnung" (/admin/settle) im Reiter "Bedienungen & Trinkgeld-Regeln" können Mitarbeiter angelegt, PINs vergeben und flexible Trinkgeld-Verteilungsregeln definiert werden:',
-          '1. Bedienung behält alles: Trinkgeld verbleibt zu 100 % beim Kellner.',
-          '2. Team-Pool: Trinkgeld wird an die Hauptkasse abgegeben und anteilig an Küche/Theke verteilt.',
-          '3. Mischprofile: Frei definierbare prozentuale Aufteilung zwischen Bedienung, Bar-Pool, Küchen-Pool und Service-Pool.',
+          'Unter "Personal & Abrechnung" (/admin/settle) können flexible Trinkgeld-Verteilungsregeln hinterlegt werden: Kellner behält 100 %, Team-Pool mit Schänke und Küche, oder individuelle Prozentaufteilungen.',
         ],
+        image: {
+          src: '/docs/images/30_admin_tips.png',
+          alt: 'Trinkgeld-Verwaltung',
+          caption: 'Regeln für Trinkgeld-Ausschüttung und Team-Pool',
+        },
       },
       {
         id: '7.3',
-        heading: '7.3 Personal & Abrechnung: Geführter Kassensturz & Live-Umsatz',
+        heading: '7.3 Geführter Kassensturz & Touch-Numpad',
         paragraphs: [
-          'Die Seite "Personal & Abrechnung" (/admin/settle) bündelt alle Mitarbeiter- und Abrechnungsfunktionen in drei klaren Reitern:',
-          'Reiter 1: Kassensturz & Schichtabrechnung: Geführter 5-Schritte-Ablauf (Kellner-Auswahl -> Umsatzprüfung -> Bargeld & Ist-Trinkgeld zählen -> Differenzprüfung von Hauptkassen-Abgabe und Trinkgeld-Soll/Ist -> Abrechnungsbeleg drucken).',
-          'Reiter 2: Bedienungen & Trinkgeld-Regeln: Mitarbeiter pflegen, PINs setzen und Trinkgeld-Profile zuweisen.',
-          'Reiter 3: Live-Umsatzübersicht: Sofortige Übersicht über Umsätze, Bar- und Kartenzahlungen aller Kellner mit 1-Klick-Sprung zum Kassensturz.',
+          'Die Schichtabrechnung erfolgt in einem sicheren 5-Schritte-Assistenten:',
+          '1. Mitarbeiter wählen.',
+          '2. Soll-Umsatz und Zahlungsmittel prüfen.',
+          '3. Gezähltes Bargeld eingeben: Hier erscheint bei Berührung automatisch das Touch-Zahlenfeld mit praktischen Tasten für +5, +10, +20, +50 €. Das Tippen ist fehlerfrei möglich, da störende führende Nullen automatisch ersetzt werden.',
+          '4. Abrechnungsbericht mit 4 Reitern prüfen: Übersicht, Verkaufte Artikel, Bestellungen und der neue Reiter "Stornierte Artikel".',
+          '5. Abrechnung ausdrucken und Schicht abschließen.',
         ],
+        image: {
+          src: '/docs/images/22_admin_settle.png',
+          alt: 'Schichtabrechnung Kassensturz',
+          caption: 'Geführter Kassensturz mit Bargeldzählung und Storno-Erfassung',
+        },
       },
       {
         id: '7.4',
-        heading: '7.4 Tagesabschluss (X-Bon und Z-Bon)',
+        heading: '7.4 Reiter "Stornierte Artikel" & Berichts-Ausdruck',
         paragraphs: [
-          'X-Bon: Beliebig oft abrufbarer Zwischenstand ohne Schließung der Zähler.',
-          'Z-Bon: Endgültiger Tagesabschluss. Setzt Tagesumsätze zurück und speichert die Kassenperiode ab.',
+          'In der Schichtabrechnung listet der neue Reiter "Stornierte Artikel" alle Stornierungen der Schicht auf (Artikelname, Anzahl, Einzelpreis und Gesamtsumme).',
+          'Sowohl auf dem A4-Ausdruck als auch auf dem 80mm-Thermobon-Ausdruck werden stornierte Posten transparent ausgewiesen, sodass Kassenleitung und Vereinsvorstand lückenlose Nachvollziehbarkeit haben.',
         ],
+      },
+      {
+        id: '7.5',
+        heading: '7.5 Kassenbuch (GoBD: Bareinlagen & Barentnahmen)',
+        paragraphs: [
+          'Unter /admin/cashbook wird das gesetzliche Kassenbuch geführt. Wechselgeldeinlagen zu Beginn der Schicht, Barauslagen (z. B. Einkauf von Eiswürfeln) und Geldabgaben an den Haupttresor werden revisionssicher erfasst.',
+        ],
+        image: {
+          src: '/docs/images/23_admin_cashbook.png',
+          alt: 'GoBD Kassenbuch',
+          caption: 'Kassenbuch für Bareinlagen, Wechselgeld und Barentnahmen',
+        },
+      },
+      {
+        id: '7.6',
+        heading: '7.6 Buchhaltung & DATEV-Export',
+        paragraphs: [
+          'Für das Steuerbüro und den Vereinskassierer stellt OpenBon unter /admin/accounting fertige DATEV-kompatible Buchungslisten (SKR03 / SKR04) bereit.',
+        ],
+        image: {
+          src: '/docs/images/29_admin_accounting.png',
+          alt: 'DATEV Buchhaltungs-Export',
+          caption: 'Buchungsstapel und Export für die Vereinsbuchhaltung',
+        },
       },
     ],
   },
   {
     id: 'backup',
     chapterNumber: 8,
-    title: 'Ausfallsicherheit, Backups & Datenschutz',
-    subtitle: 'Offline-Outbox, SQLite WAL-Modus, Snapshots, USB-Export & § 146a AO',
+    title: 'TSE, Finanzamt, Backups & Datenschutz',
+    subtitle: 'KassenSichV, Kassenmeldung § 146a AO, automatische Snapshots und USB-Export',
     icon: 'backup',
     sections: [
       {
         id: '8.1',
-        heading: '8.1 Smartphone-Outbox (Unterbrechungsfreier Offline-Betrieb)',
+        heading: '8.1 Gesetzliche KassenSichV & Technische Sicherheitseinrichtung (TSE)',
         paragraphs: [
-          'Bricht das WLAN im Festzelt kurzzeitig ab, speichern die Handys der Kellner alle Bestellungen lokal in der IndexedDB. Sobald das WLAN wieder verfügbar ist, synchronisieren sich alle Bons automatisch.',
+          'OpenBon erfüllt die Vorgaben der deutschen Kassensicherungsverordnung. Unter /admin/fiscal kann eine zertifizierte TSE (Hardware-USB-Stick von Swissbit oder Cloud-TSE) angebunden werden. Jeder Kassiervorgang erhält eine manipulationssichere Signatur.',
         ],
+        image: {
+          src: '/docs/images/24_admin_fiscal.png',
+          alt: 'KassenSichV TSE Status',
+          caption: 'TSE-Konfiguration und Signaturprüfung nach KassenSichV',
+        },
       },
       {
         id: '8.2',
-        heading: '8.2 SQLite WAL-Modus (Crash-Resistenz)',
+        heading: '8.2 Amtliche Kassenmeldung (§ 146a Abs. 4 AO)',
         paragraphs: [
-          'Dank Write-Ahead-Logging (WAL) ist die Datenbank gegen plötzliche Stromausfälle immun. Kein Datensatz geht verloren.',
+          'Gemäß Abgabenordnung müssen elektronische Aufzeichnungssysteme dem Finanzamt gemeldet werden. OpenBon erzeugt das offizielle Meldeformular unter /admin/fiscal/kassenmeldung auf Knopfdruck.',
         ],
+        image: {
+          src: '/docs/images/25_admin_fiscal_kassenmeldung.png',
+          alt: 'Amtliche Kassenmeldung Finanzamt',
+          caption: 'Vollständiges Meldeformular für das zuständige Finanzamt',
+        },
       },
       {
         id: '8.3',
-        heading: '8.3 Automatische Snapshots & Datensicherung (/admin/backup)',
+        heading: '8.3 Smartphone-Outbox (WLAN-Ausfallsicherheit)',
         paragraphs: [
-          'Unter /admin/backup können automatische Snapshots aktiviert werden (z. B. alle 15 Minuten). Zudem steht ein 1-Klick-Backup für USB-Sticks bereit.',
+          'Sollte das WLAN im Festzelt kurzzeitig abreißen, bleiben die Kellner-Handys voll bedienbar: Die Bestellungen werden lokal auf dem Telefon zwischengespeichert und automatisch an die Kasse gesendet, sobald das Netz wieder steht.',
         ],
       },
       {
         id: '8.4',
-        heading: '8.4 Gesetzliche Kassenmeldung (§ 146a Abs. 4 AO)',
+        heading: '8.4 Automatische Snapshots & Datensicherung',
         paragraphs: [
-          'OpenBon generiert unter /admin/fiscal/kassenmeldung das amtliche Meldeformular für das Finanzamt bei Inbetriebnahme, Außerbetriebnahme oder Standortwechsel.',
+          'Unter /admin/backup legt OpenBon in regelmäßigen Intervallen Sicherungskopien an. Zudem kann vor oder nach dem Fest mit einem Klick ein vollständiges Backup auf einen USB-Stick gespeichert werden.',
         ],
+        image: {
+          src: '/docs/images/35_admin_backup.png',
+          alt: 'Datensicherung und Backups',
+          caption: 'Snapshot-Verwaltung und 1-Klick-Backup auf USB-Laufwerke',
+        },
       },
       {
         id: '8.5',
-        heading: '8.5 Vorlagen herunterladen & hochladen (Snapshots)',
+        heading: '8.5 Vorlagen exportieren & importieren',
         paragraphs: [
-          'In den Einstellungen unter "Vorlagen & Snapshots" (/admin/settings) können gespeicherte Fest-Konfigurationen (Tische, Warengruppen, Artikel, Bon-Layouts) als handliche JSON-Datei heruntergeladen und auf anderen Kassen oder Folge-Events wieder hochgeladen werden.',
-          'Der Import aktualisiert die Event-Konfiguration, ohne bestehende Buchungen oder Kassenabschlüsse zu berühren.',
+          'In den Einstellungen unter "Vorlagen & Snapshots" kann die gesamte Fest-Konfiguration (Speisekarte, Tische, Preise, Drucker) als Vorlage exportiert und beim nächsten Fest oder auf einem Zweitsystem sekundenschnell wieder importiert werden.',
         ],
       },
     ],
@@ -538,33 +751,70 @@ export const HANDBOOK: DocChapter[] = [
   {
     id: 'diagnostics',
     chapterNumber: 9,
-    title: 'Systemdiagnose & Fehlerbehebung',
-    subtitle: 'Preflight-Check, Drucker-Socket-Wächter und detailliertes ActionLog',
+    title: 'Systemdiagnose, Einstellungen & Updates',
+    subtitle: 'Preflight-Check, Revisionssicheres ActionLog, Einstellungen und Versions-Manager',
     icon: 'diagnostics',
     sections: [
       {
         id: '9.1',
-        heading: '9.1 Preflight-Check vor Festbeginn',
+        heading: '9.1 1-Klick Preflight-Check vor Festbeginn',
         paragraphs: [
-          'Unter /admin/diagnostics führt der 1-Klick-Preflight-Check alle Tests vor Festbeginn durch: Datenbank-Integrität, Netzwerk-Erreichbarkeit aller Drucker, Speisekarten-Konsistenz und ein simulierter E2E-Bestellzyklus.',
+          'Unter /admin/diagnostics prüft das System vor Festbeginn automatisch alle wichtigen Komponenten: Datenbank-Integrität, Drucker-Erreichbarkeit im Netzwerk, Speisekarten-Konsistenz und simuliert einen vollständigen Test-Bestellzyklus.',
         ],
+        image: {
+          src: '/docs/images/34_admin_diagnostics.png',
+          alt: 'Systemdiagnose Preflight-Check',
+          caption: 'Automatisierter 1-Klick-Systemtest vor Veranstaltungsbeginn',
+        },
       },
       {
         id: '9.2',
-        heading: '9.2 ActionLog: Revisionssicheres Audit-Protokoll',
+        heading: '9.2 Revisionssicheres ActionLog',
         paragraphs: [
-          'Jede Buchung, Stornierung, Tischumbuchung und Stammdatenänderung wird mit Zeitstempel, Benutzer, Beträgen und Details protokolliert und kann gefiltert exportiert werden.',
+          'Jede Buchung, Stornierung, Preisänderung und Benutzeranmeldung wird manipulationssicher im ActionLog mit Zeitstempel und Gerät protokolliert. Bei Prüfungen kann das Log nach Zeiträumen und Ereignissen gefiltert exportiert werden.',
         ],
+        image: {
+          src: '/docs/images/36_admin_logs.png',
+          alt: 'ActionLog Revisionsprotokoll',
+          caption: 'Audit-Protokoll aller Systemereignisse und Kassenaktionen',
+        },
       },
       {
         id: '9.3',
-        heading: '9.3 System-Update & Versions-Manager (/admin/system-update)',
+        heading: '9.3 Zentrale Fest- und Systemeinstellungen',
         paragraphs: [
-          'Unter /admin/system-update kann der Server bequem aktualisiert und überwacht werden:',
-          '1. Arbeitsspeicher-Anzeige: Zeigt den belegten und gesamten RAM in Gigabyte und Prozent live an.',
-          '2. Schalter "Nur Releases anzeigen": Standardmäßig aktiv, um ausschließlich geprüfte, offizielle Hauptversionen anzuzeigen und nicht-technische Benutzer vor Vorab-Versionen zu schützen.',
-          '3. 1-Klick Hotfix-Aktualisierung: Selbst wenn man bereits auf der neuesten Hauptversion ist, können neu erschienene Zwischen-Verbesserungen und Fehlerbehebungen mit einem Klick installiert werden.',
+          'Unter /admin/settings werden alle grundlegenden Optionen festgelegt: Name des Vereins, Steuersätze, Währung, Tischfarben, Stornierungsfristen und Kassenoptionen.',
+          'Wird eine Einstellung verändert, warnt OpenBon beim Verlassen der Seite vor ungespeicherten Daten.',
         ],
+        image: {
+          src: '/docs/images/37_admin_settings.png',
+          alt: 'Systemeinstellungen',
+          caption: 'Zentrale Verwaltung aller Fest-Parameter und Kassenoptionen',
+        },
+      },
+      {
+        id: '9.4',
+        heading: '9.4 Angemeldete Geräte & Stationen',
+        paragraphs: [
+          'Unter /admin/devices behält die Kassenleitung den Überblick über alle angemeldeten Kellner-Handys, Tablets und Kassenmonitore inklusive Akkuladestand und Verbindungsqualität.',
+        ],
+        image: {
+          src: '/docs/images/32_admin_devices.png',
+          alt: 'Geräteübersicht',
+          caption: 'Übersicht aller im Netzwerk aktiven Smartphones und Kassen',
+        },
+      },
+      {
+        id: '9.5',
+        heading: '9.5 System-Update & Versions-Manager',
+        paragraphs: [
+          'Unter /admin/system-update kann OpenBon mit einem Klick aktualisiert werden. Ein Arbeitsspeicher-Balken zeigt die Serverauslastung an. Der Schalter "Nur Releases anzeigen" stellt sicher, dass ausschließlich erprobte und stabile Hauptversionen installiert werden.',
+        ],
+        image: {
+          src: '/docs/images/38_admin_system_update.png',
+          alt: 'System-Update Manager',
+          caption: '1-Klick-Update-Manager mit Speicheranzeige und Release-Filter',
+        },
       },
     ],
   },
