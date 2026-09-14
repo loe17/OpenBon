@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 const BASE_URL = process.env.TEST_URL || 'http://127.0.0.1:3000';
 const TARGET_DIR = path.resolve(__dirname, '..', 'screenshots', 'aktuell');
 const DOCS_DIR = path.resolve(__dirname, '..', 'public', 'docs', 'images');
-const ARTIFACT_DIR = path.resolve('C:/Users/Lukas/.gemini/antigravity/brain/b34e91d0-3363-4a26-991e-56fb853ff8d7/scratch/screenshots');
+const ARTIFACT_DIR = path.resolve('C:/Users/Lukas/.gemini/antigravity/brain/ff716bcb-79e1-4812-97e7-476ba9c8cdc1/scratch/screenshots');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -25,16 +25,27 @@ async function setDarkThemeAndAuth(page, token) {
       httpOnly: true,
       secure: false,
     });
+    await page.setCookie({
+      name: 'openbon_session',
+      value: token,
+      domain: 'localhost',
+      path: '/',
+      httpOnly: true,
+      secure: false,
+    });
   }
 
   await page.evaluate((pin) => {
     localStorage.setItem('openbon_theme', 'dark');
+    localStorage.setItem('pos_waiter_name', 'Johannes');
     sessionStorage.setItem('openbon_waiter_name', 'Johannes');
     sessionStorage.setItem('openbon_station_pin_ADMIN', pin);
     sessionStorage.setItem('openbon_station_pin_POS', pin);
     sessionStorage.setItem('openbon_station_pin_POS_CASHIER', pin);
     sessionStorage.setItem('openbon_station_pin_WAITER', pin);
     sessionStorage.setItem('openbon_station_pin_KITCHEN', pin);
+    sessionStorage.setItem('admin_pin_verified', 'true');
+    localStorage.setItem('pos_user_role', 'ADMIN');
     document.documentElement.setAttribute('data-theme', 'dark');
     document.documentElement.className = 'dark h-full font-sans';
   }, SCREENSHOT_ADMIN_PIN);
@@ -48,6 +59,20 @@ async function captureScreen(page, filename, width = 1280, height = 800) {
   const artifactPath = path.join(ARTIFACT_DIR, `${filename}.png`);
 
   await page.screenshot({ path: targetPath, fullPage: false });
+  let stat = fs.statSync(targetPath);
+
+  // Qualitäts-Sicherheitsnetz: Leere / weiße Screenshots (typisch 7-15 KB) erkennen
+  if (stat.size < 25000) {
+    console.warn(`[WARNUNG-WEISSBILD] ${filename}.png ist nur ${stat.size} Bytes gross! Warte erneut 3s und wiederhole Aufnahme...`);
+    await sleep(3000);
+    await page.screenshot({ path: targetPath, fullPage: false });
+    stat = fs.statSync(targetPath);
+    if (stat.size < 25000) {
+      console.error(`[FEHLER-WEISSBILD] ${filename}.png ist weiterhin nur ${stat.size} Bytes gross (weisse Flaeche)! Nicht in docs kopiert.`);
+      return;
+    }
+  }
+
   try {
     fs.copyFileSync(targetPath, docsPath);
   } catch (e) {}
@@ -55,7 +80,7 @@ async function captureScreen(page, filename, width = 1280, height = 800) {
     fs.copyFileSync(targetPath, artifactPath);
   } catch (e) {}
 
-  console.log(`[✓] ${filename}.png (${width}x${height})`);
+  console.log(`[✓] ${filename}.png (${width}x${height}) - ${stat.size} Bytes`);
 }
 
 async function run() {
@@ -79,8 +104,13 @@ async function run() {
     const hashed = `$pbkdf2$${salt.toString('hex')}$${derived.toString('hex')}`;
     await prisma.eventConfig.upsert({
       where: { id: 'default' },
-      update: { adminPin: hashed },
-      create: { id: 'default', adminPin: hashed },
+      update: { adminPin: hashed, lockStartScreen: false },
+      create: { id: 'default', adminPin: hashed, lockStartScreen: false },
+    });
+    await prisma.diningTable.upsert({
+      where: { tableNumber: 1 },
+      create: { tableNumber: 1, label: 'Tisch 1', gridX: 1, gridY: 1 },
+      update: {},
     });
     await prisma.staff.upsert({
       where: { name: 'Administrator' },
@@ -393,6 +423,7 @@ async function run() {
     await page.goto(payUrl, { waitUntil: 'networkidle2' });
     await setDarkThemeAndAuth(page, authToken);
     await page.goto(payUrl, { waitUntil: 'networkidle2' });
+    await page.waitForSelector('button, .pos-touch-btn, h1, div', { timeout: 8000 }).catch(() => {});
     await sleep(2000);
 
     // 06a: Stufe 1 - Rechnungs-Splitting & Artikelauswahl (Standard: alle Artikel des Tisches)
@@ -417,7 +448,7 @@ async function run() {
       );
       if (nextBtn) nextBtn.click();
     });
-    await sleep(2000);
+    await sleep(2500);
     // 06b: Stufe 2 - Zahlarten-Auswahl
     await captureScreen(page, '06b_waiter_payment_method', 390, 844);
 
@@ -427,14 +458,16 @@ async function run() {
       const cashBtn = btns.find((b) => b.textContent && b.textContent.includes('Barzahlung'));
       if (cashBtn) cashBtn.click();
     });
-    await sleep(2000);
+    await sleep(2500);
     // 06c: Stufe 3 - Bargeld-Rechencenter mit Scheinen/Münzen & Wechselgeld
     await captureScreen(page, '06c_waiter_payment_cash_rechner', 390, 844);
 
-    // 07: Schichtabrechnung (/waiter/settle)
-    await page.goto(`${BASE_URL}/waiter/settle`, { waitUntil: 'networkidle2' });
+    // 07: Schichtabrechnung (Mobile Ansicht /admin/settle)
+    await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
+    await page.goto(`${BASE_URL}/admin/settle`, { waitUntil: 'networkidle2' });
     await setDarkThemeAndAuth(page, authToken);
-    await page.goto(`${BASE_URL}/waiter/settle`, { waitUntil: 'networkidle2' });
+    await page.goto(`${BASE_URL}/admin/settle`, { waitUntil: 'networkidle2' });
+    await sleep(2000);
     await captureScreen(page, '07_waiter_settle', 390, 844);
 
     // =========================================================================
@@ -457,10 +490,28 @@ async function run() {
     for (const sc of displayScreens) {
       try {
         await page.setViewport({ width: sc.width, height: sc.height, deviceScaleFactor: 2 });
-        await page.goto(`${BASE_URL}${sc.path}`, { waitUntil: 'networkidle2', timeout: 12000 });
+        await page.goto(`${BASE_URL}${sc.path}`, { waitUntil: 'networkidle2', timeout: 15000 });
         await setDarkThemeAndAuth(page, authToken);
-        // Cookie erst nach erstem Seitenkontakt wirksam -> neu laden
-        await page.goto(`${BASE_URL}${sc.path}`, { waitUntil: 'networkidle2', timeout: 12000 });
+        await page.goto(`${BASE_URL}${sc.path}`, { waitUntil: 'networkidle2', timeout: 15000 });
+
+        if (sc.name === '01_home_station_select') {
+          await page.waitForSelector('.grid button, .pos-touch-btn', { timeout: 8000 }).catch(() => {});
+        } else if (sc.name === '08_kitchen_kds') {
+          await page.waitForSelector('.pos-touch-btn, .kds-column, div', { timeout: 8000 }).catch(() => {});
+        } else if (sc.name === '09_kiosk_self_order') {
+          await page.waitForSelector('button, .pos-touch-btn', { timeout: 8000 }).catch(() => {});
+        } else if (sc.name === '10_customer_display') {
+          await page.waitForSelector('h1, div', { timeout: 8000 }).catch(() => {});
+        } else if (sc.name === '11_guest_table_menu') {
+          await page.waitForSelector('h1, button, .grid', { timeout: 8000 }).catch(() => {});
+        } else if (sc.name === '12_receipt_ebon') {
+          await page.waitForSelector('.max-w-md, h1, div', { timeout: 8000 }).catch(() => {});
+        } else if (sc.name === '13_team_chat') {
+          await page.waitForSelector('input, textarea, button', { timeout: 8000 }).catch(() => {});
+        } else if (sc.name === '14_taps_flow_monitor') {
+          await page.waitForSelector('div, svg', { timeout: 8000 }).catch(() => {});
+        }
+        await sleep(2000);
         await captureScreen(page, sc.name, sc.width, sc.height);
       } catch (err) {
         console.warn(`[WARN] Fehler bei ${sc.name}:`, err.message);
