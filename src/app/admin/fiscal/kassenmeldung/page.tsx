@@ -89,12 +89,15 @@ export default function KassenmeldungPage() {
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div>
-              <h1 className="text-2xl font-black text-white flex items-center gap-2">
+              <h1 className="text-2xl font-black text-white flex items-center gap-2 flex-wrap">
                 <FileText className="w-6 h-6 text-blue-400" />
                 <span>Kassenmeldung nach § 146a Abs. 4 AO</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  Beta
+                </span>
               </h1>
               <p className="text-xs text-slate-400">
-                Amtliche Übersicht zur Mitteilungspflicht elektronischer Aufzeichnungssysteme an das Finanzamt
+                Amtliche Übersicht zur Mitteilungspflicht elektronischer Aufzeichnungssysteme an das Finanzamt (Beta-Vorabversion)
               </p>
             </div>
           </div>
@@ -118,14 +121,14 @@ export default function KassenmeldungPage() {
         </div>
 
         {/* Info Banner */}
-        <div className="p-4 rounded-2xl bg-blue-950/40 border border-blue-800/80 text-xs text-blue-200 leading-relaxed print:hidden">
+        <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-800/80 text-xs text-amber-200 leading-relaxed print:hidden">
           <div className="flex items-start gap-2.5">
-            <ShieldCheck className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+            <ShieldCheck className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <strong>Rechtlicher Hinweis zur Kassenmeldung nach § 146a Abs. 4 AO:</strong>
-              <p className="mt-0.5 text-slate-300">
+              <strong>Hinweis (Beta) zur Kassenmeldung nach § 146a Abs. 4 AO:</strong>
+              <p className="mt-0.5 text-amber-200/90">
                 Diese Zusammenstellung enthält alle gesetzlich geforderten Angaben (Aufzeichnungssystem, Seriennummern,
-                Inbetriebnahme, TSE-Modul und angeschlossene Terminals) für die elektronische Übermittlung an das zuständige Finanzamt (via ERiC / MeinELSTER).
+                Inbetriebnahme, TSE-Modul und angeschlossene Terminals) für die elektronische Übermittlung an das zuständige Finanzamt (via ERiC / MeinELSTER). Die Funktion befindet sich im Beta-Status und wurde noch nicht bei einer Betriebsprüfung im Echt-Einsatz vorgelegt.
               </p>
             </div>
           </div>

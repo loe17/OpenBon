@@ -1065,7 +1065,7 @@ function PosCounterContent() {
                         className="min-h-[50px] rounded-2xl font-black text-xs sm:text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 shadow-md flex items-center justify-center gap-1.5 transition active:scale-95"
                       >
                         <CreditCard className="w-4 h-4 text-blue-400" />
-                        <span>Kartenzahlung</span>
+                        <span>Kartenzahlung (Beta)</span>
                       </button>
                     )}
 

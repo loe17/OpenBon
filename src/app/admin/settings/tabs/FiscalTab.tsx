@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ShieldCheck, FileSpreadsheet, FileCheck, Percent } from 'lucide-react';
+import { ShieldCheck, FileSpreadsheet, FileCheck, Percent, AlertTriangle } from 'lucide-react';
 import type { EventConfigDTO } from '@/types/domain';
 
 interface FiscalTabProps {
@@ -36,11 +36,23 @@ export function FiscalTab({ config, onChange }: FiscalTabProps) {
         </div>
       </div>
 
-      {/* TSE & KassenSichV */}
+      {/* TSE & KassenSichV (Beta) */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-        <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
-          <ShieldCheck className="w-5 h-5 text-blue-400" />
-          <h3 className="font-bold text-base text-white">TSE-Sicherheitsmodul (KassenSichV)</h3>
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="w-5 h-5 text-blue-400" />
+            <h3 className="font-bold text-base text-white">TSE-Sicherheitsmodul (KassenSichV)</h3>
+          </div>
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+            Beta
+          </span>
+        </div>
+
+        <div className="p-3.5 rounded-2xl bg-amber-950/30 border border-amber-800/60 text-amber-200 text-xs leading-relaxed flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <span>
+            <strong>Hinweis (Beta):</strong> Die Anbindung von TSE-Sicherheitsmodulen (Swissbit USB / fiskaly Cloud) sowie die Export-Schnittstellen für das Finanzamt befinden sich im Beta-Status und wurden noch nicht im produktiven Festbetrieb im Echt-Einsatz getestet.
+          </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

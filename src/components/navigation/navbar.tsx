@@ -359,7 +359,7 @@ export default function Navbar() {
         { href: '/admin/reports', label: 'Statistik & Z-Bon', icon: BarChart3, roles: ['ADMIN'] },
         { href: '/admin/cashbook', label: 'Kassenbuch & Barverkehr', icon: Wallet, roles: ['ADMIN'] },
         { href: '/admin/accounting', label: 'DATEV Kassenbuch Export', icon: BookOpen, roles: ['ADMIN'] },
-        { href: '/admin/fiscal', label: 'DSFinV-K & TSE Archiv', icon: ShieldCheck, roles: ['ADMIN'] },
+        { href: '/admin/fiscal', label: 'DSFinV-K & TSE Archiv (Beta)', icon: ShieldCheck, roles: ['ADMIN'] },
         { href: '/admin/settle', label: 'Personal & Abrechnung', icon: Wallet, roles: ['ADMIN'] },
         { href: '/admin/tokens', label: 'Wertmarken & Bons', icon: Ticket, roles: ['ADMIN'] },
       ],

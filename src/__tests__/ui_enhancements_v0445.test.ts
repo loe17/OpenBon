@@ -155,4 +155,65 @@ describe('OpenBon v0.4.45: UI Enhancements, Storno Reports, Touch-Numpad & Docum
       expect(allImageSrcs).toContain('/docs/images/22_admin_settle.png');
     });
   });
+
+  describe('9. Enlarge Übernehmen & Backspace buttons in Touch-Numpad', () => {
+    it('should have h-16 height and large icons/text for bottom actions', () => {
+      const touchNumpadSrc = fs.readFileSync(
+        path.join(process.cwd(), 'src', 'components', 'ui', 'touch-numpad.tsx'),
+        'utf-8'
+      );
+      expect(touchNumpadSrc).toContain('col-span-2 h-16 bg-blue-600');
+      expect(touchNumpadSrc).toContain('h-16 bg-slate-800');
+      expect(touchNumpadSrc).toContain('w-6 h-6');
+    });
+  });
+
+  describe('10. Beta indicators for Card Payment, TSE & Finanzamt', () => {
+    it('should mark Card payment, TSE and fiscal features with (Beta)', () => {
+      const navbarSrc = fs.readFileSync(
+        path.join(process.cwd(), 'src', 'components', 'navigation', 'navbar.tsx'),
+        'utf-8'
+      );
+      expect(navbarSrc).toContain('DSFinV-K & TSE Archiv (Beta)');
+
+      const settingsSrc = fs.readFileSync(
+        path.join(process.cwd(), 'src', 'app', 'admin', 'settings', 'page.tsx'),
+        'utf-8'
+      );
+      expect(settingsSrc).toContain("label: 'Kartenzahlung (Beta)'");
+      expect(settingsSrc).toContain("label: 'Fiskal & Steuern (Beta)'");
+
+      const cardTabSrc = fs.readFileSync(
+        path.join(process.cwd(), 'src', 'app', 'admin', 'settings', 'tabs', 'CardPaymentTab.tsx'),
+        'utf-8'
+      );
+      expect(cardTabSrc).toContain('Hinweis: Kartenzahlung befindet sich im Beta-Status');
+
+      const fiscalTabSrc = fs.readFileSync(
+        path.join(process.cwd(), 'src', 'app', 'admin', 'settings', 'tabs', 'FiscalTab.tsx'),
+        'utf-8'
+      );
+      expect(fiscalTabSrc).toContain('TSE-Sicherheitsmodul (KassenSichV)');
+      expect(fiscalTabSrc).toContain('Beta');
+
+      const fiscalPageSrc = fs.readFileSync(
+        path.join(process.cwd(), 'src', 'app', 'admin', 'fiscal', 'page.tsx'),
+        'utf-8'
+      );
+      expect(fiscalPageSrc).toContain('DSFinV-K & TSE Prüfer-Export');
+      expect(fiscalPageSrc).toContain('Beta');
+
+      const posPageSrc = fs.readFileSync(
+        path.join(process.cwd(), 'src', 'app', 'pos', 'page.tsx'),
+        'utf-8'
+      );
+      expect(posPageSrc).toContain('Kartenzahlung (Beta)');
+
+      const waiterPaySrc = fs.readFileSync(
+        path.join(process.cwd(), 'src', 'app', 'waiter', 'payment', 'page.tsx'),
+        'utf-8'
+      );
+      expect(waiterPaySrc).toContain('Kartenzahlung (Beta');
+    });
+  });
 });

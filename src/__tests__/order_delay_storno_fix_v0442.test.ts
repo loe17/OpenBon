@@ -21,7 +21,7 @@ describe('OpenBon v0.4.42: Order Delay & Storno Countdown Resilience', () => {
   });
 
   it('should verify APP_VERSION is valid', () => {
-    expect(['0.4.42', '0.4.43', '0.4.44', '0.4.45']).toContain(APP_VERSION);
+    expect(['0.4.42', '0.4.43', '0.4.44', '0.4.45', '0.4.46']).toContain(APP_VERSION);
   });
 
   describe('getOrderDelayInfo calculation', () => {

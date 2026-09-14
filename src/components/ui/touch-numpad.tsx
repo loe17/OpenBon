@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import { X, Delete, Check, Calculator, Coins } from 'lucide-react';
@@ -109,13 +109,13 @@ export function TouchNumpadModal({
               { label: '+5 €', cents: 500 },
               { label: '+10 €', cents: 1000 },
               { label: '+20 €', cents: 2000 },
-              { label: '+50 €', cents: 500 },
+              { label: '+50 €', cents: 5000 },
             ].map((btn, idx) => (
               <button
                 key={idx}
                 type="button"
-                onClick={() => handleAddAmount(btn.label === '+50 €' ? 5000 : btn.cents)}
-                className="py-2 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 text-xs font-bold text-slate-200 rounded-xl border border-slate-700 transition"
+                onClick={() => handleAddAmount(btn.cents)}
+                className="py-2.5 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 text-xs font-bold text-slate-200 rounded-xl border border-slate-700 transition"
               >
                 {btn.label}
               </button>
@@ -159,22 +159,22 @@ export function TouchNumpadModal({
           </button>
         </div>
 
-        {/* Bottom Actions */}
-        <div className="grid grid-cols-3 gap-2 w-full">
+        {/* Bottom Actions: Prominent, easy-to-tap buttons */}
+        <div className="grid grid-cols-3 gap-2.5 w-full mt-1">
           <button
             type="button"
             onClick={handleBackspace}
-            className="h-13 bg-slate-800/80 hover:bg-slate-700 active:scale-95 rounded-2xl text-slate-300 font-bold border border-slate-700 flex items-center justify-center gap-1 transition touch-manipulation"
+            className="h-16 bg-slate-800 hover:bg-slate-700 active:scale-95 rounded-2xl text-slate-200 font-bold border border-slate-600/80 flex items-center justify-center gap-1.5 transition touch-manipulation shadow-md"
             title="Letztes Zeichen löschen"
           >
-            <Delete className="w-5 h-5" />
+            <Delete className="w-6 h-6 text-slate-300" />
           </button>
           <button
             type="button"
             onClick={handleDone}
-            className="col-span-2 h-13 bg-blue-600 hover:bg-blue-500 active:scale-95 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-900/40 transition touch-manipulation"
+            className="col-span-2 h-16 bg-blue-600 hover:bg-blue-500 active:scale-95 rounded-2xl text-white font-black text-base sm:text-lg flex items-center justify-center gap-2.5 shadow-xl shadow-blue-900/50 transition touch-manipulation border border-blue-400/30"
           >
-            <Check className="w-5 h-5" />
+            <Check className="w-6 h-6 stroke-[3]" />
             <span>Übernehmen</span>
           </button>
         </div>

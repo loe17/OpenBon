@@ -10,6 +10,7 @@ import {
   FileText,
   Loader2,
   Lock,
+  AlertTriangle,
 } from 'lucide-react';
 
 import { useToast } from '@/components/ui/toast';
@@ -82,8 +83,11 @@ export default function AdminFiscalPage() {
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-3xl font-black tracking-tight text-white">
-                DSFinV-K & TSE Prüfer-Export
+              <h1 className="text-3xl font-black tracking-tight text-white flex items-center gap-2.5 flex-wrap">
+                <span>DSFinV-K & TSE Prüfer-Export</span>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  Beta
+                </span>
               </h1>
             </div>
           </div>
@@ -96,8 +100,19 @@ export default function AdminFiscalPage() {
               className="px-3.5 py-1.5 bg-blue-600/20 hover:bg-blue-600 hover:text-white border border-blue-500/40 text-blue-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
             >
               <FileText className="w-3.5 h-3.5" />
-              <span>§ 146a AO Kassenmeldung</span>
+              <span>§ 146a AO Kassenmeldung (Beta)</span>
             </a>
+          </div>
+        </div>
+
+        {/* Beta Notice Banner */}
+        <div className="flex items-start gap-3 bg-amber-950/40 border border-amber-800/80 text-amber-200 rounded-3xl p-5 shadow-lg">
+          <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <div className="font-bold text-amber-300">Hinweis: TSE-Modul und DSFinV-K Export befinden sich im Beta-Status</div>
+            <p className="text-xs text-amber-200/90 mt-1 leading-relaxed">
+              Die Schnittstellen für die Technische Sicherheitseinrichtung (TSE) und die amtlichen Prüfer-Exporte für das Finanzamt entsprechen den Spezifikationen der KassenSichV und DSFinV-K, wurden jedoch noch nicht im echten Großveranstaltungsbetrieb vor Ort getestet.
+            </p>
           </div>
         </div>
 

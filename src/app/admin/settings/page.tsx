@@ -270,9 +270,9 @@ export default function AdminSettingsPage() {
     { id: 'GENERAL', label: 'Allgemein', icon: Building2 },
     { id: 'RECEIPT', label: 'Bonlayout & Vorschau', icon: Receipt },
     { id: 'PRINTERS', label: 'Drucker', icon: Printer },
-    { id: 'CARDS', label: 'Kartenzahlung', icon: CreditCard },
+    { id: 'CARDS', label: 'Kartenzahlung (Beta)', icon: CreditCard },
     { id: 'SECURITY', label: 'Sicherheit & PINs', icon: Lock },
-    { id: 'FISCAL', label: 'Fiskal & Steuern', icon: Percent },
+    { id: 'FISCAL', label: 'Fiskal & Steuern (Beta)', icon: Percent },
     { id: 'SNAPSHOTS', label: 'Vorlagen & Snapshots', icon: Sparkles },
   ];
 

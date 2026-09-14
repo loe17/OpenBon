@@ -6,6 +6,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const BASE_URL = process.env.TEST_URL || 'http://127.0.0.1:3000';
 const TARGET_DIR = path.resolve(__dirname, '..', 'screenshots', 'aktuell');
+const DOCS_DIR = path.resolve(__dirname, '..', 'public', 'docs', 'images');
 const ARTIFACT_DIR = path.resolve('C:/Users/Lukas/.gemini/antigravity/brain/b34e91d0-3363-4a26-991e-56fb853ff8d7/scratch/screenshots');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -43,9 +44,13 @@ async function captureScreen(page, filename, width = 1280, height = 800) {
   await page.setViewport({ width, height, deviceScaleFactor: 2 });
   await sleep(2500); // 2.5s Render-Puffer
   const targetPath = path.join(TARGET_DIR, `${filename}.png`);
+  const docsPath = path.join(DOCS_DIR, `${filename}.png`);
   const artifactPath = path.join(ARTIFACT_DIR, `${filename}.png`);
 
   await page.screenshot({ path: targetPath, fullPage: false });
+  try {
+    fs.copyFileSync(targetPath, docsPath);
+  } catch (e) {}
   try {
     fs.copyFileSync(targetPath, artifactPath);
   } catch (e) {}
@@ -57,6 +62,9 @@ async function run() {
   console.log(`[SCREENSHOT] Zielordner: ${TARGET_DIR}`);
   if (!fs.existsSync(TARGET_DIR)) {
     fs.mkdirSync(TARGET_DIR, { recursive: true });
+  }
+  if (!fs.existsSync(DOCS_DIR)) {
+    fs.mkdirSync(DOCS_DIR, { recursive: true });
   }
   if (!fs.existsSync(ARTIFACT_DIR)) {
     fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
@@ -496,8 +504,36 @@ async function run() {
         await page.goto(`${BASE_URL}${sc.path}`, { waitUntil: 'networkidle2', timeout: 12000 });
         await setDarkThemeAndAuth(page, authToken);
         // Cookie erst nach erstem Seitenkontakt wirksam -> neu laden
-        await page.goto(`${BASE_URL}${sc.path}`, { waitUntil: 'networkidle2', timeout: 12000 });
         await captureScreen(page, sc.name, 1280, 800);
+
+        if (sc.name === '22_admin_settle') {
+          try {
+            // Waiter Johannes anklicken
+            await page.evaluate(() => {
+              const btns = Array.from(document.querySelectorAll('button'));
+              const waiterBtn = btns.find(b => b.textContent && b.textContent.includes('Johannes'));
+              if (waiterBtn) waiterBtn.click();
+            });
+            await sleep(1500);
+            // Weiter zu Schritt 3
+            await page.evaluate(() => {
+              const btns = Array.from(document.querySelectorAll('button'));
+              const nextBtn = btns.find(b => b.textContent && (b.textContent.includes('Weiter') || b.textContent.includes('zählen') || b.textContent.includes('Geld')));
+              if (nextBtn) nextBtn.click();
+            });
+            await sleep(1500);
+            // Touch-Input anklicken um Modal zu öffnen
+            await page.evaluate(() => {
+              const inputs = Array.from(document.querySelectorAll('input'));
+              const countedInput = inputs.find(i => i.placeholder && i.placeholder.includes('0,00')) || inputs[0];
+              if (countedInput) countedInput.click();
+            });
+            await sleep(1500);
+            await captureScreen(page, '22b_admin_settle_touch_numpad', 480, 800);
+          } catch (e) {
+            console.warn('[WARN] 22b_admin_settle_touch_numpad übersprungen:', e.message);
+          }
+        }
       } catch (err) {
         console.warn(`[WARN] Fehler bei ${sc.name}:`, err.message);
       }

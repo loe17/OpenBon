@@ -70,12 +70,28 @@ export function CardPaymentTab({ config, onChange }: CardPaymentTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* Beta Notice Banner */}
+      <div className="flex items-start gap-3 bg-amber-950/40 border border-amber-800/80 text-amber-200 rounded-2xl p-4 shadow-md">
+        <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+        <div className="text-xs sm:text-sm">
+          <div className="font-black text-amber-300 flex items-center gap-2">
+            <span>Hinweis: Kartenzahlung befindet sich im Beta-Status</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+              Beta
+            </span>
+          </div>
+          <p className="text-amber-200/90 mt-1 leading-relaxed">
+            Die Schnittstellen für Kartenzahlungen (SumUp, VR-Pay, Sparkasse S-POS, Zettle, Stripe, ZVT-Terminal) wurden technisch integriert, jedoch noch nicht im realen Festbetrieb in der Praxis erprobt. Bitte testen Sie den Bezahlvorgang vorab gründlich mit Ihrem Terminal.
+          </p>
+        </div>
+      </div>
+
       {!anyActive ? (
-        <div className="flex items-start gap-3 bg-amber-950/40 border border-amber-800/60 text-amber-200 rounded-2xl p-4">
-          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 bg-slate-900 border border-slate-800 text-slate-300 rounded-2xl p-4">
+          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-slate-400" />
           <div className="text-sm">
-            <div className="font-bold">Zurzeit ist an der Kasse nur Barzahlung möglich.</div>
-            <p className="text-xs text-amber-200/80 mt-0.5">
+            <div className="font-bold text-white">Zurzeit ist an der Kasse nur Barzahlung möglich.</div>
+            <p className="text-xs text-slate-400 mt-0.5">
               Kartenzahlung wird an Bonkasse und Bedienung erst angeboten, sobald mindestens ein
               Anbieter per Checkbox aktiviert und mit den nötigen Zugangsdaten eingerichtet ist.
             </p>

@@ -610,9 +610,10 @@ export const HANDBOOK: DocChapter[] = [
     sections: [
       {
         id: '7.1',
-        heading: '7.1 Kartenzahlung & Terminals',
+        heading: '7.1 Kartenzahlung & Terminals (Beta)',
         paragraphs: [
           'OpenBon unterstützt gängige Kartenterminals für bargeldlose Zahlung vor Ort:',
+          'Hinweis (Beta): Die Schnittstellen für externe Kartenterminals (SumUp, VR-Pay, Sparkasse S-POS, Zettle, Stripe und stationäre ZVT-Terminals) befinden sich aktuell im Beta-Status. Sie wurden nach offiziellen Vorgaben implementiert, jedoch noch nicht im echten Großveranstaltungsbetrieb vor Ort getestet. Führen Sie vor Festbeginn stets Testbuchungen mit Ihrem Terminal durch.',
         ],
         table: {
           headers: ['Anbieter', 'Verbindungsart', 'Einsatzgebiet'],
@@ -650,9 +651,9 @@ export const HANDBOOK: DocChapter[] = [
           '5. Abrechnung ausdrucken und Schicht abschließen.',
         ],
         image: {
-          src: '/docs/images/22_admin_settle.png',
-          alt: 'Schichtabrechnung Kassensturz',
-          caption: 'Geführter Kassensturz mit Bargeldzählung und Storno-Erfassung',
+          src: '/docs/images/22b_admin_settle_touch_numpad.png',
+          alt: 'Touch-Zahlenfeld Bargeld',
+          caption: 'Touch-Zahlenfeld mit extra großen Tasten für Übernehmen und Löschen sowie Schnelladdition (+5, +10, +20, +50 €)',
         },
       },
       {
@@ -662,6 +663,11 @@ export const HANDBOOK: DocChapter[] = [
           'In der Schichtabrechnung listet der neue Reiter "Stornierte Artikel" alle Stornierungen der Schicht auf (Artikelname, Anzahl, Einzelpreis und Gesamtsumme).',
           'Sowohl auf dem A4-Ausdruck als auch auf dem 80mm-Thermobon-Ausdruck werden stornierte Posten transparent ausgewiesen, sodass Kassenleitung und Vereinsvorstand lückenlose Nachvollziehbarkeit haben.',
         ],
+        image: {
+          src: '/docs/images/22_admin_settle.png',
+          alt: 'Schichtabrechnung mit Storno-Reiter',
+          caption: 'Schichtabrechnung mit den 4 Reitern inklusive "Stornierte Artikel"',
+        },
       },
       {
         id: '7.5',
@@ -698,26 +704,28 @@ export const HANDBOOK: DocChapter[] = [
     sections: [
       {
         id: '8.1',
-        heading: '8.1 Gesetzliche KassenSichV & Technische Sicherheitseinrichtung (TSE)',
+        heading: '8.1 Gesetzliche KassenSichV & Technische Sicherheitseinrichtung (TSE) (Beta)',
         paragraphs: [
           'OpenBon erfüllt die Vorgaben der deutschen Kassensicherungsverordnung. Unter /admin/fiscal kann eine zertifizierte TSE (Hardware-USB-Stick von Swissbit oder Cloud-TSE) angebunden werden. Jeder Kassiervorgang erhält eine manipulationssichere Signatur.',
+          'Hinweis (Beta): Die TSE-Anbindung und die DSFinV-K Prüfexporte befinden sich im Beta-Status und wurden noch nicht bei einer behördlichen Betriebsprüfung im Produktiveinsatz getestet.',
         ],
         image: {
           src: '/docs/images/24_admin_fiscal.png',
           alt: 'KassenSichV TSE Status',
-          caption: 'TSE-Konfiguration und Signaturprüfung nach KassenSichV',
+          caption: 'TSE-Konfiguration und Signaturprüfung nach KassenSichV (Beta)',
         },
       },
       {
         id: '8.2',
-        heading: '8.2 Amtliche Kassenmeldung (§ 146a Abs. 4 AO)',
+        heading: '8.2 Amtliche Kassenmeldung (§ 146a Abs. 4 AO) (Beta)',
         paragraphs: [
           'Gemäß Abgabenordnung müssen elektronische Aufzeichnungssysteme dem Finanzamt gemeldet werden. OpenBon erzeugt das offizielle Meldeformular unter /admin/fiscal/kassenmeldung auf Knopfdruck.',
+          'Hinweis (Beta): Die automatische Kassenmeldung befindet sich im Beta-Status.',
         ],
         image: {
           src: '/docs/images/25_admin_fiscal_kassenmeldung.png',
           alt: 'Amtliche Kassenmeldung Finanzamt',
-          caption: 'Vollständiges Meldeformular für das zuständige Finanzamt',
+          caption: 'Vollständiges Meldeformular für das zuständige Finanzamt (Beta)',
         },
       },
       {

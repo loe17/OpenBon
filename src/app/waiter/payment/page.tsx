@@ -1066,9 +1066,16 @@ function WaiterPaymentContent() {
                     <Icon className="w-7 h-7 text-white" />
                   </span>
                   <span className="min-w-0">
-                    <span className="block font-black text-lg text-white truncate">{m.label}</span>
+                    <span className="block font-black text-lg text-white truncate flex items-center gap-2">
+                      <span>{m.label}</span>
+                      {m.isCard && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                          Beta
+                        </span>
+                      )}
+                    </span>
                     <span className="block text-xs font-semibold text-slate-300">
-                      {m.isCard ? 'Kartenzahlung (Terminal / App)' : m.isNonPaid ? 'Ohne Geldfluss' : 'Barzahlung'}
+                      {m.isCard ? 'Kartenzahlung (Beta: Terminal / App)' : m.isNonPaid ? 'Ohne Geldfluss' : 'Barzahlung'}
                     </span>
                   </span>
                 </button>
