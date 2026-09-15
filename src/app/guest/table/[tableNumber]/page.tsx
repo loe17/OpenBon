@@ -19,6 +19,8 @@ import {
   Loader2,
   Trash2,
   X,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
 import { EU_ALLERGENS, filterProductsByExcludedAllergens } from '@/lib/compliance';
 import { useToast } from '@/components/ui/toast';
@@ -80,13 +82,15 @@ export default function GuestTableOrderPage() {
   const [orderSuccess, setOrderSuccess] = useState<{ orderNumber: number; itemCount: number } | null>(null);
   const [selectedProductInfo, setSelectedProductInfo] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [menuFile, setMenuFile] = useState<{ url: string; filename: string; mimeType: string } | null>(null);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [catRes, prodRes] = await Promise.all([
+        const [catRes, prodRes, menuRes] = await Promise.all([
           fetch('/api/categories'),
           fetch('/api/products'),
+          fetch('/api/bridge/menu-upload').catch(() => null),
         ]);
         if (catRes.ok && prodRes.ok) {
           const catData = await catRes.json();
@@ -103,6 +107,12 @@ export default function GuestTableOrderPage() {
             })),
           }));
           setProducts(normalized);
+        }
+        if (menuRes && menuRes.ok) {
+          const menuData = await menuRes.json();
+          if (menuData?.exists && menuData?.url) {
+            setMenuFile(menuData);
+          }
         }
       } catch (err) {
         console.error('Fehler beim Laden:', err);
@@ -223,6 +233,30 @@ export default function GuestTableOrderPage() {
           )}
         </button>
       </header>
+
+      {/* Speisekarte / Festzelt-Aushang Banner */}
+      {menuFile && (
+        <div className="mx-4 mt-3 p-3 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl flex items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2 bg-indigo-600/20 text-indigo-400 rounded-xl shrink-0">
+              <FileText className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-white truncate">Speisekarte & Aushang</div>
+              <div className="text-[11px] text-indigo-300 truncate">Originalkarte / Festflyer als PDF ansehen</div>
+            </div>
+          </div>
+          <a
+            href={menuFile.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow shrink-0"
+          >
+            <span>Öffnen</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      )}
 
       {/* Erfolgs-Modal */}
       {orderSuccess && (

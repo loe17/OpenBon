@@ -99,6 +99,7 @@ export const ALLOWED_CONFIG_FIELDS = [
   'zvtPort',
   'zvtPassword',
   'baseUrl',
+  'webhostingSyncToken',
   'initialPinSet',
   'tseProvider',
   'tseSerialNumber',

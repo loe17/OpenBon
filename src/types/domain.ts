@@ -147,6 +147,7 @@ export interface EventConfigDTO {
   zvtPort: number;
   zvtPassword: string;
   baseUrl: string;
+  webhostingSyncToken?: string | null;
   initialPinSet?: boolean;
   needsSetup?: boolean;
   tseProvider: string;

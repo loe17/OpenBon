@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Receipt,
   Smartphone,
@@ -9,6 +9,17 @@ import {
   WifiOff,
   QrCode,
   Download,
+  Upload,
+  FileText,
+  Trash2,
+  ExternalLink,
+  HelpCircle,
+  RefreshCw,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Key,
+  FileUp,
   ToggleLeft,
   ToggleRight,
   Type,
@@ -131,6 +142,104 @@ function FontSizeSlider({
 export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
   const [preview, setPreview] = useState<PreviewKind>('RECEIPT');
   const [paperWidth, setPaperWidth] = useState<80 | 58>(80);
+
+  // Webhosting-Brücke & Speisekarte
+  const [menuInfo, setMenuInfo] = useState<{
+    exists: boolean;
+    filename?: string;
+    sizeBytes?: number;
+    mimeType?: string;
+    updatedAt?: string;
+    url?: string;
+  } | null>(null);
+  const [isUploadingMenu, setIsUploadingMenu] = useState(false);
+  const [isSyncingMenu, setIsSyncingMenu] = useState(false);
+  const [bridgeStatusMsg, setBridgeStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showBridgeHelp, setShowBridgeHelp] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const loadMenuInfo = async () => {
+    try {
+      const res = await fetch('/api/bridge/menu-upload');
+      if (res.ok) {
+        const data = await res.json();
+        setMenuInfo(data);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    loadMenuInfo();
+  }, []);
+
+  const handleDownloadBridgeZip = () => {
+    const token = encodeURIComponent(config.webhostingSyncToken || '');
+    const bUrl = encodeURIComponent(config.baseUrl || '');
+    window.location.href = `/api/bridge/download?token=${token}&baseUrl=${bUrl}`;
+  };
+
+  const handleGenerateToken = () => {
+    const token =
+      'OB-SYNC-' +
+      Math.random().toString(36).substring(2, 8).toUpperCase() +
+      '-' +
+      Math.random().toString(36).substring(2, 8).toUpperCase();
+    onChange({ webhostingSyncToken: token });
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingMenu(true);
+    setBridgeStatusMsg(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/bridge/menu-upload', {
+        method: 'POST',
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload fehlgeschlagen');
+      await loadMenuInfo();
+      setBridgeStatusMsg({ type: 'success', text: `Speisekarte "${file.name}" erfolgreich hochgeladen!` });
+    } catch (err: any) {
+      setBridgeStatusMsg({ type: 'error', text: err.message || 'Fehler beim Hochladen' });
+    } finally {
+      setIsUploadingMenu(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteMenu = async () => {
+    if (!confirm('Möchtest du die hinterlegte Speisekarte wirklich löschen?')) return;
+    try {
+      const res = await fetch('/api/bridge/menu-upload', { method: 'DELETE' });
+      if (res.ok) {
+        setMenuInfo({ exists: false });
+        setBridgeStatusMsg({ type: 'success', text: 'Speisekarte wurde gelöscht.' });
+      }
+    } catch (err: any) {
+      setBridgeStatusMsg({ type: 'error', text: 'Fehler beim Löschen' });
+    }
+  };
+
+  const handleSyncMenuToWebhosting = async () => {
+    setIsSyncingMenu(true);
+    setBridgeStatusMsg(null);
+    try {
+      const res = await fetch('/api/bridge/sync-menu', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Übertragung fehlgeschlagen');
+      setBridgeStatusMsg({ type: 'success', text: data.message || 'Speisekarte erfolgreich an Webhosting übertragen!' });
+    } catch (err: any) {
+      setBridgeStatusMsg({ type: 'error', text: err.message || 'Fehler bei der Übertragung' });
+    } finally {
+      setIsSyncingMenu(false);
+    }
+  };
 
   // Gastro-Pflichtdaten prüfen
   const hasGastroData = Boolean(
@@ -794,25 +903,252 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
                 </div>
               )}
 
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
-                  Öffentliche Basis-URL für E-Bons (z. B. Cloudflare Tunnel, DynDNS oder Fest-Domain)
-                </label>
-                <div className="flex items-center gap-2">
-                  <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-slate-500">
-                    <Globe className="w-4 h-4" />
+              {/* Feedback-Banner */}
+              {bridgeStatusMsg && (
+                <div
+                  className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-between gap-3 ${
+                    bridgeStatusMsg.type === 'success'
+                      ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-300'
+                      : 'bg-rose-950/50 border-rose-500/40 text-rose-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {bridgeStatusMsg.type === 'success' ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                    )}
+                    <span>{bridgeStatusMsg.text}</span>
                   </div>
-                  <input
-                    type="text"
-                    value={config.baseUrl || ''}
-                    onChange={(e) => onChange({ baseUrl: e.target.value })}
-                    placeholder="https://bon.mein-fest.de oder http://192.168.1.100:3000"
-                    className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-mono font-bold focus:border-indigo-500"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setBridgeStatusMsg(null)}
+                    className="text-xs opacity-70 hover:opacity-100"
+                  >
+                    ✕
+                  </button>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
-                  Damit Gäste den Beleg mit Mobilfunk (LTE/5G) öffnen können, trage hier die öffentlich erreichbare Adresse ein (z. B. via kostenlosem Cloudflare Tunnel oder DynDNS). Im reinen Festzelt-WLAN reicht die lokale IP oder &bdquo;http://openbon.local&ldquo;.
-                </p>
+              )}
+
+              {/* Öffentliche Basis-URL + Download-Button */}
+              <div className="space-y-3 pt-2">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-300">
+                      Öffentliche Basis-URL für E-Bons (Webhosting-Brücke)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowBridgeHelp(!showBridgeHelp)}
+                      className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-semibold"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5" />
+                      <span>{showBridgeHelp ? 'Anleitung schließen' : 'Wie richte ich das ein?'}</span>
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <div className="flex-1 flex items-center gap-2">
+                      <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-slate-500">
+                        <Globe className="w-4 h-4" />
+                      </div>
+                      <input
+                        type="text"
+                        value={config.baseUrl || ''}
+                        onChange={(e) => onChange({ baseUrl: e.target.value })}
+                        placeholder="https://bon.mein-verein.de oder http://192.168.1.100:3000"
+                        className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-mono font-bold focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleDownloadBridgeZip}
+                      title="Fertiges ZIP-Paket für Webhosting (z. B. Netcup, Plesk) herunterladen"
+                      className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-lg shrink-0"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>ZIP-Paket herunterladen</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+                    Trage hier die Internetadresse deines Webhostings (z. B. Netcup Webhosting 1000) ein. Klicke auf &bdquo;ZIP-Paket herunterladen&ldquo;, um die fertigen Dateien für dein Webhosting zu erhalten.
+                  </p>
+                </div>
+
+                {/* Webhosting Sync-Token */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                    Abgleich-Schlüssel für Webhosting (Sicherheits-Token)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-slate-500">
+                      <Key className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      value={config.webhostingSyncToken || ''}
+                      onChange={(e) => onChange({ webhostingSyncToken: e.target.value })}
+                      placeholder="z. B. OB-SYNC-8F3K2L-9Q1Z"
+                      className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-xs font-mono font-bold focus:border-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleGenerateToken}
+                      title="Neuen Zufalls-Schlüssel erzeugen"
+                      className="flex items-center gap-1.5 px-3 py-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-xs font-bold transition shrink-0"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Neu generieren</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+                    Sichert die Belegübertragung zwischen Kasse und Webhosting ab. Derselbe Schlüssel wird im ZIP-Paket automatisch voreingestellt.
+                  </p>
+                </div>
+
+                {/* Aufklappbare Schritt-für-Schritt-Hilfe */}
+                {showBridgeHelp && (
+                  <div className="p-4 bg-indigo-950/30 border border-indigo-500/30 rounded-2xl text-xs space-y-3">
+                    <div className="flex items-center gap-2 font-bold text-indigo-300 text-sm">
+                      <HelpCircle className="w-4 h-4" />
+                      <span>Schritt-für-Schritt Anleitung: Webhosting-Brücke einrichten</span>
+                    </div>
+
+                    <div className="space-y-2 text-slate-300 leading-relaxed">
+                      <div className="flex items-start gap-2">
+                        <span className="bg-indigo-600 text-white font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[11px]">1</span>
+                        <div>
+                          <strong>Webhosting bereitstellen:</strong> Nutze ein normales Webhosting (z. B. Netcup Webhosting 1000) oder eine Domain/Subdomain wie <code>bon.mein-verein.de</code>.
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="bg-indigo-600 text-white font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[11px]">2</span>
+                        <div>
+                          <strong>ZIP-Paket entpacken:</strong> Klicke oben auf &bdquo;ZIP-Paket herunterladen&ldquo; und lade den Inhalt im Webhosting-Dateimanager (Plesk / cPanel) oder per FTP direkt in den Web-Ordner (meist <code>httpdocs</code>).
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="bg-indigo-600 text-white font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[11px]">3</span>
+                        <div>
+                          <strong>URL & Schlüssel eintragen:</strong> Trage die Adresse oben ein. Fertig! Sobald du einen Verkauf abschließt, überträgt OpenBon den Beleg automatisch.
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-indigo-500/20 grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
+                      <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 text-slate-300">
+                        <strong className="text-emerald-400 block mb-1">✓ Weder DynDNS noch Router-Port nötig</strong>
+                        OpenBon sendet die Belege als normale, ausgehende Verbindung ins Internet. Dein Festzelt-Router bleibt vollständig geschützt.
+                      </div>
+                      <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 text-slate-300">
+                        <strong className="text-amber-400 block mb-1">⏱ Automatische 24h-Löschung</strong>
+                        Belege auf dem Webhosting werden nach genau 24 Stunden automatisch gelöscht. So bleibt dein Speicherplatz sauber und der Datenschutz gewahrt.
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Karte: Speisekarte & Aushang (PDF oder Bild) */}
+                <div className="p-4 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-emerald-400" />
+                      <span className="font-bold text-xs text-white">Digitale Speisekarte & Aushang (PDF oder Bild)</span>
+                    </div>
+                    {menuInfo?.exists && (
+                      <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded-full">
+                        Hinterlegt
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Hinterlege hier die Speisekarte oder den Festzelt-Flyer als PDF oder Foto. Gäste können diesen über den QR-Code am Tisch auf ihrem Smartphone öffnen. Auch auf der Webhosting-Brücke wird die Speisekarte automatisch bereitgestellt.
+                  </p>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                  />
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {menuInfo?.exists ? (
+                      <>
+                        <div className="flex items-center gap-2 px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200">
+                          <FileText className="w-4 h-4 text-indigo-400 shrink-0" />
+                          <span className="font-mono font-medium truncate max-w-[200px]">
+                            {menuInfo.filename}
+                          </span>
+                          {menuInfo.sizeBytes && (
+                            <span className="text-slate-500 text-[10px]">
+                              ({(menuInfo.sizeBytes / (1024 * 1024)).toFixed(1)} MB)
+                            </span>
+                          )}
+                        </div>
+
+                        {menuInfo.url && (
+                          <a
+                            href={menuInfo.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-xs font-bold transition"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Vorschau</span>
+                          </a>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploadingMenu}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-xs font-bold transition"
+                        >
+                          <FileUp className="w-3.5 h-3.5" />
+                          <span>Ersetzen</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleDeleteMenu}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-900/50 text-rose-300 rounded-xl text-xs font-bold transition"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Löschen</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleSyncMenuToWebhosting}
+                          disabled={isSyncingMenu}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow ml-auto"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>{isSyncingMenu ? 'Übertrage...' : 'Jetzt auf Webhosting übertragen'}</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploadingMenu}
+                          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow"
+                        >
+                          <FileUp className="w-4 h-4" />
+                          <span>{isUploadingMenu ? 'Wird hochgeladen...' : 'Speisekarte hochladen (PDF / Bild)'}</span>
+                        </button>
+                        <span className="text-[11px] text-slate-500">
+                          (PDF, PNG, JPG oder WebP bis zu 25 MB)
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

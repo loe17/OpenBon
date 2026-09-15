@@ -7,6 +7,7 @@ import { computeCheckout, findSplit, round2, toCents } from '@/lib/pricing';
 import { getOrCreateOpenPeriod } from '@/lib/register-period';
 import { getPaymentLabel } from '@/lib/payment/methods';
 import { generateDigitalReceiptCode, buildReceiptUrl } from '@/lib/digital-receipt';
+import { pushReceiptToWebhostingAsync } from '@/lib/webhosting-push';
 import { calculateTipDistribution } from '@/lib/tips';
 import { deductTapVolumeForItems } from '@/lib/tap-manager';
 import { validateBody, CreatePaymentSchema } from '@/lib/validations/schemas';
@@ -494,6 +495,18 @@ export async function POST(req: Request) {
     const receiptUrl = payment.digitalReceiptCode
       ? buildReceiptUrl(config.baseUrl || 'http://openbon.local', payment.digitalReceiptCode)
       : null;
+
+    if (payment.digitalReceiptCode && config?.baseUrl) {
+      pushReceiptToWebhostingAsync(
+        {
+          code: payment.digitalReceiptCode,
+          payment,
+          eventName: config.name,
+        },
+        config.baseUrl,
+        config.webhostingSyncToken
+      );
+    }
 
     await logSystemActionSafe(() => {
       const methodLabel = getPaymentLabel(payment.paymentMethod);

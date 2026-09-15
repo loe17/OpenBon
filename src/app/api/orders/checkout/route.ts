@@ -12,6 +12,7 @@ import { validateBody, AtomicCheckoutSchema } from '@/lib/validations/schemas';
 import { getOrCreateOpenPeriod } from '@/lib/register-period';
 import { getPaymentLabel } from '@/lib/payment/methods';
 import { generateDigitalReceiptCode, buildReceiptUrl } from '@/lib/digital-receipt';
+import { pushReceiptToWebhostingAsync } from '@/lib/webhosting-push';
 import { calculateTipDistribution } from '@/lib/tips';
 import { deductTapVolumeForItems } from '@/lib/tap-manager';
 import type { TicketData } from '@/lib/printer/types';
@@ -526,6 +527,26 @@ export async function POST(req: Request) {
       payment.digitalReceiptCode
         ? buildReceiptUrl(config?.baseUrl || 'http://openbon.local', payment.digitalReceiptCode)
         : null;
+
+    if (payment.digitalReceiptCode && config?.baseUrl) {
+      pushReceiptToWebhostingAsync(
+        {
+          code: payment.digitalReceiptCode,
+          payment: {
+            ...payment,
+            items: (payment.items || []).map((item: any) => ({
+              productName: item.productName,
+              quantity: item.quantity,
+              priceGrossCents: item.unitPriceCents,
+              totalGrossCents: item.unitPriceCents * item.quantity,
+            })),
+          },
+          eventName: config.name,
+        },
+        config.baseUrl,
+        config.webhostingSyncToken
+      );
+    }
 
     await logSystemActionSafe(() => ({
       action: 'CHECKOUT_COMPLETED',

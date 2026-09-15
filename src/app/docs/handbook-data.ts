@@ -302,7 +302,7 @@ export const HANDBOOK: DocChapter[] = [
     id: 'pos',
     chapterNumber: 3,
     title: 'Stationäre Kasse, SB-Kiosk & Kundendisplay',
-    subtitle: 'Direktverkauf, Wertmarken, Kassenlade, E-Bon, SB-Terminal und Zweitbildschirm',
+    subtitle: 'Direktverkauf, Wertmarken, Kassenlade, E-Bon, SB-Terminal, Zweitbildschirm und Android Kiosk-Modus',
     icon: 'pos',
     sections: [
       {
@@ -313,47 +313,60 @@ export const HANDBOOK: DocChapter[] = [
           'Artikel werden mit einem Klick ausgewählt und erscheinen im übersichtlichen Warenkorb. Für maximale Übersicht wurde die alte Anzeige der Abholnummer entfernt.',
         ],
         image: {
-          src: '/docs/images/03_pos_counter.png',
-          alt: 'Stationäre Bonkasse',
-          caption: 'Die Kassenansicht für Thekenverkauf und Wertmarkenausgabe',
+          src: '/docs/images/07_pos_direct_sale.png',
+          alt: 'Bonkasse Sofortverkauf',
+          caption: 'Direktverkauf an der Bonkasse mit schneller Artikelauswahl',
         },
       },
       {
         id: '3.2',
-        heading: '3.2 Kassiermodal & Zahlungsarten',
+        heading: '3.2 Nummernblock: Schnelle Mengeneingabe',
         paragraphs: [
-          'Beim Klick auf "Kassieren" öffnet sich das Kassiermodal. Hier stehen Barzahlung, Kartenzahlung und Wertmarken zur Auswahl. Auch gemischte Teilzahlungen (z. B. 20 € bar und Rest per Karte) werden unterstützt.',
+          'Über den integrierten Ziffernblock können Beträge oder Stückzahlen blitzschnell eingetippt werden.',
+          'Die Tasten "Übernehmen" und "C" (Löschen) sind für zügiges Kassieren besonders groß gestaltet und lassen sich auch mit nassen Fingern treffsicher bedienen.',
         ],
         image: {
-          src: '/docs/images/03c_pos_kassiermodal_voll.png',
-          alt: 'Kassiermodal Bonkasse',
-          caption: 'Kassiermaske mit Zahlungsarten, Rückgeld und Belegoptionen',
+          src: '/docs/images/08_pos_numpad.png',
+          alt: 'Nummernblock Bonkasse',
+          caption: 'Großzügig dimensionierter Nummernblock für Fehleingabe-freies Arbeiten',
         },
       },
       {
         id: '3.3',
-        heading: '3.3 Kassenladen-Steuerung (RJ12 Impuls)',
+        heading: '3.3 Kassenschublade manuell öffnen',
         paragraphs: [
-          'Wird ein Barverkauf abgeschlossen, sendet OpenBon automatisch den Auslöseimpuls über das Druckerkabel an die Kassenlade, sodass sie sofort aufspringt.',
+          'Neben dem automatischen Öffnen nach Barzahlungen kann die Kassenlade jederzeit per Tastendruck auf dem Bildschirm geöffnet werden – beispielsweise für Wechselgeldkontrollen oder Einzahlungen.',
         ],
       },
       {
         id: '3.4',
-        heading: '3.4 Wertmarken- & Festbon-Druck',
+        heading: '3.4 Wertmarken & Abhol-Tokens',
         paragraphs: [
-          'Artikel können als Wertmarken konfiguriert werden. Beim Verkauf druckt der Drucker für jede Marke einen separaten Bonabschnitt mit fortlaufender Festnummer.',
+          'Für Festzelte mit separater Essens- oder Getränkeausgabe druckt OpenBon auf Wunsch fortlaufende Wertmarkennummern auf separate Bons, sodass Gäste ihre Speisen an der Essensausgabe per Nummernabruf abholen können.',
         ],
       },
       {
         id: '3.5',
-        heading: '3.5 Digitaler E-Bon & Web-NFC',
+        heading: '3.5 Digitaler E-Bon, Webhosting-Brücke & Speisekarte (PDF)',
         paragraphs: [
           'Nach dem Kassieren kann dem Gast ein digitaler Beleg ausgestellt werden: Entweder hält der Gast sein Smartphone an das Kassentablet (Web-NFC) oder scannt den angezeigten QR-Code ab.',
+          'Damit Gäste den Beleg oder die Speisekarte auch mit ihrem mobilen Internet (LTE/5G) aufrufen können, ohne im Festzelt-WLAN eingewählt zu sein, bietet OpenBon eine fertige "Webhosting-Brücke" (z. B. auf einem Netcup Webhosting 1000 oder einem Vereins-Webspace).',
+          'Wichtig: Für diese Brücke ist WEDER DynDNS noch eine Portfreigabe am Router erforderlich! OpenBon sendet neue Belege als gewöhnliche, ausgehende Internetverbindung direkt an das Webhosting. Das Kassennetzwerk im Festzelt bleibt vollständig nach außen abgeschirmt und sicher vor Zugriffen von außen.',
+          'Automatische 24h-Löschung: Alle auf das Webhosting übertragenen digitalen Belege werden nach genau 24 Stunden automatisch gelöscht. Das schützt die Daten der Gäste und verhindert, dass der Webspace mit alten Bons vollreicht.',
+          'Digitale Speisekarte (PDF / Flyer): Unter "Einstellungen -> Belegdruck" kann die Speisekarte oder der Festflyer als PDF oder Foto hochgeladen werden. Sie wird automatisch auf die Webhosting-Brücke synchronisiert und steht Gästen über den Tisch-QR-Code zur Verfügung.',
         ],
+        table: {
+          headers: ['Schritt', 'Aktion', 'Erklärung (ohne Fachbegriffe)'],
+          rows: [
+            ['1. ZIP herunterladen', 'In OpenBon unter "Einstellungen -> Belegdruck"', 'Klicke neben der Basis-URL auf "ZIP-Paket herunterladen". Alle nötigen Dateien und dein geheimer Schlüssel sind bereits fertig verpackt.'],
+            ['2. Webspace hochladen', 'Dateimanager (Plesk / cPanel) oder FTP', 'Entpacke das ZIP-Paket einfach in den Web-Ordner deines Webhostings (meist "httpdocs").'],
+            ['3. Adresse eintragen', 'Öffentliche Basis-URL speichern', 'Trage die Web-Adresse (z. B. https://bon.mein-verein.de) in OpenBon ein. Ab sofort werden E-Bons blitzschnell übertragen.'],
+          ],
+        },
         image: {
           src: '/docs/images/12_receipt_ebon.png',
           alt: 'Digitaler E-Bon',
-          caption: 'Papierloser digitaler Kassenbeleg mit TSE-Signatur',
+          caption: 'Papierloser digitaler Kassenbeleg mit TSE-Signatur und Webhosting-Übertragung',
         },
       },
       {
@@ -392,6 +405,28 @@ export const HANDBOOK: DocChapter[] = [
           src: '/docs/images/11_guest_table_menu.png',
           alt: 'Digitale Speisekarte Gast',
           caption: 'Speisekarte auf dem Smartphone des Gastes',
+        },
+      },
+      {
+        id: '3.9',
+        heading: '3.9 Android-Tablets dauerhaft im Vollbild (Kiosk-Modus)',
+        paragraphs: [
+          'Auf Festen sollen Kassen- und Kellner-Tablets dauerhaft im Vollbild laufen. Normale Webbrowser wie Google Chrome sind dafür ungeeignet: Chrome beendet den Vollbildmodus automatisch, sobald das Tablet gesperrt und wieder entsperrt wird oder der Bildschirm kurz ausgeht.',
+          'Die praxiserprobte und empfohlene Lösung für Android-Tablets: "Fully Kiosk Browser & Launcher" (kostenlos im Google Play Store erhältlich).',
+          'Vorteile von Fully Kiosk Browser für das Vereinsfest:',
+          '1. Dauerhafter Immersive Fullscreen: Adressleiste und Android-Navigationsleiste werden vollständig ausgeblendet. Auch nach dem Sperren und Entsperren des Tablets bleibt OpenBon zuverlässig im Vollbild.',
+          '2. Zuverlässig bei Festzelt-WLAN: Verliert das Tablet kurz das WLAN und verbindet sich neu, lädt Fully Kiosk die Kassenoberfläche automatisch neu ("Auto-Reload on Network Reconnect").',
+          '3. Fehlbedienung verhindern: Wischgesten oder der versehentliche Druck auf die Home-Taste können blockiert werden, sodass Helfer nicht versehentlich in die Android-Einstellungen gelangen.',
+          '4. Bildschirm dauerhaft aktiv halten: Über die Einstellung "Keep Screen On" bleibt das Display während der gesamten Schicht eingeschaltet.',
+        ],
+        table: {
+          headers: ['Einstellung in Fully Kiosk', 'Empfohlener Wert', 'Erklärung (ohne Fachbegriffe)'],
+          rows: [
+            ['Start URL', 'http://openbon.local:3000 oder IP', 'Öffnet beim Starten des Tablets sofort die Kassenoberfläche'],
+            ['Enable Fullscreen Mode', 'Aktiviert (AN)', 'Blendet alle störenden Browser- und Android-Leisten aus'],
+            ['Keep Screen On', 'Aktiviert (AN)', 'Verhindert automatisches Abdunkeln während des Kassenbetriebs'],
+            ['Auto-Reload on Network Reconnect', 'Aktiviert (AN)', 'Stellt die Kasse nach kurzen WLAN-Pausen automatisch wieder her'],
+          ],
         },
       },
     ],

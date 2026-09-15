@@ -108,6 +108,7 @@ model EventConfig {
   zvtPort             Int     @default(20007)
   zvtPassword         String  @default("000000")
   baseUrl             String  @default("http://openbon.local") // Basis fuer App-to-App Callbacks
+  webhostingSyncToken String? // Geheimer Abgleichsschlüssel für Webhosting-Brücke
   initialPinSet       Boolean @default(false)
 
   // Fiskalisierung & DATEV

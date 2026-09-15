@@ -4,6 +4,7 @@ import { requireApiAuth } from '@/lib/api-guard';
 import { validateBody, AmountSplitSchema } from '@/lib/validations/schemas';
 import { toCents } from '@/lib/pricing';
 import { generateDigitalReceiptCode } from '@/lib/digital-receipt';
+import { pushReceiptToWebhostingAsync } from '@/lib/webhosting-push';
 import { getOrCreateOpenPeriod } from '@/lib/register-period';
 import { logSystemActionSafe } from '@/lib/action-logger';
 
@@ -65,6 +66,19 @@ export async function POST(req: Request) {
     if (global.io) {
       global.io.emit('payment:completed', { paymentId: payment.id, orderId, tableId, amount: gross, partial: true });
     }
+
+    if (payment.digitalReceiptCode && updatedConfig?.baseUrl) {
+      pushReceiptToWebhostingAsync(
+        {
+          code: payment.digitalReceiptCode,
+          payment,
+          eventName: updatedConfig.name,
+        },
+        updatedConfig.baseUrl,
+        updatedConfig.webhostingSyncToken
+      );
+    }
+
     return NextResponse.json({ success: true, payment });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
