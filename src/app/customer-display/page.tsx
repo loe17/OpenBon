@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useSocket } from '@/components/providers/socket-provider';
 import QRCode from 'qrcode';
 import { formatCurrency } from '@/lib/utils';
-import { buildReceiptUrl } from '@/lib/digital-receipt';
+import { buildReceiptUrl } from '@/lib/digital-receipt-url';
 import {
   Monitor,
   Receipt,

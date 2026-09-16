@@ -5,7 +5,7 @@ import { useSocket } from '@/components/providers/socket-provider';
 import QRCode from 'qrcode';
 import { formatCents, formatCurrency, generateIdempotencyKey } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
-import { buildReceiptUrl } from '@/lib/digital-receipt';
+import { buildReceiptUrl } from '@/lib/digital-receipt-url';
 import {
   Ticket,
   Plus,

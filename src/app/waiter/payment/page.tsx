@@ -12,7 +12,7 @@ import { ChangeCalculator } from '@/components/ui/change-calculator';
 import PaymentService from '@/lib/payment/payment-service';
 import type { DiningTableDTO, OrderDTO, PaymentMethod, EventConfigDTO } from '@/types/domain';
 import QRCode from 'qrcode';
-import { buildReceiptUrl } from '@/lib/digital-receipt';
+import { buildReceiptUrl } from '@/lib/digital-receipt-url';
 import {
   ArrowLeft,
   Check,

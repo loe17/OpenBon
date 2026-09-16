@@ -1,5 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import { isExternalBridgeUrl } from './digital-receipt-url';
+export { isExternalBridgeUrl };
 
 /**
  * Asynchrone Beleg-Übertragung an die externe Webhosting-Brücke.
@@ -8,17 +10,6 @@ import path from 'path';
  * sodass Gäste ihren Beleg auch über Mobilfunk (LTE/5G) aufrufen können.
  * Läuft vollständig im Hintergrund ohne den Kassiervorgang zu blockieren.
  */
-
-export function isExternalBridgeUrl(url: string | null | undefined): boolean {
-  if (!url) return false;
-  const trimmed = url.trim().toLowerCase();
-  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) return false;
-  if (trimmed.includes('openbon.local')) return false;
-  if (trimmed.includes('localhost')) return false;
-  if (trimmed.includes('127.0.0.1')) return false;
-  if (trimmed.includes('0.0.0.0')) return false;
-  return true;
-}
 
 export interface PushReceiptPayload {
   code: string;
