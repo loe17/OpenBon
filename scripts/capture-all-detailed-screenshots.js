@@ -607,6 +607,30 @@ async function run() {
             console.warn('[WARN] 22b_admin_settle_touch_numpad übersprungen:', e.message);
           }
         }
+
+        if (sc.name === '37_admin_settings') {
+          const settingTabs = [
+            { label: 'Bonlayout', name: '37a_admin_settings_receipt' },
+            { label: 'Drucker', name: '37b_admin_settings_printers' },
+            { label: 'Kartenzahlung', name: '37c_admin_settings_cards' },
+            { label: 'Sicherheit', name: '37d_admin_settings_security' },
+            { label: 'Fiskal', name: '37e_admin_settings_fiscal' },
+            { label: 'Vorlagen', name: '37f_admin_settings_snapshots' },
+          ];
+          for (const tab of settingTabs) {
+            try {
+              await page.evaluate((btnLabel) => {
+                const btns = Array.from(document.querySelectorAll('button'));
+                const tabBtn = btns.find(b => b.textContent && b.textContent.includes(btnLabel));
+                if (tabBtn) tabBtn.click();
+              }, tab.label);
+              await sleep(1500);
+              await captureScreen(page, tab.name, 1280, 800);
+            } catch (tabErr) {
+              console.warn(`[WARN] Settings-Tab ${tab.name} übersprungen:`, tabErr.message);
+            }
+          }
+        }
       } catch (err) {
         console.warn(`[WARN] Fehler bei ${sc.name}:`, err.message);
       }

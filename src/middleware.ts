@@ -9,7 +9,7 @@ import {
 } from '@/lib/auth-session';
 
 // Öffentliche Pfade, die ohne Authentifizierung erreichbar sein müssen
-const PUBLIC_PATHS = [
+export const PUBLIC_PATHS = [
   '/_next',
   '/api/auth/pin',
   '/api/auth/session',
@@ -21,11 +21,14 @@ const PUBLIC_PATHS = [
   // Tagesumsatz. Der Endpunkt verlangt eine Administrator-Session.
   '/api/receipt',
   '/api/guest/orders',
+  '/api/payments/callback',
   '/api/sync', // HA-Sync (Heartbeat + Pull) – eigener Schutz über Shared Secret (X-HA-Secret)
   // N1 Pairing-Abruf: Server-zu-Server vom Partnerknoten (keine Admin-Session
   // moeglich). Interne Doppelabsicherung: Shared Secret + 6-stelliger Code.
   '/api/system/ha/pull',
   '/customer-display',
+  '/pos/card-terminal',
+  '/payment/callback',
   '/receipt',
   '/guest',
   '/favicon.ico',

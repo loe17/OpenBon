@@ -46,6 +46,8 @@ describe('Webhosting Bridge & Kiosk Guide Tests', () => {
       expect(php).toContain(testEventName);
       // 24 Stunden automatische Löschung
       expect(php).toContain('86400');
+      // Dynamischer Festname aus event.json
+      expect(php).toContain('event.json');
       // Belegabruf & Speisekarte
       expect(php).toContain('$receiptsDir');
       expect(php).toContain('Speisekarte');
@@ -62,6 +64,7 @@ describe('Webhosting Bridge & Kiosk Guide Tests', () => {
       expect(apiPhp).toContain('HTTP_X_BRIDGE_TOKEN');
       expect(apiPhp).toContain('push_receipt');
       expect(apiPhp).toContain('upload_menu');
+      expect(apiPhp).toContain('update_event');
       expect(apiPhp).toContain('http_response_code(403)');
     });
 

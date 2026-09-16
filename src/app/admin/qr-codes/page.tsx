@@ -106,6 +106,15 @@ export default function QrCodesPage() {
       icon: LayoutGrid,
     },
     {
+      id: 'card-terminal',
+      title: 'Bezahl-Smartphone (SoftPOS / VR-Pay Beta)',
+      role: 'POS_CASHIER',
+      path: '/pos/card-terminal',
+      description: 'Zweites Smartphone als Kartenterminal am Kiosk oder Stand (Gäste halten Karte an Rückseite)',
+      pin: 'Sofort startklar',
+      icon: Smartphone,
+    },
+    {
       id: 'admin',
       title: 'Admin Command Center',
       role: 'ADMIN',
@@ -161,6 +170,7 @@ export default function QrCodesPage() {
           else if (s.id === 'pos') sPin = activePins.posPin;
           else if (s.id === 'kitchen') sPin = activePins.kitchenPin;
           else if (s.id === 'guest' || s.id === 'kiosk') sPin = 'Kein PIN (Öffentlich)';
+          else if (s.id === 'card-terminal') sPin = 'Sofort startklar';
 
           const targetUrl = `${baseUrl}${s.path}`;
           const qrDataUrl = await QRCode.toDataURL(targetUrl, {

@@ -1,8 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 import path from 'path';
+import crypto from 'crypto';
 
 if (typeof process !== 'undefined' && !process.env.DATABASE_URL) {
   process.env.DATABASE_URL = 'file:./prisma/dev.db';
+}
+
+if (typeof process !== 'undefined' && (!process.env.LICENSE_HMAC_SECRET || process.env.LICENSE_HMAC_SECRET.length < 16)) {
+  process.env.LICENSE_HMAC_SECRET = 'OPENBON-AUTO-SECRET-' + crypto.randomBytes(16).toString('hex');
 }
 
 /**

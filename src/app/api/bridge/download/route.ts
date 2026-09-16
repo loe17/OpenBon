@@ -25,9 +25,27 @@ export async function GET(req: Request) {
       config?.baseUrl ||
       'https://bon.mein-verein.de';
 
-    const eventName = config?.name || 'Vereinsfest';
+    const eventName =
+      searchParams.get('eventName')?.trim() ||
+      config?.name ||
+      'Vereinsfest';
+
+    if (config) {
+      const updates: Record<string, any> = {};
+      if (baseUrl && baseUrl !== config.baseUrl) updates.baseUrl = baseUrl;
+      if (syncToken && syncToken !== (config as any).webhostingSyncToken) updates.webhostingSyncToken = syncToken;
+      if (Object.keys(updates).length > 0) {
+        await prisma.eventConfig.update({ where: { id: config.id }, data: updates }).catch(() => {});
+      }
+    }
 
     const zip = new JSZip();
+
+    // 0. Vorbelegung der Event-Konfiguration
+    zip.file(
+      'event.json',
+      JSON.stringify({ name: eventName, updatedAt: new Date().toISOString() }, null, 2)
+    );
 
     // 1. PHP Frontend für E-Bon & Speisekarte (inkl. 24h Selbstreinigung)
     zip.file(

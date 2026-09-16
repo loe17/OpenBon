@@ -19,7 +19,9 @@ import {
   ChevronRight,
   Loader2,
   Trash2,
+  Smartphone,
 } from 'lucide-react';
+import { useSocket } from '@/components/providers/socket-provider';
 import { getEffectiveProductPrice } from '@/lib/pricing';
 import { generateIdempotencyKey } from '@/lib/utils';
 import { sendWithOutboxFallback, removeOutboxItem } from '@/lib/offline/outbox';
@@ -62,6 +64,11 @@ export default function KioskPage() {
   const [step, setStep] = useState<'SELECT' | 'UPSELL' | 'PAYMENT' | 'SUCCESS'>('SELECT');
   const [orderResult, setOrderResult] = useState<{ tokenNumber: string; orderNumber: number } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const { socket } = useSocket();
+  const [paymentSessionId, setPaymentSessionId] = useState<string | null>(null);
+  const [terminalWaiting, setTerminalWaiting] = useState(false);
+  const [countdown, setCountdown] = useState(120);
 
   const resetTimer = () => {};
 
@@ -123,9 +130,10 @@ export default function KioskPage() {
   const proceedToCheckout = () => {
     resetTimer();
     setStep('PAYMENT');
+    startTerminalPayment();
   };
 
-  const executeKioskPayment = async () => {
+  const executeKioskPayment = async (method: string = 'CARD_TERMINAL') => {
     setIsProcessing(true);
     resetTimer();
     try {
@@ -137,7 +145,7 @@ export default function KioskPage() {
         source: 'KIOSK',
         waiterName: 'SB-Kiosk Terminal #1',
         idempotencyKey: kioskIdempotencyKey,
-        paymentMethod: 'CARD_TERMINAL',
+        paymentMethod: method,
         givenAmount: totalGross,
         printReceipt: true,
         openDrawer: false,
@@ -169,13 +177,109 @@ export default function KioskPage() {
       setOrderResult({ tokenNumber: tokenStr, orderNumber: orderData?.orderNumber });
       setStep('SUCCESS');
       setCart([]);
+      setTerminalWaiting(false);
+      setPaymentSessionId(null);
     } catch (err) {
       const detail = err instanceof Error ? err.message : '';
       error(detail ? `Zahlungsvorgang fehlgeschlagen: ${detail}` : 'Zahlungsvorgang abgebrochen oder fehlgeschlagen. Bitte erneut versuchen.');
+      setTerminalWaiting(false);
     } finally {
       setIsProcessing(false);
     }
   };
+
+  const startTerminalPayment = async () => {
+    setIsProcessing(true);
+    setTerminalWaiting(true);
+    setCountdown(120);
+    try {
+      const res = await fetch('/api/payments/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: 'CARD_VRPAY',
+          amountCents: Math.round(totalGross * 100),
+          orderType: 'KIOSK',
+          deviceId: 'kiosk-1',
+          waiterName: 'SB-Kiosk #1',
+          title: `SB-Kiosk #${cart.length} Artikel`,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPaymentSessionId(data.sessionId);
+      } else {
+        const err = await res.json();
+        error('Verbindungsfehler zum Bezahl-Terminal: ' + (err.error || 'Fehler beim Starten'));
+        setTerminalWaiting(false);
+      }
+    } catch (e: any) {
+      error('Verbindungsfehler: ' + e.message);
+      setTerminalWaiting(false);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const cancelTerminalPayment = async () => {
+    if (paymentSessionId) {
+      try {
+        await fetch(`/api/payments/session/${paymentSessionId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'CANCEL', reason: 'Am Kiosk abgebrochen' }),
+        });
+      } catch {}
+    }
+    setTerminalWaiting(false);
+    setPaymentSessionId(null);
+    setStep('SELECT');
+  };
+
+  // Socket Listener für automatische Rückmeldung des Bezahl-Handys
+  useEffect(() => {
+    if (!socket || !paymentSessionId) return;
+
+    const handleCompleted = (data: { sessionId: string }) => {
+      if (data.sessionId === paymentSessionId) {
+        executeKioskPayment('CARD_VRPAY');
+      }
+    };
+
+    const handleCancelled = (data: { sessionId: string }) => {
+      if (data.sessionId === paymentSessionId) {
+        setTerminalWaiting(false);
+        setPaymentSessionId(null);
+        error('Zahlung am Bezahl-Smartphone abgebrochen.');
+      }
+    };
+
+    socket.on('payment:completed', handleCompleted);
+    socket.on('payment:cancelled', handleCancelled);
+
+    return () => {
+      socket.off('payment:completed', handleCompleted);
+      socket.off('payment:cancelled', handleCancelled);
+    };
+  }, [socket, paymentSessionId]);
+
+  // Countdown-Timer bei aktiver Terminal-Zahlung
+  useEffect(() => {
+    if (!terminalWaiting) return;
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setTerminalWaiting(false);
+          setPaymentSessionId(null);
+          error('Zeitüberschreitung: Zahlung wurde nicht rechtzeitig autorisiert.');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [terminalWaiting]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans select-none overflow-hidden">
@@ -248,41 +352,78 @@ export default function KioskPage() {
         {/* Bezahl-Schritt */}
         {step === 'PAYMENT' && (
           <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-950">
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-10 max-w-md w-full text-center shadow-2xl">
-              <div className="w-20 h-20 bg-blue-600/20 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-6 border border-blue-500/40 animate-pulse">
-                <CreditCard className="w-10 h-10" />
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-10 max-w-lg w-full text-center shadow-2xl">
+              <div className="w-24 h-24 bg-blue-600/20 text-blue-400 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-blue-500/40 relative">
+                <Smartphone className="w-12 h-12" />
+                <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-md">
+                  <CreditCard className="w-4 h-4" />
+                </div>
               </div>
-              <h2 className="text-2xl font-black text-white mb-2">Kartenzahlung am Terminal</h2>
-              <p className="text-slate-400 text-sm mb-6">
-                Bitte halten Sie Ihre EC-/Kreditkarte oder Smartphone an das Terminal.
+
+              <h2 className="text-3xl font-black text-white mb-2">Kartenzahlung</h2>
+              <p className="text-slate-300 text-base mb-2">
+                Bitte halten Sie Ihre <strong>Girocard, Kreditkarte oder Ihr Handy</strong> an die Rückseite des Bezahl-Smartphones.
+              </p>
+              <p className="text-xs text-slate-500 mb-6">
+                PIN-Eingabe (falls erforderlich) erfolgt direkt auf dem Display des Bezahl-Handys.
               </p>
 
-              <div className="bg-slate-950 border border-slate-800 p-5 rounded-2xl mb-8 font-mono">
-                <span className="text-xs text-slate-500 uppercase tracking-wider block">Zu zahlender Betrag</span>
-                <span className="text-4xl font-black text-emerald-400">{totalGross.toFixed(2)} €</span>
+              <div className="bg-slate-950 border border-slate-800 p-6 rounded-2xl mb-6">
+                <span className="text-xs text-slate-400 uppercase tracking-widest font-bold block mb-1">
+                  Zu zahlender Betrag
+                </span>
+                <span className="text-5xl font-mono font-black text-emerald-400">
+                  {totalGross.toFixed(2)} €
+                </span>
               </div>
+
+              {terminalWaiting ? (
+                <div className="space-y-4 mb-6">
+                  <div className="flex items-center justify-center gap-3 text-blue-400 font-bold text-sm bg-blue-950/40 border border-blue-800/40 rounded-xl py-3 px-4">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Warte auf Bezahlung am Smartphone … ({countdown}s)</span>
+                  </div>
+                  <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-blue-500 h-full transition-all duration-1000 ease-linear"
+                      style={{ width: `${Math.max(0, Math.min(100, (countdown / 120) * 100))}%` }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-6">
+                  <button
+                    onClick={startTerminalPayment}
+                    disabled={isProcessing}
+                    className="w-full py-4 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all mb-3"
+                  >
+                    <RotateCcw className="w-5 h-5" />
+                    <span>Zahlung am Bezahl-Smartphone erneut starten</span>
+                  </button>
+                </div>
+              )}
 
               <div className="space-y-3">
                 <button
-                  onClick={executeKioskPayment}
+                  onClick={() => executeKioskPayment('CARD_TERMINAL')}
                   disabled={isProcessing}
-                  className="w-full py-5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 disabled:opacity-50 text-white font-extrabold text-xl rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all"
+                  className="w-full py-3.5 bg-emerald-700/80 hover:bg-emerald-600 text-white font-bold rounded-2xl text-sm transition-all flex items-center justify-center gap-2 shadow"
                 >
                   {isProcessing ? (
                     <>
-                      <Loader2 className="w-6 h-6 animate-spin" />
-                      <span>Zahlung wird autorisiert...</span>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Bestellung wird abgeschlossen …</span>
                     </>
                   ) : (
                     <>
-                      <CreditCard className="w-6 h-6" />
-                      <span>Zahlung abschließen</span>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Direkt abschließen (Test / Sofort-Freigabe)</span>
                     </>
                   )}
                 </button>
 
                 <button
-                  onClick={() => setStep('SELECT')}
+                  onClick={cancelTerminalPayment}
                   disabled={isProcessing}
                   className="w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-2xl text-sm transition-all"
                 >

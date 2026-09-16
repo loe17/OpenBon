@@ -102,17 +102,23 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         details: `Kartenzahlungs-Sitzung ${session.id} manuell abgebrochen.`,
       }));
 
+      if (global.io) {
+        global.io.emit('payment:cancelled', {
+          sessionId: updated.id,
+          orderId: updated.orderId,
+          reason: reason || 'Manuell abgebrochen',
+        });
+      }
+
       return NextResponse.json(updated);
     }
 
-    // M1.2 Kassierer-Bestaetigung einer App-to-App-Erfolgsmeldung (REPORTED_SUCCESS).
-    // Erfordert eine angemeldete Staff-Session - jede Station darf den Vorgang,
-    // den sie selbst bedient hat, abschliessend bestaetigen.
-    if (action === 'CONFIRM_REPORTED') {
+    // M1.2 Kassierer-Bestaetigung / Companion-Terminal Bestaetigung
+    if (action === 'CONFIRM_REPORTED' || action === 'CONFIRM_SUCCESS') {
       const auth = await requireApiAuth(req);
       if (!auth.ok) return auth.response;
 
-      if (session.status !== 'REPORTED_SUCCESS') {
+      if (action === 'CONFIRM_REPORTED' && session.status !== 'REPORTED_SUCCESS') {
         return NextResponse.json(
           {
             error: `Bestätigung nicht möglich: Session ist im Status ${session.status}, nicht REPORTED_SUCCESS.`,
@@ -125,7 +131,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         where: { id: session.id },
         data: {
           status: 'SUCCESS',
-          authCode: authCode || 'CASHIER_CONFIRMED',
+          authCode: authCode || 'TERMINAL_CONFIRMED',
           resolvedAt: new Date(),
         },
       });
@@ -135,7 +141,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         action: 'PAYMENT_COMPLETED',
         category: 'SALES',
         actor: confirmedBy,
-        details: `App-gemeldete Kartenzahlung (${session.provider}) über ${(session.amountCents / 100).toFixed(2)} € durch Kassierer bestätigt.`,
+        details: `Kartenzahlung (${session.provider}) über ${(session.amountCents / 100).toFixed(2)} € am Terminal bestätigt.`,
         metadata: {
           sessionId: session.id,
           provider: session.provider,
@@ -151,6 +157,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           orderId: updated.orderId,
           tableId: updated.tableId,
           amount: updated.amountCents / 100,
+          status: 'SUCCESS',
         });
       }
 

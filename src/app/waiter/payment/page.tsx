@@ -146,9 +146,6 @@ function WaiterPaymentContent() {
   const [completedDigitalReceiptCode, setCompletedDigitalReceiptCode] = useState<string | null>(null);
   const [showEBonModal, setShowEBonModal] = useState(false);
   const [eBonQrDataUrl, setEBonQrDataUrl] = useState<string | null>(null);
-  const [eBonMode, setEBonMode] = useState<'QR' | 'NFC'>('QR');
-  const [nfcStatus, setNfcStatus] = useState<'IDLE' | 'WRITING' | 'SUCCESS' | 'ERROR' | 'UNSUPPORTED'>('IDLE');
-  const [nfcMessage, setNfcMessage] = useState<string>('');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [soundMuted, setSoundMuted] = useState(true);
   const [waiterName, setWaiterName] = useState(() => {
@@ -610,10 +607,16 @@ function WaiterPaymentContent() {
       setCompletedInvoice(data.invoiceNumber ?? null);
       setCompletedPaymentId(data.id ?? null);
       setReceiptPrinted(opts.printReceipt);
-      setCompletedDigitalReceiptUrl(data.digitalReceiptUrl ?? null);
+      let receiptUrl = data.digitalReceiptUrl;
+      if (!receiptUrl && (data.digitalReceiptCode || data.invoiceNumber)) {
+        const code = data.digitalReceiptCode || `EBON-${data.invoiceNumber}`;
+        const base = config?.baseUrl || (typeof window !== 'undefined' ? window.location.origin : 'http://openbon.local');
+        receiptUrl = `${base.replace(/\/+$/, '')}/receipt/${code}`;
+      }
+      setCompletedDigitalReceiptUrl(receiptUrl ?? null);
       setCompletedDigitalReceiptCode(data.digitalReceiptCode ?? null);
-      if (data.digitalReceiptUrl) {
-        QRCode.toDataURL(data.digitalReceiptUrl, { width: 256, margin: 1 })
+      if (receiptUrl) {
+        QRCode.toDataURL(receiptUrl, { width: 256, margin: 1 })
           .then((url) => setEBonQrDataUrl(url))
           .catch(() => {});
       } else {
@@ -629,57 +632,27 @@ function WaiterPaymentContent() {
     }
   };
 
-  /* ------------------------------------------------------------- E-Bon & NFC */
+  /* ------------------------------------------------------------- E-Bon (QR-Code) */
 
-  const isInternetActive = Boolean(config?.enableDigitalReceipt || config?.enableDigitalReceiptQr);
-  const isNfcActive = Boolean(config?.enableNfc && config?.enableNfcWaiter !== false);
-  const isEBonAvailable = isInternetActive || isNfcActive;
-
-  const startNfcBeam = async (url?: string) => {
-    const targetUrl = url || completedDigitalReceiptUrl;
-    if (!targetUrl) return;
-    haptic();
-
-    if (typeof window === 'undefined' || !('NDEFReader' in window)) {
-      setNfcStatus('UNSUPPORTED');
-      setNfcMessage(
-        'Web NFC wird auf diesem Gerät/Browser nicht direkt unterstützt (z. B. iOS). Bitte auf Android-Chrome mit NFC nutzen oder den QR-Code verwenden.'
-      );
-      return;
-    }
-
-    try {
-      setNfcStatus('WRITING');
-      setNfcMessage('Halte die Rückseite deines Smartphones jetzt an das Kunden-Smartphone...');
-      const ndef = new (window as any).NDEFReader();
-      await ndef.write({
-        records: [{ recordType: 'url', data: targetUrl }],
-      });
-      setNfcStatus('SUCCESS');
-      setNfcMessage('E-Bon erfolgreich per NFC übertragen!');
-      triggerHapticFeedback();
-      playPaymentSuccess();
-    } catch (err: any) {
-      console.error('NFC Write Error:', err);
-      setNfcStatus('ERROR');
-      setNfcMessage(err?.message ? `NFC-Fehler: ${err.message}` : 'Übertragung fehlgeschlagen. Bitte erneut versuchen.');
-      playPaymentFailure();
-    }
-  };
+  const isEBonAvailable = Boolean(config?.enableDigitalReceipt || config?.enableDigitalReceiptQr);
 
   const openEBonDialog = () => {
     haptic();
-    if (isInternetActive && isNfcActive) {
-      setEBonMode('QR');
-      setNfcStatus('IDLE');
-      setShowEBonModal(true);
-    } else if (isNfcActive) {
-      setEBonMode('NFC');
-      setShowEBonModal(true);
-      void startNfcBeam();
-    } else if (isInternetActive) {
-      setEBonMode('QR');
-      setShowEBonModal(true);
+    setShowEBonModal(true);
+    if (!eBonQrDataUrl) {
+      const targetUrl =
+        completedDigitalReceiptUrl ||
+        (completedDigitalReceiptCode
+          ? `${(config?.baseUrl || window.location.origin).replace(/\/+$/, '')}/receipt/${completedDigitalReceiptCode}`
+          : completedInvoice
+          ? `${(config?.baseUrl || window.location.origin).replace(/\/+$/, '')}/receipt/EBON-${completedInvoice}`
+          : null);
+      if (targetUrl) {
+        if (!completedDigitalReceiptUrl) setCompletedDigitalReceiptUrl(targetUrl);
+        QRCode.toDataURL(targetUrl, { width: 256, margin: 1 })
+          .then((url) => setEBonQrDataUrl(url))
+          .catch(() => {});
+      }
     }
   };
 
@@ -1267,25 +1240,15 @@ function WaiterPaymentContent() {
               </button>
             )}
 
-            {/* E-Bon Button: Nur aktiv/sichtbar wenn Internet- oder NFC-Option im Admin aktiv ist */}
+            {/* E-Bon Button: Digitaler Beleg per QR-Code */}
             {isEBonAvailable && (
               <button
                 type="button"
                 onClick={openEBonDialog}
                 className="pos-touch-btn flex-1 min-w-[140px] h-20 rounded-3xl bg-emerald-600 hover:bg-emerald-500 text-white font-black flex flex-col items-center justify-center gap-1 transition active:scale-95 shadow shadow-emerald-950/60"
               >
-                <div className="flex items-center gap-1">
-                  {isInternetActive && <QrCode className="w-5 h-5" />}
-                  {isInternetActive && isNfcActive && <span className="text-xs opacity-70">/</span>}
-                  {isNfcActive && <Radio className="w-5 h-5" />}
-                </div>
-                <span className="text-sm">
-                  {isInternetActive && isNfcActive
-                    ? 'E-Bon (QR / NFC)'
-                    : isNfcActive
-                    ? 'E-Bon per NFC'
-                    : 'E-Bon (QR-Code)'}
-                </span>
+                <QrCode className="w-6 h-6" />
+                <span className="text-sm">E-Bon (QR-Code)</span>
               </button>
             )}
 
@@ -1311,7 +1274,7 @@ function WaiterPaymentContent() {
             </button>
           </div>
 
-          {/* Digitaler E-Bon & NFC Dialog */}
+          {/* Digitaler E-Bon Dialog */}
           {showEBonModal && (
             <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-slate-900 border border-slate-700 p-6 rounded-3xl max-w-sm w-full shadow-2xl text-center space-y-4">
@@ -1322,116 +1285,38 @@ function WaiterPaymentContent() {
                   </h3>
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowEBonModal(false);
-                      setNfcStatus('IDLE');
-                    }}
+                    onClick={() => setShowEBonModal(false)}
                     className="p-1.5 text-slate-400 hover:text-white rounded-xl bg-slate-800"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                {/* Umschalter wenn beides (Internet-QR und NFC) aktiv ist */}
-                {isInternetActive && isNfcActive && (
-                  <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-2xl border border-slate-800">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        haptic();
-                        setEBonMode('QR');
-                        setNfcStatus('IDLE');
-                      }}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
-                        eBonMode === 'QR' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <QrCode className="w-3.5 h-3.5" />
-                      <span>QR-Code</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        haptic();
-                        setEBonMode('NFC');
-                        void startNfcBeam();
-                      }}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
-                        eBonMode === 'NFC' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <Radio className="w-3.5 h-3.5" />
-                      <span>NFC Beamen</span>
-                    </button>
-                  </div>
-                )}
-
                 {/* QR-Code Ansicht */}
-                {eBonMode === 'QR' && (
-                  <div className="space-y-3">
-                    {eBonQrDataUrl ? (
-                      <div className="bg-white p-3 rounded-2xl w-48 h-48 mx-auto flex items-center justify-center shadow-lg border-2 border-slate-700">
-                        <img src={eBonQrDataUrl} alt="E-Bon QR-Code" className="w-full h-full" />
-                      </div>
-                    ) : (
-                      <div className="p-8 bg-slate-950 rounded-2xl border border-slate-800 text-slate-500 text-xs">
-                        Generiere QR-Code...
-                      </div>
-                    )}
-                    <p className="text-xs font-bold text-slate-200">Gast scannt diesen QR-Code mit der normalen Smartphone-Kamera:</p>
-                    {completedDigitalReceiptUrl && (
-                      <div className="bg-slate-950 p-2 rounded-xl border border-slate-800 font-mono text-[11px] text-emerald-400 break-all select-all">
-                        {completedDigitalReceiptUrl}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* NFC Ansicht */}
-                {eBonMode === 'NFC' && (
-                  <div className="space-y-3 py-2">
-                    <div className="relative w-20 h-20 mx-auto rounded-full bg-emerald-950/60 border-2 border-emerald-500 flex items-center justify-center shadow-lg">
-                      {nfcStatus === 'WRITING' && (
-                        <span className="absolute inset-0 rounded-full animate-ping bg-emerald-500/20" />
-                      )}
-                      <Radio
-                        className={`w-9 h-9 ${
-                          nfcStatus === 'SUCCESS'
-                            ? 'text-emerald-400'
-                            : nfcStatus === 'ERROR'
-                            ? 'text-rose-400'
-                            : 'text-emerald-300 animate-pulse'
-                        }`}
-                      />
+                <div className="space-y-3">
+                  {eBonQrDataUrl ? (
+                    <div className="bg-white p-3 rounded-2xl w-52 h-52 mx-auto flex items-center justify-center shadow-lg border-2 border-slate-700">
+                      <img src={eBonQrDataUrl} alt="E-Bon QR-Code" className="w-full h-full" />
                     </div>
-
-                    <div className="text-xs text-slate-300 font-semibold px-2 leading-relaxed">
-                      {nfcMessage || 'Physischen NFC-Tag oder Bon-Chip an die Geräterückseite halten...'}
+                  ) : (
+                    <div className="p-8 bg-slate-950 rounded-2xl border border-slate-800 text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
+                      <RefreshCw className="w-5 h-5 animate-spin text-emerald-400" />
+                      <span>Erzeuge QR-Code...</span>
                     </div>
-
-                    <div className="p-2.5 bg-blue-950/40 border border-blue-800/60 rounded-xl text-[11px] text-blue-300 text-left leading-tight">
-                      💡 <strong>Tipp für Gästegeräte:</strong> Moderne Smartphones (iOS &amp; Android) blockieren die direkte Übertragung von Handy zu Handy via NFC. Nutzen Sie für Kunden-Smartphones einfach den <strong>QR-Code</strong>!
+                  )}
+                  <p className="text-xs font-bold text-slate-200">
+                    Gast scannt diesen QR-Code mit der normalen Smartphone-Kamera:
+                  </p>
+                  {completedDigitalReceiptUrl && (
+                    <div className="bg-slate-950 p-2 rounded-xl border border-slate-800 font-mono text-[11px] text-emerald-400 break-all select-all">
+                      {completedDigitalReceiptUrl}
                     </div>
-
-                    {nfcStatus !== 'WRITING' && (
-                      <button
-                        type="button"
-                        onClick={() => void startNfcBeam()}
-                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow"
-                      >
-                        <Radio className="w-3.5 h-3.5" />
-                        <span>NFC-Tag erneut beschreiben</span>
-                      </button>
-                    )}
-                  </div>
-                )}
+                  )}
+                </div>
 
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowEBonModal(false);
-                    setNfcStatus('IDLE');
-                  }}
+                  onClick={() => setShowEBonModal(false)}
                   className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-2xl text-xs"
                 >
                   Schließen

@@ -154,6 +154,16 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
   } | null>(null);
   const [isUploadingMenu, setIsUploadingMenu] = useState(false);
   const [isSyncingMenu, setIsSyncingMenu] = useState(false);
+  const [isTestingBridge, setIsTestingBridge] = useState(false);
+  const [testBridgeResult, setTestBridgeResult] = useState<{
+    success: boolean;
+    message?: string;
+    error?: string;
+    steps?: Array<{ label: string; ok: boolean; detail?: string }>;
+    receiptUrl?: string;
+    cleanReceiptUrl?: string;
+    testCode?: string;
+  } | null>(null);
   const [bridgeStatusMsg, setBridgeStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showBridgeHelp, setShowBridgeHelp] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -177,7 +187,8 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
   const handleDownloadBridgeZip = () => {
     const token = encodeURIComponent(config.webhostingSyncToken || '');
     const bUrl = encodeURIComponent(config.baseUrl || '');
-    window.location.href = `/api/bridge/download?token=${token}&baseUrl=${bUrl}`;
+    const eName = encodeURIComponent(config.name || '');
+    window.location.href = `/api/bridge/download?token=${token}&baseUrl=${bUrl}&eventName=${eName}`;
   };
 
   const handleGenerateToken = () => {
@@ -230,7 +241,15 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
     setIsSyncingMenu(true);
     setBridgeStatusMsg(null);
     try {
-      const res = await fetch('/api/bridge/sync-menu', { method: 'POST' });
+      const res = await fetch('/api/bridge/sync-menu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          baseUrl: config.baseUrl,
+          syncToken: config.webhostingSyncToken,
+          eventName: config.name,
+        }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Übertragung fehlgeschlagen');
       setBridgeStatusMsg({ type: 'success', text: data.message || 'Speisekarte erfolgreich an Webhosting übertragen!' });
@@ -238,6 +257,39 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
       setBridgeStatusMsg({ type: 'error', text: err.message || 'Fehler bei der Übertragung' });
     } finally {
       setIsSyncingMenu(false);
+    }
+  };
+
+  const handleTestBridgeConnection = async () => {
+    setIsTestingBridge(true);
+    setTestBridgeResult(null);
+    setBridgeStatusMsg(null);
+    try {
+      const res = await fetch('/api/bridge/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          baseUrl: config.baseUrl,
+          syncToken: config.webhostingSyncToken,
+          eventName: config.name,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Verbindungstest fehlgeschlagen');
+      }
+      setTestBridgeResult(data);
+      setBridgeStatusMsg({
+        type: 'success',
+        text: 'Alle Funktionen der Webhosting-Brücke erfolgreich geprüft!',
+      });
+    } catch (err: any) {
+      setBridgeStatusMsg({
+        type: 'error',
+        text: err.message || 'Verbindungstest fehlgeschlagen',
+      });
+    } finally {
+      setIsTestingBridge(false);
     }
   };
 
@@ -879,30 +931,6 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
                 onToggle={() => onChange({ enableDigitalReceiptQr: !config.enableDigitalReceiptQr })}
               />
 
-              <Toggle
-                label="E-Bon per NFC (Near Field Communication)"
-                hint="Ermöglicht das direkte Übertragen des Beleg-Links per Smartphone-NFC an den Gast."
-                value={Boolean(config.enableNfc)}
-                onToggle={() => onChange({ enableNfc: !config.enableNfc })}
-              />
-
-              {config.enableNfc && (
-                <div className="pl-4 border-l-2 border-emerald-500/40 space-y-2 pt-1">
-                  <Toggle
-                    label="NFC auf Kellner-Handys"
-                    hint="Kellner können E-Bons per Smartphone-NFC an Gäste übertragen."
-                    value={config.enableNfcWaiter !== false}
-                    onToggle={() => onChange({ enableNfcWaiter: !(config.enableNfcWaiter !== false) })}
-                  />
-                  <Toggle
-                    label="NFC an der Bonkasse"
-                    hint="Thekenkasse bietet NFC-Belegübertragung an."
-                    value={config.enableNfcPos !== false}
-                    onToggle={() => onChange({ enableNfcPos: !(config.enableNfcPos !== false) })}
-                  />
-                </div>
-              )}
-
               {/* Feedback-Banner */}
               {bridgeStatusMsg && (
                 <div
@@ -1148,6 +1176,79 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
                       </>
                     )}
                   </div>
+                </div>
+
+                {/* Karte: Verbindung & Funktionen testen */}
+                <div className="p-4 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span className="font-bold text-xs text-white">
+                          Funktionstest: Webhosting & Beleg-Anzeige prüfen
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                        Prüft mit einem Klick die Erreichbarkeit deines Webhostings, synchronisiert den Festnamen und erstellt einen Test-Beleg, den du sofort als Gast im Browser öffnen kannst.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleTestBridgeConnection}
+                      disabled={isTestingBridge || !config.baseUrl}
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition shadow shrink-0"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isTestingBridge ? 'animate-spin' : ''}`} />
+                      <span>{isTestingBridge ? 'Wird geprüft...' : 'Jetzt alle Funktionen testen'}</span>
+                    </button>
+                  </div>
+
+                  {testBridgeResult && testBridgeResult.success && (
+                    <div className="mt-3 p-3.5 bg-emerald-950/40 border border-emerald-500/40 rounded-xl space-y-3">
+                      <div className="flex items-center gap-2 text-emerald-300 font-bold text-xs">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>Verbindung erfolgreich! Alle Tests bestanden.</span>
+                      </div>
+
+                      {testBridgeResult.steps && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px] text-slate-300">
+                          {testBridgeResult.steps.map((step, idx) => (
+                            <div key={idx} className="flex items-center gap-2 bg-slate-900/70 px-2.5 py-1.5 rounded-lg border border-slate-800">
+                              <span className="text-emerald-400 font-bold">✓</span>
+                              <span>{step.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {testBridgeResult.receiptUrl && (
+                        <div className="pt-2 border-t border-emerald-500/20 flex flex-wrap items-center gap-2">
+                          <a
+                            href={testBridgeResult.receiptUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition shadow"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Muster-Beleg als Gast öffnen</span>
+                          </a>
+
+                          {config.baseUrl && (
+                            <a
+                              href={config.baseUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-lg text-xs font-bold transition"
+                            >
+                              <Globe className="w-3.5 h-3.5" />
+                              <span>Startseite / Speisekarte aufrufen</span>
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

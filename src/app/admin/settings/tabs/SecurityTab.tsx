@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, KeyRound, ShieldCheck, Users, ShieldAlert, Eye, EyeOff } from 'lucide-react';
+import { Lock, KeyRound, ShieldCheck, Users, ShieldAlert, Eye, EyeOff, Download } from 'lucide-react';
 import type { EventConfigDTO } from '@/types/domain';
 
 interface SecurityTabProps {
@@ -161,6 +161,43 @@ export function SecurityTab({ config, onChange }: SecurityTabProps) {
             Nach 5 aufeinanderfolgenden PIN-Fehleingaben sperrt das System Anfragen für 30 Sekunden.
             Alle sicherheitsrelevanten Vorgänge werden im unveränderlichen Audit-Log protokolliert.
           </p>
+        </div>
+      </div>
+
+      {/* HTTPS & SSL-Verschlüsselung (Festzelt-WLAN) */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="w-5 h-5 text-emerald-400" />
+            <h3 className="font-bold text-base text-white">HTTPS &amp; SSL-Verschlüsselung (Festzelt-WLAN)</h3>
+          </div>
+          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            Aktiv auf Port 3443
+          </span>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-xs text-slate-300 space-y-3">
+          <p className="text-slate-300 leading-relaxed">
+            OpenBon verschlüsselt die Datenübertragung im Festzelt automatisch. Auf Port <strong className="text-white">3443</strong> steht
+            ein sicherer HTTPS-Zugang bereit (z.&nbsp;B. <code className="text-emerald-400 bg-slate-900 px-1.5 py-0.5 rounded">https://[Kassen-IP]:3443</code>).
+          </p>
+          <p className="text-slate-400 leading-relaxed">
+            Damit Google Chrome unter Android oder andere Browser OpenBon als App auf dem Startbildschirm installieren können, muss eine vertrauenswürdige Verbindung bestehen. 
+            Lade dazu das Kassen-Zertifikat einmalig auf das Tablet oder Smartphone herunter und installiere es unter Android als CA-Zertifikat.
+          </p>
+          <div className="pt-2 flex flex-wrap items-center gap-3">
+            <a
+              href="/api/system/cert"
+              download="openbon-kasse.crt"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition shadow-lg shadow-emerald-900/30"
+            >
+              <Download className="w-4 h-4" />
+              <span>Kassenzertifikat herunterladen (openbon-kasse.crt)</span>
+            </a>
+            <span className="text-[11px] text-slate-500">
+              Gültig für lokale IP-Adressen und <code>openbon.local</code> (10 Jahre)
+            </span>
+          </div>
         </div>
       </div>
     </div>

@@ -79,3 +79,7 @@ Thumbs.db
 # Screenshots & Visual Quality Assurance
 /screenshots/
 screenshots/
+
+# SSL Certificates & Keys (generated per instance)
+/ssl/
+ssl/

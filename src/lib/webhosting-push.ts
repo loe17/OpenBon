@@ -77,7 +77,8 @@ export function pushReceiptToWebhostingAsync(
  */
 export async function pushMenuToWebhosting(
   baseUrl: string,
-  syncToken: string
+  syncToken: string,
+  eventName?: string
 ): Promise<{ success: boolean; message: string }> {
   if (!isExternalBridgeUrl(baseUrl)) {
     return { success: false, message: 'Keine gültige externe Webhosting-Adresse (https://...) hinterlegt.' };
@@ -110,6 +111,9 @@ export async function pushMenuToWebhosting(
 
   const formData = new FormData();
   formData.append('menu_file', blob, menuFile);
+  if (eventName) {
+    formData.append('eventName', eventName);
+  }
 
   try {
     const res = await fetch(targetUrl, {

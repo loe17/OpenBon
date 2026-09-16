@@ -154,20 +154,26 @@ export function CardPaymentTab({ config, onChange }: CardPaymentTabProps) {
         {/* VR-Pay */}
         <div className="rounded-2xl bg-slate-950 border border-slate-800 p-4 space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <label className="flex items-center gap-2.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={Boolean(config.cardVrPayEnabled)}
-                onChange={(e) => onChange({ cardVrPayEnabled: e.target.checked })}
-                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-slate-900 border-slate-700"
-              />
-              <span className="font-bold text-sm text-white">VR-Pay Me</span>
-            </label>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={Boolean(config.cardVrPayEnabled)}
+                  onChange={(e) => onChange({ cardVrPayEnabled: e.target.checked })}
+                  className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 bg-slate-900 border-slate-700"
+                />
+                <span className="font-bold text-sm text-white">VR-Pay Me (SoftPOS / Smartphone-Terminal)</span>
+              </label>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                Beta
+              </span>
+            </div>
             <StatusBadge
               enabled={Boolean(config.cardVrPayEnabled)}
               configured={vrPayConfigured}
             />
           </div>
+
           <div>
             <label className="block text-xs font-bold text-slate-300 mb-1">Terminal-ID</label>
             <input
@@ -175,8 +181,35 @@ export function CardPaymentTab({ config, onChange }: CardPaymentTabProps) {
               value={config.vrPayTerminalId || ''}
               onChange={(e) => onChange({ vrPayTerminalId: e.target.value })}
               className={inputClass}
-              placeholder="aus der VR-Pay-Me-App"
+              placeholder="aus der VR-Pay-Me-App (z. B. 12345678)"
             />
+          </div>
+
+          <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 text-xs text-slate-300 space-y-2 mt-2">
+            <div className="font-bold text-white flex items-center gap-2">
+              <Smartphone className="w-4 h-4 text-blue-400" />
+              <span>Smartphone als separates Bezahlterminal nutzen:</span>
+            </div>
+            <p className="text-slate-400 leading-relaxed">
+              Sie können ein separates Android-Smartphone (mit NFC) neben dem SB-Bestellkiosk aufstellen.
+              Das Kiosk-Terminal sendet den Zahlungsbetrag automatisch an das Handy. Der Gast hält seine
+              Karte an die Rückseite des Handys (PIN-Eingabe bei über 50 € erfolgt direkt auf dem Handy-Display).
+              Nach erfolgreicher Zahlung wird der Bon vollautomatisch gedruckt.
+            </p>
+            <div className="pt-1 flex items-center justify-between flex-wrap gap-2">
+              <a
+                href="/pos/card-terminal"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition text-xs shadow"
+              >
+                <span>Bezahl-Terminal-Ansicht öffnen</span>
+                <span className="text-[10px] opacity-70">↗</span>
+              </a>
+              <span className="text-[11px] text-slate-400">
+                Tipp: Auch als QR-Code unter „QR-Codes & Barcodes“ für das Smartphone abrufbar.
+              </span>
+            </div>
           </div>
         </div>
 

@@ -107,6 +107,30 @@ export async function POST(req: Request) {
           resolvedAt: new Date(),
         },
       });
+      if (syncStatus === 'SUCCESS' && global.io) {
+        global.io.emit('payment:completed', {
+          sessionId: session.id,
+          orderId: session.orderId,
+          tableId: session.tableId,
+          amount: session.amountCents / 100,
+          status: 'SUCCESS',
+        });
+      }
+    } else if (global.io) {
+      global.io.emit('payment:session_created', {
+        sessionId: session.id,
+        status: session.status,
+        amountCents: session.amountCents,
+        currency: session.currency,
+        provider: providerType,
+        orderId: session.orderId,
+        tableId: session.tableId,
+        deviceId: session.deviceId,
+        waiterName: session.waiterName,
+        title: paymentReq.title,
+        initiate: initResult,
+        initiatedAt: session.initiatedAt,
+      });
     }
 
     return NextResponse.json({

@@ -16,6 +16,19 @@ header('X-Frame-Options: SAMEORIGIN');
 
 $syncToken = '${config.syncToken.replace(/'/g, "\\'")}';
 $eventName = '${(config.eventName || 'Vereinsfest').replace(/'/g, "\\'")}';
+
+// 0. Aktuellen Festnamen dynamisch aus event.json laden (falls von OpenBon synchronisiert)
+$eventFile = __DIR__ . '/event.json';
+if (file_exists($eventFile)) {
+    $evtRaw = @file_get_contents($eventFile);
+    if ($evtRaw) {
+        $evtData = json_decode($evtRaw, true);
+        if (!empty($evtData['name'])) {
+            $eventName = $evtData['name'];
+        }
+    }
+}
+
 $receiptsDir = __DIR__ . '/receipts';
 
 // 1. Automatische Selbstreinigung: Belege älter als 24 Stunden (86.400 Sek.) löschen
@@ -370,12 +383,21 @@ if ($action === 'push_receipt') {
     $target = $receiptsDir . '/' . $code . '.json';
     file_put_contents($target, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
+    // Festnamen bei jedem Belegabgleich mitsichern
+    if (!empty($data['eventName'])) {
+        @file_put_contents(__DIR__ . '/event.json', json_encode(['name' => $data['eventName'], 'updatedAt' => date('c')]));
+    }
+
     echo json_encode(['success' => true, 'code' => $code, 'savedAt' => date('c')]);
     exit;
 }
 
 // 3. Speisekarte hochladen (PDF oder Bild)
 if ($action === 'upload_menu') {
+    if (!empty($_POST['eventName'])) {
+        @file_put_contents(__DIR__ . '/event.json', json_encode(['name' => $_POST['eventName'], 'updatedAt' => date('c')]));
+    }
+
     if (!empty($_FILES['menu_file'])) {
         $file = $_FILES['menu_file'];
         $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
@@ -403,6 +425,10 @@ if ($action === 'upload_menu') {
     $raw = file_get_contents('php://input');
     if (!empty($raw)) {
         file_put_contents(__DIR__ . '/products.json', $raw);
+        $jsonParsed = json_decode($raw, true);
+        if (is_array($jsonParsed) && !empty($jsonParsed['eventName'])) {
+            @file_put_contents(__DIR__ . '/event.json', json_encode(['name' => $jsonParsed['eventName'], 'updatedAt' => date('c')]));
+        }
         echo json_encode(['success' => true, 'type' => 'json']);
         exit;
     }
@@ -412,14 +438,31 @@ if ($action === 'upload_menu') {
     exit;
 }
 
-// 4. Status-Check
+// 4. Festname dynamisch aktualisieren
+if ($action === 'update_event') {
+    $raw = file_get_contents('php://input');
+    $data = json_decode($raw, true) ?: [];
+    $name = $data['name'] ?? ($data['eventName'] ?? ($_GET['name'] ?? ''));
+    if (!empty($name)) {
+        file_put_contents(__DIR__ . '/event.json', json_encode(['name' => $name, 'updatedAt' => date('c')]));
+        echo json_encode(['success' => true, 'name' => $name]);
+        exit;
+    }
+    http_response_code(400);
+    echo json_encode(['error' => 'Kein Festname übermittelt.']);
+    exit;
+}
+
+// 5. Status-Check
 if ($action === 'status') {
     $receiptCount = count(glob($receiptsDir . '/*.json') ?: []);
+    $eventData = file_exists(__DIR__ . '/event.json') ? json_decode(@file_get_contents(__DIR__ . '/event.json'), true) : null;
     echo json_encode([
         'status' => 'online',
-        'version' => 'openbon-bridge-1.0',
+        'version' => 'openbon-bridge-1.1',
         'phpVersion' => PHP_VERSION,
         'activeReceipts' => $receiptCount,
+        'eventName' => $eventData['name'] ?? null,
         'hasMenuPdf' => file_exists(__DIR__ . '/menu.pdf'),
         'hasMenuImg' => file_exists(__DIR__ . '/menu.jpg') || file_exists(__DIR__ . '/menu.png'),
     ]);

@@ -3,7 +3,7 @@ import prisma from '@/lib/db';
 import { requireApiAuth } from '@/lib/api-guard';
 import { validateBody, AmountSplitSchema } from '@/lib/validations/schemas';
 import { toCents } from '@/lib/pricing';
-import { generateDigitalReceiptCode } from '@/lib/digital-receipt';
+import { generateDigitalReceiptCode, buildReceiptUrl } from '@/lib/digital-receipt';
 import { pushReceiptToWebhostingAsync } from '@/lib/webhosting-push';
 import { getOrCreateOpenPeriod } from '@/lib/register-period';
 import { logSystemActionSafe } from '@/lib/action-logger';
@@ -79,7 +79,11 @@ export async function POST(req: Request) {
       );
     }
 
-    return NextResponse.json({ success: true, payment });
+    const receiptUrl = payment.digitalReceiptCode
+      ? buildReceiptUrl(updatedConfig.baseUrl || 'http://openbon.local', payment.digitalReceiptCode)
+      : null;
+
+    return NextResponse.json({ success: true, payment, digitalReceiptUrl: receiptUrl });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }

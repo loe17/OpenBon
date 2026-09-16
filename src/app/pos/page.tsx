@@ -32,6 +32,7 @@ import {
   Store,
   X,
   History,
+  RefreshCw,
 } from 'lucide-react';
 import { SubCategoryIcon } from '@/components/ui/subcategory-icon';
 import { calculateMinBirthdate, EU_ALLERGENS } from '@/lib/compliance';
@@ -51,12 +52,8 @@ function PosCounterContent() {
   const [categories, setCategories] = useState<ProductCategoryDTO[]>([]);
   const [selectedCatId, setSelectedCatId] = useState<string>('');
   const [selectedSubCat, setSelectedSubCat] = useState<string>('ALL');
-  const [enableDigitalReceipt, setEnableDigitalReceipt] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [posEBonMode, setPosEBonMode] = useState<'QR' | 'NFC'>('QR');
-  const [posNfcStatus, setPosNfcStatus] = useState<'IDLE' | 'WRITING' | 'SUCCESS' | 'ERROR' | 'UNSUPPORTED'>('IDLE');
-  const [posNfcMessage, setPosNfcMessage] = useState<string>('');
-  const [showNfcTransmission, setShowNfcTransmission] = useState(false);
+  const [showEBonModal, setShowEBonModal] = useState(false);
   const [posReceiptPrinted, setPosReceiptPrinted] = useState(false);
   const [cart, setCart] = useState<any[]>([]);
   const [mode, setMode] = useState<'DIRECT' | 'VOUCHER' | 'DUAL'>('DIRECT');
@@ -186,7 +183,6 @@ function PosCounterContent() {
         .then((cfg) => {
           if (cfg && !cfg.error) {
             setConfig(cfg);
-            setEnableDigitalReceipt(Boolean(cfg.enableDigitalReceipt || cfg.enableNfc));
           }
         })
         .catch(() => {});
@@ -229,9 +225,6 @@ function PosCounterContent() {
       const handleConfigUpdate = (updated: any) => {
         if (updated && typeof updated === 'object') {
           setConfig((prev: any) => ({ ...(prev || {}), ...updated }));
-          if ('enableDigitalReceipt' in updated || 'enableNfc' in updated) {
-            setEnableDigitalReceipt(Boolean(updated.enableDigitalReceipt || updated.enableNfc));
-          }
         }
       };
 
@@ -410,8 +403,7 @@ function PosCounterContent() {
   };
 
   const isPosInternetActive = Boolean(config?.enableDigitalReceipt || config?.enableDigitalReceiptQr);
-  const isPosNfcActive = Boolean(config?.enableNfc && config?.enableNfcPos !== false);
-  const isPosEBonAvailable = isPosInternetActive || isPosNfcActive;
+  const isPosEBonAvailable = isPosInternetActive;
   const isPosReceiptPrintActive = Boolean(config?.enablePosReceiptPrint);
 
   const handlePrintPaperReceipt = async () => {
@@ -437,8 +429,7 @@ function PosCounterContent() {
   const closeCompletedPayment = () => {
     setCompletedPayment(null);
     setQrDataUrl(null);
-    setPosNfcStatus('IDLE');
-    setShowNfcTransmission(false);
+    setShowEBonModal(false);
   };
 
   const handleCheckout = async (explicitMethod?: string) => {
@@ -509,12 +500,20 @@ function PosCounterContent() {
         isPosEBonAvailable || isPosReceiptPrintActive || (payData?.changeAmount ?? 0) > 0;
 
       if (shouldOfferReceiptChoice) {
+        let receiptUrl = payData?.digitalReceiptUrl;
+        if (!receiptUrl && (payData?.digitalReceiptCode || payData?.invoiceNumber)) {
+          const code = payData.digitalReceiptCode || `EBON-${payData.invoiceNumber}`;
+          const base = config?.baseUrl || (typeof window !== 'undefined' ? window.location.origin : 'http://openbon.local');
+          receiptUrl = `${base.replace(/\/+$/, '')}/receipt/${code}`;
+        }
+        if (receiptUrl && !payData.digitalReceiptUrl) {
+          payData.digitalReceiptUrl = receiptUrl;
+        }
         setCompletedPayment(payData);
         setPosReceiptPrinted(Boolean(printReceipt));
-        setShowNfcTransmission(false);
-        setPosNfcStatus('IDLE');
-        if (payData?.digitalReceiptUrl) {
-          QRCode.toDataURL(payData.digitalReceiptUrl, { width: 256, margin: 1 })
+        setShowEBonModal(false);
+        if (receiptUrl) {
+          QRCode.toDataURL(receiptUrl, { width: 256, margin: 1 })
             .then((url) => setQrDataUrl(url))
             .catch(() => {});
         }
@@ -556,37 +555,6 @@ function PosCounterContent() {
       }
     } finally {
       setIsProcessing(false);
-    }
-  };
-
-
-  const startPosNfcBeam = async (url?: string) => {
-    const targetUrl = url || completedPayment?.digitalReceiptUrl;
-    if (!targetUrl) return;
-    triggerHapticFeedback();
-
-    if (typeof window === 'undefined' || !('NDEFReader' in window)) {
-      setPosNfcStatus('UNSUPPORTED');
-      setPosNfcMessage(
-        'Web NFC wird auf diesem Gerät/Browser nicht direkt unterstützt (z. B. iOS). Bitte Android-Chrome mit NFC nutzen oder den QR-Code verwenden.'
-      );
-      return;
-    }
-
-    try {
-      setPosNfcStatus('WRITING');
-      setPosNfcMessage('Halte das Kunden-Smartphone jetzt an das Kassen-NFC-Feld...');
-      const ndef = new (window as any).NDEFReader();
-      await ndef.write({
-        records: [{ recordType: 'url', data: targetUrl }],
-      });
-      setPosNfcStatus('SUCCESS');
-      setPosNfcMessage('E-Bon erfolgreich per NFC übertragen!');
-      triggerHapticFeedback();
-    } catch (err: any) {
-      console.error('POS NFC Error:', err);
-      setPosNfcStatus('ERROR');
-      setPosNfcMessage(err?.message ? `NFC-Fehler: ${err.message}` : 'Übertragung fehlgeschlagen. Bitte erneut versuchen.');
     }
   };
 
@@ -1221,7 +1189,7 @@ function PosCounterContent() {
       {completedPayment && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-slate-900 border border-slate-700 p-6 rounded-3xl max-w-md w-full shadow-2xl text-center space-y-4">
-            {!showNfcTransmission ? (
+            {!showEBonModal ? (
               <>
                 <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                   <h3 className="text-lg font-black text-white flex items-center gap-2">
@@ -1244,11 +1212,11 @@ function PosCounterContent() {
                   </div>
                 )}
 
-                {/* Rückgeld-Anzeige bei Barzahlung */}
+                {/* Große Rückgeld-Anzeige bei Barzahlung */}
                 {Number(completedPayment.changeAmount || 0) > 0 && (
-                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 my-2 text-center">
-                    <div className="text-xs font-extrabold uppercase tracking-widest text-amber-300/90">
-                      Rückgeld
+                  <div className="p-4 bg-amber-950/40 border-2 border-amber-500/60 rounded-2xl animate-in zoom-in-95">
+                    <div className="text-xs font-bold text-amber-300 uppercase tracking-widest">
+                      Rückgeld herausgeben:
                     </div>
                     <div className="text-4xl font-black text-amber-400 font-mono mt-1">
                       {Number(completedPayment.changeAmount).toFixed(2).replace('.', ',')} €
@@ -1260,7 +1228,7 @@ function PosCounterContent() {
                   Kassenbeleg an den Gast übergeben:
                 </div>
 
-                {/* Auswahl-Schaltflächen wie in Bild 1 */}
+                {/* Auswahl-Schaltflächen */}
                 <div className="flex flex-wrap gap-3 w-full justify-center pt-2">
                   {/* Papierbon: Nur aktiv wenn in den Einstellungen aktiviert */}
                   {isPosReceiptPrintActive && (
@@ -1275,14 +1243,13 @@ function PosCounterContent() {
                     </button>
                   )}
 
-                  {/* E-Bon: Digitaler Beleg per QR-Code / NFC */}
+                  {/* E-Bon: Digitaler Beleg per QR-Code */}
                   {isPosEBonAvailable && (
                     <button
                       type="button"
                       onClick={() => {
                         triggerHapticFeedback();
-                        setShowNfcTransmission(true);
-                        setPosEBonMode('QR');
+                        setShowEBonModal(true);
                       }}
                       className="pos-touch-btn flex-1 min-w-[130px] h-20 rounded-3xl bg-emerald-600 hover:bg-emerald-500 text-white font-black flex flex-col items-center justify-center gap-1 transition active:scale-95 shadow shadow-emerald-950/60"
                     >
@@ -1291,7 +1258,7 @@ function PosCounterContent() {
                     </button>
                   )}
 
-                  {/* Kein Beleg: Wie in Bild 1 */}
+                  {/* Kein Beleg */}
                   <button
                     type="button"
                     onClick={() => {
@@ -1306,7 +1273,7 @@ function PosCounterContent() {
                 </div>
               </>
             ) : (
-              /* NFC / E-Bon Übertragungs-Maske */
+              /* E-Bon QR-Code Übertragungs-Maske */
               <div className="space-y-4">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -1315,7 +1282,7 @@ function PosCounterContent() {
                   </h3>
                   <button
                     type="button"
-                    onClick={() => setShowNfcTransmission(false)}
+                    onClick={() => setShowEBonModal(false)}
                     className="p-1.5 text-slate-400 hover:text-white rounded-xl bg-slate-800"
                     title="Zurück"
                   >
@@ -1323,100 +1290,28 @@ function PosCounterContent() {
                   </button>
                 </div>
 
-                {/* Umschalter wenn beides (Internet-QR und NFC) aktiv ist */}
-                {isPosInternetActive && isPosNfcActive && (
-                  <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-2xl border border-slate-800">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        triggerHapticFeedback();
-                        setPosEBonMode('QR');
-                        setPosNfcStatus('IDLE');
-                      }}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
-                        posEBonMode === 'QR' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <QrCode className="w-3.5 h-3.5" />
-                      <span>QR-Code</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        triggerHapticFeedback();
-                        setPosEBonMode('NFC');
-                        void startPosNfcBeam();
-                      }}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
-                        posEBonMode === 'NFC' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <Radio className="w-3.5 h-3.5" />
-                      <span>Per NFC senden</span>
-                    </button>
-                  </div>
-                )}
-
-                {/* NFC Modus */}
-                {posEBonMode === 'NFC' && (
-                  <div className="space-y-3 py-2">
-                    <div className="relative w-20 h-20 mx-auto rounded-full bg-emerald-950/60 border-2 border-emerald-500 flex items-center justify-center shadow-lg">
-                      {posNfcStatus === 'WRITING' && (
-                        <span className="absolute inset-0 rounded-full animate-ping bg-emerald-500/20" />
-                      )}
-                      <Radio
-                        className={`w-9 h-9 ${
-                          posNfcStatus === 'SUCCESS'
-                            ? 'text-emerald-400'
-                            : posNfcStatus === 'ERROR'
-                            ? 'text-rose-400'
-                            : 'text-emerald-300 animate-pulse'
-                        }`}
-                      />
-                    </div>
-
-                    <div className="text-xs text-slate-300 font-semibold px-2 leading-relaxed">
-                      {posNfcMessage || 'Physischen NFC-Tag oder Bon-Chip an das Kassen-NFC-Feld halten...'}
-                    </div>
-
-                    <div className="p-2.5 bg-blue-950/40 border border-blue-800/60 rounded-xl text-[11px] text-blue-300 text-left leading-tight">
-                      💡 <strong>Tipp für Gästegeräte:</strong> Moderne Smartphones (iOS &amp; Android) blockieren die direkte Übertragung von Handy zu Handy via NFC. Nutzen Sie für Kunden-Smartphones einfach den <strong>QR-Code</strong>!
-                    </div>
-
-                    {posNfcStatus !== 'WRITING' && (
-                      <button
-                        type="button"
-                        onClick={() => void startPosNfcBeam()}
-                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow"
-                      >
-                        <Radio className="w-3.5 h-3.5" />
-                        <span>NFC-Tag erneut beschreiben</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-
                 {/* QR-Code Modus */}
-                {posEBonMode === 'QR' && (
-                  <div className="space-y-3">
-                    {qrDataUrl ? (
-                      <div className="bg-white p-3 rounded-2xl w-48 h-48 mx-auto flex items-center justify-center shadow-lg border-2 border-slate-700">
-                        <img src={qrDataUrl} alt="Digitaler E-Bon QR-Code" className="w-full h-full" />
-                      </div>
-                    ) : (
-                      <div className="w-14 h-14 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-2 border border-emerald-500/30">
-                        <QrCode className="w-8 h-8" />
-                      </div>
-                    )}
-                    <p className="text-xs text-slate-400">Der Gast kann den Beleg per Smartphone abrufen:</p>
+                <div className="space-y-3">
+                  {qrDataUrl ? (
+                    <div className="bg-white p-3 rounded-2xl w-52 h-52 mx-auto flex items-center justify-center shadow-lg border-2 border-slate-700">
+                      <img src={qrDataUrl} alt="Digitaler E-Bon QR-Code" className="w-full h-full" />
+                    </div>
+                  ) : (
+                    <div className="p-8 bg-slate-950 rounded-2xl border border-slate-800 text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
+                      <RefreshCw className="w-5 h-5 animate-spin text-emerald-400" />
+                      <span>Erzeuge QR-Code...</span>
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-300 font-bold">
+                    Gast scannt diesen QR-Code mit der normalen Smartphone-Kamera:
+                  </p>
 
-                    {completedPayment.digitalReceiptUrl && (
-                      <div className="bg-slate-950 p-2.5 rounded-2xl border border-slate-800 font-mono text-xs text-emerald-400 break-all select-all">
-                        {completedPayment.digitalReceiptUrl}
-                      </div>
-                    )}
-                  </div>
-                )}
+                  {completedPayment.digitalReceiptUrl && (
+                    <div className="bg-slate-950 p-2.5 rounded-2xl border border-slate-800 font-mono text-xs text-emerald-400 break-all select-all">
+                      {completedPayment.digitalReceiptUrl}
+                    </div>
+                  )}
+                </div>
 
                 <button
                   type="button"

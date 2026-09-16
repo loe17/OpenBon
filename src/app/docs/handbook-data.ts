@@ -333,9 +333,13 @@ export const HANDBOOK: DocChapter[] = [
       },
       {
         id: '3.3',
-        heading: '3.3 Kassenschublade manuell öffnen',
+        heading: '3.3 Kassenschublade manuell & automatisch öffnen',
         paragraphs: [
-          'Neben dem automatischen Öffnen nach Barzahlungen kann die Kassenlade jederzeit per Tastendruck auf dem Bildschirm geöffnet werden – beispielsweise für Wechselgeldkontrollen oder Einzahlungen.',
+          'OpenBon steuert Kassenladen direkt über den angeschlossenen Bondrucker (über das Standard-RJ11/RJ12-Kabel an der Rückseite des Druckers) an.',
+          'Automatisches Öffnen: Sobald eine Barzahlung erfolgreich verbucht wird, sendet das System zusammen mit dem Bon-Druckauftrag den elektrischen Impuls, der die Lade aufspringen lässt.',
+          'Manuelles Öffnen: In der Bonkasse befindet sich oben in der Leiste der Button "Lade öffnen". Damit kann die Kassenlade jederzeit auf Knopfdruck geöffnet werden – z. B. für Wechselgeldprüfungen, Einzahlungen oder Geldwechsel.',
+          'Berechtigung & Sicherheit: Um Reibungsverluste am Thekenplatz zu vermeiden, dürfen sowohl Hauptadministratoren (ADMIN) als auch Thekenkräfte (Rolle POS_CASHIER) und Kellner mit Kassenberechtigung (WAITER) die Schublade öffnen. Ein versehentliches Sperren der Kassenlade durch Berechtigungsfehler ist ausgeschlossen.',
+          'Voraussetzung: In der Druckerverwaltung unter /admin/printers muss beim zuständigen Thermodrucker die Option "Kassenlade angeschlossen" mit einem Haken aktiviert sein.',
         ],
       },
       {
@@ -347,20 +351,23 @@ export const HANDBOOK: DocChapter[] = [
       },
       {
         id: '3.5',
-        heading: '3.5 Digitaler E-Bon, Webhosting-Brücke & Speisekarte (PDF)',
+        heading: '3.5 Digitaler E-Bon per QR-Code, Webhosting-Brücke & Speisekarte (PDF)',
         paragraphs: [
-          'Nach dem Kassieren kann dem Gast ein digitaler Beleg ausgestellt werden: Entweder hält der Gast sein Smartphone an das Kassentablet (Web-NFC) oder scannt den angezeigten QR-Code ab.',
-          'Damit Gäste den Beleg oder die Speisekarte auch mit ihrem mobilen Internet (LTE/5G) aufrufen können, ohne im Festzelt-WLAN eingewählt zu sein, bietet OpenBon eine fertige "Webhosting-Brücke" (z. B. auf einem Netcup Webhosting 1000 oder einem Vereins-Webspace).',
-          'Wichtig: Für diese Brücke ist WEDER DynDNS noch eine Portfreigabe am Router erforderlich! OpenBon sendet neue Belege als gewöhnliche, ausgehende Internetverbindung direkt an das Webhosting. Das Kassennetzwerk im Festzelt bleibt vollständig nach außen abgeschirmt und sicher vor Zugriffen von außen.',
-          'Automatische 24h-Löschung: Alle auf das Webhosting übertragenen digitalen Belege werden nach genau 24 Stunden automatisch gelöscht. Das schützt die Daten der Gäste und verhindert, dass der Webspace mit alten Bons vollreicht.',
-          'Digitale Speisekarte (PDF / Flyer): Unter "Einstellungen -> Belegdruck" kann die Speisekarte oder der Festflyer als PDF oder Foto hochgeladen werden. Sie wird automatisch auf die Webhosting-Brücke synchronisiert und steht Gästen über den Tisch-QR-Code zur Verfügung.',
+          'Nach dem Kassieren kann dem Gast auf Wunsch ein papierloser digitaler Beleg ausgestellt werden. Das schont Thermopapier und die Umwelt.',
+          'Einfacher QR-Code statt komplizierter Technik: Der Beleg wird als gut lesbarer QR-Code direkt auf dem Kassenbildschirm oder Kellner-Smartphone angezeigt. Der Gast öffnet einfach die normale Kamera-App seines Smartphones und scannt den Code ab – funktioniert auf jedem iPhone und Android-Gerät ohne zusätzliche App.',
+          'Webhosting-Brücke (LTE/5G Abruf): Damit Gäste den digitalen Beleg und die Speisekarte auch ohne Einwahl in das Festzelt-WLAN abrufen können, synchronisiert OpenBon die Belege auf ein gewöhnliches Webhosting (z. B. Netcup Webhosting 1000 oder ein Vereins-Webspace).',
+          'Höchste Sicherheit & kein DynDNS: Das Kassennetzwerk im Zelt baut nur ausgehende, verschlüsselte Verbindungen zum Webhosting auf. Es ist WEDER eine Portfreigabe noch DynDNS am Zeltrouter nötig. Das Kassensystem bleibt von außen unangreifbar.',
+          'Automatischer Datenschutz nach 24 Stunden: Alle auf das Webhosting übertragenen Belege werden nach genau 24 Stunden automatisch gelöscht. So bleibt der Speicherplatz sauber und Gastdaten werden nicht dauerhaft im Web gespeichert.',
+          '1-Klick Verbindungstest: Unter "Einstellungen -> Bonlayout & Vorschau" prüft die Schaltfläche "Webhosting-Verbindung prüfen" in 3 Schritten, ob das Webhosting erreichbar ist, der Beleg uploadbar ist und die Daten wieder gelöscht werden können.',
+          'Digitale Speisekarte (PDF / Foto): Unter "Einstellungen -> Bonlayout & Vorschau" kann ein Festflyer oder eine Speisekarte hochgeladen werden. Gäste sehen diesen Flyer automatisch über ihren Tisch-QR-Code.',
         ],
         table: {
           headers: ['Schritt', 'Aktion', 'Erklärung (ohne Fachbegriffe)'],
           rows: [
-            ['1. ZIP herunterladen', 'In OpenBon unter "Einstellungen -> Belegdruck"', 'Klicke neben der Basis-URL auf "ZIP-Paket herunterladen". Alle nötigen Dateien und dein geheimer Schlüssel sind bereits fertig verpackt.'],
+            ['1. ZIP herunterladen', 'In OpenBon unter "Einstellungen -> Bonlayout & Vorschau"', 'Klicke neben der Basis-URL auf "ZIP-Paket herunterladen". Alle nötigen PHP-Dateien und der Sicherheitsschlüssel sind fertig verpackt.'],
             ['2. Webspace hochladen', 'Dateimanager (Plesk / cPanel) oder FTP', 'Entpacke das ZIP-Paket einfach in den Web-Ordner deines Webhostings (meist "httpdocs").'],
-            ['3. Adresse eintragen', 'Öffentliche Basis-URL speichern', 'Trage die Web-Adresse (z. B. https://bon.mein-verein.de) in OpenBon ein. Ab sofort werden E-Bons blitzschnell übertragen.'],
+            ['3. Adresse eintragen', 'Öffentliche Basis-URL speichern', 'Trage die Web-Adresse (z. B. https://bon.mein-verein.de) in OpenBon ein. Fertig!'],
+            ['4. Funktion testen', 'Schaltfläche "Webhosting-Verbindung prüfen"', 'Prüft sofort live, ob Übertragung und Belegabruf fehlerfrei funktionieren.'],
           ],
         },
         image: {
@@ -426,6 +433,43 @@ export const HANDBOOK: DocChapter[] = [
             ['Enable Fullscreen Mode', 'Aktiviert (AN)', 'Blendet alle störenden Browser- und Android-Leisten aus'],
             ['Keep Screen On', 'Aktiviert (AN)', 'Verhindert automatisches Abdunkeln während des Kassenbetriebs'],
             ['Auto-Reload on Network Reconnect', 'Aktiviert (AN)', 'Stellt die Kasse nach kurzen WLAN-Pausen automatisch wieder her'],
+          ],
+        },
+      },
+      {
+        id: '3.10',
+        heading: '3.10 Android: Installation als App (PWA) in Google Chrome & Festzelt-HTTPS',
+        paragraphs: [
+          'Warum lässt sich eine Seite unter Android Chrome über eine IP-Adresse oft nicht als App installieren?',
+          'Google Chrome verlangt aus Sicherheitsgründen zwingend eine verschlüsselte HTTPS-Verbindung, bevor im Menü die Schaltfläche "App installieren" bzw. "Zum Startbildschirm hinzufügen" als echte Web-App aktiv wird. Bei einer unverschlüsselten Verbindung (http://192.168.x.x) erzeugt Chrome stattdessen nur ein einfaches Lesezeichen mit Adressleiste.',
+          'Automatisches Festzelt-HTTPS (Port 3443): OpenBon erstellt beim Start automatisch ein eigenes SSL-Verschlüsselungszertifikat für das Festzelt. Die Kasse ist dadurch unter https://[Kassen-IP]:3443 erreichbar.',
+          'Kassenzertifikat einrichten (einmalig pro Gerät): Unter "Einstellungen -> Sicherheit & PINs" kann das Zertifikat "openbon-kasse.crt" heruntergeladen werden. Auf dem Android-Gerät in den Android-Einstellungen unter "Sicherheit -> Verschlüsselung & Anmeldedaten -> Zertifikat installieren -> CA-Zertifikat" auswählen. Danach stuft Chrome die Festzelt-Kasse als vertrauenswürdig ein und der Installations-Button wird freigeschaltet.',
+          'Tipp: Wenn Sie keine Zertifikate auf den Geräten installieren möchten, nutzen Sie einfach "Fully Kiosk Browser" (siehe Abschnitt 3.9). Dieser benötigt kein Zertifikat und läuft auch über HTTP perfekt im Vollbild.',
+        ],
+      },
+      {
+        id: '3.11',
+        heading: '3.11 Smartphone als Bezahlterminal am SB-Kiosk (SoftPOS / VR Pay:Me Beta)',
+        paragraphs: [
+          'Kann man ein ganz normales Smartphone als Kartenterminal am SB-Kiosk nutzen, ohne ein extra Kartenlesegerät kaufen zu müssen?',
+          'Ja! Mit modernen Android-Smartphones (ab Android 13 mit NFC-Funkchip) und Apps wie "VR Pay:Me" (von den Volksbanken / Raiffeisenbanken) verwandelt sich das Smartphone selbst in ein vollständiges Kartenterminal ("SoftPOS").',
+          'Wie der Ablauf in der Praxis funktioniert (vollautomatisch ohne Helfer-Eingriff):',
+          '1. Platzierung am Kiosk: Neben dem Bestell-Bildschirm oder Kiosk-Tablet liegt oder steht das Bezahl-Smartphone. Darauf ist die Seite "/pos/card-terminal" geöffnet (über den QR-Code unter "Admin -> QR-Codes" sofort startklar).',
+          '2. Bestellung & Übertragung: Der Gast stellt am Kiosk seine Bestellung zusammen und tippt auf "Jetzt Bezahlen". Das Kiosk-Terminal schickt den genauen Cent-Betrag sekundenschnell über das Festzelt-Netzwerk an das Bezahl-Smartphone.',
+          '3. Karte anhalten: Das Smartphone wacht auf, zeigt den Betrag groß an und fordert den Gast auf: "Bitte Karte an die Rückseite dieses Handys halten". Der Gast hält seine Girokarte, Kreditkarte oder sein eigenes Smartphone (Apple Pay / Google Pay) an die Rückseite des Bezahl-Handys.',
+          '4. Was passiert bei PIN-Eingabe? Bei Beträgen über 50 Euro oder bei Sicherheitsprüfungen verlangt die Bank eine PIN. Diese muss NICHT auf einem separaten Gerät eingegeben werden: Die VR Pay:Me App blendet eine sichere Zifferntastatur direkt auf dem Display des Bezahl-Handys ein ("PIN on Glass"). Der Gast tippt seine 4-stellige PIN ein und bestätigt.',
+          '5. Vollautomatischer Rückkanal & Bondruck: Das Bezahl-Handy meldet den Zahlungserfolg sofort an OpenBon zurück. Der Kiosk springt automatisch auf "Vielen Dank für Ihre Bestellung!", zeigt die Abholnummer an und druckt die Küchenbons sowie die Abholmarke aus – ganz ohne dass ein Helfer eingreifen muss.',
+          'Dauerhaft eingeschaltetes Display: Die Seite "/pos/card-terminal" verhindert automatisch das Einschlafen des Bildschirms ("Wake Lock"), sodass das Bezahl-Handy während der gesamten Schicht immer empfangsbereit bleibt.',
+          'Beta-Testmodus ohne Bankvertrag: Sollten Sie noch keinen aktiven Händlervertrag besitzen, können Sie die Funktion trotzdem sofort vorab ausprobieren: Auf dem Bezahl-Smartphone befinden sich zwei Test-Schaltflächen ("Zahlung simulieren" und "Abbrechen"), mit denen der gesamte Ablauf inklusive Kiosk-Reaktion und Bondruck realistisch getestet werden kann.',
+        ],
+        table: {
+          headers: ['Schritt', 'Wo passiert es?', 'Aktion / Was ist zu tun?'],
+          rows: [
+            ['1. Bestellen', 'SB-Kiosk Bildschirm', 'Gast wählt Artikel und drückt "Jetzt Bezahlen"'],
+            ['2. Automatische Weiterleitung', 'Netzwerk (WLAN)', 'Kiosk sendet den Betrag an das Bezahl-Smartphone'],
+            ['3. Karte vorhalten', 'Rückseite des Handys', 'Gast hält Karte oder Handy an die Rückseite'],
+            ['4. PIN-Eingabe (falls > 50 €)', 'Display des Handys', 'Gast tippt PIN direkt auf dem Bildschirm ein ("PIN on Glass")'],
+            ['5. Bondruck & Abholung', 'Kiosk & Drucker', 'Erfolgsmeldung erscheint, Belege und Abholmarke werden gedruckt'],
           ],
         },
       },
@@ -645,16 +689,17 @@ export const HANDBOOK: DocChapter[] = [
     sections: [
       {
         id: '7.1',
-        heading: '7.1 Kartenzahlung & Terminals (Beta)',
+        heading: '7.1 Kartenzahlung, Terminals & Smartphone als Bezahlstation (Beta)',
         paragraphs: [
-          'OpenBon unterstützt gängige Kartenterminals für bargeldlose Zahlung vor Ort:',
+          'OpenBon unterstützt sowohl klassische Kartenterminals als auch den modernen Einsatz eines Smartphones als Bezahlterminal (SoftPOS):',
           'Hinweis (Beta): Die Schnittstellen für externe Kartenterminals (SumUp, VR-Pay, Sparkasse S-POS, Zettle, Stripe und stationäre ZVT-Terminals) befinden sich aktuell im Beta-Status. Sie wurden nach offiziellen Vorgaben implementiert, jedoch noch nicht im echten Großveranstaltungsbetrieb vor Ort getestet. Führen Sie vor Festbeginn stets Testbuchungen mit Ihrem Terminal durch.',
+          'Besonderheit Smartphone als Terminal: Mit VR Pay:Me kann ein separates Smartphone ohne extra Kartenleser als Bezahlterminal neben dem SB-Kiosk betrieben werden (ausführlich erklärt in Kapitel 3, Abschnitt 3.11).',
         ],
         table: {
           headers: ['Anbieter', 'Verbindungsart', 'Einsatzgebiet'],
           rows: [
+            ['VR-Pay:Me (SoftPOS)', 'App-to-App & Begleiter-Smartphone', 'Kein Extra-Leser nötig: Smartphone selbst fungiert als Kartenterminal am Kiosk oder Stand'],
             ['SumUp', 'App-to-App & Bluetooth', 'Kompakte mobile Leser für Kellner'],
-            ['VR-Pay:Me', 'App-to-App (Volksbanken)', 'Mobiles Bezahlen mit VR-Smart Guide'],
             ['Sparkasse S-POS', 'App-to-App (Sparkassen)', 'Direkte Abrechnung auf das Vereinskonto'],
             ['Zettle by PayPal', 'App-to-App', 'Zettle Card Reader Integration'],
             ['Stripe Terminal', 'Smart Reader & QR', 'Cloudbasierte Kreditkartenabwicklung'],
@@ -824,16 +869,124 @@ export const HANDBOOK: DocChapter[] = [
       },
       {
         id: '9.3',
-        heading: '9.3 Zentrale Fest- und Systemeinstellungen',
+        heading: '9.3 Zentrale Fest- und Systemeinstellungen (Übersicht)',
         paragraphs: [
-          'Unter /admin/settings werden alle grundlegenden Optionen festgelegt: Name des Vereins, Steuersätze, Währung, Tischfarben, Stornierungsfristen und Kassenoptionen.',
-          'Wird eine Einstellung verändert, warnt OpenBon beim Verlassen der Seite vor ungespeicherten Daten.',
+          'Unter /admin/settings befindet sich das Herzstück der Konfiguration von OpenBon. Hier werden alle Parameter, Funktionen und Sicherheitsregeln für das Fest festgelegt.',
+          'Übersichtliche Reiterstruktur: Die Einstellungen sind in 7 logische Bereiche aufgeteilt: Allgemein, Bonlayout & Vorschau, Drucker, Kartenzahlung, Sicherheit & PINs, Fiskal & Steuern sowie Vorlagen & Snapshots.',
+          'Schutz vor Datenverlust: Verlassen Sie versehentlich die Seite oder wechseln den Reiter, während noch ungespeicherte Änderungen vorliegen, warnt OpenBon sofort mit einem Bestätigungsfenster ("Ungespeicherte Änderungen"). Erst nach dem Klick auf "Einstellungen speichern" werden die Änderungen systemweit aktiv.',
         ],
         image: {
           src: '/docs/images/37_admin_settings.png',
-          alt: 'Systemeinstellungen',
-          caption: 'Zentrale Verwaltung aller Fest-Parameter und Kassenoptionen',
+          alt: 'Systemeinstellungen Übersicht',
+          caption: 'Zentrale Verwaltung aller Fest-Parameter mit Suchleiste und Reitern',
         },
+      },
+      {
+        id: '9.3.1',
+        heading: '9.3.1 Einstellungen: Reiter "Allgemein"',
+        paragraphs: [
+          'Im Reiter "Allgemein" werden der offizielle Festname, die Anschrift, Steuernummern sowie grundlegende Programmfunktionen und Aussehen bestimmt.',
+        ],
+        table: {
+          headers: ['Einstellung / Bereich', 'Funktion', 'Erklärung (ohne Fachbegriffe)'],
+          rows: [
+            ['Name der Veranstaltung', 'Titel & Grußzeile', 'Erscheint oben auf allen gedruckten Bons, digitalen E-Bons und auf dem Kundendisplay.'],
+            ['Untertitel / Slogan', 'Zusatzzeile', 'Z. B. "100 Jahre Freiwillige Feuerwehr Musterdorf" oder "Traditionelles Gartenfest".'],
+            ['Straße & PLZ/Ort', 'Veranstaltungsanschrift', 'Offizielle Adresse des Vereinsheims oder Festplatzes für ordnungsgemäße Belege.'],
+            ['Steuernummer & USt-IdNr.', 'Finanzamt-Identifikation', 'Wird auf den Kassenbelegen und Z-Bons ausgewiesen.'],
+            ['Gänge / Speisenfolge', 'Schalter (AN/AUS)', 'Ermöglicht der Bedienung am Tisch, Speisen getrennt als Vorspeise, Hauptgang oder Dessert abzurufen.'],
+            ['Digitaler Beleg', 'Schalter (AN/AUS)', 'Aktiviert die Erstellung papierloser Bons für Gäste über Smartphone-Link.'],
+            ['Gast bestellt selbst (Tisch-QR)', 'Schalter (AN/AUS)', 'Erlaubt Gästen, Speisen direkt über den am Biertisch aufgeklebten QR-Code selbst zu ordern.'],
+            ['Selbstbedienungs-Terminal', 'Schalter (AN/AUS)', 'Schaltet den SB-Kioskmodus frei, damit Gäste an einem festen Tablet selbst bestellen können.'],
+            ['Virtuelle Drucker', 'Schalter (AN/AUS)', 'Bestellungen können digital auf Küchen- oder Schankmonitoren angezeigt werden statt auf Papier.'],
+            ['Hinweis bei Alterskontrolle', 'Schalter (AN/AUS)', 'Warnt die Bedienung beim Tippen von Schnaps oder Tabakwaren mit einem gut sichtbaren Prüfhinweis.'],
+            ['QR-Code auf Beleg', 'Schalter (AN/AUS)', 'Druckt den Beleg-Link als scanbaren QR-Code auf den gedruckten Papierbon.'],
+            ['Bestellverzögerung für Storno', 'Schalter & Zeitwähler', 'Sendet Bestellungen erst nach z. B. 60 Sekunden an die Küche. In dieser Zeitspanne kann die Bedienung Vertipper am Tisch sofort kostenfrei stornieren.'],
+            ['Startseite sperren', 'Schalter (AN/AUS)', 'Beim Öffnen der App muss sofort eine PIN eingegeben werden. Ausgeschaltet kann man sich die Stationen erst ansehen.'],
+            ['Auto-Lock Kellner-Handys', 'Minuten-Auswahl', 'Sperrt das Kellner-Smartphone nach 1 bis 10 Minuten Inaktivität gegen unbefugte Buchungen.'],
+            ['Erscheinungsbild & Theme', '4 Design-Modi', 'Dunkel (Standard), Hell (Sonnenlicht-geeignet), Kompakt Dunkel oder Kompakt Hell (extra große Tasten für Tablets).'],
+            ['Währung & Steuersätze', 'Währungssymbol & %', 'Standardmäßig Euro (€) mit 19 % Regelsteuersatz und 7 % ermäßigtem Satz (Speisen).'],
+            ['Daten bereinigen / Werksreset', 'Mülleimer-Symbol', 'Erlaubt vor dem Festbeginn das gezielte Löschen aller Testbestellungen, ohne dass Speisekarte oder Tische verloren gehen.'],
+          ],
+        },
+      },
+      {
+        id: '9.3.2',
+        heading: '9.3.2 Einstellungen: Reiter "Bonlayout & Vorschau"',
+        paragraphs: [
+          'Hier gestalten Sie das Aussehen Ihrer Kassenbons und richten den papierlosen Digitalbeleg (E-Bon) sowie die digitale Speisekarte ein.',
+          'Live-Vorschau: Jede Änderung an Texten oder Schriftgrößen wird sofort in der maßstabsgetreuen Thermobon-Vorschau (58 mm oder 80 mm Rollenbreite) angezeigt.',
+        ],
+        table: {
+          headers: ['Einstellung', 'Bedeutung', 'Praxistipp'],
+          rows: [
+            ['Kopfzeile & Fußzeile', 'Freie Textzeilen auf dem Bon', 'Hier können Vereinsname, Steuernummer, W-LAN-Passwort oder ein "Vielen Dank für Ihren Besuch!" hinterlegt werden.'],
+            ['Schriftgrößen-Schieberegler', 'Skala von 1 (fein) bis 10 (sehr groß)', 'Passen Sie Kopfzeile, Artikel, Preise und Summenzeile exakt an Ihre Druckerauflösung und Papierbreite an.'],
+            ['Öffentliche Basis-URL', 'Internetadresse für den Belegabruf', 'Trage hier die Adresse deines Webhostings ein (z. B. https://bon.mein-verein.de).'],
+            ['ZIP-Paket herunterladen', 'Fertiges Webspace-Paket', 'Enthält die fertigen Anzeigeseiten für Gäste und den geheimen Schlüssel. Einfach auf den Webspace hochladen.'],
+            ['Webhosting-Verbindung prüfen', '1-Klick-Diagnosetest', 'Prüft automatisch in 3 Schritten, ob Ihr Webspace erreichbar ist und Belege fehlerfrei synchronisiert werden.'],
+            ['Speisekarte / Flyer (PDF/Foto)', 'Gäste-Speisekarte am Tisch', 'Laden Sie hier Ihre PDF-Speisekarte oder ein Foto der Tageskarte hoch. Gäste sehen sie direkt über ihren Tisch-QR-Code.'],
+          ],
+        },
+      },
+      {
+        id: '9.3.3',
+        heading: '9.3.3 Einstellungen: Reiter "Drucker"',
+        paragraphs: [
+          'In diesem Reiter wird festgelegt, welcher Drucker wichtige Warnmeldungen erhalten soll.',
+          'Meldebestand-Warndrucker: Sobald ein Fassbier oder ein beliebter Artikel zur Neige geht, kann das System automatisch einen Zettel an der Kasse oder am Lager ausdrucken, damit frühzeitig Nachschub geholt wird.',
+          'Vollständige Druckerkonfiguration: Über den Link gelangen Sie direkt zur Druckerverwaltung (/admin/printers). Dort können Bondrucker per IP-Adresse oder automatischem Netzwerk-Suchlauf eingerichtet, Kassenladen zugewiesen und Druckgruppen (z. B. Grill, Ausschank, Bar) festgelegt werden.',
+        ],
+      },
+      {
+        id: '9.3.4',
+        heading: '9.3.4 Einstellungen: Reiter "Kartenzahlung (Beta)"',
+        paragraphs: [
+          'OpenBon unterstützt bargeldloses Bezahlen mit modernen Kartenterminals am Tisch und an der Theke.',
+        ],
+        table: {
+          headers: ['Anbieter', 'Funktionsweise', 'Vorteile auf dem Fest'],
+          rows: [
+            ['SumUp', 'App-to-App Weiterschaltung', 'Die Kellner-App übergibt den exakten Zahlbetrag automatisch an die SumUp-App. Kein Vertippen möglich.'],
+            ['Zettle by PayPal', 'App-Weiterschaltung & Kartenterminal', 'Ermöglicht Kartenzahlungen über das Zettle-Terminal mit automatischer Quittungsrückmeldung an OpenBon.'],
+            ['Trinkgeld-Erfassung', 'Eingabefenster vor Kartenzahlung', 'Gäste können bei der Kartenzahlung bequem ein Trinkgeld hinzufügen, das dem Kellner korrekt zugeordnet wird.'],
+          ],
+        },
+      },
+      {
+        id: '9.3.5',
+        heading: '9.3.5 Einstellungen: Reiter "Sicherheit & PINs"',
+        paragraphs: [
+          'Schützen Sie die Stationen gegen unbefugten Zugriff durch Helfer oder Gäste.',
+        ],
+        table: {
+          headers: ['Sicherheitsbereich', 'Einstellung', 'Erklärung (ohne Fachbegriffe)'],
+          rows: [
+            ['Stations-PINs', 'Admin, Kasse, Küche, Kellner', 'Jede Station hat eine eigene 4-stellige Zahlen-PIN. Helfer an der Theke sehen nur die Kasse, Kellner nur die Tische.'],
+            ['PIN-Sicherheit', 'PBKDF2-Verschlüsselung', 'Alle PINs werden sicher verschlüsselt in der Datenbank abgelegt und sind selbst bei Systemzugriff nicht im Klartext lesbar.'],
+            ['Brute-Force-Sperre', 'Automatischer Schutz', 'Nach 5 falschen PIN-Eingaben wird das betreffende Gerät für 30 Sekunden gesperrt, um Durchprobieren zu verhindern.'],
+            ['Festzelt-HTTPS (Port 3443)', 'Verschlüsseltes WLAN', 'Sichere Datenübertragung im Festzelt über den gesicherten Port 3443 (https://[Kassen-IP]:3443).'],
+            ['Kassenzertifikat-Download', 'openbon-kasse.crt', 'Ein Klick lädt das Sicherheitszertifikat herunter. Auf Android-Tablets installiert, ermöglicht es die Installation von OpenBon als App in Google Chrome.'],
+          ],
+        },
+      },
+      {
+        id: '9.3.6',
+        heading: '9.3.6 Einstellungen: Reiter "Fiskal & Steuern (Beta)"',
+        paragraphs: [
+          'OpenBon ist für die deutsche Kassensicherungsverordnung (KassenSichV) vorbereitet.',
+          'TSE-Anbindung: Unterstützung für zertifizierte Hardware-TSE-Sticks (z. B. von Swissbit) per USB oder Cloud-TSE. Nach Aktivierung erhält jeder Kassiervorgang eine offizielle digitale Signatur und TSE-Prüfzeile auf dem Bon.',
+          'Kassenmeldung (§ 146a AO): Auf Knopfdruck erzeugt das System die amtliche Meldung des Aufzeichnungssystems für das zuständige Finanzamt.',
+        ],
+      },
+      {
+        id: '9.3.7',
+        heading: '9.3.7 Einstellungen: Reiter "Vorlagen & Snapshots"',
+        paragraphs: [
+          'Damit Sie nach einem erfolgreichen Fest nicht im nächsten Jahr wieder alle Artikel, Tische, Preise und Drucker von Hand eingeben müssen, bietet OpenBon eine Vorlagen-Verwaltung.',
+          'Vorlage exportieren: Mit einem Klick laden Sie eine Sicherungsdatei herunter, die alle Stammdaten enthält – ohne alte Umsätze oder Buchungen.',
+          'Vorlage importieren: Beim nächsten Fest spielen Sie diese Datei einfach wieder ein. Innerhalb von zwei Minuten ist das Kassensystem wieder startklar!',
+        ],
       },
       {
         id: '9.4',

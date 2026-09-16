@@ -7,6 +7,10 @@ if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = 'file:./prisma/dev.db';
 }
 
+if (!process.env.LICENSE_HMAC_SECRET) {
+  process.env.LICENSE_HMAC_SECRET = 'OPENBON-AUTO-SECRET-' + require('crypto').randomBytes(16).toString('hex');
+}
+
 const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
@@ -15,6 +19,70 @@ const { Server } = require('socket.io');
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOST || '0.0.0.0';
 const port = parseInt(process.env.PORT || '3000', 10);
+const httpsPort = parseInt(process.env.HTTPS_PORT || '3443', 10);
+
+/**
+ * Automatisches, langlebiges SSL-Zertifikat für Festzelt-WLAN und lokale Netze.
+ * Wird beim ersten Start erzeugt und in ./ssl/ gespeichert.
+ */
+async function getOrCreateSslCertificate() {
+  const fs = require('fs');
+  const path = require('path');
+  const sslDir = path.join(__dirname, 'ssl');
+  const certPath = path.join(sslDir, 'server.crt');
+  const keyPath = path.join(sslDir, 'server.key');
+
+  if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+    try {
+      return {
+        cert: fs.readFileSync(certPath, 'utf8'),
+        key: fs.readFileSync(keyPath, 'utf8'),
+      };
+    } catch (e) {
+      console.warn('[SSL] Bestehende Zertifikatsdateien konnten nicht gelesen werden:', e.message);
+    }
+  }
+
+  try {
+    const selfsigned = require('selfsigned');
+    if (!fs.existsSync(sslDir)) {
+      fs.mkdirSync(sslDir, { recursive: true });
+    }
+
+    const attrs = [{ name: 'commonName', value: 'OpenBon Kasse' }];
+    const altNames = [
+      { type: 2, value: 'localhost' },
+      { type: 2, value: 'openbon.local' },
+      { type: 7, ip: '127.0.0.1' },
+    ];
+
+    const os = require('os');
+    const ifaces = os.networkInterfaces();
+    for (const name of Object.keys(ifaces)) {
+      for (const iface of ifaces[name] || []) {
+        if (!iface.internal && iface.family === 'IPv4') {
+          altNames.push({ type: 7, ip: iface.address });
+        }
+      }
+    }
+
+    const pems = await selfsigned.generate(attrs, {
+      algorithm: 'sha256',
+      days: 3650, // 10 Jahre gültig
+      keySize: 2048,
+      extensions: [{ name: 'subjectAltName', altNames }],
+    });
+
+    fs.writeFileSync(certPath, pems.cert, 'utf8');
+    fs.writeFileSync(keyPath, pems.private, 'utf8');
+
+    console.log('[SSL] Neues automatisches Festzelt-Zertifikat erzeugt und gespeichert in /ssl');
+    return { cert: pems.cert, key: pems.private };
+  } catch (err) {
+    console.warn('[SSL] Automatische Zertifikatserstellung nicht verfügbar:', err.message);
+    return null;
+  }
+}
 
 /**
  * M4.1 Erlaubte WebSocket-Origins.
@@ -30,21 +98,26 @@ const port = parseInt(process.env.PORT || '3000', 10);
  */
 function buildAllowedSocketOrigins() {
   const os = require('os');
-  const ports = new Set(['80', '3000', '3001']);
+  const ports = new Set(['80', '443', '3000', '3001', '3443']);
   ports.add(String(port));
+  ports.add(String(httpsPort));
   if (process.env.HA_PARTNER_PORT) ports.add(String(process.env.HA_PARTNER_PORT));
 
   const origins = new Set();
   for (const p of ports) {
     origins.add(`http://localhost:${p}`);
+    origins.add(`https://localhost:${p}`);
     origins.add(`http://127.0.0.1:${p}`);
+    origins.add(`https://127.0.0.1:${p}`);
     origins.add(`http://openbon.local:${p}`);
     origins.add(`https://openbon.local:${p}`);
 
     // Browser lassen den Standard-Port im Origin-Header weg
-    if (p === '80') {
+    if (p === '80' || p === '443') {
       origins.add('http://localhost');
+      origins.add('https://localhost');
       origins.add('http://127.0.0.1');
+      origins.add('https://127.0.0.1');
       origins.add('http://openbon.local');
       origins.add('https://openbon.local');
     }
@@ -53,7 +126,11 @@ function buildAllowedSocketOrigins() {
       for (const iface of os.networkInterfaces()[name] || []) {
         if (!iface.internal && iface.family === 'IPv4') {
           origins.add(`http://${iface.address}:${p}`);
-          if (p === '80') origins.add(`http://${iface.address}`);
+          origins.add(`https://${iface.address}:${p}`);
+          if (p === '80' || p === '443') {
+            origins.add(`http://${iface.address}`);
+            origins.add(`https://${iface.address}`);
+          }
         }
       }
     }
@@ -74,7 +151,7 @@ const handle = app.getRequestHandler();
 global.virtualPrinterHistory = global.virtualPrinterHistory || [];
 global.connectedDevices = global.connectedDevices || new Map();
 
-app.prepare().then(() => {
+app.prepare().then(async () => {
   const server = createServer(async (req, res) => {
     try {
       await handle(req, res);
@@ -97,6 +174,30 @@ app.prepare().then(() => {
     pingInterval: 10000,
     pingTimeout: 5000,
   });
+
+  // Automatischer HTTPS-Server für Festzelt-WLAN (immer aktiv)
+  const ssl = await getOrCreateSslCertificate();
+  let httpsServer = null;
+  if (ssl && ssl.cert && ssl.key) {
+    try {
+      const https = require('https');
+      httpsServer = https.createServer(
+        { cert: ssl.cert, key: ssl.key },
+        async (req, res) => {
+          try {
+            await handle(req, res);
+          } catch (err) {
+            console.error('Error handling HTTPS request:', err);
+            res.statusCode = 500;
+            res.end('Internal Server Error');
+          }
+        }
+      );
+      io.attach(httpsServer);
+    } catch (e) {
+      console.warn('[HTTPS] Konnte HTTPS-Server nicht initialisieren:', e.message);
+    }
+  }
 
   // WICHTIG: Die Instanz global verfuegbar machen. Die Next.js-API-Routen
   // senden ihre Echtzeit-Ereignisse ueber `global.io` (Bestellungen, Zahlungen,
@@ -342,6 +443,12 @@ app.prepare().then(() => {
     console.log(`[HTTP]    Lokale URL:   http://localhost:${port}`);
     console.log(`[mDNS]    Domain-URL:   http://openbon.local:${port}`);
     console.log(`[NETZ]    Netzwerk-URL: http://${hostname}:${port}`);
+    if (httpsServer) {
+      httpsServer.listen(httpsPort, hostname, () => {
+        console.log(`[HTTPS]   Festzelt-WLAN: https://localhost:${httpsPort}`);
+        console.log(`[HTTPS]   Netzwerk-URL:  https://${hostname}:${httpsPort} (SSL immer aktiv)`);
+      });
+    }
     console.log(`[MODE]    Modus:        ${dev ? 'Entwicklung' : 'Produktion'}`);
     console.log(`[HA]      HA-Rolle:     ${process.env.HA_ROLE || 'STANDALONE'}`);
     console.log(`==================================================\n`);

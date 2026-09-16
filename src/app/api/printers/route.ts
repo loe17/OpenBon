@@ -33,11 +33,24 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireApiAuth(req, ['ADMIN']);
-  if (!auth.ok) return auth.response;
-
   try {
     const body = await req.json();
+
+    // Kassenlade öffnen ist für Kassierer an der Theke und Kellner erlaubt
+    if (body.action === 'OPEN_DRAWER') {
+      const auth = await requireApiAuth(req, ['ADMIN', 'POS_CASHIER', 'WAITER']);
+      if (!auth.ok) return auth.response;
+
+      const printer = await prisma.printer.findUnique({ where: { id: body.printerId } });
+      if (!printer) return NextResponse.json({ error: 'Drucker nicht gefunden' }, { status: 404 });
+
+      await networkSpooler.openDrawer(printer);
+      return NextResponse.json({ success: true });
+    }
+
+    // Alle administrativen Aktionen (Drucker anlegen/ändern/löschen, Z-Bons, Stationstickets) erfordern ADMIN
+    const auth = await requireApiAuth(req, ['ADMIN']);
+    if (!auth.ok) return auth.response;
 
     // 1. Station QR Joining Ticket Print
     if (body.action === 'PRINT_STATION_TICKET') {
@@ -95,15 +108,6 @@ export async function POST(req: Request) {
         );
       }
       return NextResponse.json(result);
-    }
-
-    // 4. Open drawer action
-    if (body.action === 'OPEN_DRAWER') {
-      const printer = await prisma.printer.findUnique({ where: { id: body.printerId } });
-      if (!printer) return NextResponse.json({ error: 'Drucker nicht gefunden' }, { status: 404 });
-
-      await networkSpooler.openDrawer(printer);
-      return NextResponse.json({ success: true });
     }
 
     // 5. Retry failed print jobs
