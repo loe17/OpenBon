@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useSocket } from '@/components/providers/socket-provider';
 import QRCode from 'qrcode';
 import { formatCurrency } from '@/lib/utils';
+import { buildReceiptUrl } from '@/lib/digital-receipt';
 import {
   Monitor,
   Receipt,
@@ -158,7 +159,7 @@ export default function CustomerDisplayPage() {
       // Höre auf Bezahlungsabschluss
       socket.on('payment:completed', (payment: any) => {
         if (!isMatch(payment.deviceId || payment.stationId, payment.stationName)) return;
-        const receiptUrl = payment.digitalReceiptUrl || (payment.digitalReceiptCode ? `http://openbon.local/receipt/${payment.digitalReceiptCode}` : null);
+        const receiptUrl = payment.digitalReceiptUrl || (payment.digitalReceiptCode ? buildReceiptUrl('http://openbon.local', payment.digitalReceiptCode) : null);
         
         setState((prev) => ({
           ...prev,

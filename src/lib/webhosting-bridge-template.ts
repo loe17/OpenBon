@@ -48,6 +48,16 @@ if (is_dir($receiptsDir)) {
 $code = isset($_GET['code']) ? trim($_GET['code']) : '';
 $view = isset($_GET['view']) ? trim($_GET['view']) : '';
 
+// Fallback: URL wie /receipt/EBON-... aus REQUEST_URI oder PATH_INFO extrahieren
+if (empty($code)) {
+    $reqUri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+    if (preg_match('#receipt/([A-Za-z0-9\\-_]+)#', $reqUri, $matches)) {
+        $code = $matches[1];
+    } elseif (isset($_SERVER['PATH_INFO']) && preg_match('#([A-Za-z0-9\\-_]+)#', $_SERVER['PATH_INFO'], $matches)) {
+        $code = $matches[1];
+    }
+}
+
 // 3. Fall: Speisekarte anzeigen
 if ($view === 'menu' || $view === 'karte' || (empty($code) && empty($view))) {
     $pdfExists = file_exists(__DIR__ . '/menu.pdf');
@@ -477,20 +487,23 @@ exit;
 
 export function generateHtaccess(): string {
   return `# OpenBon Webhosting-Brücke
+<IfModule mod_rewrite.c>
 RewriteEngine On
+RewriteBase /
 Options -Indexes
 
 # 1. Schutz: Direkter Download des receipts-Ordners wird gesperrt
 RedirectMatch 403 ^/receipts/.*$
 
 # 2. Beleg-Kurzlinks: /receipt/EBON-XXXX -> index.php?code=EBON-XXXX
-RewriteRule ^receipt/([A-Za-z0-9\\-]+)$ index.php?code=$1 [L,QSA]
+RewriteRule ^receipt/([A-Za-z0-9\\-_]+)/?$ index.php?code=$1 [L,QSA,NC]
 
 # 3. Speisekarten-Links: /menu oder /karte -> index.php?view=menu
-RewriteRule ^(menu|karte)$ index.php?view=menu [L,QSA]
+RewriteRule ^(menu|karte)/?$ index.php?view=menu [L,QSA,NC]
 
-# 4. API-Zugriff: /api/(.*) -> api.php?$1 [L,QSA]
-RewriteRule ^api/(.*)$ api.php?$1 [L,QSA]
+# 4. API-Zugriff: /api/(.*)$ api.php?$1 [L,QSA,NC]
+RewriteRule ^api/(.*)$ api.php?$1 [L,QSA,NC]
+</IfModule>
 `;
 }
 

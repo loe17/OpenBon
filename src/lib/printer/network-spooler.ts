@@ -547,13 +547,7 @@ class NetworkSpooler {
     builder.openCashDrawer();
     const rawBuffer = builder.build();
 
-    const client = new net.Socket();
-    client.setTimeout(3000);
-    client.connect(printer.port || 9100, printer.ipAddress, () => {
-      client.write(rawBuffer, () => {
-        client.end();
-      });
-    });
+    return this.spoolRaw(printer.ipAddress, printer.port || 9100, rawBuffer);
   }
 }
 

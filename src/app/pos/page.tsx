@@ -5,6 +5,7 @@ import { useSocket } from '@/components/providers/socket-provider';
 import QRCode from 'qrcode';
 import { formatCents, formatCurrency, generateIdempotencyKey } from '@/lib/utils';
 import { triggerHapticFeedback } from '@/lib/socket-client';
+import { buildReceiptUrl } from '@/lib/digital-receipt';
 import {
   Ticket,
   Plus,
@@ -196,8 +197,11 @@ function PosCounterContent() {
       .then((prns) => {
         if (Array.isArray(prns)) {
           setAllPrinters(prns.filter((p: any) => p.isActive));
+          const savedPrinterId = localStorage.getItem('openbon_pos_printer_id');
+          const assignedPrn = savedPrinterId ? prns.find((p: any) => p.id === savedPrinterId && p.isActive) : null;
           const anyHasDrawer = prns.some((p: any) => p.isActive && p.hasCashDrawer);
-          setHasDrawerAvailable(anyHasDrawer);
+          const drawerConnectedSetting = localStorage.getItem('pos_drawer_connected') !== '0';
+          setHasDrawerAvailable((Boolean(assignedPrn) || anyHasDrawer) && drawerConnectedSetting);
         }
       })
       .catch(() => {});
@@ -376,15 +380,33 @@ function PosCounterContent() {
     isLongPressRef.current = false;
   };
 
-  const openDrawer = async () => {
+  const openDrawer = async (isAutomaticCheckout = false) => {
     triggerHapticFeedback();
     const drawerConnected = localStorage.getItem('pos_drawer_connected') !== '0';
-    if (!drawerConnected || !hasDrawerAvailable) return;
+    if (!drawerConnected) {
+      if (!isAutomaticCheckout) {
+        warning('Kassenlade ist für diese Station deaktiviert (siehe Stationseinstellungen).');
+      }
+      return;
+    }
     try {
       const prnRes = await fetch('/api/printers');
       const prns = await prnRes.json();
       if (Array.isArray(prns)) {
-        const drawerPrinter = prns.find((p: any) => p.isActive && p.hasCashDrawer);
+        const assignedId = posPrinterId || localStorage.getItem('openbon_pos_printer_id');
+        let drawerPrinter = null;
+        if (assignedId) {
+          drawerPrinter =
+            prns.find((p: any) => p.id === assignedId && p.isActive && p.hasCashDrawer) ||
+            prns.find((p: any) => p.id === assignedId && p.isActive);
+        }
+        if (!drawerPrinter) {
+          drawerPrinter = prns.find((p: any) => p.isActive && p.hasCashDrawer && !p.isVirtual);
+        }
+        if (!drawerPrinter) {
+          drawerPrinter = prns.find((p: any) => p.isActive && p.hasCashDrawer);
+        }
+
         if (drawerPrinter) {
           const res = await fetch('/api/printers', {
             method: 'POST',
@@ -393,13 +415,28 @@ function PosCounterContent() {
           });
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            warning(
-              `Kassenlade konnte nicht geöffnet werden${data.error ? `: ${data.error}` : ''}. Der Verkauf wurde erfolgreich abgeschlossen.`
-            );
+            const errMsg = data.error || 'Drucker nicht erreichbar';
+            if (isAutomaticCheckout) {
+              warning(`Kassenlade konnte nicht geöffnet werden: ${errMsg}. Der Verkauf wurde erfolgreich abgeschlossen.`);
+            } else {
+              error(`Kassenlade konnte nicht geöffnet werden: ${errMsg}`);
+            }
+          } else {
+            if (!isAutomaticCheckout) {
+              success('Kassenlade geöffnet!');
+            }
+          }
+        } else {
+          if (!isAutomaticCheckout) {
+            error('Kein Drucker mit konfigurierter Kassenlade gefunden.');
           }
         }
       }
-    } catch {}
+    } catch (err: any) {
+      if (!isAutomaticCheckout) {
+        error(`Verbindungsfehler beim Öffnen der Kassenlade: ${err?.message || 'Server nicht erreichbar'}`);
+      }
+    }
   };
 
   const isPosInternetActive = Boolean(config?.enableDigitalReceipt || config?.enableDigitalReceiptQr);
@@ -454,7 +491,7 @@ function PosCounterContent() {
         source: 'POS_CASHIER',
         waiterName: stationName || waiterName,
         cashierStationName: stationName,
-        targetPrinterId: posPrinterId || undefined,
+        targetPrinterId: posPrinterId || (typeof window !== 'undefined' ? localStorage.getItem('openbon_pos_printer_id') : null) || undefined,
         deviceId,
         idempotencyKey,
         items: itemsToPay.map((item) => ({
@@ -504,7 +541,7 @@ function PosCounterContent() {
         if (!receiptUrl && (payData?.digitalReceiptCode || payData?.invoiceNumber)) {
           const code = payData.digitalReceiptCode || `EBON-${payData.invoiceNumber}`;
           const base = config?.baseUrl || (typeof window !== 'undefined' ? window.location.origin : 'http://openbon.local');
-          receiptUrl = `${base.replace(/\/+$/, '')}/receipt/${code}`;
+          receiptUrl = buildReceiptUrl(base, code);
         }
         if (receiptUrl && !payData.digitalReceiptUrl) {
           payData.digitalReceiptUrl = receiptUrl;
@@ -541,7 +578,7 @@ function PosCounterContent() {
       }
 
       if (activeMethod === 'CASH') {
-        openDrawer();
+        openDrawer(true);
       }
     } catch (e) {
       console.error(e);
@@ -656,7 +693,7 @@ function PosCounterContent() {
         {/* Open Drawer Button (Nur wenn Kassenlade an einem konfigurierten Drucker verfügbar ist) */}
         {hasDrawerAvailable && (
           <button
-            onClick={openDrawer}
+            onClick={() => openDrawer(false)}
             className="pos-touch-btn flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2.5 rounded-2xl text-xs font-bold border border-slate-700 shadow transition active:scale-95"
             title="Kassenlade öffnen"
           >
@@ -1573,6 +1610,8 @@ function PosCounterContent() {
                   localStorage.setItem('openbon_pos_id', cleanId);
                   localStorage.setItem('openbon_pos_printer_id', editPosPrinterId);
                   localStorage.setItem('pos_drawer_connected', editDrawerConnected ? '1' : '0');
+                  const anyHasDrawer = allPrinters.some((p: any) => p.isActive && p.hasCashDrawer);
+                  setHasDrawerAvailable(editDrawerConnected && (Boolean(editPosPrinterId) || anyHasDrawer));
                   if (socket) {
                     socket.emit('pos:station_online', { stationId: cleanId, stationName: clean });
                     socket.emit('pos:register_station', { stationId: cleanId, stationName: clean });

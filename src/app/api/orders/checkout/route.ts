@@ -497,9 +497,17 @@ export async function POST(req: Request) {
 
     // Kassenlade bei Bargeld (nur an Druckern mit angeschlossener Lade)
     if (body.paymentMethod === 'CASH' && body.openDrawer) {
-      const posPrinter = await prisma.printer.findFirst({ where: { isActive: true, hasCashDrawer: true } });
+      let posPrinter = null;
+      if (body.targetPrinterId) {
+        posPrinter = await prisma.printer.findUnique({ where: { id: body.targetPrinterId } });
+      }
+      if (!posPrinter) {
+        posPrinter = await prisma.printer.findFirst({ where: { isActive: true, hasCashDrawer: true } });
+      }
       if (posPrinter) {
-        await networkSpooler.openDrawer(posPrinter).catch(() => undefined);
+        await networkSpooler.openDrawer(posPrinter).catch((err) => {
+          console.warn('[CHECKOUT] Kassenladen-Impuls fehlgeschlagen:', err?.message || err);
+        });
       }
     }
 

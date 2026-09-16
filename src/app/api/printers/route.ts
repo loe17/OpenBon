@@ -44,8 +44,13 @@ export async function POST(req: Request) {
       const printer = await prisma.printer.findUnique({ where: { id: body.printerId } });
       if (!printer) return NextResponse.json({ error: 'Drucker nicht gefunden' }, { status: 404 });
 
-      await networkSpooler.openDrawer(printer);
-      return NextResponse.json({ success: true });
+      try {
+        await networkSpooler.openDrawer(printer);
+        return NextResponse.json({ success: true });
+      } catch (err: any) {
+        console.error('[PRINTER] Fehler beim Kassenladen-Impuls:', err);
+        return NextResponse.json({ error: err.message || 'Kassenladen-Impuls fehlgeschlagen' }, { status: 500 });
+      }
     }
 
     // Alle administrativen Aktionen (Drucker anlegen/ändern/löschen, Z-Bons, Stationstickets) erfordern ADMIN

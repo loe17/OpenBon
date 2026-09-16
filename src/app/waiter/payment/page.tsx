@@ -12,6 +12,7 @@ import { ChangeCalculator } from '@/components/ui/change-calculator';
 import PaymentService from '@/lib/payment/payment-service';
 import type { DiningTableDTO, OrderDTO, PaymentMethod, EventConfigDTO } from '@/types/domain';
 import QRCode from 'qrcode';
+import { buildReceiptUrl } from '@/lib/digital-receipt';
 import {
   ArrowLeft,
   Check,
@@ -611,7 +612,7 @@ function WaiterPaymentContent() {
       if (!receiptUrl && (data.digitalReceiptCode || data.invoiceNumber)) {
         const code = data.digitalReceiptCode || `EBON-${data.invoiceNumber}`;
         const base = config?.baseUrl || (typeof window !== 'undefined' ? window.location.origin : 'http://openbon.local');
-        receiptUrl = `${base.replace(/\/+$/, '')}/receipt/${code}`;
+        receiptUrl = buildReceiptUrl(base, code);
       }
       setCompletedDigitalReceiptUrl(receiptUrl ?? null);
       setCompletedDigitalReceiptCode(data.digitalReceiptCode ?? null);
@@ -640,12 +641,13 @@ function WaiterPaymentContent() {
     haptic();
     setShowEBonModal(true);
     if (!eBonQrDataUrl) {
+      const base = config?.baseUrl || (typeof window !== 'undefined' ? window.location.origin : 'http://openbon.local');
       const targetUrl =
         completedDigitalReceiptUrl ||
         (completedDigitalReceiptCode
-          ? `${(config?.baseUrl || window.location.origin).replace(/\/+$/, '')}/receipt/${completedDigitalReceiptCode}`
+          ? buildReceiptUrl(base, completedDigitalReceiptCode)
           : completedInvoice
-          ? `${(config?.baseUrl || window.location.origin).replace(/\/+$/, '')}/receipt/EBON-${completedInvoice}`
+          ? buildReceiptUrl(base, `EBON-${completedInvoice}`)
           : null);
       if (targetUrl) {
         if (!completedDigitalReceiptUrl) setCompletedDigitalReceiptUrl(targetUrl);

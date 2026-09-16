@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { isExternalBridgeUrl } from './webhosting-push';
 
 /**
  * Digitaler Kassenbeleg / E-Bon Generator (Spec V2 §5.2).
@@ -25,6 +26,11 @@ export function generateDigitalReceiptCode(invoiceNumber: string, createdAt: Dat
 }
 
 export function buildReceiptUrl(baseUrl: string, receiptCode: string): string {
-  const cleanBase = baseUrl.replace(/\/+$/, '');
+  const cleanBase = (baseUrl || '').replace(/\/+$/, '');
+  // Für externe Webhosting-Brücken (Netcup, Plesk, Apache, Nginx):
+  // Direkter Parameter ?code= funktioniert auf jedem Server ohne .htaccess-Abhängigkeit und verhindert 404-Fehler.
+  if (isExternalBridgeUrl(cleanBase)) {
+    return `${cleanBase}/?code=${receiptCode}`;
+  }
   return `${cleanBase}/receipt/${receiptCode}`;
 }

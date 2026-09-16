@@ -12,11 +12,16 @@ describe('OpenBon v0.4.50: Kassenlade, E-Bon QR & Festzelt-HTTPS Tests', () => {
     expect(typeof code).toBe('string');
     expect(code.length).toBe(24);
 
-    const url = buildReceiptUrl('https://bon.festzelt.de', code);
-    expect(url).toBe('https://bon.festzelt.de/receipt/' + code);
+    // Externe Webhosting-Brücke nutzt den universellen ?code= Parameter für 100% Serverkompatibilität
+    const externalUrl = buildReceiptUrl('https://bon.festzelt.de', code);
+    expect(externalUrl).toBe('https://bon.festzelt.de/?code=' + code);
 
-    const localUrl = buildReceiptUrl('', code);
-    expect(localUrl).toBe('/receipt/' + code);
+    // Lokaler Kassen-Server nutzt direkte Next.js-Route /receipt/...
+    const localUrl = buildReceiptUrl('http://openbon.local', code);
+    expect(localUrl).toBe('http://openbon.local/receipt/' + code);
+
+    const relativeUrl = buildReceiptUrl('', code);
+    expect(relativeUrl).toBe('/receipt/' + code);
   });
 
   it('GET /api/system/cert liefert das Kassen-Zertifikat oder generiert ein valides Zertifikat', async () => {
@@ -67,5 +72,20 @@ describe('OpenBon v0.4.50: Kassenlade, E-Bon QR & Festzelt-HTTPS Tests', () => {
     expect(routeFile).toContain("'POS_CASHIER'");
     expect(routeFile).toContain("'WAITER'");
     expect(routeFile).toContain("'ADMIN'");
+  });
+
+  it('Checkout-API priorisiert die zugewiesene Kassenstation (targetPrinterId) beim Kassenladen-Impuls', () => {
+    const checkoutFile = fs.readFileSync(path.join(__dirname, '../app/api/orders/checkout/route.ts'), 'utf-8');
+    expect(checkoutFile).toContain('body.targetPrinterId');
+    expect(checkoutFile).toContain('openDrawer(posPrinter)');
+  });
+
+  it('Webhosting-Bruecke unterstuetzt ?code=, .htaccess-RewriteBase und receipt/index.php Fallback', () => {
+    const bridgeDownload = fs.readFileSync(path.join(__dirname, '../app/api/bridge/download/route.ts'), 'utf-8');
+    expect(bridgeDownload).toContain('receipt/index.php');
+
+    const template = fs.readFileSync(path.join(__dirname, '../lib/webhosting-bridge-template.ts'), 'utf-8');
+    expect(template).toContain('RewriteBase /');
+    expect(template).toContain("$_SERVER['REQUEST_URI']");
   });
 });

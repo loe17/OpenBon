@@ -42,6 +42,16 @@ export default function HomePage() {
   useEffect(() => {
     let cancelled = false;
 
+    // Beleg-Kurzlink direkt öffnen falls Gast ?code=EBON-... aufgerufen hat
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      const receiptCode = sp.get('code') || sp.get('ebon');
+      if (receiptCode) {
+        router.replace(`/receipt/${encodeURIComponent(receiptCode)}`);
+        return;
+      }
+    }
+
     // Startseite sperren, solange keine gueltige Anmeldung vorliegt.
     // Vorher war die Stationsauswahl sofort bedienbar und der PIN wurde erst
     // beim Antippen einer Kachel verlangt - eine Anmeldung "im Vorbeigehen".

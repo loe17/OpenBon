@@ -335,11 +335,13 @@ export const HANDBOOK: DocChapter[] = [
         id: '3.3',
         heading: '3.3 Kassenschublade manuell & automatisch öffnen',
         paragraphs: [
-          'OpenBon steuert Kassenladen direkt über den angeschlossenen Bondrucker (über das Standard-RJ11/RJ12-Kabel an der Rückseite des Druckers) an.',
-          'Automatisches Öffnen: Sobald eine Barzahlung erfolgreich verbucht wird, sendet das System zusammen mit dem Bon-Druckauftrag den elektrischen Impuls, der die Lade aufspringen lässt.',
-          'Manuelles Öffnen: In der Bonkasse befindet sich oben in der Leiste der Button "Lade öffnen". Damit kann die Kassenlade jederzeit auf Knopfdruck geöffnet werden – z. B. für Wechselgeldprüfungen, Einzahlungen oder Geldwechsel.',
-          'Berechtigung & Sicherheit: Um Reibungsverluste am Thekenplatz zu vermeiden, dürfen sowohl Hauptadministratoren (ADMIN) als auch Thekenkräfte (Rolle POS_CASHIER) und Kellner mit Kassenberechtigung (WAITER) die Schublade öffnen. Ein versehentliches Sperren der Kassenlade durch Berechtigungsfehler ist ausgeschlossen.',
-          'Voraussetzung: In der Druckerverwaltung unter /admin/printers muss beim zuständigen Thermodrucker die Option "Kassenlade angeschlossen" mit einem Haken aktiviert sein.',
+          'OpenBon steuert Kassenladen direkt über den angeschlossenen Bondrucker an (über das Standard-RJ11/RJ12-Kabel an der Rückseite des Druckers).',
+          'Stationsgenaue Zuweisung ("Bonkasse benennen"): Jede Kassenstation kann oben rechts über das Einstellungs-Symbol genau dem Thermodrucker zugewiesen werden, an dem die Schublade per Kabel angeschlossen ist. So öffnet sich immer exakt die Lade an der richtigen Theke – auch wenn mehrere Kassen, Küchendrucker oder Schenkendrucker im Einsatz sind.',
+          'Automatisches Öffnen beim Kassieren: Sobald eine Barzahlung verbucht wird, sendet OpenBon zusammen mit dem Belegauftrag den Öffnungsimpuls an den zugewiesenen Kassen-Drucker.',
+          'Manuelles Öffnen auf Knopfdruck: In der Bonkasse befindet sich oben in der Leiste der Button "Lade öffnen". Damit kann die Kassenlade jederzeit geöffnet werden – z. B. für Wechselgeldprüfungen oder Geldwechsel.',
+          'Klares optisches Feedback: Bei manuellem Öffnen bestätigt eine grüne Erfolgsmeldung ("Kassenlade geöffnet!"). Sollte das Druckerkabel nicht eingesteckt oder der Drucker offline sein, erscheint eine deutliche, leicht verständliche Hinweismeldung statt stummem Verhalten.',
+          'Berechtigung & Sicherheit: Um Reibungsverluste am Thekenplatz zu vermeiden, dürfen Hauptadministratoren (ADMIN), Thekenkräfte (Rolle POS_CASHIER) und Kellner mit Kassenberechtigung (WAITER) die Schublade öffnen.',
+          'Voraussetzung: In der Druckerverwaltung unter /admin/printers muss beim zuständigen Thermodrucker die Option "Kassenlade angeschlossen" aktiviert sein, und in den Stationseinstellungen der Bonkasse muss der Haken bei "Kassenlade an dieser Station vorhanden" gesetzt sein.',
         ],
       },
       {
@@ -355,6 +357,8 @@ export const HANDBOOK: DocChapter[] = [
         paragraphs: [
           'Nach dem Kassieren kann dem Gast auf Wunsch ein papierloser digitaler Beleg ausgestellt werden. Das schont Thermopapier und die Umwelt.',
           'Einfacher QR-Code statt komplizierter Technik: Der Beleg wird als gut lesbarer QR-Code direkt auf dem Kassenbildschirm oder Kellner-Smartphone angezeigt. Der Gast öffnet einfach die normale Kamera-App seines Smartphones und scannt den Code ab – funktioniert auf jedem iPhone und Android-Gerät ohne zusätzliche App.',
+          'Garantierter Sofort-Abruf ohne 404-Fehler: Die erzeugten QR-Codes verwenden für externe Webhostings (wie Netcup oder Vereins-Webspaces) die universelle Link-Struktur "?code=EBON-...". Diese funktioniert auf 100 % aller Webserver sofort beim ersten Klick – selbst wenn keine speziellen Umleitungsregeln (.htaccess / mod_rewrite) aktiv sind.',
+          'Schnelleres Scannen im Zelt: Durch den kompakteren Link enthält der QR-Code weniger Punkte und wird von Handykameras auch bei schwächerem Zeltlicht oder aus größerer Distanz blitzschnell erfasst.',
           'Webhosting-Brücke (LTE/5G Abruf): Damit Gäste den digitalen Beleg und die Speisekarte auch ohne Einwahl in das Festzelt-WLAN abrufen können, synchronisiert OpenBon die Belege auf ein gewöhnliches Webhosting (z. B. Netcup Webhosting 1000 oder ein Vereins-Webspace).',
           'Höchste Sicherheit & kein DynDNS: Das Kassennetzwerk im Zelt baut nur ausgehende, verschlüsselte Verbindungen zum Webhosting auf. Es ist WEDER eine Portfreigabe noch DynDNS am Zeltrouter nötig. Das Kassensystem bleibt von außen unangreifbar.',
           'Automatischer Datenschutz nach 24 Stunden: Alle auf das Webhosting übertragenen Belege werden nach genau 24 Stunden automatisch gelöscht. So bleibt der Speicherplatz sauber und Gastdaten werden nicht dauerhaft im Web gespeichert.',

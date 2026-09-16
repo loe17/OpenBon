@@ -63,6 +63,26 @@ export async function GET(req: Request) {
     // 3. Apache .htaccess für saubere Kurz-Links (/receipt/EBON-XXXX) und Schutz des Ordners
     zip.file('.htaccess', generateHtaccess());
 
+    // Fallback falls der Webserver Unterordner direkt ansteuert oder .htaccess ignoriert wird
+    zip.file(
+      'receipt/index.php',
+      `<?php
+$code = '';
+$reqUri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+if (preg_match('#receipt/([A-Za-z0-9\\-_]+)#', $reqUri, $matches)) {
+    $code = $matches[1];
+} elseif (isset($_SERVER['PATH_INFO']) && preg_match('#([A-Za-z0-9\\-_]+)#', $_SERVER['PATH_INFO'], $matches)) {
+    $code = $matches[1];
+}
+if (!empty($code)) {
+    header('Location: ../?code=' . urlencode($code), true, 302);
+    exit;
+}
+header('Location: ../', true, 302);
+exit;
+`
+    );
+
     // 4. Einfache Schritt-für-Schritt-Anleitung
     zip.file(
       'ANLEITUNG.html',
