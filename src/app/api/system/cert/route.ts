@@ -33,7 +33,12 @@ async function generateCert() {
     algorithm: 'sha256',
     days: 36500, // 100 Jahre (lebenslang unbegrenzt)
     keySize: 2048,
-    extensions: [{ name: 'subjectAltName', altNames }],
+    extensions: [
+      { name: 'basicConstraints', cA: true },
+      { name: 'keyUsage', keyCertSign: true, digitalSignature: true, keyEncipherment: true },
+      { name: 'extKeyUsage', serverAuth: true, clientAuth: true },
+      { name: 'subjectAltName', altNames },
+    ],
   });
 
   fs.writeFileSync(certPath, pems.cert, 'utf8');

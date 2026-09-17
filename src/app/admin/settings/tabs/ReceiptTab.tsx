@@ -1729,19 +1729,24 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
                   </div>
                 )}
 
-                {/* Table Number (Scaled dynamically with 10-step tableFs - kein schwarzer Kasten) */}
-                {previewContent.tableText && (
-                  <div
-                    className="my-2 py-1 text-center transition-all font-black text-slate-950"
-                    style={{
-                      fontSize: `${0.9 + (previewContent.tableFs - 1) * 0.22}rem`,
-                      letterSpacing: previewContent.tableFs >= 5 ? '0.05em' : 'normal',
-                      lineHeight: 1.15,
-                    }}
-                  >
-                    {previewContent.tableText}
-                  </div>
-                )}
+                {/* Table Number (Scaled dynamically with 10-step tableFs - füllt auf Stufe 10 die gesamte Bonbreite) */}
+                {previewContent.tableText && (() => {
+                  const maxRem = paperWidth === 58 ? 3.6 : 4.6;
+                  const minRem = 0.9;
+                  const remSize = (minRem + (previewContent.tableFs - 1) * ((maxRem - minRem) / 9)).toFixed(2);
+                  return (
+                    <div
+                      className="my-2 py-1 text-center transition-all font-black text-slate-950 whitespace-nowrap overflow-hidden tracking-tight leading-none flex items-center justify-center w-full"
+                      style={{
+                        fontSize: `${remSize}rem`,
+                        letterSpacing: previewContent.tableFs >= 5 ? '0.05em' : 'normal',
+                        lineHeight: 1.1,
+                      }}
+                    >
+                      {previewContent.tableText}
+                    </div>
+                  );
+                })()}
 
                 {/* Meta Lines */}
                 {previewContent.metaLines.length > 0 && (

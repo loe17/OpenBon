@@ -205,9 +205,29 @@ export default function QrCodesPage() {
     fetchNetworkAndGenerate(useDomainUrl, useHttps);
   }, [useDomainUrl, useHttps]);
 
-  const handleCopy = (text: string, id: string) => {
+  const handleCopy = async (text: string, id: string) => {
     triggerHapticFeedback();
-    navigator.clipboard.writeText(text);
+    let copied = false;
+    if (typeof navigator !== 'undefined' && navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      } catch {}
+    }
+    if (!copied && typeof document !== 'undefined') {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        textarea.style.top = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        copied = document.execCommand('copy');
+        document.body.removeChild(textarea);
+      } catch {}
+    }
     setCopiedId(id);
     success('Link in Zwischenablage kopiert!');
     setTimeout(() => setCopiedId(null), 2000);
@@ -371,6 +391,35 @@ export default function QrCodesPage() {
         </div>
       </div>
 
+      {/* Android HTTPS Info Banner */}
+      {useHttps && (
+        <div className="bg-amber-950/40 border border-amber-800/60 rounded-2xl p-4 mb-6 text-left shadow-sm no-print flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-amber-900/50 rounded-xl text-amber-400 shrink-0 mt-0.5 sm:mt-0">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-amber-200">
+                Wichtiger Hinweis für Android-Geräte &amp; Google Chrome bei HTTPS:
+              </h4>
+              <p className="text-xs text-amber-300/80 mt-1 leading-relaxed">
+                Da die Kasse im lokalen Festzelt-Netzwerk ohne Internetverbindung läuft, meldet Android beim ersten Aufruf: <strong>„Dies ist keine sichere Verbindung“</strong>.
+                <br />
+                <strong>2-Sekunden-Lösung:</strong> Tippe auf der roten Android-Warnseite einfach auf <strong>„Erweitert“</strong> und danach auf <strong>„Weiter zu {networkInfo?.localIp || 'IP'} (unsicher)“</strong>. Ab dann ist die verschlüsselte Verbindung dauerhaft aktiv!
+              </p>
+            </div>
+          </div>
+          <a
+            href="/api/system/cert"
+            download="openbon-kasse.crt"
+            className="shrink-0 flex items-center gap-2 px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition shadow"
+          >
+            <FileDown className="w-4 h-4" />
+            <span>Zertifikat herunterladen</span>
+          </a>
+        </div>
+      )}
+
       {/* Grid of Stations */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {stations.map((station) => {
@@ -434,7 +483,7 @@ export default function QrCodesPage() {
                   {station.fullUrl}
                 </span>
                 <button
-                  onClick={() => handleCopy(station.id, station.fullUrl || '')}
+                  onClick={() => handleCopy(station.fullUrl || '', station.id)}
                   className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 transition shrink-0"
                   title="URL kopieren"
                 >

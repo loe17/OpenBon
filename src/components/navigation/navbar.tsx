@@ -101,7 +101,6 @@ const adminGroups: NavGroup[] = [
       { href: '/admin/tables', label: 'Tischplan Designer', icon: Grid, roles: ['ADMIN'] },
       { href: '/admin/printers', label: 'Drucker & Druckgruppen', icon: Printer, roles: ['ADMIN'] },
       { href: '/admin/virtual-printer', label: 'Virtueller Drucker-Monitor', icon: Terminal, roles: ['ADMIN'] },
-      { href: '/customer-display', label: 'Kundendisplay (Monitor)', icon: Monitor, roles: ['ADMIN'] },
       { href: '/admin/devices', label: 'Geräte-Manager', icon: Users, roles: ['ADMIN'] },
       { href: '/admin/qr-codes', label: 'QR Beitritts-Center', icon: QrCode, roles: ['ADMIN'] },
     ],
@@ -293,22 +292,33 @@ export default function Navbar() {
     };
   }, []);
 
-  // Expanded Group State in Admin Drawer: Standardmäßig nur die zur aktuellen Seite gehörende Gruppe öffnen
+  // Expanded Group State in Admin Drawer: Standardmäßig nur Sortiment & Warenwirtschaft ausgeklappt, Zustand dauerhaft merken
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     inventory: true,
   });
 
   useEffect(() => {
-    if (isOpen) {
-      const activeGroup = adminGroups.find((g) =>
-        g.items.some((item) => item.href === pathname || (item.href !== '/admin/dashboard' && pathname.startsWith(item.href)))
-      );
-      const defaultId = activeGroup ? activeGroup.id : 'inventory';
-      setOpenGroups({
-        [defaultId]: true,
-      });
-    }
-  }, [isOpen, pathname]);
+    try {
+      const saved = localStorage.getItem('openbon_admin_open_groups');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          setOpenGroups(parsed);
+        }
+      }
+    } catch {}
+  }, []);
+
+  const toggleGroup = (groupId: string) => {
+    setOpenGroups((prev) => {
+      const isCurrentlyOpen = Boolean(prev[groupId]);
+      const next = { ...prev, [groupId]: !isCurrentlyOpen };
+      try {
+        localStorage.setItem('openbon_admin_open_groups', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
 
   // Track Fullscreen state
   useEffect(() => {
@@ -703,9 +713,7 @@ export default function Navbar() {
                     <div key={group.id} className="space-y-1">
                       <button
                         type="button"
-                        onClick={() =>
-                          setOpenGroups((prev) => ({ ...prev, [group.id]: !isExpanded }))
-                        }
+                        onClick={() => toggleGroup(group.id)}
                         className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider text-slate-400 hover:text-white transition"
                       >
                         <div className="flex items-center gap-2">

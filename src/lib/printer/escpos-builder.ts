@@ -285,9 +285,13 @@ export class EscPosBuilder {
     builder.align('center');
     // Keine Schwarz-Hinterlegung mehr; echte Skalierung bis zur vollen Bonbreite
     if (fs >= 10) {
-      builder.charSize(6, 6).bold(true).textLine(clean).resetCharSize().bold(false);
+      const widthMult = builder.paperWidth === 58 ? 4 : 6;
+      const heightMult = builder.paperWidth === 58 ? 5 : 6;
+      builder.charSize(widthMult, heightMult).bold(true).textLine(clean).resetCharSize().bold(false);
     } else if (fs >= 9) {
-      builder.charSize(5, 5).bold(true).textLine(clean).resetCharSize().bold(false);
+      const widthMult = builder.paperWidth === 58 ? 4 : 5;
+      const heightMult = builder.paperWidth === 58 ? 4 : 5;
+      builder.charSize(widthMult, heightMult).bold(true).textLine(clean).resetCharSize().bold(false);
     } else if (fs >= 8) {
       builder.charSize(4, 4).bold(true).textLine(clean).resetCharSize().bold(false);
     } else if (fs >= 7) {

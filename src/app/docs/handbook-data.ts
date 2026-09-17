@@ -444,13 +444,15 @@ export const HANDBOOK: DocChapter[] = [
       },
       {
         id: '3.10',
-        heading: '3.10 Android: Installation als App (PWA) in Google Chrome & Festzelt-HTTPS',
+        heading: '3.10 Android: Google Chrome Warnung („Dies ist keine sichere Verbindung“) & Festzelt-HTTPS (Port 3443)',
         paragraphs: [
-          'Warum lässt sich eine Seite unter Android Chrome über eine IP-Adresse oft nicht als App installieren?',
-          'Google Chrome verlangt aus Sicherheitsgründen zwingend eine verschlüsselte HTTPS-Verbindung, bevor im Menü die Schaltfläche "App installieren" bzw. "Zum Startbildschirm hinzufügen" als echte Web-App aktiv wird. Bei einer unverschlüsselten Verbindung (http://192.168.x.x) erzeugt Chrome stattdessen nur ein einfaches Lesezeichen mit Adressleiste.',
-          'Automatisches Festzelt-HTTPS (Port 3443): OpenBon erstellt beim Start automatisch ein eigenes SSL-Verschlüsselungszertifikat für das Festzelt. Die Kasse ist dadurch unter https://[Kassen-IP]:3443 erreichbar.',
-          'Kassenzertifikat einrichten (einmalig pro Gerät): Unter "Einstellungen -> Sicherheit & PINs" kann das Zertifikat "openbon-kasse.crt" heruntergeladen werden. Auf dem Android-Gerät in den Android-Einstellungen unter "Sicherheit -> Verschlüsselung & Anmeldedaten -> Zertifikat installieren -> CA-Zertifikat" auswählen. Danach stuft Chrome die Festzelt-Kasse als vertrauenswürdig ein und der Installations-Button wird freigeschaltet.',
-          'Tipp: Wenn Sie keine Zertifikate auf den Geräten installieren möchten, nutzen Sie einfach "Fully Kiosk Browser" (siehe Abschnitt 3.9). Dieser benötigt kein Zertifikat und läuft auch über HTTP perfekt im Vollbild.',
+          'Warum meldet Google Chrome auf Android-Geräten bei HTTPS (Port 3443) „Dies ist keine sichere Verbindung“?',
+          'Da OpenBon auf Vereinsfesten in einem eigenen, autarken Festzelt-Netzwerk ohne weltweite Internetverbindung läuft, besitzt die Kasse eine lokale Netzwerk-Adresse (z. B. https://192.168.178.50:3443). Der Browser kennt dieses lokale Festzelt-Zertifikat zunächst noch nicht und zeigt eine rote Sicherheitswarnung an.',
+          'Die 2-Sekunden-Lösung (Sofort startklar ohne Installation):',
+          'Tippen Sie auf dem Smartphone auf den grauen Button „Erweitert“ und danach ganz unten auf den Link „Weiter zu [IP-Adresse] (unsicher)“. Schon öffnet sich OpenBon sofort über https://[IP-Adresse]:3443 mit voller HTTPS-Verschlüsselung, PWA-Funktionen und Ton-Signalen.',
+          'Dauerhafte Lösung (Zertifikat auf dem Android-Gerät hinterlegen):',
+          'Möchten Sie die Warnung dauerhaft abstellen, laden Sie im „QR-Code Beitritts-Center“ oder unter „Einstellungen -> Sicherheit & PINs“ das Zertifikat „openbon-kasse.crt“ herunter. Öffnen Sie die Android-Einstellungen -> „Sicherheit“ -> „Zertifikat installieren“ -> „CA-Zertifikat“ und wählen Sie die heruntergeladene Datei aus. Danach stuft Chrome die Festzelt-Kasse dauerhaft als vertrauenswürdig ein.',
+          'Tipp: Wenn Sie keine Zertifikate auf den Geräten installieren möchten, nutzen Sie einfach „Fully Kiosk Browser“ (siehe Abschnitt 3.9). Dieser läuft auch über Standard-HTTP perfekt im Vollbildmodus.',
         ],
       },
       {

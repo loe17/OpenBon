@@ -1282,18 +1282,19 @@ export default function AdminTablesPage() {
                     let calculatedFontSize: number;
                     if (markerNumberOnly) {
                       const numStr = String(markerStart);
-                      const maxTargetPx = Math.min(145, Math.floor(printableWidth / (Math.max(1, numStr.length) * 0.65)));
-                      const minTargetPx = 28;
+                      const charWidthRatio = numStr.length === 1 ? 0.65 : (numStr.includes('1') ? 0.52 : 0.58);
+                      const maxTargetPx = Math.min(235, Math.floor((printableWidth * 0.96) / (Math.max(1, numStr.length) * charWidthRatio)));
+                      const minTargetPx = 32;
                       calculatedFontSize = Math.round(minTargetPx + (markerFontSize - 1) * ((maxTargetPx - minTargetPx) / 9));
                     } else {
                       const labelStr = `TISCH ${markerStart}`;
-                      const maxTargetPx = Math.min(60, Math.floor(printableWidth / (Math.max(1, labelStr.length) * 0.62)));
-                      const minTargetPx = 14;
+                      const maxTargetPx = Math.min(70, Math.floor((printableWidth * 0.95) / (Math.max(1, labelStr.length) * 0.6)));
+                      const minTargetPx = 16;
                       calculatedFontSize = Math.round(minTargetPx + (markerFontSize - 1) * ((maxTargetPx - minTargetPx) / 9));
                     }
                     return (
                       <div
-                        className="font-black my-3 uppercase tracking-tighter leading-none whitespace-nowrap select-none"
+                        className="font-black my-2 uppercase tracking-tighter leading-none whitespace-nowrap select-none flex items-center justify-center overflow-hidden w-full"
                         style={{
                           fontSize: `${calculatedFontSize}px`,
                         }}
