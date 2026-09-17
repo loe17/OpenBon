@@ -363,6 +363,7 @@ export const HANDBOOK: DocChapter[] = [
           'Höchste Sicherheit & kein DynDNS: Das Kassennetzwerk im Zelt baut nur ausgehende, verschlüsselte Verbindungen zum Webhosting auf. Es ist WEDER eine Portfreigabe noch DynDNS am Zeltrouter nötig. Das Kassensystem bleibt von außen unangreifbar.',
           'Automatischer Datenschutz nach 24 Stunden: Alle auf das Webhosting übertragenen Belege werden nach genau 24 Stunden automatisch gelöscht. So bleibt der Speicherplatz sauber und Gastdaten werden nicht dauerhaft im Web gespeichert.',
           '1-Klick Verbindungstest: Unter "Einstellungen -> Bonlayout & Vorschau" prüft die Schaltfläche "Webhosting-Verbindung prüfen" in 3 Schritten, ob das Webhosting erreichbar ist, der Beleg uploadbar ist und die Daten wieder gelöscht werden können.',
+          'Automatische Internet-Erkennung & Offline-Schutz: OpenBon prüft im Hintergrund in regelmäßigen Abständen, ob der Kassen-Computer tatsächlichen Internetzugang hat. Ist das Zelt-WLAN offline oder die Mobilfunkverbindung unterbrochen, wird die E-Bon-Option automatisch pausiert und stattdessen der Papierbon als zuverlässiger Fallback angeboten. So wird verhindert, dass Gäste QR-Codes scannen, die ohne Internet nicht aufgerufen werden können.',
           'Digitale Speisekarte (PDF / Foto): Unter "Einstellungen -> Bonlayout & Vorschau" kann ein Festflyer oder eine Speisekarte hochgeladen werden. Gäste sehen diesen Flyer automatisch über ihren Tisch-QR-Code.',
         ],
         table: {
@@ -777,6 +778,15 @@ export const HANDBOOK: DocChapter[] = [
           caption: 'Buchungsstapel und Export für die Vereinsbuchhaltung',
         },
       },
+      {
+        id: '7.7',
+        heading: '7.7 Abschlussbericht der Veranstaltung (PDF & Excel / CSV)',
+        paragraphs: [
+          'Unter /admin/reports steht am Ende der Veranstaltung oder nach Abschluss aller Festtage der umfassende Abschlussbericht per 1-Klick-Download bereit.',
+          'Druckfähiger PDF-Abschlussbericht: Generiert automatisch ein sauberes, mehrseitiges A4-Dokument mit ansprechender Formatierung für Vorstandschaft und Vereinskasse. Es fasst alle Kennzahlen zusammen: Gesamtumsatz (Brutto/Netto), MwSt.-Aufteilung (19 % und 7 %), Bar- und Karteneinnahmen, Trinkgelder, Pfandsaldo, tägliche Verbrauchstabellen (aufgeteilt nach Speisen und Getränken je Tag), alle Bedienungsabrechnungen und eine vollständige Verbrauchsliste aller verkauften Artikel.',
+          'Excel / CSV-Tabelle: Exportiert alle tabellarischen Daten (Tagesübersicht, Kellner-Abrechnungen und Speisen/Getränke-Verbrauch) als Excel-optimierte CSV-Datei. Dank integriertem UTF-8-Erkennungssignal (BOM) und deutschem Trennzeichen-Format öffnet sich die Tabelle in Microsoft Excel direkt ohne Zeichenfehler bei Umlauten.',
+        ],
+      },
     ],
   },
   {
@@ -919,13 +929,19 @@ export const HANDBOOK: DocChapter[] = [
         heading: '9.3.2 Einstellungen: Reiter "Bonlayout & Vorschau"',
         paragraphs: [
           'Hier gestalten Sie das Aussehen Ihrer Kassenbons und richten den papierlosen Digitalbeleg (E-Bon) sowie die digitale Speisekarte ein.',
+          'Übersichtliche Struktur: Die Einstellungen sind praxisnah angeordnet: 1. Speisen-Bon (Küche), 2. Getränke-Bon (Ausschank), 3. Kassenbeleg für den Gast, 4. Kopf- und Fußzeile und 5. Digitaler E-Bon & Webhosting.',
+          'Synchronisation Speisen- & Getränkebon: Über den Schiebeschalter "Mit Getränke-Bon synchronisieren" lassen sich Design-Vorlage, Schriftgröße der Tischnummer und Schriftgröße für Artikel & Menge automatisch zwischen Küche und Ausschank koppeln. Ändern Sie z. B. die Tischnummer auf Stufe 6, übernimmt der Ausschankbon diesen Wert automatisch.',
+          'Live-Internetstatus: Der E-Bon-Bereich zeigt in Echtzeit an, ob echter Internetzugang besteht. Ist kein Internet vorhanden, pausiert OpenBon den Online-Belegabruf automatisch und bietet an den Kassen Papierbelege als sicheren Fallback an.',
           'Live-Vorschau: Jede Änderung an Texten oder Schriftgrößen wird sofort in der maßstabsgetreuen Thermobon-Vorschau (58 mm oder 80 mm Rollenbreite) angezeigt.',
         ],
         table: {
           headers: ['Einstellung', 'Bedeutung', 'Praxistipp'],
           rows: [
+            ['Speisen-Bon (Küche)', 'Erster Bereich: Küchenzettel', 'Wähle zwischen Klassisch, Kompakt (Eco) oder Großschrift für optimale Lesbarkeit am Grill.'],
+            ['Getränke-Bon (Ausschank)', 'Zweiter Bereich: Schankzettel', 'Kann separat konfiguriert oder direkt mit der Küche synchronisiert werden.'],
+            ['Kassenbeleg (Gast)', 'Dritter Bereich: Kundenquittung', 'Legt fest, ob Bedienungen oder Kassierer Quittungen drucken dürfen und welches Layout gilt.'],
             ['Kopfzeile & Fußzeile', 'Freie Textzeilen auf dem Bon', 'Hier können Vereinsname, Steuernummer, W-LAN-Passwort oder ein "Vielen Dank für Ihren Besuch!" hinterlegt werden.'],
-            ['Schriftgrößen-Schieberegler', 'Skala von 1 (fein) bis 10 (sehr groß)', 'Passen Sie Kopfzeile, Artikel, Preise und Summenzeile exakt an Ihre Druckerauflösung und Papierbreite an.'],
+            ['Schriftgrößen-Schieberegler', 'Skala von 1 (fein) bis 10 (sehr groß)', 'Passen Sie Tischnummer, Artikel und Preise exakt an Ihre Druckerauflösung und Papierbreite an.'],
             ['Öffentliche Basis-URL', 'Internetadresse für den Belegabruf', 'Trage hier die Adresse deines Webhostings ein (z. B. https://bon.mein-verein.de).'],
             ['ZIP-Paket herunterladen', 'Fertiges Webspace-Paket', 'Enthält die fertigen Anzeigeseiten für Gäste und den geheimen Schlüssel. Einfach auf den Webspace hochladen.'],
             ['Webhosting-Verbindung prüfen', '1-Klick-Diagnosetest', 'Prüft automatisch in 3 Schritten, ob Ihr Webspace erreichbar ist und Belege fehlerfrei synchronisiert werden.'],

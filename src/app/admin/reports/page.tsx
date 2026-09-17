@@ -285,12 +285,23 @@ export default function AdminReportsPage() {
           </button>
 
           <a
-            href="/api/reports?format=csv"
+            href="/api/reports/event-summary?format=pdf"
+            download
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold text-white transition shadow"
+            title="Vollständigen Abschlussbericht der Veranstaltung als PDF herunterladen"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Abschlussbericht (PDF)</span>
+          </a>
+
+          <a
+            href="/api/reports/event-summary?format=csv"
             download
             className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-bold text-white transition shadow"
+            title="Vollständigen Abschlussbericht für Excel / CSV herunterladen (Tagesverbrauch, Bedienungen, Artikel)"
           >
             <Download className="w-4 h-4" />
-            <span>Excel / CSV</span>
+            <span>Abschlussbericht (Excel / CSV)</span>
           </a>
 
           <button

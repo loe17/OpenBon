@@ -30,6 +30,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Lock,
+  Link2,
 } from 'lucide-react';
 import type { EventConfigDTO } from '@/types/domain';
 
@@ -140,8 +141,87 @@ function FontSizeSlider({
 }
 
 export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
-  const [preview, setPreview] = useState<PreviewKind>('RECEIPT');
+  const [preview, setPreview] = useState<PreviewKind>('FOOD');
   const [paperWidth, setPaperWidth] = useState<80 | 58>(80);
+
+  // Live-Erkennung der Internetverbindung
+  const [isInternetOnline, setIsInternetOnline] = useState<boolean | null>(
+    config.isInternetOnline ?? null
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkNet = async () => {
+      try {
+        const res = await fetch('/api/system/internet');
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted) setIsInternetOnline(Boolean(data.online));
+        }
+      } catch {
+        if (isMounted) setIsInternetOnline(false);
+      }
+    };
+    checkNet();
+    const interval = setInterval(checkNet, 45000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Synchronisation Speisen-Bon & Getränke-Bon
+  const isSynced = Boolean(config.syncFoodDrinkReceiptSettings);
+
+  const handleToggleSync = () => {
+    const next = !isSynced;
+    if (next) {
+      onChange({
+        syncFoodDrinkReceiptSettings: true,
+        receiptDrinkTemplate: config.receiptFoodTemplate || 'CLASSIC',
+        receiptDrinkTableFontSize: config.receiptFoodTableFontSize ?? 4,
+        receiptDrinkItemFontSize: config.receiptFoodItemFontSize ?? 3,
+      });
+    } else {
+      onChange({ syncFoodDrinkReceiptSettings: false });
+    }
+  };
+
+  const handleFoodTemplateChange = (tplId: string) => {
+    const updates: Partial<EventConfigDTO> = { receiptFoodTemplate: tplId };
+    if (isSynced) updates.receiptDrinkTemplate = tplId;
+    onChange(updates);
+  };
+
+  const handleDrinkTemplateChange = (tplId: string) => {
+    const updates: Partial<EventConfigDTO> = { receiptDrinkTemplate: tplId };
+    if (isSynced) updates.receiptFoodTemplate = tplId;
+    onChange(updates);
+  };
+
+  const handleFoodTableFontSizeChange = (val: number) => {
+    const updates: Partial<EventConfigDTO> = { receiptFoodTableFontSize: val };
+    if (isSynced) updates.receiptDrinkTableFontSize = val;
+    onChange(updates);
+  };
+
+  const handleDrinkTableFontSizeChange = (val: number) => {
+    const updates: Partial<EventConfigDTO> = { receiptDrinkTableFontSize: val };
+    if (isSynced) updates.receiptFoodTableFontSize = val;
+    onChange(updates);
+  };
+
+  const handleFoodItemFontSizeChange = (val: number) => {
+    const updates: Partial<EventConfigDTO> = { receiptFoodItemFontSize: val };
+    if (isSynced) updates.receiptDrinkItemFontSize = val;
+    onChange(updates);
+  };
+
+  const handleDrinkItemFontSizeChange = (val: number) => {
+    const updates: Partial<EventConfigDTO> = { receiptDrinkItemFontSize: val };
+    if (isSynced) updates.receiptFoodItemFontSize = val;
+    onChange(updates);
+  };
 
   // Webhosting-Brücke & Speisekarte
   const [menuInfo, setMenuInfo] = useState<{
@@ -588,63 +668,330 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         {/* ------------------------------------------------ Einstellungen (Links) */}
         <div className="xl:col-span-3 space-y-6">
-          {/* Kopf- und Fußzeilen */}
+          {/* 1. Speisen-Bon (Küche) */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
-              <Type className="w-5 h-5 text-blue-400" />
-              <div>
-                <h3 className="font-bold text-base text-white">Kopf- und Fußzeile</h3>
-                <p className="text-xs text-slate-400">
-                  Name und Veranstalter werden automatisch aus „Allgemein“ übernommen.
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-3">
+                <Utensils className="w-5 h-5 text-amber-400" />
+                <div>
+                  <h3 className="font-bold text-base text-white">Speisen-Bon (Küche)</h3>
+                  <p className="text-xs text-slate-400">Layout und Druckoptionen für Küchenbestellungen</p>
+                </div>
+              </div>
+              {isSynced && (
+                <span className="flex items-center gap-1 text-[11px] font-bold text-amber-400 bg-amber-950/60 border border-amber-800/40 px-2.5 py-1 rounded-xl">
+                  <Link2 className="w-3.5 h-3.5" />
+                  <span>Mit Ausschank synchron</span>
+                </span>
+              )}
+            </div>
+
+            {/* Synchronisations-Schalter */}
+            <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-950 border border-slate-800">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <Link2 className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="font-bold text-sm text-white">Mit Getränke-Bon synchronisieren</span>
+                  {isSynced && (
+                    <span className="text-[10px] bg-amber-950/70 border border-amber-700/50 text-amber-300 px-2 py-0.5 rounded-full font-bold">
+                      Aktiv
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400 leading-snug mt-0.5">
+                  Gleicht Vorlage, Schriftgröße Tischnummer und Schriftgröße Artikel &amp; Menge automatisch mit dem Ausschank ab.
                 </p>
               </div>
+              <button
+                type="button"
+                onClick={handleToggleSync}
+                aria-pressed={isSynced}
+                aria-label="Boneinstellungen synchronisieren"
+                className="p-1.5 shrink-0 active:scale-95 touch-manipulation"
+              >
+                {isSynced ? (
+                  <ToggleRight className="w-10 h-10 text-amber-400" />
+                ) : (
+                  <ToggleLeft className="w-10 h-10 text-slate-600" />
+                )}
+              </button>
             </div>
 
-            {/* Automatische Vorschau der übernommenen Felder */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-950/70 border border-slate-800 rounded-2xl text-xs">
-              <div>
-                <span className="text-slate-400 block mb-0.5">1. Kopfzeile (Name der Veranstaltung):</span>
-                <span className="font-bold text-white">{config.name || 'Vereinsfest 2026'}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block mb-0.5">2. Kopfzeile (Veranstalter / Verein):</span>
-                <span className="font-bold text-white">{config.receiptSubHeader || '– (In Allgemein festlegen)'}</span>
-              </div>
-            </div>
-
+            {/* Template Selector */}
             <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">
-                Zusatztext Kopfzeile (3. Zeile, optional)
-              </label>
-              <input
-                type="text"
-                value={config.receiptHeader || ''}
-                onChange={(e) => onChange({ receiptHeader: e.target.value })}
-                className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-medium focus:border-blue-500"
-                placeholder="z. B. Herzlich Willkommen! (Standard: leer)"
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-300">
+                  Design-Vorlage (Speisen-Bon)
+                </label>
+                {isSynced && (
+                  <span className="text-[11px] text-amber-400 flex items-center gap-1 font-mono">
+                    <Link2 className="w-3 h-3" />
+                    Synchronisiert
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { id: 'CLASSIC', label: 'Klassisch' },
+                  { id: 'ECO', label: 'Kompakt (Eco)' },
+                  { id: 'HIGH_VISIBILITY', label: 'Großschrift' },
+                  { id: 'GASTRO', label: 'Gastro Detail', requiresGastro: true },
+                ].map((tpl) => {
+                  const isDisabled = tpl.requiresGastro && !hasGastroData;
+                  const isSelected = (config.receiptFoodTemplate || 'CLASSIC') === tpl.id;
+                  return (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      disabled={isDisabled}
+                      onClick={() => !isDisabled && handleFoodTemplateChange(tpl.id)}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold transition border ${
+                        isSelected
+                          ? 'bg-amber-600 text-white border-amber-500 shadow'
+                          : isDisabled
+                          ? 'bg-slate-950/40 text-slate-600 border-slate-900 cursor-not-allowed opacity-50'
+                          : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                      }`}
+                      title={isDisabled ? 'Erfordert Steuer-/Adressdaten unter Organisation' : undefined}
+                    >
+                      {tpl.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {!hasGastroData && (
+                <p className="text-[10px] text-amber-500/80 mt-1">
+                  * Gastro Detail erfordert Anschrift &amp; Steuernummer unter &bdquo;Veranstaltung &amp; Organisation&ldquo;.
+                </p>
+              )}
+            </div>
+
+            {/* Schriftgrößen-Slider (10 Stufen) */}
+            <div className="space-y-3 pt-2 bg-slate-950 p-4 rounded-2xl border border-slate-800">
+              <FontSizeSlider
+                label="Schriftgröße Tischnummer (Küche)"
+                value={config.receiptFoodTableFontSize ?? 4}
+                onChange={(v) => handleFoodTableFontSizeChange(v)}
+                color="amber"
+              />
+              <FontSizeSlider
+                label="Schriftgröße Speisen &amp; Menge"
+                value={config.receiptFoodItemFontSize ?? 3}
+                onChange={(v) => handleFoodItemFontSizeChange(v)}
+                color="amber"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">
-                Fußzeile (Abschluss des Belegs)
-              </label>
-              <input
-                type="text"
-                value={config.receiptFooterText || ''}
-                onChange={(e) => onChange({ receiptFooterText: e.target.value })}
-                className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-medium focus:border-blue-500"
-                placeholder="z. B. Vielen Dank für Ihren Besuch! (Standard: leer)"
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+              <Toggle
+                label="Kopfzeile"
+                value={config.receiptFoodShowHeader !== false}
+                onToggle={() =>
+                  onChange({ receiptFoodShowHeader: !(config.receiptFoodShowHeader !== false) })
+                }
+              />
+              <Toggle
+                label="Tischnummer"
+                value={config.receiptFoodShowTable !== false}
+                onToggle={() =>
+                  onChange({ receiptFoodShowTable: !(config.receiptFoodShowTable !== false) })
+                }
+              />
+              <Toggle
+                label="Bedienung"
+                value={config.receiptFoodShowWaiter !== false}
+                onToggle={() =>
+                  onChange({ receiptFoodShowWaiter: !(config.receiptFoodShowWaiter !== false) })
+                }
+              />
+              <Toggle
+                label="Uhrzeit"
+                value={config.receiptFoodShowTimestamp !== false}
+                onToggle={() =>
+                  onChange({ receiptFoodShowTimestamp: !(config.receiptFoodShowTimestamp !== false) })
+                }
+              />
+              <Toggle
+                label="Zusatzwünsche"
+                hint="„ohne Zwiebeln“, Beilagenwahl usw."
+                value={config.receiptFoodShowOptions !== false}
+                onToggle={() =>
+                  onChange({ receiptFoodShowOptions: !(config.receiptFoodShowOptions !== false) })
+                }
+              />
+              <Toggle
+                label="Einzelbon je Position"
+                hint="Jede Speise bekommt einen eigenen Zettel."
+                value={config.receiptSingleItemFoodSlips !== false}
+                onToggle={() =>
+                  onChange({
+                    receiptSingleItemFoodSlips: !(config.receiptSingleItemFoodSlips !== false),
+                  })
+                }
               />
             </div>
           </div>
 
-          {/* Kassenbeleg */}
+          {/* 2. Getränke-Bon (Ausschank) */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-3">
+                <Beer className="w-5 h-5 text-sky-400" />
+                <div>
+                  <h3 className="font-bold text-base text-white">Getränke-Bon (Ausschank)</h3>
+                  <p className="text-xs text-slate-400">Layout und Druckoptionen für Ausschank &amp; Schänke</p>
+                </div>
+              </div>
+              {isSynced && (
+                <span className="flex items-center gap-1 text-[11px] font-bold text-sky-400 bg-sky-950/60 border border-sky-800/40 px-2.5 py-1 rounded-xl">
+                  <Link2 className="w-3.5 h-3.5" />
+                  <span>Mit Küche synchron</span>
+                </span>
+              )}
+            </div>
+
+            {/* Synchronisations-Hinweis wenn aktiv */}
+            {isSynced && (
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-sky-950/40 border border-sky-800/40 text-xs text-sky-300">
+                <div className="flex items-center gap-2">
+                  <Link2 className="w-4 h-4 text-sky-400 shrink-0" />
+                  <span>Mit Speisen-Bon synchronisiert – Vorlage &amp; Schriftgrößen sind gekoppelt.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleToggleSync}
+                  className="text-[11px] underline hover:text-white font-bold ml-2 shrink-0"
+                >
+                  Trennen
+                </button>
+              </div>
+            )}
+
+            {/* Template Selector */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-300">
+                  Design-Vorlage (Getränke-Bon)
+                </label>
+                {isSynced && (
+                  <span className="text-[11px] text-sky-400 flex items-center gap-1 font-mono">
+                    <Link2 className="w-3 h-3" />
+                    Synchronisiert
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { id: 'CLASSIC', label: 'Klassisch' },
+                  { id: 'ECO', label: 'Kompakt (Eco)' },
+                  { id: 'HIGH_VISIBILITY', label: 'Großschrift' },
+                  { id: 'GASTRO', label: 'Gastro Detail', requiresGastro: true },
+                ].map((tpl) => {
+                  const isDisabled = tpl.requiresGastro && !hasGastroData;
+                  const isSelected = (config.receiptDrinkTemplate || 'CLASSIC') === tpl.id;
+                  return (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      disabled={isDisabled}
+                      onClick={() => !isDisabled && handleDrinkTemplateChange(tpl.id)}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold transition border ${
+                        isSelected
+                          ? 'bg-sky-600 text-white border-sky-500 shadow'
+                          : isDisabled
+                          ? 'bg-slate-950/40 text-slate-600 border-slate-900 cursor-not-allowed opacity-50'
+                          : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                      }`}
+                      title={isDisabled ? 'Erfordert Steuer-/Adressdaten unter Organisation' : undefined}
+                    >
+                      {tpl.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {!hasGastroData && (
+                <p className="text-[10px] text-sky-400/80 mt-1">
+                  * Gastro Detail erfordert Anschrift &amp; Steuernummer unter &bdquo;Veranstaltung &amp; Organisation&ldquo;.
+                </p>
+              )}
+            </div>
+
+            {/* Schriftgrößen-Slider (10 Stufen) */}
+            <div className="space-y-3 pt-2 bg-slate-950 p-4 rounded-2xl border border-slate-800">
+              <FontSizeSlider
+                label="Schriftgröße Tischnummer (Ausschank)"
+                value={config.receiptDrinkTableFontSize ?? 4}
+                onChange={(v) => handleDrinkTableFontSizeChange(v)}
+                color="sky"
+              />
+              <FontSizeSlider
+                label="Schriftgröße Getränke &amp; Menge"
+                value={config.receiptDrinkItemFontSize ?? 3}
+                onChange={(v) => handleDrinkItemFontSizeChange(v)}
+                color="sky"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+              <Toggle
+                label="Kopfzeile"
+                value={config.receiptDrinkShowHeader !== false}
+                onToggle={() =>
+                  onChange({ receiptDrinkShowHeader: !(config.receiptDrinkShowHeader !== false) })
+                }
+              />
+              <Toggle
+                label="Tischnummer"
+                value={config.receiptDrinkShowTable !== false}
+                onToggle={() =>
+                  onChange({ receiptDrinkShowTable: !(config.receiptDrinkShowTable !== false) })
+                }
+              />
+              <Toggle
+                label="Bedienung"
+                value={config.receiptDrinkShowWaiter !== false}
+                onToggle={() =>
+                  onChange({ receiptDrinkShowWaiter: !(config.receiptDrinkShowWaiter !== false) })
+                }
+              />
+              <Toggle
+                label="Uhrzeit"
+                value={config.receiptDrinkShowTimestamp !== false}
+                onToggle={() =>
+                  onChange({
+                    receiptDrinkShowTimestamp: !(config.receiptDrinkShowTimestamp !== false),
+                  })
+                }
+              />
+              <Toggle
+                label="Zusatzwünsche"
+                value={config.receiptDrinkShowOptions !== false}
+                onToggle={() =>
+                  onChange({ receiptDrinkShowOptions: !(config.receiptDrinkShowOptions !== false) })
+                }
+              />
+              <Toggle
+                label="Einzelbon je Position"
+                hint="Jedes Getränk bekommt einen eigenen Zettel."
+                value={config.receiptSingleItemDrinkSlips !== false}
+                onToggle={() =>
+                  onChange({
+                    receiptSingleItemDrinkSlips: !(config.receiptSingleItemDrinkSlips !== false),
+                  })
+                }
+              />
+            </div>
+          </div>
+
+          {/* 3. Kassenbeleg für den Gast */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-3">
                 <Receipt className="w-5 h-5 text-emerald-400" />
-                <h3 className="font-bold text-base text-white">Kassenbeleg für den Gast</h3>
+                <div>
+                  <h3 className="font-bold text-base text-white">Kassenbeleg für den Gast</h3>
+                  <p className="text-xs text-slate-400">Layout und Druckoptionen für Kundenbelege &amp; Quittungen</p>
+                </div>
               </div>
             </div>
 
@@ -774,118 +1121,53 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
             </div>
           </div>
 
-          {/* Speisen-Bon */}
+          {/* 4. Kopf- und Fußzeilen */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-3">
-                <Utensils className="w-5 h-5 text-amber-400" />
-                <h3 className="font-bold text-base text-white">Speisen-Bon (Küche)</h3>
-              </div>
-            </div>
-
-            {/* Template Selector */}
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                Design-Vorlage (Speisen-Bon)
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[
-                  { id: 'CLASSIC', label: 'Klassisch' },
-                  { id: 'ECO', label: 'Kompakt (Eco)' },
-                  { id: 'HIGH_VISIBILITY', label: 'Großschrift' },
-                  { id: 'GASTRO', label: 'Gastro Detail', requiresGastro: true },
-                ].map((tpl) => {
-                  const isDisabled = tpl.requiresGastro && !hasGastroData;
-                  const isSelected = (config.receiptFoodTemplate || 'CLASSIC') === tpl.id;
-                  return (
-                    <button
-                      key={tpl.id}
-                      type="button"
-                      disabled={isDisabled}
-                      onClick={() => !isDisabled && onChange({ receiptFoodTemplate: tpl.id })}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold transition border ${
-                        isSelected
-                          ? 'bg-amber-600 text-white border-amber-500 shadow'
-                          : isDisabled
-                          ? 'bg-slate-950/40 text-slate-600 border-slate-900 cursor-not-allowed opacity-50'
-                          : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                      }`}
-                      title={isDisabled ? 'Erfordert Steuer-/Adressdaten unter Organisation' : undefined}
-                    >
-                      {tpl.label}
-                    </button>
-                  );
-                })}
-              </div>
-              {!hasGastroData && (
-                <p className="text-[10px] text-amber-500/80 mt-1">
-                  * Gastro Detail erfordert Anschrift &amp; Steuernummer unter &bdquo;Veranstaltung &amp; Organisation&ldquo;.
+            <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
+              <Type className="w-5 h-5 text-blue-400" />
+              <div>
+                <h3 className="font-bold text-base text-white">Kopf- und Fußzeile</h3>
+                <p className="text-xs text-slate-400">
+                  Name und Veranstalter werden automatisch aus „Allgemein“ übernommen.
                 </p>
-              )}
+              </div>
             </div>
 
-            {/* Schriftgrößen-Slider (10 Stufen) */}
-            <div className="space-y-3 pt-2 bg-slate-950 p-4 rounded-2xl border border-slate-800">
-              <FontSizeSlider
-                label="Schriftgröße Tischnummer (Küche)"
-                value={config.receiptFoodTableFontSize ?? 4}
-                onChange={(v) => onChange({ receiptFoodTableFontSize: v })}
-                color="amber"
-              />
-              <FontSizeSlider
-                label="Schriftgröße Speisen &amp; Menge"
-                value={config.receiptFoodItemFontSize ?? 3}
-                onChange={(v) => onChange({ receiptFoodItemFontSize: v })}
-                color="amber"
+            {/* Automatische Vorschau der übernommenen Felder */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-950/70 border border-slate-800 rounded-2xl text-xs">
+              <div>
+                <span className="text-slate-400 block mb-0.5">1. Kopfzeile (Name der Veranstaltung):</span>
+                <span className="font-bold text-white">{config.name || 'Vereinsfest 2026'}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block mb-0.5">2. Kopfzeile (Veranstalter / Verein):</span>
+                <span className="font-bold text-white">{config.receiptSubHeader || '– (In Allgemein festlegen)'}</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1">
+                Zusatztext Kopfzeile (3. Zeile, optional)
+              </label>
+              <input
+                type="text"
+                value={config.receiptHeader || ''}
+                onChange={(e) => onChange({ receiptHeader: e.target.value })}
+                className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-medium focus:border-blue-500"
+                placeholder="z. B. Herzlich Willkommen! (Standard: leer)"
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-              <Toggle
-                label="Kopfzeile"
-                value={config.receiptFoodShowHeader !== false}
-                onToggle={() =>
-                  onChange({ receiptFoodShowHeader: !(config.receiptFoodShowHeader !== false) })
-                }
-              />
-              <Toggle
-                label="Tischnummer"
-                value={config.receiptFoodShowTable !== false}
-                onToggle={() =>
-                  onChange({ receiptFoodShowTable: !(config.receiptFoodShowTable !== false) })
-                }
-              />
-              <Toggle
-                label="Bedienung"
-                value={config.receiptFoodShowWaiter !== false}
-                onToggle={() =>
-                  onChange({ receiptFoodShowWaiter: !(config.receiptFoodShowWaiter !== false) })
-                }
-              />
-              <Toggle
-                label="Uhrzeit"
-                value={config.receiptFoodShowTimestamp !== false}
-                onToggle={() =>
-                  onChange({ receiptFoodShowTimestamp: !(config.receiptFoodShowTimestamp !== false) })
-                }
-              />
-              <Toggle
-                label="Zusatzwünsche"
-                hint="„ohne Zwiebeln“, Beilagenwahl usw."
-                value={config.receiptFoodShowOptions !== false}
-                onToggle={() =>
-                  onChange({ receiptFoodShowOptions: !(config.receiptFoodShowOptions !== false) })
-                }
-              />
-              <Toggle
-                label="Einzelbon je Position"
-                hint="Jede Speise bekommt einen eigenen Zettel."
-                value={config.receiptSingleItemFoodSlips !== false}
-                onToggle={() =>
-                  onChange({
-                    receiptSingleItemFoodSlips: !(config.receiptSingleItemFoodSlips !== false),
-                  })
-                }
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1">
+                Fußzeile (Abschluss des Belegs)
+              </label>
+              <input
+                type="text"
+                value={config.receiptFooterText || ''}
+                onChange={(e) => onChange({ receiptFooterText: e.target.value })}
+                className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-medium focus:border-blue-500"
+                placeholder="z. B. Vielen Dank für Ihren Besuch! (Standard: leer)"
               />
             </div>
           </div>
@@ -902,7 +1184,9 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
                 </div>
               </div>
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-bold text-slate-300">
-                {typeof window !== 'undefined' && navigator.onLine ? (
+                {isInternetOnline === null ? (
+                  <span className="text-slate-400">Verbindung prüfen...</span>
+                ) : isInternetOnline ? (
                   <>
                     <Wifi className="w-3.5 h-3.5 text-emerald-400" />
                     <span className="text-emerald-400">Internet Online</span>
@@ -930,6 +1214,15 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
                 value={Boolean(config.enableDigitalReceiptQr)}
                 onToggle={() => onChange({ enableDigitalReceiptQr: !config.enableDigitalReceiptQr })}
               />
+
+              {isInternetOnline === false && (
+                <div className="p-3 rounded-xl border border-amber-800/60 bg-amber-950/40 text-xs font-semibold text-amber-300 flex items-center gap-2.5">
+                  <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>
+                    Aktuell keine Internetverbindung erkannt. Der Online-Belegabruf über QR-Code und der Webhosting-Upload sind nur bei bestehender Internetverbindung aktiv.
+                  </span>
+                </div>
+              )}
 
               {/* Feedback-Banner */}
               {bridgeStatusMsg && (
@@ -1253,123 +1546,6 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
               </div>
             </div>
           </div>
-
-          {/* Getränke-Bon */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-3">
-                <Beer className="w-5 h-5 text-sky-400" />
-                <h3 className="font-bold text-base text-white">Getränke-Bon (Ausschank)</h3>
-              </div>
-            </div>
-
-            {/* Template Selector */}
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                Design-Vorlage (Getränke-Bon)
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[
-                  { id: 'CLASSIC', label: 'Klassisch' },
-                  { id: 'ECO', label: 'Kompakt (Eco)' },
-                  { id: 'HIGH_VISIBILITY', label: 'Großschrift' },
-                  { id: 'GASTRO', label: 'Gastro Detail', requiresGastro: true },
-                ].map((tpl) => {
-                  const isDisabled = tpl.requiresGastro && !hasGastroData;
-                  const isSelected = (config.receiptDrinkTemplate || 'CLASSIC') === tpl.id;
-                  return (
-                    <button
-                      key={tpl.id}
-                      type="button"
-                      disabled={isDisabled}
-                      onClick={() => !isDisabled && onChange({ receiptDrinkTemplate: tpl.id })}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold transition border ${
-                        isSelected
-                          ? 'bg-sky-600 text-white border-sky-500 shadow'
-                          : isDisabled
-                          ? 'bg-slate-950/40 text-slate-600 border-slate-900 cursor-not-allowed opacity-50'
-                          : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                      }`}
-                      title={isDisabled ? 'Erfordert Steuer-/Adressdaten unter Organisation' : undefined}
-                    >
-                      {tpl.label}
-                    </button>
-                  );
-                })}
-              </div>
-              {!hasGastroData && (
-                <p className="text-[10px] text-sky-400/80 mt-1">
-                  * Gastro Detail erfordert Anschrift &amp; Steuernummer unter &bdquo;Veranstaltung &amp; Organisation&ldquo;.
-                </p>
-              )}
-            </div>
-
-            {/* Schriftgrößen-Slider (10 Stufen) */}
-            <div className="space-y-3 pt-2 bg-slate-950 p-4 rounded-2xl border border-slate-800">
-              <FontSizeSlider
-                label="Schriftgröße Tischnummer (Ausschank)"
-                value={config.receiptDrinkTableFontSize ?? 4}
-                onChange={(v) => onChange({ receiptDrinkTableFontSize: v })}
-                color="sky"
-              />
-              <FontSizeSlider
-                label="Schriftgröße Getränke &amp; Menge"
-                value={config.receiptDrinkItemFontSize ?? 3}
-                onChange={(v) => onChange({ receiptDrinkItemFontSize: v })}
-                color="sky"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-              <Toggle
-                label="Kopfzeile"
-                value={config.receiptDrinkShowHeader !== false}
-                onToggle={() =>
-                  onChange({ receiptDrinkShowHeader: !(config.receiptDrinkShowHeader !== false) })
-                }
-              />
-              <Toggle
-                label="Tischnummer"
-                value={config.receiptDrinkShowTable !== false}
-                onToggle={() =>
-                  onChange({ receiptDrinkShowTable: !(config.receiptDrinkShowTable !== false) })
-                }
-              />
-              <Toggle
-                label="Bedienung"
-                value={config.receiptDrinkShowWaiter !== false}
-                onToggle={() =>
-                  onChange({ receiptDrinkShowWaiter: !(config.receiptDrinkShowWaiter !== false) })
-                }
-              />
-              <Toggle
-                label="Uhrzeit"
-                value={config.receiptDrinkShowTimestamp !== false}
-                onToggle={() =>
-                  onChange({
-                    receiptDrinkShowTimestamp: !(config.receiptDrinkShowTimestamp !== false),
-                  })
-                }
-              />
-              <Toggle
-                label="Zusatzwünsche"
-                value={config.receiptDrinkShowOptions !== false}
-                onToggle={() =>
-                  onChange({ receiptDrinkShowOptions: !(config.receiptDrinkShowOptions !== false) })
-                }
-              />
-              <Toggle
-                label="Einzelbon je Position"
-                hint="Jedes Getränk bekommt einen eigenen Zettel."
-                value={config.receiptSingleItemDrinkSlips !== false}
-                onToggle={() =>
-                  onChange({
-                    receiptSingleItemDrinkSlips: !(config.receiptSingleItemDrinkSlips !== false),
-                  })
-                }
-              />
-            </div>
-          </div>
         </div>
 
         {/* ------------------------------------------------------ Vorschau (Rechts) */}
@@ -1378,9 +1554,9 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
             {/* Bon-Typ Umschalter */}
             <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-2xl p-1.5">
               {([
-                { id: 'RECEIPT', label: 'Kassenbeleg' },
                 { id: 'FOOD', label: 'Speisen-Bon' },
                 { id: 'DRINK', label: 'Getränke-Bon' },
+                { id: 'RECEIPT', label: 'Kassenbeleg' },
                 { id: 'EBON', label: 'Digitaler E-Bon' },
               ] as const).map((tab) => (
                 <button

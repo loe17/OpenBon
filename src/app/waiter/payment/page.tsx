@@ -36,6 +36,7 @@ import {
   ChevronUp,
   ChevronDown,
   Calculator,
+  WifiOff,
 } from 'lucide-react';
 import { isAudioMuted, setAudioMuted } from '@/lib/socket-client';
 import { sendWithOutboxFallback } from '@/lib/offline/outbox';
@@ -270,6 +271,7 @@ function WaiterPaymentContent() {
         .catch(() => {});
     };
     loadConfig();
+    const configInterval = setInterval(loadConfig, 45000);
 
     const handleFocus = () => {
       loadConfig();
@@ -289,6 +291,7 @@ function WaiterPaymentContent() {
     return () => {
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibility);
+      clearInterval(configInterval);
     };
   }, [fetchTableOrders]);
 
@@ -635,7 +638,9 @@ function WaiterPaymentContent() {
 
   /* ------------------------------------------------------------- E-Bon (QR-Code) */
 
-  const isEBonAvailable = Boolean(config?.enableDigitalReceipt || config?.enableDigitalReceiptQr);
+  const isEBonConfigured = Boolean(config?.enableDigitalReceipt || config?.enableDigitalReceiptQr);
+  const isEBonAvailable = isEBonConfigured && config?.isInternetOnline !== false;
+  const isReceiptPrintActive = Boolean(config?.enableWaiterReceiptPrint) || (!isEBonAvailable && isEBonConfigured);
 
   const openEBonDialog = () => {
     haptic();
@@ -1223,8 +1228,15 @@ function WaiterPaymentContent() {
             )}
           </div>
 
+          {isEBonConfigured && config?.isInternetOnline === false && (
+            <div className="w-full max-w-3xl flex items-center justify-center gap-2 text-xs text-amber-300 bg-amber-950/50 border border-amber-800/60 py-2 px-4 rounded-2xl mb-2">
+              <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>E-Bon offline (Keine Internetverbindung am Kassenserver)</span>
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-3 w-full max-w-3xl justify-center">
-            {Boolean(config?.enableWaiterReceiptPrint) && (
+            {isReceiptPrintActive && (
               <button
                 disabled={!completedPaymentId || receiptPrinted}
                 onClick={() => {

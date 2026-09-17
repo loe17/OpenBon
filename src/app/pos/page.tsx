@@ -34,6 +34,7 @@ import {
   X,
   History,
   RefreshCw,
+  WifiOff,
 } from 'lucide-react';
 import { SubCategoryIcon } from '@/components/ui/subcategory-icon';
 import { calculateMinBirthdate, EU_ALLERGENS } from '@/lib/compliance';
@@ -191,6 +192,7 @@ function PosCounterContent() {
 
     loadConfig();
     window.addEventListener('focus', loadConfig);
+    const configInterval = setInterval(loadConfig, 45000);
 
     fetch('/api/printers')
       .then((r) => (r.ok ? r.json() : []))
@@ -237,6 +239,7 @@ function PosCounterContent() {
       socket.on('config:updated', handleConfigUpdate);
       return () => {
         window.removeEventListener('focus', loadConfig);
+        clearInterval(configInterval);
         socket.off('inventory:updated', handleInventory);
         socket.off('product:updated', handleInventory);
         socket.off('config:updated', handleConfigUpdate);
@@ -245,6 +248,7 @@ function PosCounterContent() {
 
     return () => {
       window.removeEventListener('focus', loadConfig);
+      clearInterval(configInterval);
     };
   }, [socket]);
 
@@ -440,8 +444,8 @@ function PosCounterContent() {
   };
 
   const isPosInternetActive = Boolean(config?.enableDigitalReceipt || config?.enableDigitalReceiptQr);
-  const isPosEBonAvailable = isPosInternetActive;
-  const isPosReceiptPrintActive = Boolean(config?.enablePosReceiptPrint);
+  const isPosEBonAvailable = isPosInternetActive && config?.isInternetOnline !== false;
+  const isPosReceiptPrintActive = Boolean(config?.enablePosReceiptPrint) || (!isPosEBonAvailable && isPosInternetActive);
 
   const handlePrintPaperReceipt = async () => {
     if (!completedPayment?.id) return;
@@ -1266,6 +1270,12 @@ function PosCounterContent() {
                 </div>
 
                 {/* Auswahl-Schaltflächen */}
+                {isPosInternetActive && config?.isInternetOnline === false && (
+                  <div className="flex items-center justify-center gap-2 text-xs text-amber-300 bg-amber-950/50 border border-amber-800/60 py-2 px-4 rounded-2xl">
+                    <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>E-Bon offline (Keine Internetverbindung am Kassenserver)</span>
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-3 w-full justify-center pt-2">
                   {/* Papierbon: Nur aktiv wenn in den Einstellungen aktiviert */}
                   {isPosReceiptPrintActive && (

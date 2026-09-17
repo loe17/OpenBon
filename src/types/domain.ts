@@ -161,6 +161,8 @@ export interface EventConfigDTO {
   orderSequence: number;
   hasActiveDeposit?: boolean;
   depositTiers?: { unit: number; unitCents: number; label: string }[];
+  isInternetOnline?: boolean;
+  syncFoodDrinkReceiptSettings?: boolean;
 }
 
 export interface ProductVariantDTO {

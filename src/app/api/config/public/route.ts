@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { APP_VERSION } from '@/lib/version';
 import { hasActiveEventData } from '@/lib/auth-pin';
+import { checkInternetConnectivity } from '@/lib/internet-monitor';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -154,6 +155,7 @@ export async function GET() {
       tseProvider: config.tseProvider,
       initialPinSet: isEffectivelyConfigured,
       needsSetup,
+      isInternetOnline: (await checkInternetConnectivity()).online,
       // N3.3: Versionskennung fuer den "Update verfuegbar"-Hinweis der Clients
       appVersion: APP_VERSION,
     };
