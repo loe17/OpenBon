@@ -668,7 +668,58 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         {/* ------------------------------------------------ Einstellungen (Links) */}
         <div className="xl:col-span-3 space-y-6">
-          {/* 1. Speisen-Bon (Küche) */}
+          {/* 1. Kopf- und Fußzeile (Ganz oben) */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+            <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
+              <Type className="w-5 h-5 text-blue-400" />
+              <div>
+                <h3 className="font-bold text-base text-white">Kopf- und Fußzeile</h3>
+                <p className="text-xs text-slate-400">
+                  Name und Veranstalter werden automatisch aus „Allgemein“ übernommen.
+                </p>
+              </div>
+            </div>
+
+            {/* Automatische Vorschau der übernommenen Felder */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-950/70 border border-slate-800 rounded-2xl text-xs">
+              <div>
+                <span className="text-slate-400 block mb-0.5">1. Kopfzeile (Name der Veranstaltung):</span>
+                <span className="font-bold text-white">{config.name || 'Vereinsfest 2026'}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block mb-0.5">2. Kopfzeile (Veranstalter / Verein):</span>
+                <span className="font-bold text-white">{config.receiptSubHeader || '– (In Allgemein festlegen)'}</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1">
+                Zusatztext Kopfzeile (3. Zeile, optional)
+              </label>
+              <input
+                type="text"
+                value={config.receiptHeader || ''}
+                onChange={(e) => onChange({ receiptHeader: e.target.value })}
+                className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-medium focus:border-blue-500"
+                placeholder="z. B. Herzlich Willkommen! (Standard: leer)"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1">
+                Fußzeile (Abschluss des Belegs)
+              </label>
+              <input
+                type="text"
+                value={config.receiptFooterText || ''}
+                onChange={(e) => onChange({ receiptFooterText: e.target.value })}
+                className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-medium focus:border-blue-500"
+                placeholder="z. B. Vielen Dank für Ihren Besuch! (Standard: leer)"
+              />
+            </div>
+          </div>
+
+          {/* 2. Speisen-Bon (Küche) */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-3">
@@ -832,7 +883,7 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
             </div>
           </div>
 
-          {/* 2. Getränke-Bon (Ausschank) */}
+          {/* 3. Getränke-Bon (Ausschank) */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-3">
@@ -983,7 +1034,7 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
             </div>
           </div>
 
-          {/* 3. Kassenbeleg für den Gast */}
+          {/* 4. Kassenbeleg für den Gast */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-3">
@@ -1117,57 +1168,6 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
                 hint="Bei Kassenpflicht vorgeschrieben."
                 value={config.receiptShowTse !== false}
                 onToggle={() => onChange({ receiptShowTse: !(config.receiptShowTse !== false) })}
-              />
-            </div>
-          </div>
-
-          {/* 4. Kopf- und Fußzeilen */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
-              <Type className="w-5 h-5 text-blue-400" />
-              <div>
-                <h3 className="font-bold text-base text-white">Kopf- und Fußzeile</h3>
-                <p className="text-xs text-slate-400">
-                  Name und Veranstalter werden automatisch aus „Allgemein“ übernommen.
-                </p>
-              </div>
-            </div>
-
-            {/* Automatische Vorschau der übernommenen Felder */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-950/70 border border-slate-800 rounded-2xl text-xs">
-              <div>
-                <span className="text-slate-400 block mb-0.5">1. Kopfzeile (Name der Veranstaltung):</span>
-                <span className="font-bold text-white">{config.name || 'Vereinsfest 2026'}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block mb-0.5">2. Kopfzeile (Veranstalter / Verein):</span>
-                <span className="font-bold text-white">{config.receiptSubHeader || '– (In Allgemein festlegen)'}</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">
-                Zusatztext Kopfzeile (3. Zeile, optional)
-              </label>
-              <input
-                type="text"
-                value={config.receiptHeader || ''}
-                onChange={(e) => onChange({ receiptHeader: e.target.value })}
-                className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-medium focus:border-blue-500"
-                placeholder="z. B. Herzlich Willkommen! (Standard: leer)"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">
-                Fußzeile (Abschluss des Belegs)
-              </label>
-              <input
-                type="text"
-                value={config.receiptFooterText || ''}
-                onChange={(e) => onChange({ receiptFooterText: e.target.value })}
-                className="w-full min-h-[48px] px-3.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white font-medium focus:border-blue-500"
-                placeholder="z. B. Vielen Dank für Ihren Besuch! (Standard: leer)"
               />
             </div>
           </div>

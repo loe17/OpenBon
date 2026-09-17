@@ -67,6 +67,44 @@ export default function AdminReportsPage() {
     }
   };
 
+  const [downloadingFormat, setDownloadingFormat] = useState<'pdf' | 'csv' | null>(null);
+
+  /** Abschlussbericht der Veranstaltung zuverlässig im Browser herunterladen */
+  const handleDownloadEventSummary = async (format: 'pdf' | 'csv') => {
+    triggerHapticFeedback();
+    setDownloadingFormat(format);
+    try {
+      const res = await fetch(`/api/reports/event-summary?format=${format}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        error(body.error || 'Fehler beim Erstellen des Abschlussberichts');
+        return;
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const todayStr = new Date().toISOString().slice(0, 10);
+      link.download =
+        format === 'pdf'
+          ? `Abschlussbericht_${todayStr}.pdf`
+          : `Abschlussbericht_${todayStr}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      success(
+        format === 'pdf'
+          ? 'Abschlussbericht (PDF) erfolgreich heruntergeladen!'
+          : 'Abschlussbericht (Excel / CSV) erfolgreich heruntergeladen!'
+      );
+    } catch {
+      error('Netzwerkfehler beim Herunterladen des Abschlussberichts.');
+    } finally {
+      setDownloadingFormat(null);
+    }
+  };
+
   useEffect(() => {
     fetchReports();
   }, []);
@@ -284,25 +322,31 @@ export default function AdminReportsPage() {
             <span>Z-Bon Tagesabschluss</span>
           </button>
 
-          <a
-            href="/api/reports/event-summary?format=pdf"
-            download
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold text-white transition shadow"
+          <button
+            type="button"
+            onClick={() => handleDownloadEventSummary('pdf')}
+            disabled={downloadingFormat !== null}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white transition shadow active:scale-95 touch-manipulation ${
+              downloadingFormat === 'pdf' ? 'bg-indigo-700 opacity-70 cursor-wait' : 'bg-indigo-600 hover:bg-indigo-500'
+            }`}
             title="Vollständigen Abschlussbericht der Veranstaltung als PDF herunterladen"
           >
             <FileText className="w-4 h-4" />
-            <span>Abschlussbericht (PDF)</span>
-          </a>
+            <span>{downloadingFormat === 'pdf' ? 'Erstelle PDF...' : 'Abschlussbericht (PDF)'}</span>
+          </button>
 
-          <a
-            href="/api/reports/event-summary?format=csv"
-            download
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-bold text-white transition shadow"
+          <button
+            type="button"
+            onClick={() => handleDownloadEventSummary('csv')}
+            disabled={downloadingFormat !== null}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white transition shadow active:scale-95 touch-manipulation ${
+              downloadingFormat === 'csv' ? 'bg-emerald-700 opacity-70 cursor-wait' : 'bg-emerald-600 hover:bg-emerald-500'
+            }`}
             title="Vollständigen Abschlussbericht für Excel / CSV herunterladen (Tagesverbrauch, Bedienungen, Artikel)"
           >
             <Download className="w-4 h-4" />
-            <span>Abschlussbericht (Excel / CSV)</span>
-          </a>
+            <span>{downloadingFormat === 'csv' ? 'Erstelle Excel...' : 'Abschlussbericht (Excel / CSV)'}</span>
+          </button>
 
           <button
             onClick={fetchReports}

@@ -257,6 +257,36 @@ export default function Navbar() {
       .catch(() => {});
   }, [pathname]);
 
+  // Spec: Internet-Statusanzeige nur im Adminbereich (45s Polling)
+  const [isInternetOnline, setIsInternetOnline] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!pathname.startsWith('/admin')) {
+      setIsInternetOnline(null);
+      return;
+    }
+
+    let isMounted = true;
+    const checkInternet = async () => {
+      try {
+        const res = await fetch('/api/system/internet', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted) setIsInternetOnline(Boolean(data.online));
+        }
+      } catch {
+        if (isMounted) setIsInternetOnline(false);
+      }
+    };
+
+    checkInternet();
+    const interval = setInterval(checkInternet, 45000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [pathname]);
+
   // Bei jedem Stationswechsel PIN immer abfragen
   const handleRoleSelection = (targetRole: string) => {
     if (targetRole === role) return;
@@ -479,6 +509,31 @@ export default function Navbar() {
                 />
                 <span>
                   {!isOnline ? 'Offline' : `${pendingOutboxCount} wartend`}
+                </span>
+              </div>
+            )}
+
+            {/* Internet Status Badge (Nur im Admin-Bereich sichtbar) */}
+            {pathname.startsWith('/admin') && isInternetOnline !== null && (
+              <div
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border font-bold text-[11px] transition ${
+                  isInternetOnline
+                    ? 'bg-emerald-950/70 border-emerald-800 text-emerald-300'
+                    : 'bg-amber-950/70 border-amber-800 text-amber-300'
+                }`}
+                title={
+                  isInternetOnline
+                    ? 'Internetverbindung aktiv (E-Bon & Webhosting online)'
+                    : 'Kein Internet – Kasse läuft offline (E-Bons pausiert, Papierbon aktiv)'
+                }
+              >
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    isInternetOnline ? 'bg-emerald-400' : 'bg-amber-400'
+                  }`}
+                />
+                <span className="hidden sm:inline">
+                  {isInternetOnline ? 'Internet online' : 'Kein Internet'}
                 </span>
               </div>
             )}
@@ -717,7 +772,7 @@ export default function Navbar() {
 
             {/* Footer */}
             <div className="p-3 border-t border-slate-800 bg-slate-950 text-center text-[11px] text-slate-500">
-              OpenBon v{APP_VERSION} Beta • Offline Kassennetzwerk
+              OpenBon v{APP_VERSION}{APP_IS_BETA ? ' Beta' : ''}
             </div>
           </div>
         </div>

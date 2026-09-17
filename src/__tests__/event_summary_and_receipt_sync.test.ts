@@ -200,3 +200,41 @@ describe('Receipt Synchronization Contract', () => {
     expect(config.receiptFoodItemFontSize).toBe(config.receiptDrinkItemFontSize);
   });
 });
+
+describe('UI & Navigation Enhancements (v0.4.52+)', () => {
+  it('should not contain "• Offline Kassennetzwerk" in navbar footer', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const navSrc = fs.readFileSync(path.join(process.cwd(), 'src/components/navigation/navbar.tsx'), 'utf-8');
+    expect(navSrc).not.toContain('• Offline Kassennetzwerk');
+    expect(navSrc).toContain('isInternetOnline');
+  });
+
+  it('should position "Kopf- und Fußzeile" before "Speisen-Bon" in ReceiptTab', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const receiptSrc = fs.readFileSync(path.join(process.cwd(), 'src/app/admin/settings/tabs/ReceiptTab.tsx'), 'utf-8');
+    const kopfIndex = receiptSrc.indexOf('Kopf- und Fußzeile');
+    const speisenIndex = receiptSrc.indexOf('Speisen-Bon (Küche)');
+    expect(kopfIndex).toBeGreaterThan(-1);
+    expect(speisenIndex).toBeGreaterThan(-1);
+    expect(kopfIndex).toBeLessThan(speisenIndex);
+  });
+
+  it('should display Internet & Netz in Diagnostics and not show old license card', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const diagSrc = fs.readFileSync(path.join(process.cwd(), 'src/app/admin/diagnostics/page.tsx'), 'utf-8');
+    expect(diagSrc).toContain('Internet &amp; Netz');
+    expect(diagSrc).not.toContain('{report.license.tier}');
+  });
+
+  it('should have interactive handleDownloadEventSummary in Reports page', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const repSrc = fs.readFileSync(path.join(process.cwd(), 'src/app/admin/reports/page.tsx'), 'utf-8');
+    expect(repSrc).toContain('handleDownloadEventSummary');
+    expect(repSrc).toContain('Abschlussbericht (PDF)');
+    expect(repSrc).toContain('Abschlussbericht (Excel / CSV)');
+  });
+});

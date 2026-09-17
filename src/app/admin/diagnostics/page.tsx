@@ -16,6 +16,7 @@ import {
   FileText,
   Clock,
   Wifi,
+  WifiOff,
   Layers,
   ArrowRight,
 } from 'lucide-react';
@@ -62,6 +63,10 @@ interface DiagnosticReport {
     maxDevices: number;
     isValid: boolean;
     features: string[];
+  };
+  internet?: {
+    online: boolean;
+    lastChecked?: string;
   };
   counts: {
     products: number;
@@ -470,14 +475,18 @@ export default function DiagnosticsPage() {
 
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow">
               <div className="flex items-center justify-between text-slate-400 mb-1">
-                <span className="text-xs font-bold uppercase">Lizenz</span>
-                <ShieldCheck className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-bold uppercase">Internet &amp; Netz</span>
+                {report.internet?.online ? (
+                  <Wifi className="w-4 h-4 text-emerald-400" />
+                ) : (
+                  <WifiOff className="w-4 h-4 text-amber-400" />
+                )}
               </div>
-              <div className="text-xl font-black text-white">
-                {report.license.tier}
+              <div className={`text-xl font-black ${report.internet?.online ? 'text-emerald-400' : 'text-amber-400'}`}>
+                {report.internet?.online ? 'Online' : 'Offline'}
               </div>
               <div className="text-[10px] text-slate-400 mt-1">
-                {report.license.maxDevices >= 9999 ? 'Unbegrenzte Geräte' : `${report.license.maxDevices} Geräte`}
+                {report.internet?.online ? 'E-Bon & Webhosting aktiv' : 'Lokales Festzeltnetz aktiv'}
               </div>
             </div>
           </div>

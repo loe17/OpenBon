@@ -349,10 +349,11 @@ export async function GET(req: Request) {
       const safeName = eventName.replace(/[^a-zA-Z0-9_-]/g, '_');
       const filename = `Abschlussbericht_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`;
 
-      return new Response(pdfBuffer as unknown as BodyInit, {
+      return new Response(new Uint8Array(pdfBuffer), {
         headers: {
           'Content-Type': 'application/pdf',
           'Content-Disposition': `attachment; filename="${filename}"`,
+          'Cache-Control': 'no-store',
         },
       });
     }
@@ -427,6 +428,7 @@ export async function GET(req: Request) {
         headers: {
           'Content-Type': 'text/csv; charset=utf-8',
           'Content-Disposition': `attachment; filename="${filename}"`,
+          'Cache-Control': 'no-store',
         },
       });
     }

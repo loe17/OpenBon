@@ -8,6 +8,7 @@ import { EscPosBuilder } from '@/lib/printer/escpos-builder';
 import networkSpooler from '@/lib/printer/network-spooler';
 import { TicketData } from '@/lib/printer/types';
 import { requireApiAuth } from '@/lib/api-guard';
+import { checkInternetConnectivity } from '@/lib/internet-monitor';
 
 // Hilfsfunktion: TCP Socket Ping für Bondrucker
 async function testPrinterSocket(ip: string, port: number, timeoutMs = 2500): Promise<{ reachable: boolean; latencyMs: number; error?: string }> {
@@ -73,8 +74,9 @@ export async function GET(req: Request) {
       }
     }
 
-    // 3. Lizenz-Check
+    // 3. Lizenz- & Internet-Check
     const license = parseAndValidateLicense(config?.licenseKey || '');
+    const internet = await checkInternetConnectivity();
 
     // 4. Drucker-Hardware Check
     const printers = await prisma.printer.findMany();
@@ -160,6 +162,10 @@ export async function GET(req: Request) {
         maxDevices: license.maxDevices,
         isValid: license.isValid,
         features: license.features,
+      },
+      internet: {
+        online: internet.online,
+        lastChecked: internet.lastChecked,
       },
       counts: {
         products: productCount,

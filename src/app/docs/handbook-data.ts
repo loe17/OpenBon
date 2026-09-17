@@ -861,7 +861,8 @@ export const HANDBOOK: DocChapter[] = [
         id: '9.1',
         heading: '9.1 1-Klick Preflight-Check vor Festbeginn',
         paragraphs: [
-          'Unter /admin/diagnostics prüft das System vor Festbeginn automatisch alle wichtigen Komponenten: Datenbank-Integrität, Drucker-Erreichbarkeit im Netzwerk, Speisekarten-Konsistenz und simuliert einen vollständigen Test-Bestellzyklus.',
+          'Unter /admin/diagnostics prüft das System vor Festbeginn automatisch alle wichtigen Komponenten: Datenbank-Integrität, Drucker-Erreichbarkeit im Netzwerk, Speisekarten-Konsistenz, echten Internetzugang für digitale Belege und simuliert einen vollständigen Test-Bestellzyklus.',
+          '100% freie Software (Keine Lizenzschlüssel nötig): OpenBon steht unter der freien MIT-Lizenz. Es gibt keine Beschränkungen bei Geräten, Tischen oder Funktionen – anstelle alter Lizenzkacheln sehen Sie direkt den echten Netzwerk- und Internetstatus.',
         ],
         image: {
           src: '/docs/images/34_admin_diagnostics.png',
@@ -929,7 +930,7 @@ export const HANDBOOK: DocChapter[] = [
         heading: '9.3.2 Einstellungen: Reiter "Bonlayout & Vorschau"',
         paragraphs: [
           'Hier gestalten Sie das Aussehen Ihrer Kassenbons und richten den papierlosen Digitalbeleg (E-Bon) sowie die digitale Speisekarte ein.',
-          'Übersichtliche Struktur: Die Einstellungen sind praxisnah angeordnet: 1. Speisen-Bon (Küche), 2. Getränke-Bon (Ausschank), 3. Kassenbeleg für den Gast, 4. Kopf- und Fußzeile und 5. Digitaler E-Bon & Webhosting.',
+          'Übersichtliche Struktur: Die Einstellungen sind praxisnah angeordnet: 1. Kopf- und Fußzeile (ganz oben für Veranstaltungs- und Vereinsnamen), 2. Speisen-Bon (Küche), 3. Getränke-Bon (Ausschank), 4. Kassenbeleg für den Gast und 5. Digitaler E-Bon & Webhosting.',
           'Synchronisation Speisen- & Getränkebon: Über den Schiebeschalter "Mit Getränke-Bon synchronisieren" lassen sich Design-Vorlage, Schriftgröße der Tischnummer und Schriftgröße für Artikel & Menge automatisch zwischen Küche und Ausschank koppeln. Ändern Sie z. B. die Tischnummer auf Stufe 6, übernimmt der Ausschankbon diesen Wert automatisch.',
           'Live-Internetstatus: Der E-Bon-Bereich zeigt in Echtzeit an, ob echter Internetzugang besteht. Ist kein Internet vorhanden, pausiert OpenBon den Online-Belegabruf automatisch und bietet an den Kassen Papierbelege als sicheren Fallback an.',
           'Live-Vorschau: Jede Änderung an Texten oder Schriftgrößen wird sofort in der maßstabsgetreuen Thermobon-Vorschau (58 mm oder 80 mm Rollenbreite) angezeigt.',
@@ -937,10 +938,10 @@ export const HANDBOOK: DocChapter[] = [
         table: {
           headers: ['Einstellung', 'Bedeutung', 'Praxistipp'],
           rows: [
-            ['Speisen-Bon (Küche)', 'Erster Bereich: Küchenzettel', 'Wähle zwischen Klassisch, Kompakt (Eco) oder Großschrift für optimale Lesbarkeit am Grill.'],
-            ['Getränke-Bon (Ausschank)', 'Zweiter Bereich: Schankzettel', 'Kann separat konfiguriert oder direkt mit der Küche synchronisiert werden.'],
-            ['Kassenbeleg (Gast)', 'Dritter Bereich: Kundenquittung', 'Legt fest, ob Bedienungen oder Kassierer Quittungen drucken dürfen und welches Layout gilt.'],
-            ['Kopfzeile & Fußzeile', 'Freie Textzeilen auf dem Bon', 'Hier können Vereinsname, Steuernummer, W-LAN-Passwort oder ein "Vielen Dank für Ihren Besuch!" hinterlegt werden.'],
+            ['Kopfzeile & Fußzeile', 'Erster Bereich: Belegkopf & Fußzeile', 'Hier werden Name der Veranstaltung und Veranstalter automatisch aus Allgemein übernommen, ergänzt um frei wählbaren Begrüßungs- und Dankestext.'],
+            ['Speisen-Bon (Küche)', 'Zweiter Bereich: Küchenzettel', 'Wähle zwischen Klassisch, Kompakt (Eco) oder Großschrift für optimale Lesbarkeit am Grill.'],
+            ['Getränke-Bon (Ausschank)', 'Dritter Bereich: Schankzettel', 'Kann separat konfiguriert oder direkt mit der Küche synchronisiert werden.'],
+            ['Kassenbeleg (Gast)', 'Vierter Bereich: Kundenquittung', 'Legt fest, ob Bedienungen oder Kassierer Quittungen drucken dürfen und welches Layout gilt.'],
             ['Schriftgrößen-Schieberegler', 'Skala von 1 (fein) bis 10 (sehr groß)', 'Passen Sie Tischnummer, Artikel und Preise exakt an Ihre Druckerauflösung und Papierbreite an.'],
             ['Öffentliche Basis-URL', 'Internetadresse für den Belegabruf', 'Trage hier die Adresse deines Webhostings ein (z. B. https://bon.mein-verein.de).'],
             ['ZIP-Paket herunterladen', 'Fertiges Webspace-Paket', 'Enthält die fertigen Anzeigeseiten für Gäste und den geheimen Schlüssel. Einfach auf den Webspace hochladen.'],
