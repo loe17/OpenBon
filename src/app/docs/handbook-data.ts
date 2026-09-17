@@ -296,6 +296,17 @@ export const HANDBOOK: DocChapter[] = [
           caption: 'Kellner-Zwischenstand mit Umsatz, Baranteil und Kartenzahlungen',
         },
       },
+      {
+        id: '2.12',
+        heading: '2.12 Bedienungsname, Schichtwechsel & WLAN-Empfangs-Ampel',
+        paragraphs: [
+          'Bedienungsname und Schichtwechsel: In der oberen Kopfzeile wird der Name der angemeldeten Bedienung angezeigt. Ein Klick auf das Stift-Symbol öffnet den Schichtdialog: Hier kann der Name geändert, ein anderer Helfer ausgewählt oder die Schicht per "Abmelden" beendet werden.',
+          'Live-Geräteübertragung: Der gewählte Name wird automatisch an die Kassenleitung (/admin/devices) übertragen, sodass immer ersichtlich ist, wer welches Smartphone nutzt.',
+          'WLAN-Empfangs-Ampel: Neben dem Namen befindet sich eine praktische Status-Ampel für das Zelt-WLAN:',
+          '• Grün ("WLAN OK"): Die Funkverbindung zur Hauptkasse ist stabil. Bestellungen werden sofort übermittelt.',
+          '• Rot blinkend ("Offline / WLAN getrennt"): Sobald eine Bedienung außerhalb der Funkreichweite gerät (z. B. im hinteren Biergarten), schlägt die Ampel rot an und ein auffälliges Warnbanner weist darauf hin. So weiß die Bedienung sofort, dass sie sich wieder ein Stück in Richtung Zelt bewegen muss, bevor sie Bestellungen absendet.',
+        ],
+      },
     ],
   },
   {
@@ -448,10 +459,10 @@ export const HANDBOOK: DocChapter[] = [
         paragraphs: [
           'Warum meldet Google Chrome auf Android-Geräten bei HTTPS (Port 3443) „Dies ist keine sichere Verbindung“?',
           'Da OpenBon auf Vereinsfesten in einem eigenen, autarken Festzelt-Netzwerk ohne weltweite Internetverbindung läuft, besitzt die Kasse eine lokale Netzwerk-Adresse (z. B. https://192.168.178.50:3443). Der Browser kennt dieses lokale Festzelt-Zertifikat zunächst noch nicht und zeigt eine rote Sicherheitswarnung an.',
-          'Die 2-Sekunden-Lösung (Sofort startklar ohne Installation):',
-          'Tippen Sie auf dem Smartphone auf den grauen Button „Erweitert“ und danach ganz unten auf den Link „Weiter zu [IP-Adresse] (unsicher)“. Schon öffnet sich OpenBon sofort über https://[IP-Adresse]:3443 mit voller HTTPS-Verschlüsselung, PWA-Funktionen und Ton-Signalen.',
-          'Dauerhafte Lösung (Zertifikat auf dem Android-Gerät hinterlegen):',
-          'Möchten Sie die Warnung dauerhaft abstellen, laden Sie im „QR-Code Beitritts-Center“ oder unter „Einstellungen -> Sicherheit & PINs“ das Zertifikat „openbon-kasse.crt“ herunter. Öffnen Sie die Android-Einstellungen -> „Sicherheit“ -> „Zertifikat installieren“ -> „CA-Zertifikat“ und wählen Sie die heruntergeladene Datei aus. Danach stuft Chrome die Festzelt-Kasse dauerhaft als vertrauenswürdig ein.',
+          'Die 2-Sekunden-Lösung (Sofort startklar ganz OHNE Datei-Installation – Empfohlen!):',
+          'Tippen Sie auf dem Smartphone auf den grauen Button „Erweitert“ und danach ganz unten auf den Link „Weiter zu [IP-Adresse] (unsicher)“. Schon öffnet sich OpenBon sofort über https://[IP-Adresse]:3443 mit voller HTTPS-Verschlüsselung, PWA-Funktionen und Ton-Signalen. Diese Freigabe merkt sich Chrome dauerhaft.',
+          'Wichtiger Hinweis: Meldung „Für das Installieren von Zertifikaten ist ein Privater Schlüssel erforderlich“:',
+          'Tippen Sie die heruntergeladene Datei niemals direkt in den Android-Downloads an. Android versucht sonst fälschlicherweise, sie als persönliches Nutzer-/VPN-Zertifikat zu installieren und verlangt einen privaten Schlüssel. Möchten Sie das Zertifikat fest im Handy einspeichern, gehen Sie stattdessen immer über: Android-Einstellungen -> „Sicherheit & Datenschutz“ -> „Zertifikat installieren“ -> zwingend „CA-Zertifikat“ auswählen (und „Trotzdem installieren“ bestätigen).',
           'Tipp: Wenn Sie keine Zertifikate auf den Geräten installieren möchten, nutzen Sie einfach „Fully Kiosk Browser“ (siehe Abschnitt 3.9). Dieser läuft auch über Standard-HTTP perfekt im Vollbildmodus.',
         ],
       },
@@ -549,6 +560,16 @@ export const HANDBOOK: DocChapter[] = [
           alt: 'Schankanlagen Monitor',
           caption: 'Live-Füllstandsanzeige aller angeschlossenen Bierfässer',
         },
+      },
+      {
+        id: '4.6',
+        heading: '4.6 Ausverkauft-Schnellzugriff (Artikel direkt in der Küche sperren)',
+        paragraphs: [
+          'Geht ein Gericht oder Getränk zur Neige (z. B. Grillhähnchen oder Fassbier ausverkauft), muss die Küche nicht zur Hauptkasse laufen.',
+          'Über den Button "Ausverkauft" in der Kopfzeile des Küchenmonitors öffnet sich eine bequeme Schnellauswahl aller Artikel mit Suchfeld und Kategoriefilter.',
+          'Mit einem Fingertipp wird der Artikel sofort gesperrt. Alle Kellner-Handys und Kassen übernehmen diese Sperre in Echtzeit, sodass keine neuen Bestellungen dafür mehr aufgenommen werden können.',
+          'Sobald Nachschub bereitsteht, genügt ein weiterer Klick auf "Wieder freigeben", um den Artikel sekundenschnell wieder buchbar zu machen.',
+        ],
       },
     ],
   },
@@ -1027,14 +1048,16 @@ export const HANDBOOK: DocChapter[] = [
       },
       {
         id: '9.4',
-        heading: '9.4 Angemeldete Geräte & Stationen',
+        heading: '9.4 Angemeldete Geräte & Live Akku-Monitor',
         paragraphs: [
-          'Unter /admin/devices behält die Kassenleitung den Überblick über alle angemeldeten Kellner-Handys, Tablets und Kassenmonitore inklusive Akkuladestand und Verbindungsqualität.',
+          'Unter /admin/devices behält die Kassenleitung den Überblick über alle angemeldeten Kellner-Handys, Tablets und Kassenmonitore inklusive Akkuladestand, Verbindungsqualität und dem Namen der aktuell eingeloggten Bedienung.',
+          'Powerbank-Frühwarnung: Fällt der Akkustand eines aktiven Geräts auf 20 % oder weniger (ohne am Ladekabel zu hängen), erscheint oben ein auffälliges rotes Warnbanner mit dem Namen der betroffenen Bedienung.',
+          'Akustischer Suchton (PING): Mit dem Button "PING" kann die Kassenleitung einen lauten Signalton auf dem entsprechenden Kellner-Handy auslösen, um es schnell im Festzelt zu orten oder der Bedienung direkt eine Powerbank zu überreichen.',
         ],
         image: {
           src: '/docs/images/32_admin_devices.png',
           alt: 'Geräteübersicht',
-          caption: 'Übersicht aller im Netzwerk aktiven Smartphones und Kassen',
+          caption: 'Übersicht aller im Netzwerk aktiven Smartphones, Akkustände und Bedienungsnamen',
         },
       },
       {

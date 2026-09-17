@@ -26,12 +26,41 @@ interface OptionInput {
 }
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
-  const auth = await requireApiAuth(req, ['ADMIN']);
+  const auth = await requireApiAuth(req, ['ADMIN', 'KITCHEN']);
   if (!auth.ok) return auth.response;
 
   try {
     const body = await req.json();
     const productId = params.id;
+
+    // Küchenpersonal darf gezielt den Ausverkauft-Status umschalten
+    if (auth.session.role === 'KITCHEN') {
+      if (body.isSoldOut === undefined) {
+        return NextResponse.json({ error: 'Küchenpersonal darf nur den Ausverkauft-Status anpassen.' }, { status: 403 });
+      }
+      const updatedProduct = await prisma.product.update({
+        where: { id: productId },
+        data: { isSoldOut: Boolean(body.isSoldOut) },
+        include: {
+          category: true,
+          variants: true,
+          options: true,
+        },
+      });
+
+      if (global.io) {
+        global.io.emit('product:updated', updatedProduct);
+      }
+
+      await logSystemActionSafe(() => ({
+        action: 'PRODUCT_SOLDOUT_TOGGLED',
+        category: 'ADMIN',
+        actor: auth.session.waiterName || auth.session.role,
+        details: `Artikel "${updatedProduct.name}" Ausverkauft: ${updatedProduct.isSoldOut ? 'JA' : 'NEIN'}.`,
+      }));
+
+      return NextResponse.json(updatedProduct);
+    }
 
     const normalizedPrintGroupId =
       body.printGroupId === '' || body.printGroupId === 'none' || body.printGroupId === null

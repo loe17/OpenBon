@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Search,
   UserCheck,
+  LogOut,
   Edit3,
   Repeat,
   Receipt,
@@ -34,6 +35,8 @@ import {
   FileText,
   Clock,
   Banknote,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 import { VOID_REASONS, type OrderDTO } from '@/types/domain';
 import { playConfirm, playVoidAlert, playOrderReadyChime } from '@/lib/audio-feedback';
@@ -231,6 +234,35 @@ function WaiterTablesContent() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [tableHistoryTarget, setTableHistoryTarget] = useState<{ id: string; label: string } | null>(null);
   const [soundMuted, setSoundMuted] = useState(false);
+
+  // WLAN-Empfangs-Ampel (Offline / Online Status)
+  const [isOnline, setIsOnline] = useState(true);
+
+  useEffect(() => {
+    const updateOnlineState = () => {
+      const socketConn = socket ? socket.connected : true;
+      setIsOnline(navigator.onLine && socketConn);
+    };
+
+    window.addEventListener('online', updateOnlineState);
+    window.addEventListener('offline', updateOnlineState);
+
+    if (socket) {
+      socket.on('connect', updateOnlineState);
+      socket.on('disconnect', updateOnlineState);
+    }
+
+    updateOnlineState();
+
+    return () => {
+      window.removeEventListener('online', updateOnlineState);
+      window.removeEventListener('offline', updateOnlineState);
+      if (socket) {
+        socket.off('connect', updateOnlineState);
+        socket.off('disconnect', updateOnlineState);
+      }
+    };
+  }, [socket]);
 
   // X-Bon (Zwischenstand)
   const [showXBonModal, setShowXBonModal] = useState(false);
@@ -795,6 +827,9 @@ function WaiterTablesContent() {
     setWaiterName(finalName);
     setShowWaiterPrompt(false);
 
+    // Live-Übertragung an Server & Admin-Geräteübersicht
+    socket?.emit('device:waiter_update', { waiterName: finalName });
+
     // Erst NACH erfolgreicher Namenseingabe: Tischnummern-Ziffernblock öffnen (wenn Auto-Öffnen aktiv ist)
     if (autoReopenKeypad) {
       setShowTableKeypadModal(true);
@@ -807,6 +842,15 @@ function WaiterTablesContent() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: finalName }),
     }).catch(() => undefined);
+  };
+
+  const handleLogoutWaiter = () => {
+    localStorage.removeItem('pos_waiter_name');
+    setWaiterName('Bedienung');
+    setInputWaiterName('');
+    socket?.emit('device:waiter_update', { waiterName: null });
+    setWaiterError('');
+    showToast('ok', 'Bedienung abgemeldet. Bereit für nächste Schicht.');
   };
 
   const myTablesCount = tables.filter(
@@ -837,10 +881,42 @@ function WaiterTablesContent() {
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950">
+      {/* Offline-Warnbanner falls WLAN abbricht */}
+      {!isOnline && (
+        <div className="bg-rose-600 text-white px-3 py-1.5 text-center text-xs font-black tracking-wide flex items-center justify-center gap-2 shadow-lg animate-pulse shrink-0">
+          <WifiOff className="w-4 h-4" />
+          <span>WLAN getrennt – Keine Verbindung zur Kasse! Bitte näher ans Festzelt treten.</span>
+        </div>
+      )}
+
       {/* Top Waiter Bar & Search Bar */}
       <div className="p-2.5 sm:p-3 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2.5 shadow-md shrink-0">
         {/* Waiter Pill, History & Sound Toggle */}
         <div className="flex items-center gap-2">
+          {/* WLAN-Empfangs-Ampel */}
+          <div
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold shrink-0 transition-all ${
+              isOnline
+                ? 'bg-emerald-950/60 border-emerald-800/80 text-emerald-300'
+                : 'bg-rose-950/90 border-rose-600 text-rose-200 animate-pulse shadow-lg shadow-rose-950/60'
+            }`}
+            title={
+              isOnline
+                ? 'WLAN-Verbindung zur Hauptkasse ist stabil'
+                : 'Achtung: Keine Verbindung zur Hauptkasse! Bitte näher ans Festzelt / zum Router gehen.'
+            }
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500 animate-ping'
+              }`}
+            />
+            {isOnline ? <Wifi className="w-3.5 h-3.5 text-emerald-400" /> : <WifiOff className="w-3.5 h-3.5 text-rose-400" />}
+            <span className="text-[11px] font-black">
+              {isOnline ? 'WLAN OK' : 'Offline'}
+            </span>
+          </div>
+
           <button
             onClick={() => {
               setInputWaiterName(waiterName);
@@ -1489,6 +1565,16 @@ function WaiterTablesContent() {
               )}
             </div>
 
+            {waiterName && waiterName !== 'Bedienung' && (
+              <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-blue-950/70 border border-blue-800/80 text-xs text-blue-300">
+                <span className="flex items-center gap-1.5">
+                  <UserCheck className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Aktuell aktiv: <strong className="text-white">{waiterName}</strong></span>
+                </span>
+                <span className="text-[10px] text-blue-400/80 font-semibold uppercase tracking-wider">Schicht läuft</span>
+              </div>
+            )}
+
             <div>
               <input
                 type="text"
@@ -1529,7 +1615,11 @@ function WaiterTablesContent() {
                       setInputWaiterName(name);
                       handleSaveWaiterName(name);
                     }}
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-200 border border-slate-700 hover:border-blue-500 rounded-xl text-xs font-bold transition active:scale-95"
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 border ${
+                      name === waiterName
+                        ? 'bg-blue-600 text-white border-blue-400 shadow-md'
+                        : 'bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-200 border-slate-700 hover:border-blue-500'
+                    }`}
                   >
                     {name}
                   </button>
@@ -1537,14 +1627,25 @@ function WaiterTablesContent() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex items-center gap-2 pt-2">
+              {waiterName && waiterName !== 'Bedienung' && (
+                <button
+                  type="button"
+                  onClick={handleLogoutWaiter}
+                  className="h-12 px-3.5 bg-slate-800 hover:bg-rose-950/60 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-800 active:scale-95 rounded-2xl font-bold text-xs transition flex items-center justify-center gap-1.5 shrink-0"
+                  title="Schicht beenden und für nächsten Helfer freigeben"
+                >
+                  <LogOut className="w-4 h-4 text-rose-400" />
+                  <span>Abmelden</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => handleSaveWaiterName(inputWaiterName)}
-                className="w-full h-12 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-950/50 transition flex items-center justify-center gap-2"
+                className="flex-1 h-12 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-950/50 transition flex items-center justify-center gap-2"
               >
                 <UserCheck className="w-4 h-4" />
-                <span>Anmelden &amp; Weiter</span>
+                <span>{waiterName && waiterName !== 'Bedienung' ? 'Wechseln & Weiter' : 'Anmelden & Weiter'}</span>
               </button>
             </div>
           </div>

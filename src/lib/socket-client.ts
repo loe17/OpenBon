@@ -29,6 +29,7 @@ export function getSocket(): Socket {
       }
 
       const role = localStorage.getItem('pos_user_role') || 'WAITER';
+      const waiterName = localStorage.getItem('pos_waiter_name') || undefined;
 
       // Read Battery API if supported
       let batteryLevel = 100;
@@ -44,6 +45,7 @@ export function getSocket(): Socket {
       socket?.emit('device:register', {
         id: deviceId,
         name: deviceName,
+        waiterName,
         role,
         userAgent: navigator.userAgent,
         batteryLevel,
@@ -64,9 +66,11 @@ export function getSocket(): Socket {
           isCharging = battery.charging;
         } catch {}
       }
+      const waiterName = localStorage.getItem('pos_waiter_name') || undefined;
       socket?.emit('device:heartbeat', {
         batteryLevel,
         isCharging,
+        waiterName,
       });
     }, 60000);
 

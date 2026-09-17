@@ -5,6 +5,7 @@ import { useSocket } from '@/components/providers/socket-provider';
 import { triggerHapticFeedback } from '@/lib/socket-client';
 import {
   Users,
+  UserCheck,
   Smartphone,
   Battery,
   BatteryCharging,
@@ -19,6 +20,7 @@ import {
   Edit2,
   Check,
   X,
+  AlertTriangle,
 } from 'lucide-react';
 
 import { useToast } from '@/components/ui/toast';
@@ -26,6 +28,7 @@ import { useToast } from '@/components/ui/toast';
 interface DeviceItem {
   id: string;
   name: string;
+  waiterName?: string | null;
   role: string;
   ipAddress: string;
   userAgent?: string;
@@ -146,6 +149,7 @@ export default function AdminDevicesPage() {
 
   const filtered = devices.filter((d) =>
     d.name.toLowerCase().includes(search.toLowerCase()) ||
+    (Boolean(d.waiterName) && String(d.waiterName).toLowerCase().includes(search.toLowerCase())) ||
     d.ipAddress?.includes(search) ||
     d.role.toLowerCase().includes(search.toLowerCase())
   );
@@ -203,13 +207,59 @@ export default function AdminDevicesPage() {
         </div>
       </div>
 
+      {/* Powerbank-Alarm Banner bei kritischem Akkustand <= 20% und nicht ladend */}
+      {(() => {
+        const lowBatteryDevices = devices.filter(
+          (d) => (d.batteryLevel !== undefined ? d.batteryLevel : 100) <= 20 && !d.isCharging
+        );
+        if (lowBatteryDevices.length === 0) return null;
+        return (
+          <div className="mb-6 p-4 rounded-2xl bg-rose-950/60 border-2 border-rose-600/80 shadow-xl shadow-rose-950/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="p-3 bg-rose-600 text-white rounded-xl shrink-0 shadow-md">
+                <AlertTriangle className="w-6 h-6 animate-bounce" />
+              </div>
+              <div>
+                <h2 className="text-base sm:text-lg font-black text-rose-200 flex items-center gap-2">
+                  <span>Powerbank-Alarm: {lowBatteryDevices.length} Gerät{lowBatteryDevices.length > 1 ? 'e' : ''} mit kritischem Akkustand (&le; 20%)!</span>
+                </h2>
+                <p className="text-xs text-rose-300/80 mt-0.5">
+                  Bitte zeitnah Powerbank oder Ladekabel bereitstellen, um Verbindungsausfälle im laufenden Betrieb zu vermeiden.
+                </p>
+                <div className="flex flex-wrap gap-2 mt-2.5">
+                  {lowBatteryDevices.map((d) => (
+                    <div
+                      key={d.id}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-900/70 border border-rose-600/70 text-xs text-white font-bold"
+                    >
+                      <span>
+                        {d.name} {d.waiterName ? `(Bedienung: ${d.waiterName})` : ''}: <strong className="text-rose-300">{d.batteryLevel}%</strong>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handlePingDevice(d.id)}
+                        className="px-2 py-0.5 bg-rose-700 hover:bg-rose-600 active:scale-95 text-white rounded-lg text-[10px] font-black flex items-center gap-1 transition shadow"
+                        title="Akustischen Suchton auf Smartphone abspielen"
+                      >
+                        <Volume2 className="w-3 h-3" />
+                        PING
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Search Filter */}
       <div className="mb-4">
         <div className="relative max-w-md">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Gerät oder IP filtern..."
+            placeholder="Gerät, Bedienung oder IP filtern..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
@@ -287,6 +337,14 @@ export default function AdminDevicesPage() {
                           </div>
                         )}
                         <span className="text-xs font-mono text-slate-400 block">{device.ipAddress}</span>
+                        {device.role === 'WAITER' && (
+                          <div className="mt-1.5 flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-blue-950/70 border border-blue-800/80 text-[11px] text-blue-300 font-semibold w-fit">
+                            <UserCheck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                            <span>
+                              Angemeldet als: <strong className="text-white">{device.waiterName || 'Kein Name'}</strong>
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -305,6 +363,17 @@ export default function AdminDevicesPage() {
 
                   {/* Device Info Badges */}
                   <div className="space-y-2 mb-4 bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs">
+                    {/* Waiter Name in Badges if role is WAITER */}
+                    {device.role === 'WAITER' && (
+                      <div className="flex justify-between items-center pb-2 mb-1 border-b border-slate-800">
+                        <span className="text-slate-400">Aktive Bedienung:</span>
+                        <span className="font-bold text-blue-300 flex items-center gap-1.5">
+                          <UserCheck className="w-3.5 h-3.5 text-blue-400" />
+                          <span>{device.waiterName || 'Nicht angemeldet'}</span>
+                        </span>
+                      </div>
+                    )}
+
                     {/* Battery */}
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Akkustand:</span>

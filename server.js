@@ -313,7 +313,9 @@ app.prepare().then(async () => {
       };
 
       const safeName = String(deviceInfo.name || 'Unbenanntes Gerät').slice(0, 80).replace(/[<>"']/g, '');
+      const rawWaiter = deviceInfo.waiterName ? String(deviceInfo.waiterName).slice(0, 60).replace(/[<>"']/g, '').trim() : null;
       data.name = safeName;
+      data.waiterName = rawWaiter && rawWaiter !== 'Bedienung' ? rawWaiter : null;
       data.userAgent = String(deviceInfo.userAgent || '').slice(0, 200);
       global.connectedDevices.set(deviceId, data);
       socket.deviceId = deviceId;
@@ -336,6 +338,19 @@ app.prepare().then(async () => {
       io.to('admin_room').emit('device:update', Array.from(global.connectedDevices.values()));
     });
 
+    // Live update when a waiter changes or sets their name
+    socket.on('device:waiter_update', ({ waiterName }) => {
+      const devId = socket.deviceId || socket.id;
+      if (global.connectedDevices.has(devId)) {
+        const device = global.connectedDevices.get(devId);
+        const cleanName = waiterName ? String(waiterName).slice(0, 60).replace(/[<>"']/g, '').trim() : null;
+        device.waiterName = cleanName && cleanName !== 'Bedienung' ? cleanName : null;
+        device.lastSeenAt = new Date().toISOString();
+        global.connectedDevices.set(devId, device);
+        io.to('admin_room').emit('device:update', Array.from(global.connectedDevices.values()));
+      }
+    });
+
     // Heartbeat & Battery updates (nur an Admins, gedrosselt)
     let lastHeartbeatEmit = 0;
     socket.on('device:heartbeat', (data) => {
@@ -344,6 +359,10 @@ app.prepare().then(async () => {
         device.lastSeenAt = new Date().toISOString();
         if (typeof data?.batteryLevel === 'number' && data.batteryLevel >= 0 && data.batteryLevel <= 100) device.batteryLevel = data.batteryLevel;
         if (typeof data?.isCharging === 'boolean') device.isCharging = data.isCharging;
+        if (data?.waiterName !== undefined) {
+          const cleanHName = data.waiterName ? String(data.waiterName).slice(0, 60).replace(/[<>"']/g, '').trim() : null;
+          device.waiterName = cleanHName && cleanHName !== 'Bedienung' ? cleanHName : null;
+        }
         device.status = 'ONLINE';
         global.connectedDevices.set(socket.deviceId, device);
         const now = Date.now();

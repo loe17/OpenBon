@@ -405,7 +405,9 @@ export default function QrCodesPage() {
               <p className="text-xs text-amber-300/80 mt-1 leading-relaxed">
                 Da die Kasse im lokalen Festzelt-Netzwerk ohne Internetverbindung läuft, meldet Android beim ersten Aufruf: <strong>„Dies ist keine sichere Verbindung“</strong>.
                 <br />
-                <strong>2-Sekunden-Lösung:</strong> Tippe auf der roten Android-Warnseite einfach auf <strong>„Erweitert“</strong> und danach auf <strong>„Weiter zu {networkInfo?.localIp || 'IP'} (unsicher)“</strong>. Ab dann ist die verschlüsselte Verbindung dauerhaft aktiv!
+                <strong>Empfohlene 2-Sekunden-Lösung (ohne Installation):</strong> Tippe auf der roten Android-Warnseite einfach auf <strong>„Erweitert“</strong> und danach auf <strong>„Weiter zu {networkInfo?.localIp || 'IP'} (unsicher)“</strong>. Ab dann ist die verschlüsselte Verbindung dauerhaft aktiv!
+                <br />
+                <strong>Falls Zertifikat im Handy gespeichert werden soll:</strong> Datei nicht direkt im Download-Ordner antippen (meldet sonst <em>„Privater Schlüssel erforderlich“</em>), sondern in den Android-Einstellungen unter <em>„Sicherheit &rarr; Zertifikat installieren“</em> zwingend <strong>„CA-Zertifikat“</strong> auswählen!
               </p>
             </div>
           </div>

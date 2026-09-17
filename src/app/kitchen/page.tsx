@@ -18,6 +18,9 @@ import {
   Filter,
   Check,
   Printer,
+  Ban,
+  Search,
+  X,
 } from 'lucide-react';
 
 import StationGate from '@/components/auth/station-gate';
@@ -56,6 +59,14 @@ interface CategoryOption {
   name: string;
 }
 
+interface ProductSoldOutItem {
+  id: string;
+  name: string;
+  isSoldOut: boolean;
+  categoryId?: string | null;
+  category?: { id: string; name: string } | null;
+}
+
 function KitchenMonitorContent() {
   const { socket } = useSocket();
   const { error: toastError, success: toastSuccess } = useToast();
@@ -67,6 +78,13 @@ function KitchenMonitorContent() {
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [voidAlert, setVoidAlert] = useState<string | null>(null);
+
+  // Ausverkauft-Schnellzugriff & Modal
+  const [productsList, setProductsList] = useState<ProductSoldOutItem[]>([]);
+  const [showSoldOutModal, setShowSoldOutModal] = useState(false);
+  const [soldOutSearch, setSoldOutSearch] = useState('');
+  const [soldOutFilterCategory, setSoldOutFilterCategory] = useState<string>('ALL');
+  const [togglingProductId, setTogglingProductId] = useState<string | null>(null);
 
   const fetchCategories = async () => {
     try {
@@ -103,9 +121,54 @@ function KitchenMonitorContent() {
     }
   };
 
+  const fetchProducts = async () => {
+    try {
+      const res = await fetch('/api/products');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setProductsList(data);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleToggleSoldOut = async (prod: ProductSoldOutItem) => {
+    triggerHapticFeedback();
+    setTogglingProductId(prod.id);
+    const nextVal = !prod.isSoldOut;
+    try {
+      const res = await fetch(`/api/products/${prod.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isSoldOut: nextVal }),
+      });
+      if (res.ok) {
+        setProductsList((prev) =>
+          prev.map((p) => (p.id === prod.id ? { ...p, isSoldOut: nextVal } : p))
+        );
+        if (nextVal) {
+          toastSuccess(`"${prod.name}" als ausverkauft markiert`);
+        } else {
+          toastSuccess(`"${prod.name}" wieder verfügbar`);
+        }
+      } else {
+        const j = await res.json().catch(() => ({}));
+        toastError(j.error || 'Fehler beim Ändern des Ausverkauft-Status');
+      }
+    } catch {
+      toastError('Netzwerkfehler beim Ändern des Status');
+    } finally {
+      setTogglingProductId(null);
+    }
+  };
+
   useEffect(() => {
     fetchCategories();
     fetchKdsOrders();
+    fetchProducts();
 
     const timer = setInterval(() => setCurrentTime(Date.now()), 10000);
 
@@ -117,6 +180,12 @@ function KitchenMonitorContent() {
 
       socket.on('kds:item_updated', () => fetchKdsOrders());
       socket.on('kds:order_updated', () => fetchKdsOrders());
+
+      socket.on('product:updated', (updated: ProductSoldOutItem) => {
+        setProductsList((prev) =>
+          prev.map((p) => (p.id === updated.id ? { ...p, isSoldOut: updated.isSoldOut } : p))
+        );
+      });
 
       // Spec 6.4: Storno akustisch und sichtbar melden
       socket.on('order:voided', (payload: { reason?: string }) => {
@@ -139,6 +208,7 @@ function KitchenMonitorContent() {
         socket.off('order:new');
         socket.off('kds:item_updated');
         socket.off('kds:order_updated');
+        socket.off('product:updated');
         socket.off('order:voided');
         socket.off('order:course_released');
       }
@@ -237,6 +307,21 @@ function KitchenMonitorContent() {
     }
   }
 
+  const soldOutCount = productsList.filter((p) => p.isSoldOut).length;
+
+  const filteredSoldOutProducts = productsList.filter((prod) => {
+    const matchesSearch = !soldOutSearch || prod.name.toLowerCase().includes(soldOutSearch.toLowerCase());
+    if (!matchesSearch) return false;
+    if (soldOutFilterCategory === 'SOLDOUT_ONLY') {
+      return prod.isSoldOut;
+    }
+    if (soldOutFilterCategory !== 'ALL') {
+      const catId = prod.categoryId || prod.category?.id;
+      return catId === soldOutFilterCategory;
+    }
+    return true;
+  });
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white">
       {/* Spec 6.4: Storno-Hinweis für die Küche */}
@@ -263,6 +348,30 @@ function KitchenMonitorContent() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Ausverkauft / Artikel sperren Schnellzugriff */}
+            <button
+              type="button"
+              onClick={() => {
+                triggerHapticFeedback();
+                fetchProducts();
+                setShowSoldOutModal(true);
+              }}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition border ${
+                soldOutCount > 0
+                  ? 'bg-rose-950/80 text-rose-300 border-rose-600 shadow-md font-black'
+                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+              }`}
+              title="Artikel als ausverkauft sperren oder wieder freigeben"
+            >
+              <Ban className="w-3.5 h-3.5 text-rose-400" />
+              <span>Ausverkauft</span>
+              {soldOutCount > 0 && (
+                <span className="bg-rose-600 text-white px-1.5 py-0.2 rounded text-[10px] font-black animate-pulse">
+                  {soldOutCount}
+                </span>
+              )}
+            </button>
+
             {/* Filter Toggle Button */}
             <button
               type="button"
@@ -604,6 +713,164 @@ function KitchenMonitorContent() {
           </div>
         )}
       </div>
+
+      {/* Ausverkauft Modal für die Küche */}
+      {showSoldOutModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-rose-600/20 text-rose-400 border border-rose-600/30 rounded-2xl">
+                  <Ban className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-white">Artikel als ausverkauft sperren</h3>
+                  <p className="text-xs text-slate-400">
+                    Gesperrte Artikel können von Bedienungen nicht mehr neu eingegeben werden.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSoldOutModal(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Filter & Suche */}
+            <div className="p-4 border-b border-slate-800 space-y-3 bg-slate-900/50">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Artikel suchen (z.B. Schnitzel, Bier)..."
+                  value={soldOutSearch}
+                  onChange={(e) => setSoldOutSearch(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
+                />
+              </div>
+
+              {/* Kategorie-Tabs */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setSoldOutFilterCategory('ALL')}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition shrink-0 ${
+                    soldOutFilterCategory === 'ALL'
+                      ? 'bg-amber-500 text-black shadow'
+                      : 'bg-slate-800 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  Alle ({productsList.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSoldOutFilterCategory('SOLDOUT_ONLY')}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition shrink-0 ${
+                    soldOutFilterCategory === 'SOLDOUT_ONLY'
+                      ? 'bg-rose-600 text-white shadow'
+                      : 'bg-slate-800 text-rose-300 hover:text-white'
+                  }`}
+                >
+                  Nur Gesperrte ({soldOutCount})
+                </button>
+                {categories.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setSoldOutFilterCategory(c.id)}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition shrink-0 ${
+                      soldOutFilterCategory === c.id
+                        ? 'bg-amber-500 text-black shadow'
+                        : 'bg-slate-800 text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Produkt-Liste */}
+            <div className="p-4 flex-1 overflow-y-auto space-y-2">
+              {filteredSoldOutProducts.length === 0 ? (
+                <div className="text-center py-10 text-slate-500 text-sm">
+                  Keine passenden Artikel gefunden.
+                </div>
+              ) : (
+                filteredSoldOutProducts.map((prod) => (
+                  <div
+                    key={prod.id}
+                    className={`p-3.5 rounded-2xl border transition flex items-center justify-between gap-3 ${
+                      prod.isSoldOut
+                        ? 'bg-rose-950/30 border-rose-800/80 shadow'
+                        : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`font-bold text-sm ${prod.isSoldOut ? 'text-rose-200 line-through' : 'text-white'}`}>
+                          {prod.name}
+                        </span>
+                        {prod.isSoldOut && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-600 text-white uppercase tracking-wider">
+                            Ausverkauft
+                          </span>
+                        )}
+                      </div>
+                      {prod.category?.name && (
+                        <span className="text-xs text-slate-400">
+                          {prod.category.name}
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={togglingProductId === prod.id}
+                      onClick={() => handleToggleSoldOut(prod)}
+                      className={`pos-touch-btn px-4 py-2 rounded-xl text-xs font-black transition active:scale-95 flex items-center gap-1.5 shadow ${
+                        prod.isSoldOut
+                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                          : 'bg-rose-600 hover:bg-rose-500 text-white'
+                      }`}
+                    >
+                      {prod.isSoldOut ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>Wieder freigeben</span>
+                        </>
+                      ) : (
+                        <>
+                          <Ban className="w-4 h-4" />
+                          <span>Als ausverkauft sperren</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-800 flex items-center justify-between bg-slate-950/60">
+              <span className="text-xs text-slate-400">
+                {soldOutCount} Artikel aktuell gesperrt
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowSoldOutModal(false)}
+                className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm rounded-xl transition"
+              >
+                Schließen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

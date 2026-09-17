@@ -5,7 +5,7 @@ import path from 'path';
 
 describe('OpenBon v0.4.37: Cash Ergonomics, Hardware Metrics & Item Counter Polish', () => {
   it('should verify APP_VERSION is at least 0.4.37', () => {
-    expect(['0.4.37', '0.4.38', '0.4.39', '0.4.40', '0.4.41', '0.4.42', '0.4.43', '0.4.44', '0.4.45', '0.4.46', '0.4.47', '0.4.48', '0.4.49', '0.4.50', '0.4.51', '0.4.52', '0.4.53', '0.4.54', '0.4.55', '0.4.56']).toContain(APP_VERSION);
+    expect(['0.4.37', '0.4.38', '0.4.39', '0.4.40', '0.4.41', '0.4.42', '0.4.43', '0.4.44', '0.4.45', '0.4.46', '0.4.47', '0.4.48', '0.4.49', '0.4.50', '0.4.51', '0.4.52', '0.4.53', '0.4.54', '0.4.55', '0.4.56', '0.4.57']).toContain(APP_VERSION);
   });
 
   describe('Payable items initial selection and tap logic', () => {

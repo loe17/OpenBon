@@ -30,8 +30,12 @@ export async function GET() {
       return {
         id: dev.id,
         name: dev.name,
+        waiterName: dev.waiterName || null,
         role: dev.role,
+        batteryLevel: dev.batteryLevel,
+        isCharging: dev.isCharging,
         status: dev.status,
+        connectedAt: dev.connectedAt,
         lastSeenAt: dev.lastSeenAt || dev.lastSeen || dev.connectedAt,
       };
     });
