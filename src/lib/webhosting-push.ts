@@ -69,7 +69,8 @@ export function pushReceiptToWebhostingAsync(
 export async function pushMenuToWebhosting(
   baseUrl: string,
   syncToken: string,
-  eventName?: string
+  eventName?: string,
+  expiresAt?: number | null
 ): Promise<{ success: boolean; message: string }> {
   if (!isExternalBridgeUrl(baseUrl)) {
     return { success: false, message: 'Keine gültige externe Webhosting-Adresse (https://...) hinterlegt.' };
@@ -104,6 +105,9 @@ export async function pushMenuToWebhosting(
   formData.append('menu_file', blob, menuFile);
   if (eventName) {
     formData.append('eventName', eventName);
+  }
+  if (expiresAt && expiresAt > 0) {
+    formData.append('expiresAt', String(Math.floor(expiresAt)));
   }
 
   try {

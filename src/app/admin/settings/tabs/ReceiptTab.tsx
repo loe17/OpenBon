@@ -234,6 +234,7 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
   } | null>(null);
   const [isUploadingMenu, setIsUploadingMenu] = useState(false);
   const [isSyncingMenu, setIsSyncingMenu] = useState(false);
+  const [menuExpiresAt, setMenuExpiresAt] = useState<string>('');
   const [isTestingBridge, setIsTestingBridge] = useState(false);
   const [testBridgeResult, setTestBridgeResult] = useState<{
     success: boolean;
@@ -328,6 +329,7 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
           baseUrl: config.baseUrl,
           syncToken: config.webhostingSyncToken,
           eventName: config.name,
+          expiresAt: menuExpiresAt ? new Date(menuExpiresAt).toISOString() : null,
         }),
       });
       const data = await res.json();
@@ -1399,58 +1401,90 @@ export function ReceiptTab({ config, onChange, printers }: ReceiptTabProps) {
                   <div className="flex flex-wrap items-center gap-2 pt-1">
                     {menuInfo?.exists ? (
                       <>
-                        <div className="flex items-center gap-2 px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200">
-                          <FileText className="w-4 h-4 text-indigo-400 shrink-0" />
-                          <span className="font-mono font-medium truncate max-w-[200px]">
-                            {menuInfo.filename}
-                          </span>
-                          {menuInfo.sizeBytes && (
-                            <span className="text-slate-500 text-[10px]">
-                              ({(menuInfo.sizeBytes / (1024 * 1024)).toFixed(1)} MB)
+                        <div className="w-full flex flex-wrap items-center gap-2">
+                          <div className="flex items-center gap-2 px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-200">
+                            <FileText className="w-4 h-4 text-indigo-400 shrink-0" />
+                            <span className="font-mono font-medium truncate max-w-[200px]">
+                              {menuInfo.filename}
                             </span>
-                          )}
-                        </div>
+                            {menuInfo.sizeBytes && (
+                              <span className="text-slate-500 text-[10px]">
+                                ({(menuInfo.sizeBytes / (1024 * 1024)).toFixed(1)} MB)
+                              </span>
+                            )}
+                          </div>
 
-                        {menuInfo.url && (
-                          <a
-                            href={menuInfo.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          {menuInfo.url && (
+                            <a
+                              href={menuInfo.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-xs font-bold transition"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                              <span>Vorschau</span>
+                            </a>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploadingMenu}
                             className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-xs font-bold transition"
                           >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                            <span>Vorschau</span>
-                          </a>
-                        )}
+                            <FileUp className="w-3.5 h-3.5" />
+                            <span>Ersetzen</span>
+                          </button>
 
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={isUploadingMenu}
-                          className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-xs font-bold transition"
-                        >
-                          <FileUp className="w-3.5 h-3.5" />
-                          <span>Ersetzen</span>
-                        </button>
+                          <button
+                            type="button"
+                            onClick={handleDeleteMenu}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-900/50 text-rose-300 rounded-xl text-xs font-bold transition"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Löschen</span>
+                          </button>
+                        </div>
 
-                        <button
-                          type="button"
-                          onClick={handleDeleteMenu}
-                          className="flex items-center gap-1.5 px-3 py-2 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-900/50 text-rose-300 rounded-xl text-xs font-bold transition"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Löschen</span>
-                        </button>
+                        <div className="w-full p-3 bg-slate-900/60 border border-slate-800 rounded-xl space-y-2 mt-1">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="space-y-1">
+                              <label className="text-xs font-semibold text-slate-200 block">
+                                Automatisches Ablaufdatum auf Webhosting (optional):
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="datetime-local"
+                                  value={menuExpiresAt}
+                                  onChange={(e) => setMenuExpiresAt(e.target.value)}
+                                  className="px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white focus:border-indigo-500 outline-none"
+                                />
+                                {menuExpiresAt && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setMenuExpiresAt('')}
+                                    className="text-xs text-slate-400 hover:text-slate-200 underline"
+                                  >
+                                    Zurücksetzen
+                                  </button>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-slate-400">
+                                Ohne Eingabe wird die Speisekarte automatisch nach 7 Tagen gelöscht. Mit Datum verschwindet sie pünktlich zum Festende vom Server – auch wenn OpenBon ausgeschaltet ist.
+                              </p>
+                            </div>
 
-                        <button
-                          type="button"
-                          onClick={handleSyncMenuToWebhosting}
-                          disabled={isSyncingMenu}
-                          className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow ml-auto"
-                        >
-                          <Upload className="w-3.5 h-3.5" />
-                          <span>{isSyncingMenu ? 'Übertrage...' : 'Jetzt auf Webhosting übertragen'}</span>
-                        </button>
+                            <button
+                              type="button"
+                              onClick={handleSyncMenuToWebhosting}
+                              disabled={isSyncingMenu}
+                              className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow shrink-0"
+                            >
+                              <Upload className="w-4 h-4" />
+                              <span>{isSyncingMenu ? 'Übertrage...' : 'Jetzt auf Webhosting übertragen'}</span>
+                            </button>
+                          </div>
+                        </div>
                       </>
                     ) : (
                       <>

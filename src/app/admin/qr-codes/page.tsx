@@ -28,6 +28,9 @@ interface NetworkInfo {
   localIp?: string;
   localDomainUrl?: string;
   ipBaseUrl?: string;
+  httpsBaseUrl?: string;
+  httpsDomainUrl?: string;
+  httpsPort?: string;
   hostname?: string;
   port?: number;
 }
@@ -52,6 +55,7 @@ export default function QrCodesPage() {
   const [printers, setPrinters] = useState<any[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = useState('');
   const [useDomainUrl, setUseDomainUrl] = useState(false);
+  const [useHttps, setUseHttps] = useState(false);
   const [pins, setPins] = useState({
     adminPin: '1234',
     posPin: '1111',
@@ -134,7 +138,7 @@ export default function QrCodesPage() {
     },
   ]);
 
-  const fetchNetworkAndGenerate = async (preferDomain = useDomainUrl) => {
+  const fetchNetworkAndGenerate = async (preferDomain = useDomainUrl, preferHttps = useHttps) => {
     try {
       const [ipRes, prnRes, cfgRes] = await Promise.all([
         fetch('/api/network-ip'),
@@ -159,9 +163,16 @@ export default function QrCodesPage() {
       };
       setPins(activePins);
 
-      const baseUrl = preferDomain
-        ? ipData.localDomainUrl || 'http://openbon.local:3000'
-        : ipData.ipBaseUrl || ipData.baseUrl || window.location.origin;
+      let baseUrl = '';
+      if (preferHttps) {
+        baseUrl = preferDomain
+          ? ipData.httpsDomainUrl || 'https://openbon.local:3443'
+          : ipData.httpsBaseUrl || `https://${ipData.ip || '127.0.0.1'}:3443`;
+      } else {
+        baseUrl = preferDomain
+          ? ipData.localDomainUrl || 'http://openbon.local:3000'
+          : ipData.ipBaseUrl || ipData.baseUrl || window.location.origin;
+      }
 
       const generated = await Promise.all(
         stations.map(async (s) => {
@@ -191,8 +202,8 @@ export default function QrCodesPage() {
   };
 
   useEffect(() => {
-    fetchNetworkAndGenerate(useDomainUrl);
-  }, [useDomainUrl]);
+    fetchNetworkAndGenerate(useDomainUrl, useHttps);
+  }, [useDomainUrl, useHttps]);
 
   const handleCopy = (text: string, id: string) => {
     triggerHapticFeedback();
@@ -279,22 +290,47 @@ export default function QrCodesPage() {
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-6 flex flex-wrap items-center justify-between gap-4 shadow-md no-print">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-slate-800 rounded-xl text-blue-400">
-            <Globe className="w-5 h-5" />
+            {useHttps ? <Lock className="w-5 h-5 text-emerald-400" /> : <Globe className="w-5 h-5" />}
           </div>
           <div>
-            <div className="text-xs font-bold text-slate-300">Netzwerk-Zugriffsmodus</div>
+            <div className="text-xs font-bold text-slate-300">Netzwerk-Zugriffsmodus &amp; Protokoll</div>
             <div className="text-xs text-slate-400">
               Aktuell:{' '}
               <span className="text-white font-mono font-bold">
-                {useDomainUrl
+                {useHttps
+                  ? useDomainUrl
+                    ? networkInfo?.httpsDomainUrl || 'https://openbon.local:3443'
+                    : networkInfo?.httpsBaseUrl || 'https://...:3443'
+                  : useDomainUrl
                   ? networkInfo?.localDomainUrl || 'http://openbon.local:3000'
-                  : networkInfo?.ipBaseUrl || 'IP-Adresse'}
+                  : networkInfo?.ipBaseUrl || 'http://...:3000'}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* HTTP vs HTTPS Toggle */}
+          <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <button
+              onClick={() => setUseHttps(false)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                !useHttps ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              HTTP (3000)
+            </button>
+            <button
+              onClick={() => setUseHttps(true)}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                useHttps ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>HTTPS (3443)</span>
+            </button>
+          </div>
+
           <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
             <button
               onClick={() => setUseDomainUrl(false)}

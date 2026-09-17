@@ -28,7 +28,20 @@ export async function POST(req: Request) {
       }
     }
 
-    const result = await pushMenuToWebhosting(baseUrl, syncToken, eventName);
+    const rawExpiresAt = body.expiresAt;
+    let expiresAtSec: number | null = null;
+    if (rawExpiresAt) {
+      if (typeof rawExpiresAt === 'number') {
+        expiresAtSec = rawExpiresAt > 10000000000 ? Math.floor(rawExpiresAt / 1000) : rawExpiresAt;
+      } else if (typeof rawExpiresAt === 'string') {
+        const parsed = new Date(rawExpiresAt).getTime();
+        if (!isNaN(parsed)) {
+          expiresAtSec = Math.floor(parsed / 1000);
+        }
+      }
+    }
+
+    const result = await pushMenuToWebhosting(baseUrl, syncToken, eventName, expiresAtSec);
 
     if (!result.success) {
       return NextResponse.json({ error: result.message }, { status: 400 });

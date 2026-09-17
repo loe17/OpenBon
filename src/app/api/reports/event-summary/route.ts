@@ -90,7 +90,7 @@ export async function GET(req: Request) {
   if (!auth.ok) return auth.response;
 
   try {
-    const [config, payments, orders, waiterProfiles] = await Promise.all([
+    const [config, payments, orders, waiterProfiles, dbProducts] = await Promise.all([
       prisma.eventConfig.findFirst(),
       prisma.payment.findMany({
         where: { isCancelled: false, isTraining: false },
@@ -100,18 +100,19 @@ export async function GET(req: Request) {
       prisma.order.findMany({
         where: { status: { not: 'CANCELLED' }, isTraining: false },
         include: {
-          items: {
-            include: {
-              product: {
-                include: { category: true },
-              },
-            },
-          },
+          items: true,
         },
         orderBy: { createdAt: 'asc' },
       }),
       prisma.waiterProfile.findMany({ where: { isActive: true } }),
+      prisma.product.findMany({
+        include: { category: true },
+      }),
     ]);
+
+    const productCatalogMap = new Map<string, any>(
+      dbProducts.map((p) => [p.id, p])
+    );
 
     const eventName = config?.name || 'OpenBon Veranstaltung';
     const eventSubtitle = config?.receiptSubHeader || undefined;
@@ -245,7 +246,11 @@ export async function GET(req: Request) {
 
       for (const item of ord.items) {
         if (item.isCancelled) continue;
-        const itemType = classifyItem(item);
+        const dbProd = item.productId ? productCatalogMap.get(item.productId) : null;
+        const itemType = classifyItem({
+          productName: item.productName || 'Artikel',
+          product: dbProd,
+        });
         if (itemType === 'SPEISE') {
           totalFoodCount += item.quantity;
           day.foodCount += item.quantity;
@@ -436,8 +441,9 @@ export async function GET(req: Request) {
     // Default: JSON
     return NextResponse.json(summaryData);
   } catch (err: any) {
+    console.error('[EVENT_SUMMARY_ERROR]', err);
     return NextResponse.json(
-      { error: err?.message || 'Fehler beim Erstellen des Abschlussberichts' },
+      { error: err?.message ? `Fehler beim Erstellen des Abschlussberichts: ${err.message}` : 'Fehler beim Erstellen des Abschlussberichts' },
       { status: 500 }
     );
   }

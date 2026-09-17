@@ -30,10 +30,10 @@ if (file_exists($eventFile)) {
 }
 
 $receiptsDir = __DIR__ . '/receipts';
+$now = time();
 
 // 1. Automatische Selbstreinigung: Belege älter als 24 Stunden (86.400 Sek.) löschen
 if (is_dir($receiptsDir)) {
-    $now = time();
     $files = glob($receiptsDir . '/*.json');
     if ($files) {
         foreach ($files as $f) {
@@ -42,6 +42,30 @@ if (is_dir($receiptsDir)) {
             }
         }
     }
+}
+
+// 1b. Automatische Selbstreinigung der Speisekarte: Nach 7 Tagen (604.800 Sek.) oder Wunsch-Ablaufdatum löschen
+$menuMetaFile = __DIR__ . '/menu-meta.json';
+$menuExpired = false;
+if (file_exists($menuMetaFile)) {
+    $meta = json_decode(@file_get_contents($menuMetaFile), true);
+    if (!empty($meta['expiresAt']) && is_numeric($meta['expiresAt']) && $now >= (int)$meta['expiresAt']) {
+        $menuExpired = true;
+    }
+}
+
+$menuFiles = [__DIR__ . '/menu.pdf', __DIR__ . '/menu.jpg', __DIR__ . '/menu.png', __DIR__ . '/products.json'];
+$anyFileExpired = false;
+foreach ($menuFiles as $mf) {
+    if (file_exists($mf) && ($now - filemtime($mf) > 604800)) {
+        $anyFileExpired = true;
+    }
+}
+if ($menuExpired || $anyFileExpired) {
+    foreach ($menuFiles as $mf) {
+        @unlink($mf);
+    }
+    @unlink($menuMetaFile);
 }
 
 // 2. Parameter auswerten
@@ -272,52 +296,60 @@ function renderReceiptPage($code, $data, $defaultEventName) {
 }
 
 function renderMenuPage($eventName, $pdfExists, $imgJpgExists, $imgPngExists, $productsJsonExists) {
+    if ($pdfExists) {
+        $pdfPath = __DIR__ . '/menu.pdf';
+        if (file_exists($pdfPath)) {
+            // Direktes, randloses Ausliefern des PDFs auf die volle Bildschirmbreite mit nativem Finger-Zoom
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: inline; filename="Speisekarte.pdf"');
+            header('Content-Length: ' . filesize($pdfPath));
+            header('Cache-Control: public, max-age=3600');
+            @readfile($pdfPath);
+            exit;
+        }
+    }
+
+    if ($imgJpgExists || $imgPngExists) {
+        $imgSrc = $imgJpgExists ? 'menu.jpg' : 'menu.png';
+        ?>
+        <!DOCTYPE html>
+        <html lang="de">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+            <title><?= htmlspecialchars($eventName) ?> | Speisekarte</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                html, body { background: #030712; width: 100%; min-height: 100%; display: flex; justify-content: center; }
+                img { width: 100%; max-width: 1000px; height: auto; display: block; }
+            </style>
+        </head>
+        <body>
+            <img src="<?= $imgSrc ?>" alt="Speisekarte" />
+        </body>
+        </html>
+        <?php
+        exit;
+    }
     ?>
     <!DOCTYPE html>
     <html lang="de" class="dark">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Speise- & Getränkekarte | <?= htmlspecialchars($eventName) ?></title>
+        <title>Speisekarte | <?= htmlspecialchars($eventName) ?></title>
         <style>
             :root { color-scheme: dark; }
-            * { box-sizing: border-box; margin: 0; padding: 0; }
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #030712; color: #f9fafb; padding: 16px; display: flex; justify-content: center; }
-            .container { width: 100%; max-width: 680px; }
-            .header { text-align: center; margin-bottom: 20px; }
-            .title { font-size: 26px; font-weight: 900; color: #38bdf8; }
-            .subtitle { font-size: 13px; color: #94a3b8; margin-top: 4px; }
-            .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 24px; padding: 20px; box-shadow: 0 15px 30px rgba(0,0,0,0.5); }
-            .btn-action { display: inline-block; padding: 12px 20px; background: #2563eb; color: #fff; text-decoration: none; border-radius: 14px; font-weight: 700; font-size: 14px; margin-top: 12px; }
-            .img-viewer { width: 100%; border-radius: 16px; border: 1px solid #1e293b; display: block; margin-top: 12px; }
-            .pdf-frame { width: 100%; height: 600px; border-radius: 16px; border: 1px solid #1e293b; margin-top: 12px; }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #030712; color: #f9fafb; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; margin: 0; }
+            .box { background: #0f172a; border: 1px solid #1e293b; border-radius: 20px; padding: 32px 24px; max-width: 420px; text-align: center; }
+            h2 { color: #38bdf8; font-size: 20px; margin-bottom: 10px; }
+            p { font-size: 14px; color: #94a3b8; line-height: 1.5; }
         </style>
     </head>
     <body>
-        <div class="container">
-            <div class="header">
-                <h1 class="title"><?= htmlspecialchars($eventName) ?></h1>
-                <p class="subtitle">Digitale Speise- & Getränkekarte</p>
-            </div>
-
-            <div class="card">
-                <?php if ($pdfExists): ?>
-                    <p style="font-size: 14px; color: #cbd5e1;">Die offizielle Speisekarte steht als PDF bereit:</p>
-                    <a href="menu.pdf" target="_blank" class="btn-action">Speisekarte im Vollbild / Download (PDF)</a>
-                    <iframe src="menu.pdf#toolbar=0" class="pdf-frame"></iframe>
-                <?php elseif ($imgJpgExists || $imgPngExists): 
-                    $imgSrc = $imgJpgExists ? 'menu.jpg' : 'menu.png';
-                ?>
-                    <p style="font-size: 14px; color: #cbd5e1;">Aushang der aktuellen Speisekarte:</p>
-                    <a href="<?= $imgSrc ?>" target="_blank" class="btn-action">Bild vergrößern</a>
-                    <img src="<?= $imgSrc ?>" alt="Speisekarte" class="img-viewer" />
-                <?php else: ?>
-                    <div style="text-align: center; padding: 40px 10px;">
-                        <h2 style="font-size: 18px; margin-bottom: 8px;">Willkommen!</h2>
-                        <p style="font-size: 13px; color: #94a3b8;">Die Speisekarte wird in Kürze von der Festleitung hochgeladen.</p>
-                    </div>
-                <?php endif; ?>
-            </div>
+        <div class="box">
+            <h2><?= htmlspecialchars($eventName) ?></h2>
+            <p>Die Speisekarte zu dieser Veranstaltung ist abgelaufen oder steht derzeit nicht zur Verfügung.</p>
         </div>
     </body>
     </html>
@@ -406,6 +438,13 @@ if ($action === 'push_receipt') {
 if ($action === 'upload_menu') {
     if (!empty($_POST['eventName'])) {
         @file_put_contents(__DIR__ . '/event.json', json_encode(['name' => $_POST['eventName'], 'updatedAt' => date('c')]));
+    }
+
+    $expiresAt = !empty($_POST['expiresAt']) ? (int)$_POST['expiresAt'] : null;
+    if ($expiresAt !== null && $expiresAt > 0) {
+        @file_put_contents(__DIR__ . '/menu-meta.json', json_encode(['expiresAt' => $expiresAt, 'updatedAt' => date('c')]));
+    } else {
+        @unlink(__DIR__ . '/menu-meta.json');
     }
 
     if (!empty($_FILES['menu_file'])) {

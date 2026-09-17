@@ -18,14 +18,19 @@ export async function GET() {
       }
     }
 
+    const httpsPort = process.env.HTTPS_PORT || '3443';
     const portSuffix = port === '80' ? '' : `:${port}`;
+    const httpsPortSuffix = httpsPort === '443' ? '' : `:${httpsPort}`;
 
     return NextResponse.json({
       ip: localIp,
       port,
+      httpsPort,
       ipBaseUrl: `http://${localIp}${portSuffix}`,
       localDomainUrl: `http://openbon.local${portSuffix}`,
       baseUrl: `http://${localIp}${portSuffix}`,
+      httpsBaseUrl: `https://${localIp}${httpsPortSuffix}`,
+      httpsDomainUrl: `https://openbon.local${httpsPortSuffix}`,
       hostName: os.hostname(),
     });
   } catch (error) {

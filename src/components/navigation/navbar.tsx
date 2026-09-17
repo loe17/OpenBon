@@ -369,16 +369,28 @@ export default function Navbar() {
   // Navigationsgruppen für den Admin-Bereich
   const adminGroups: NavGroup[] = [
     {
+      id: 'operations',
+      label: 'Verkauf & Live-Betrieb',
+      icon: LayoutGrid,
+      items: [
+        { href: '/pos', label: 'Bonkasse (Thekenverkauf)', icon: CreditCard, roles: ['ADMIN'] },
+        { href: '/waiter', label: 'Bedienung (Tischaufnahme)', icon: Smartphone, roles: ['ADMIN'] },
+        { href: '/kitchen', label: 'Küchenmonitor (KDS)', icon: ChefHat, roles: ['ADMIN'] },
+        { href: '/admin/tables', label: 'Tischplan Designer', icon: Grid, roles: ['ADMIN'] },
+        { href: '/taps', label: 'Fass- & Schankmonitor', icon: Beer, roles: ['ADMIN'] },
+        { href: '/customer-display', label: 'Kundendisplay (Monitor)', icon: Monitor, roles: ['ADMIN'] },
+        { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['ADMIN'] },
+      ],
+    },
+    {
       id: 'inventory',
       label: 'Sortiment & Warenwirtschaft',
       icon: Package,
       items: [
         { href: '/admin/products', label: 'Artikel & Speisekarte', icon: Utensils, roles: ['ADMIN'] },
         { href: '/admin/inventory', label: 'Warenbestand je Artikel', icon: Package, roles: ['ADMIN'] },
-        // Lagerposten, von denen mehrere Artikel gemeinsam abziehen (Broetchen, Schnitzel).
         { href: '/admin/stock-units', label: 'Lagerposten & Verbrauch', icon: Boxes, roles: ['ADMIN'] },
         { href: '/admin/procurement', label: 'Lieferanten-Bestellvorschlag', icon: Truck, roles: ['ADMIN'] },
-        { href: '/taps', label: 'Fass- & Schankmonitor', icon: Beer, roles: ['ADMIN'] },
       ],
     },
     {
@@ -386,39 +398,36 @@ export default function Navbar() {
       label: 'Kasse, Abrechnung & Finanzen',
       icon: Wallet,
       items: [
-        { href: '/admin/reports', label: 'Statistik & Z-Bon', icon: BarChart3, roles: ['ADMIN'] },
+        { href: '/admin/reports', label: 'Berichte, Statistik & Z-Bon', icon: BarChart3, roles: ['ADMIN'] },
         { href: '/admin/cashbook', label: 'Kassenbuch & Barverkehr', icon: Wallet, roles: ['ADMIN'] },
+        { href: '/admin/settle', label: 'Personal & Schichtabrechnung', icon: Coins, roles: ['ADMIN'] },
         { href: '/admin/accounting', label: 'DATEV Kassenbuch Export', icon: BookOpen, roles: ['ADMIN'] },
         { href: '/admin/fiscal', label: 'DSFinV-K & TSE Archiv (Beta)', icon: ShieldCheck, roles: ['ADMIN'] },
-        { href: '/admin/settle', label: 'Personal & Abrechnung', icon: Wallet, roles: ['ADMIN'] },
         { href: '/admin/tokens', label: 'Wertmarken & Bons', icon: Ticket, roles: ['ADMIN'] },
       ],
     },
     {
       id: 'hardware',
-      label: 'Geräte, Tische & Hardware',
-      icon: Grid,
+      label: 'Geräte, Drucker & Stationen',
+      icon: Printer,
       items: [
-        { href: '/admin/tables', label: 'Tischplan Designer', icon: Grid, roles: ['ADMIN'] },
         { href: '/admin/printers', label: 'Drucker & Druckgruppen', icon: Printer, roles: ['ADMIN'] },
-        { href: '/admin/virtual-printer', label: 'Virtueller Drucker-Monitor', icon: Printer, roles: ['ADMIN'] },
-        { href: '/customer-display', label: 'Kundendisplay (Monitor)', icon: Monitor, roles: ['ADMIN'] },
+        { href: '/admin/virtual-printer', label: 'Virtueller Drucker-Monitor', icon: Terminal, roles: ['ADMIN'] },
         { href: '/admin/devices', label: 'Geräte-Manager', icon: Users, roles: ['ADMIN'] },
         { href: '/admin/qr-codes', label: 'QR Beitritts-Center', icon: QrCode, roles: ['ADMIN'] },
       ],
     },
     {
       id: 'system',
-      label: 'System & Konfiguration',
+      label: 'System & Verwaltung',
       icon: Settings,
       items: [
         { href: '/admin/dashboard', label: 'Admin Command Center', icon: LayoutDashboard, roles: ['ADMIN'] },
-        { href: '/admin/logs', label: 'System- & Revisionsprotokoll', icon: BookOpen, roles: ['ADMIN'] },
-        { href: '/admin/diagnostics', label: 'Testbetrieb & Hardware-Diagnose', icon: Activity, roles: ['ADMIN'] },
-        { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['ADMIN'] },
         { href: '/admin/settings', label: 'Grundeinstellungen & Bon-Design', icon: Settings, roles: ['ADMIN'] },
         { href: '/admin/backup', label: 'Datensicherung & Auto-Backup', icon: ShieldCheck, roles: ['ADMIN'] },
         { href: '/admin/system-update', label: 'System-Update & Konsole', icon: HardDrive, roles: ['ADMIN'] },
+        { href: '/admin/diagnostics', label: 'Testbetrieb & Hardware-Diagnose', icon: Activity, roles: ['ADMIN'] },
+        { href: '/admin/logs', label: 'System- & Revisionsprotokoll', icon: BookOpen, roles: ['ADMIN'] },
         { href: '/admin/docs', label: 'Handbuch & Anleitungen', icon: BookOpen, roles: ['ADMIN'] },
       ],
     },

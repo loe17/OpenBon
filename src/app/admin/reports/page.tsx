@@ -112,6 +112,10 @@ export default function AdminReportsPage() {
   /** Spec 6.7: X-Bon – Zwischenbericht ohne Kassenabschluss */
   const handlePrintXBon = async () => {
     triggerHapticFeedback();
+    if (printers.length > 0 && !selectedPrinterId) {
+      warning('Bitte wähle zuerst einen Drucker aus.');
+      return;
+    }
     try {
       const res = await fetch('/api/reports/x-bon', {
         method: 'POST',
@@ -119,12 +123,18 @@ export default function AdminReportsPage() {
         body: JSON.stringify({ printerId: selectedPrinterId || undefined }),
       });
       const body = await res.json();
+      if (res.ok) {
+        success('X-Bon (Zwischenbericht) erfolgreich gedruckt! Kasse bleibt geöffnet.');
+      } else {
+        error(body.error || 'X-Bon konnte nicht gedruckt werden.');
+      }
       setCloseResult(
         res.ok
           ? 'X-Bon gedruckt. Die Kasse bleibt geöffnet, Zähler unverändert.'
           : body.error || 'X-Bon konnte nicht gedruckt werden.'
       );
     } catch {
+      error('Drucker nicht erreichbar.');
       setCloseResult('Drucker nicht erreichbar.');
     }
   };

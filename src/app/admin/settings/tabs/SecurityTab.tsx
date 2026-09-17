@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, KeyRound, ShieldCheck, Users, ShieldAlert, Eye, EyeOff, Download } from 'lucide-react';
+import { Lock, KeyRound, ShieldCheck, Users, ShieldAlert, Eye, EyeOff, Download, RefreshCw } from 'lucide-react';
 import type { EventConfigDTO } from '@/types/domain';
 
 interface SecurityTabProps {
@@ -9,9 +9,27 @@ interface SecurityTabProps {
 
 export function SecurityTab({ config, onChange }: SecurityTabProps) {
   const [showPins, setShowPins] = useState<Record<string, boolean>>({});
+  const [isRegeneratingCert, setIsRegeneratingCert] = useState(false);
+  const [certMessage, setCertMessage] = useState<string | null>(null);
 
   const toggleShow = (key: string) => {
     setShowPins((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleRegenerateCert = async () => {
+    if (!confirm('Möchtest du das SSL-Zertifikat jetzt mit unbegrenzter Gültigkeit (100 Jahre) neu erstellen?')) return;
+    setIsRegeneratingCert(true);
+    setCertMessage(null);
+    try {
+      const res = await fetch('/api/system/cert', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Fehler beim Erstellen des Zertifikats');
+      setCertMessage('Neues Zertifikat erfolgreich erstellt! Gültigkeit: 100 Jahre (lebenslang).');
+    } catch (e: any) {
+      setCertMessage(`Fehler: ${e.message}`);
+    } finally {
+      setIsRegeneratingCert(false);
+    }
   };
 
   return (
@@ -194,10 +212,27 @@ export function SecurityTab({ config, onChange }: SecurityTabProps) {
               <Download className="w-4 h-4" />
               <span>Kassenzertifikat herunterladen (openbon-kasse.crt)</span>
             </a>
-            <span className="text-[11px] text-slate-500">
-              Gültig für lokale IP-Adressen und <code>openbon.local</code> (10 Jahre)
+
+            <button
+              type="button"
+              onClick={handleRegenerateCert}
+              disabled={isRegeneratingCert}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs transition"
+            >
+              <RefreshCw className={`w-4 h-4 text-emerald-400 ${isRegeneratingCert ? 'animate-spin' : ''}`} />
+              <span>{isRegeneratingCert ? 'Generiere...' : 'Neues Zertifikat erzeugen (100 Jahre unbegrenzt)'}</span>
+            </button>
+
+            <span className="text-[11px] text-slate-400">
+              Lebenslang gültig (100 Jahre) für lokale IP-Adressen und <code>openbon.local</code>
             </span>
           </div>
+
+          {certMessage && (
+            <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-emerald-300">
+              {certMessage}
+            </div>
+          )}
         </div>
       </div>
     </div>

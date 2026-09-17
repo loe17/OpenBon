@@ -68,7 +68,7 @@ async function getOrCreateSslCertificate() {
 
     const pems = await selfsigned.generate(attrs, {
       algorithm: 'sha256',
-      days: 3650, // 10 Jahre gültig
+      days: 36500, // 100 Jahre gültig (lebenslang unbegrenzt)
       keySize: 2048,
       extensions: [{ name: 'subjectAltName', altNames }],
     });
