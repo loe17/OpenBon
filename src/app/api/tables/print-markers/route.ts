@@ -37,6 +37,9 @@ export async function POST(req: Request) {
     const startNum = Math.min(Number(start) || 1, Number(end) || 1);
     const endNum = Math.max(Number(start) || 1, Number(end) || 1);
 
+    const rawCopies = body.copiesPerTable ?? body.copies;
+    const copiesPerTable = Math.max(1, Math.min(50, Number(rawCopies) || 2));
+
     let printedCount = 0;
 
     for (let tableNum = startNum; tableNum <= endNum; tableNum++) {
@@ -55,13 +58,14 @@ export async function POST(req: Request) {
         printer.paperWidth || 80
       );
 
-      await networkSpooler.sendRawBuffer(
-        printer,
-        rawBuffer,
-        textRepresentation
-      );
-
-      printedCount++;
+      for (let c = 0; c < copiesPerTable; c++) {
+        await networkSpooler.sendRawBuffer(
+          printer,
+          rawBuffer,
+          textRepresentation
+        );
+        printedCount++;
+      }
     }
 
     return NextResponse.json({ success: true, count: printedCount });

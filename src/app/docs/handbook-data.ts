@@ -684,6 +684,17 @@ export const HANDBOOK: DocChapter[] = [
           caption: 'Druckfertiger Tischplan mit klaren, großen Tischnummern',
         },
       },
+      {
+        id: '6.6',
+        heading: '6.6 Tischmarken für Biertische drucken (Bondrucker)',
+        paragraphs: [
+          'Über den Tischplan-Designer (/admin/tables) können praktische Tischmarken für Biertische und Garnituren auf jedem beliebigen Bondrucker ausgedruckt werden:',
+          '• Flexible Anzahl je Tisch (Standard: 2): Legen Sie fest, wie viele Marken pro Tisch gedruckt werden sollen (z. B. 2 Ausdrucke, damit an beiden Seiten einer langen Bierzeltgarnitur die Tischnummer gut sichtbar angebracht werden kann). Bei 10 Tischen und Anzahl 2 druckt OpenBon vollautomatisch 20 fertige Abschnitte.',
+          '• Maximale Schriftgröße (Vollbreite auf Stufe 10): Die Zifferngröße kann stufenlos von Stufe 1 bis 10 eingestellt werden. Auf der höchsten Stufe 10 nimmt die Tischnummer ohne störenden Umbruch die gesamte Rollenbreite des Bons ein – für perfekte Lesbarkeit selbst aus mehreren Metern Entfernung.',
+          '• Aufgeräumter Ausdruck: Störende gestrichelte Trennlinien und automatische Standardtexte wurden entfernt. Der Ausdruck bleibt sauber und minimalistisch (nur Tischnummer, optionaler Smartphone-Bestell-QR-Code und bei Bedarf ein individueller Zusatztext).',
+          '• Live-Vorschau in Echtzeit: Jede Anpassung der Schriftgröße, der Tischnummer oder des QR-Codes wird rechts im maßstabsgetreuen Belegfenster (58 mm oder 80 mm) sofort eins zu eins angezeigt.',
+        ],
+      },
     ],
   },
   {
@@ -1035,6 +1046,19 @@ export const HANDBOOK: DocChapter[] = [
           alt: 'System-Update Manager',
           caption: '1-Klick-Update-Manager mit Speicheranzeige und Release-Filter',
         },
+      },
+      {
+        id: '9.6',
+        heading: '9.6 Aufgeräumtes Hauptmenü & kompakte Menüführung',
+        paragraphs: [
+          'Das Hauptmenü (Seitenleiste) im Admin-Bereich ist übersichtlich in 4 logische Hauptkategorien unterteilt:',
+          '1. Sortiment & Warenwirtschaft: Artikel & Speisekarte, Warenbestände, Lagerposten & Verbrauch, Fass- & Schankmonitor sowie Einkaufs-Bestellvorschlag.',
+          '2. Kasse, Abrechnung & Finanzen: Berichte & Z-Bons, GoBD-Kassenbuch, Schichtabrechnung, DATEV-Export, TSE-Archiv und Wertmarken.',
+          '3. Geräte, Tische & Hardware: Tischplan-Designer, Drucker & Druckgruppen, Virtueller Drucker, Kundendisplay, Geräte-Manager und QR-Beitritt.',
+          '4. System & Verwaltung: Admin Command Center, Grundeinstellungen, Datensicherung & Backup, System-Update, Testbetrieb & Hardware-Diagnose, Revisions-Logs, Team-Funk und Handbuch.',
+          'Keine doppelten Verkaufsreiter: Die operativen Stationen "Bonkasse" und "Bedienung" sind oben im Menü über die 4 großen Kacheln "Station wechseln" erreichbar und wurden aus den Admin-Listen entfernt.',
+          'Kompakte Ansicht: Beim Öffnen des Menüs klappt automatisch nur diejenige Kategorie auf, auf deren Seite Sie sich gerade befinden. Dadurch bleibt das Menü angenehm kurz und übersichtlich auf einem Bildschirm sichtbar.',
+        ],
       },
     ],
   },

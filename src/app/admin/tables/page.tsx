@@ -79,9 +79,10 @@ export default function AdminTablesPage() {
   const [selectedPrinterId, setSelectedPrinterId] = useState('');
   const [markerStart, setMarkerStart] = useState(1);
   const [markerEnd, setMarkerEnd] = useState(24);
+  const [markerCopiesPerTable, setMarkerCopiesPerTable] = useState<number>(2);
   const [markerFontSize, setMarkerFontSize] = useState<number>(4);
   const [markerQrSize, setMarkerQrSize] = useState<number>(5);
-  const [markerNoteText, setMarkerNoteText] = useState('Tischnummer bitte bei Bestellung angeben');
+  const [markerNoteText, setMarkerNoteText] = useState('');
   const [markerPaperWidth, setMarkerPaperWidth] = useState<80 | 58>(80);
   const [includeQr, setIncludeQr] = useState(true);
   const [markerNumberOnly, setMarkerNumberOnly] = useState(false);
@@ -395,6 +396,7 @@ export default function AdminTablesPage() {
           printerId: selectedPrinterId,
           start: markerStart,
           end: markerEnd,
+          copiesPerTable: markerCopiesPerTable,
           fontSize: markerFontSize,
           qrSize: markerQrSize,
           noteText: markerNoteText,
@@ -1107,25 +1109,45 @@ export default function AdminTablesPage() {
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">Von Tischnummer</label>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Von Tisch</label>
                     <input
                       type="number"
+                      min={1}
                       value={markerStart}
-                      onChange={(e) => setMarkerStart(parseInt(e.target.value, 10))}
+                      onChange={(e) => setMarkerStart(parseInt(e.target.value, 10) || 1)}
                       className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-center font-bold"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">Bis Tischnummer</label>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Bis Tisch</label>
                     <input
                       type="number"
+                      min={1}
                       value={markerEnd}
-                      onChange={(e) => setMarkerEnd(parseInt(e.target.value, 10))}
+                      onChange={(e) => setMarkerEnd(parseInt(e.target.value, 10) || 1)}
                       className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-center font-bold"
                     />
                   </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Anzahl je Tisch</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={markerCopiesPerTable}
+                      onChange={(e) => setMarkerCopiesPerTable(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-mono text-center font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-slate-900/80 border border-slate-800 px-3.5 py-2.5 rounded-xl flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Druckumfang:</span>
+                  <span className="font-mono font-bold text-indigo-400">
+                    {Math.max(0, markerEnd >= markerStart ? markerEnd - markerStart + 1 : 0)} Tische × {markerCopiesPerTable} {markerCopiesPerTable === 1 ? 'Ausdruck' : 'Ausdrucke'} = {Math.max(0, markerEnd >= markerStart ? markerEnd - markerStart + 1 : 0) * markerCopiesPerTable} Tischmarken gesamt
+                  </span>
                 </div>
 
                 {/* Schriftgröße Tischzahl Slider (1-10) */}
@@ -1181,7 +1203,7 @@ export default function AdminTablesPage() {
                     type="text"
                     value={markerNoteText}
                     onChange={(e) => setMarkerNoteText(e.target.value)}
-                    placeholder="z. B. Tischnummer bitte bei Bestellung angeben"
+                    placeholder="Optionaler Hinweistext (Standard: leer)"
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white font-bold"
                   />
                 </div>
@@ -1254,20 +1276,32 @@ export default function AdminTablesPage() {
                     </>
                   )}
                   
-                  {/* Table Label with Scalable Font Size */}
-                  <div
-                    className="font-black my-3 uppercase tracking-tighter"
-                    style={{
-                      fontSize: markerNumberOnly
-                        ? `${Math.max(26, Math.min(56, 22 + markerFontSize * 3.4))}px`
-                        : `${Math.max(14, Math.min(38, 12 + markerFontSize * 2.6))}px`,
-                      lineHeight: '1.05',
-                    }}
-                  >
-                    {markerNumberOnly ? markerStart : `TISCH ${markerStart}`}
-                  </div>
-
-                  <div className="my-1 border-b-2 border-dashed border-black" />
+                  {/* Table Label with Scalable Font Size (Stufe 10 füllt die gesamte Bonbreite) */}
+                  {(() => {
+                    const printableWidth = markerPaperWidth === 58 ? 190 : 250;
+                    let calculatedFontSize: number;
+                    if (markerNumberOnly) {
+                      const numStr = String(markerStart);
+                      const maxTargetPx = Math.min(145, Math.floor(printableWidth / (Math.max(1, numStr.length) * 0.65)));
+                      const minTargetPx = 28;
+                      calculatedFontSize = Math.round(minTargetPx + (markerFontSize - 1) * ((maxTargetPx - minTargetPx) / 9));
+                    } else {
+                      const labelStr = `TISCH ${markerStart}`;
+                      const maxTargetPx = Math.min(60, Math.floor(printableWidth / (Math.max(1, labelStr.length) * 0.62)));
+                      const minTargetPx = 14;
+                      calculatedFontSize = Math.round(minTargetPx + (markerFontSize - 1) * ((maxTargetPx - minTargetPx) / 9));
+                    }
+                    return (
+                      <div
+                        className="font-black my-3 uppercase tracking-tighter leading-none whitespace-nowrap select-none"
+                        style={{
+                          fontSize: `${calculatedFontSize}px`,
+                        }}
+                      >
+                        {markerNumberOnly ? markerStart : `TISCH ${markerStart}`}
+                      </div>
+                    );
+                  })()}
 
                   {/* QR Code Mockup */}
                   {includeQr && (

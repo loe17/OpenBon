@@ -66,6 +66,83 @@ interface NavGroup {
   items: NavItem[];
 }
 
+// Navigationsgruppen für den Admin-Bereich: 4 klare, übersichtliche Hauptbereiche
+const adminGroups: NavGroup[] = [
+  {
+    id: 'inventory',
+    label: 'Sortiment & Warenwirtschaft',
+    icon: Package,
+    items: [
+      { href: '/admin/products', label: 'Artikel & Speisekarte', icon: Utensils, roles: ['ADMIN'] },
+      { href: '/admin/inventory', label: 'Warenbestand je Artikel', icon: Package, roles: ['ADMIN'] },
+      { href: '/admin/stock-units', label: 'Lagerposten & Verbrauch', icon: Boxes, roles: ['ADMIN'] },
+      { href: '/taps', label: 'Fass- & Schankmonitor', icon: Beer, roles: ['ADMIN'] },
+      { href: '/admin/procurement', label: 'Lieferanten-Bestellvorschlag', icon: Truck, roles: ['ADMIN'] },
+    ],
+  },
+  {
+    id: 'finance',
+    label: 'Kasse, Abrechnung & Finanzen',
+    icon: Wallet,
+    items: [
+      { href: '/admin/reports', label: 'Berichte, Statistik & Z-Bon', icon: BarChart3, roles: ['ADMIN'] },
+      { href: '/admin/cashbook', label: 'Kassenbuch & Barverkehr', icon: Wallet, roles: ['ADMIN'] },
+      { href: '/admin/settle', label: 'Personal & Schichtabrechnung', icon: Coins, roles: ['ADMIN'] },
+      { href: '/admin/accounting', label: 'DATEV Kassenbuch Export', icon: BookOpen, roles: ['ADMIN'] },
+      { href: '/admin/fiscal', label: 'DSFinV-K & TSE Archiv (Beta)', icon: ShieldCheck, roles: ['ADMIN'] },
+      { href: '/admin/tokens', label: 'Wertmarken & Bons', icon: Ticket, roles: ['ADMIN'] },
+    ],
+  },
+  {
+    id: 'hardware',
+    label: 'Geräte, Tische & Hardware',
+    icon: Printer,
+    items: [
+      { href: '/admin/tables', label: 'Tischplan Designer', icon: Grid, roles: ['ADMIN'] },
+      { href: '/admin/printers', label: 'Drucker & Druckgruppen', icon: Printer, roles: ['ADMIN'] },
+      { href: '/admin/virtual-printer', label: 'Virtueller Drucker-Monitor', icon: Terminal, roles: ['ADMIN'] },
+      { href: '/customer-display', label: 'Kundendisplay (Monitor)', icon: Monitor, roles: ['ADMIN'] },
+      { href: '/admin/devices', label: 'Geräte-Manager', icon: Users, roles: ['ADMIN'] },
+      { href: '/admin/qr-codes', label: 'QR Beitritts-Center', icon: QrCode, roles: ['ADMIN'] },
+    ],
+  },
+  {
+    id: 'system',
+    label: 'System & Verwaltung',
+    icon: Settings,
+    items: [
+      { href: '/admin/dashboard', label: 'Admin Command Center', icon: LayoutDashboard, roles: ['ADMIN'] },
+      { href: '/admin/settings', label: 'Grundeinstellungen & Bon-Design', icon: Settings, roles: ['ADMIN'] },
+      { href: '/admin/backup', label: 'Datensicherung & Auto-Backup', icon: ShieldCheck, roles: ['ADMIN'] },
+      { href: '/admin/system-update', label: 'System-Update & Konsole', icon: HardDrive, roles: ['ADMIN'] },
+      { href: '/admin/diagnostics', label: 'Testbetrieb & Hardware-Diagnose', icon: Activity, roles: ['ADMIN'] },
+      { href: '/admin/logs', label: 'System- & Revisionsprotokoll', icon: BookOpen, roles: ['ADMIN'] },
+      { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['ADMIN'] },
+      { href: '/admin/docs', label: 'Handbuch & Anleitungen', icon: BookOpen, roles: ['ADMIN'] },
+    ],
+  },
+];
+
+// Einzel-Links für nicht-Admin Rollen
+const nonAdminLinks: Record<string, NavItem[]> = {
+  WAITER: [
+    { href: '/waiter', label: 'Bedienung (Tischübersicht)', icon: Smartphone, roles: ['WAITER'] },
+    { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['WAITER'] },
+  ],
+  POS_CASHIER: [
+    { href: '/pos', label: 'Bonkasse (Thekenverkauf)', icon: CreditCard, roles: ['POS_CASHIER'] },
+    { href: '/customer-display', label: 'Kundendisplay', icon: Monitor, roles: ['POS_CASHIER'] },
+    { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['POS_CASHIER'] },
+  ],
+  KIOSK: [
+    { href: '/kiosk', label: 'SB-Bestellterminal', icon: Terminal, roles: ['KIOSK'] },
+  ],
+  KITCHEN: [
+    { href: '/kitchen', label: 'Küchenmonitor', icon: ChefHat, roles: ['KITCHEN'] },
+    { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['KITCHEN'] },
+  ],
+};
+
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -216,13 +293,22 @@ export default function Navbar() {
     };
   }, []);
 
-  // Expanded Group State in Admin Drawer
+  // Expanded Group State in Admin Drawer: Standardmäßig nur die zur aktuellen Seite gehörende Gruppe öffnen
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     inventory: true,
-    finance: true,
-    hardware: true,
-    system: true,
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      const activeGroup = adminGroups.find((g) =>
+        g.items.some((item) => item.href === pathname || (item.href !== '/admin/dashboard' && pathname.startsWith(item.href)))
+      );
+      const defaultId = activeGroup ? activeGroup.id : 'inventory';
+      setOpenGroups({
+        [defaultId]: true,
+      });
+    }
+  }, [isOpen, pathname]);
 
   // Track Fullscreen state
   useEffect(() => {
@@ -364,93 +450,6 @@ export default function Navbar() {
     } else if (pinTarget === 'WAITER') {
       applyRole('WAITER');
     }
-  };
-
-  // Navigationsgruppen für den Admin-Bereich
-  const adminGroups: NavGroup[] = [
-    {
-      id: 'operations',
-      label: 'Verkauf & Live-Betrieb',
-      icon: LayoutGrid,
-      items: [
-        { href: '/pos', label: 'Bonkasse (Thekenverkauf)', icon: CreditCard, roles: ['ADMIN'] },
-        { href: '/waiter', label: 'Bedienung (Tischaufnahme)', icon: Smartphone, roles: ['ADMIN'] },
-        { href: '/kitchen', label: 'Küchenmonitor (KDS)', icon: ChefHat, roles: ['ADMIN'] },
-        { href: '/admin/tables', label: 'Tischplan Designer', icon: Grid, roles: ['ADMIN'] },
-        { href: '/taps', label: 'Fass- & Schankmonitor', icon: Beer, roles: ['ADMIN'] },
-        { href: '/customer-display', label: 'Kundendisplay (Monitor)', icon: Monitor, roles: ['ADMIN'] },
-        { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['ADMIN'] },
-      ],
-    },
-    {
-      id: 'inventory',
-      label: 'Sortiment & Warenwirtschaft',
-      icon: Package,
-      items: [
-        { href: '/admin/products', label: 'Artikel & Speisekarte', icon: Utensils, roles: ['ADMIN'] },
-        { href: '/admin/inventory', label: 'Warenbestand je Artikel', icon: Package, roles: ['ADMIN'] },
-        { href: '/admin/stock-units', label: 'Lagerposten & Verbrauch', icon: Boxes, roles: ['ADMIN'] },
-        { href: '/admin/procurement', label: 'Lieferanten-Bestellvorschlag', icon: Truck, roles: ['ADMIN'] },
-      ],
-    },
-    {
-      id: 'finance',
-      label: 'Kasse, Abrechnung & Finanzen',
-      icon: Wallet,
-      items: [
-        { href: '/admin/reports', label: 'Berichte, Statistik & Z-Bon', icon: BarChart3, roles: ['ADMIN'] },
-        { href: '/admin/cashbook', label: 'Kassenbuch & Barverkehr', icon: Wallet, roles: ['ADMIN'] },
-        { href: '/admin/settle', label: 'Personal & Schichtabrechnung', icon: Coins, roles: ['ADMIN'] },
-        { href: '/admin/accounting', label: 'DATEV Kassenbuch Export', icon: BookOpen, roles: ['ADMIN'] },
-        { href: '/admin/fiscal', label: 'DSFinV-K & TSE Archiv (Beta)', icon: ShieldCheck, roles: ['ADMIN'] },
-        { href: '/admin/tokens', label: 'Wertmarken & Bons', icon: Ticket, roles: ['ADMIN'] },
-      ],
-    },
-    {
-      id: 'hardware',
-      label: 'Geräte, Drucker & Stationen',
-      icon: Printer,
-      items: [
-        { href: '/admin/printers', label: 'Drucker & Druckgruppen', icon: Printer, roles: ['ADMIN'] },
-        { href: '/admin/virtual-printer', label: 'Virtueller Drucker-Monitor', icon: Terminal, roles: ['ADMIN'] },
-        { href: '/admin/devices', label: 'Geräte-Manager', icon: Users, roles: ['ADMIN'] },
-        { href: '/admin/qr-codes', label: 'QR Beitritts-Center', icon: QrCode, roles: ['ADMIN'] },
-      ],
-    },
-    {
-      id: 'system',
-      label: 'System & Verwaltung',
-      icon: Settings,
-      items: [
-        { href: '/admin/dashboard', label: 'Admin Command Center', icon: LayoutDashboard, roles: ['ADMIN'] },
-        { href: '/admin/settings', label: 'Grundeinstellungen & Bon-Design', icon: Settings, roles: ['ADMIN'] },
-        { href: '/admin/backup', label: 'Datensicherung & Auto-Backup', icon: ShieldCheck, roles: ['ADMIN'] },
-        { href: '/admin/system-update', label: 'System-Update & Konsole', icon: HardDrive, roles: ['ADMIN'] },
-        { href: '/admin/diagnostics', label: 'Testbetrieb & Hardware-Diagnose', icon: Activity, roles: ['ADMIN'] },
-        { href: '/admin/logs', label: 'System- & Revisionsprotokoll', icon: BookOpen, roles: ['ADMIN'] },
-        { href: '/admin/docs', label: 'Handbuch & Anleitungen', icon: BookOpen, roles: ['ADMIN'] },
-      ],
-    },
-  ];
-
-  // Einzel-Links für nicht-Admin Rollen
-  const nonAdminLinks: Record<string, NavItem[]> = {
-    WAITER: [
-      { href: '/waiter', label: 'Bedienung (Tischübersicht)', icon: Smartphone, roles: ['WAITER'] },
-      { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['WAITER'] },
-    ],
-    POS_CASHIER: [
-      { href: '/pos', label: 'Bonkasse (Thekenverkauf)', icon: CreditCard, roles: ['POS_CASHIER'] },
-      { href: '/customer-display', label: 'Kundendisplay', icon: Monitor, roles: ['POS_CASHIER'] },
-      { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['POS_CASHIER'] },
-    ],
-    KIOSK: [
-      { href: '/kiosk', label: 'SB-Bestellterminal', icon: Terminal, roles: ['KIOSK'] },
-    ],
-    KITCHEN: [
-      { href: '/kitchen', label: 'Küchenmonitor', icon: ChefHat, roles: ['KITCHEN'] },
-      { href: '/chat', label: 'Team-Funk & Notrufe', icon: MessageSquare, roles: ['KITCHEN'] },
-    ],
   };
 
   // Header im Vollbildmodus auf allen Nicht-Admin Seiten ausblenden
@@ -699,7 +698,7 @@ export default function Navbar() {
               {role === 'ADMIN' ? (
                 /* Admin Grouped Hubs */
                 adminGroups.map((group) => {
-                  const isExpanded = openGroups[group.id] !== false;
+                  const isExpanded = Boolean(openGroups[group.id]);
                   return (
                     <div key={group.id} className="space-y-1">
                       <button

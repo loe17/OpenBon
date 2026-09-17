@@ -47,20 +47,28 @@ describe('OpenBon v0.4.54: 100-Year HTTPS Certificate & Menu Expiration Tests', 
     expect(apiPhp).toContain('menu-meta.json');
   });
 
-  it('should verify navigation consolidation in navbar.tsx has 5 logical groups', () => {
+  it('should verify navigation consolidation in navbar.tsx has 4 clear groups without redundant operational tabs', () => {
     const navbarSrc = fs.readFileSync(
       path.join(process.cwd(), 'src', 'components', 'navigation', 'navbar.tsx'),
       'utf-8'
     );
-    expect(navbarSrc).toContain("id: 'operations'");
-    expect(navbarSrc).toContain('Verkauf & Live-Betrieb');
+    expect(navbarSrc).not.toContain("id: 'operations'");
+    expect(navbarSrc).not.toContain('Verkauf & Live-Betrieb');
     expect(navbarSrc).toContain("id: 'inventory'");
     expect(navbarSrc).toContain('Sortiment & Warenwirtschaft');
     expect(navbarSrc).toContain("id: 'finance'");
     expect(navbarSrc).toContain('Kasse, Abrechnung & Finanzen');
     expect(navbarSrc).toContain("id: 'hardware'");
-    expect(navbarSrc).toContain('Geräte, Drucker & Stationen');
+    expect(navbarSrc).toContain('Geräte, Tische & Hardware');
     expect(navbarSrc).toContain("id: 'system'");
     expect(navbarSrc).toContain('System & Verwaltung');
+
+    // Bonkasse & Bedienung are accessible via the Station tiles, not inside adminGroups
+    const adminGroupsSection = navbarSrc.substring(
+      navbarSrc.indexOf('const adminGroups: NavGroup[]'),
+      navbarSrc.indexOf('const nonAdminLinks:')
+    );
+    expect(adminGroupsSection).not.toContain('Bonkasse (Thekenverkauf)');
+    expect(adminGroupsSection).not.toContain('Bedienung (Tischaufnahme)');
   });
 });

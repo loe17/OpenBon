@@ -669,8 +669,10 @@ export class EscPosBuilder {
     // Tischbeschriftung / reine Nummer skalierbar bis zur vollen Breite
     const displayStr = data.numberOnly ? label : label.toUpperCase();
     if (data.numberOnly) {
-      // Wenn nur Nummer: extra groß drucken!
-      if (fs >= 8) {
+      // Wenn nur Nummer: auf Stufe 10 volle Bonbreite (8x8 Hardware-Schrift)
+      if (fs >= 10) {
+        builder.charSize(8, 8).bold(true).textLine(displayStr).resetCharSize().bold(false);
+      } else if (fs >= 8) {
         builder.charSize(7, 7).bold(true).textLine(displayStr).resetCharSize().bold(false);
       } else if (fs >= 6) {
         builder.charSize(6, 6).bold(true).textLine(displayStr).resetCharSize().bold(false);
@@ -696,9 +698,6 @@ export class EscPosBuilder {
     }
     textLines.push(`[ ${displayStr} ]`);
 
-    builder.doubleDivider();
-    textLines.push('='.repeat(paperWidth === 58 ? 32 : 42));
-
     if (data.qrUrl) {
       const qrModule = Math.max(2, Math.min(paperWidth === 58 ? 8 : 12, Math.round((data.qrSize ?? 5) * (paperWidth === 58 ? 0.8 : 1.1))));
       builder.lineFeed(1);
@@ -707,9 +706,9 @@ export class EscPosBuilder {
       textLines.push(`QR-Code: ${data.qrUrl}`);
     }
 
-    if (data.noteText) {
-      builder.align('center').textLine(data.noteText);
-      textLines.push(data.noteText);
+    if (data.noteText && data.noteText.trim().length > 0) {
+      builder.align('center').textLine(data.noteText.trim());
+      textLines.push(data.noteText.trim());
     } else if (data.qrUrl) {
       builder.align('center').bold(true).textLine('HIER MIT DEM HANDY SCANNEN').bold(false);
       builder.textLine('und direkt am Tisch bestellen');
