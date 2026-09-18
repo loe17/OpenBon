@@ -165,6 +165,15 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
                 ? body.happyHourRules
                 : JSON.stringify(body.happyHourRules)
               : undefined,
+          hasTimeWindows: body.hasTimeWindows !== undefined ? Boolean(body.hasTimeWindows) : undefined,
+          timeWindows:
+            body.timeWindows !== undefined
+              ? body.timeWindows === null
+                ? '[]'
+                : typeof body.timeWindows === 'string'
+                ? body.timeWindows
+                : JSON.stringify(body.timeWindows)
+              : undefined,
           isTokenProduct: body.isTokenProduct !== undefined ? Boolean(body.isTokenProduct) : undefined,
           tokenType: body.tokenType !== undefined ? body.tokenType : undefined,
           subCategory: body.subCategory !== undefined ? body.subCategory : undefined,

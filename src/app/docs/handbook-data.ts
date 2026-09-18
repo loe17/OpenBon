@@ -137,6 +137,44 @@ export const HANDBOOK: DocChapter[] = [
           'Werden in den Systemeinstellungen Änderungen vorgenommen und der Benutzer möchte die Seite verlassen, erinnert ein automatischer Sicherheitsdialog an das Speichern ungesicherter Eingaben.',
         ],
       },
+      {
+        id: '1.8',
+        heading: '1.8 Hardware-Empfehlungen & Kapazitätsplanung nach Festgröße',
+        paragraphs: [
+          'Wie viele Geräte (Bedienungs-Handys, Kassenmonitore, Küchenbildschirme) können gleichzeitig mit dem Hauptrechner verbunden werden? Dies hängt vor allem von der Leistungsfähigkeit des Computers ab, auf dem OpenBon läuft.',
+          'Da OpenBon extrem sparsam programmiert ist, genügt für viele Vereinsfeste bereits ein vorhandener Laptop oder ein günstiger Mini-PC. Wichtig ist vor allem eine moderne SSD-Festplatte und eine feste Netzwerkverbindung (LAN-Kabel) zum WLAN-Router.',
+          'In der folgenden Tabelle finden Sie praxiserprobte Empfehlungen, aufgeteilt nach der Größe Ihres Festes:',
+        ],
+        table: {
+          headers: ['Festgröße & Gästezahl', 'Gleichzeitige Geräte', 'Empfohlener Rechner & Mindestanforderung an den Prozessor', 'Arbeitsspeicher & Speicherplatz'],
+          rows: [
+            [
+              'Kleines Fest (bis ca. 500 Gäste)',
+              'Bis zu 5 Geräte (z. B. 2 Kellner, 1 Kasse, 1 Küchenanzeige)',
+              'Einfacher Laptop oder kompakter Mini-PC. Prozessor: mind. Intel Core i3 ab der 2. Generation (z. B. Core i3-2350M oder höher), Intel Celeron N4100 / N5100, AMD Athlon 3000G oder Raspberry Pi 4.',
+              'Mindestens 4 GB Arbeitsspeicher, SSD-Festplatte (mind. 30 GB freier Speicher).'
+            ],
+            [
+              'Mittleres Vereinsfest (500 bis 2.500 Gäste)',
+              '6 bis 20 Geräte (z. B. 8 Kellner, 2 Kassen, 2 Küchen- & Schankmonitore, 1 SB-Kiosk)',
+              'Moderner Mini-PC oder Office-Laptop. Prozessor: mind. Intel Prozessor N95 / N100 (Alder-Lake-Generation), Intel Core i3 oder Core i5 ab der 6. Generation (z. B. Core i5-6400, Core i3-8100 oder neuer), AMD Ryzen 3 / 5 ab der 2000er-Serie (z. B. Ryzen 3 2200G, Ryzen 5 3500U) oder Raspberry Pi 5.',
+              'Mindestens 8 GB Arbeitsspeicher, schnelle SSD-Festplatte (mind. 60 GB freier Speicher).'
+            ],
+            [
+              'Großes Festzelt & Großveranstaltung (über 2.500 Gäste)',
+              '20 bis über 50 Geräte dauerhaft im Volleinsatz',
+              'Leistungsstarker Desktop-PC oder starker Mini-PC. Prozessor: mind. Intel Core i5 oder Core i7 ab der 10. Generation (z. B. Core i5-10400, Core i5-12400 oder neuer) oder AMD Ryzen 5 / 7 ab der 4000/5000er-Serie (z. B. Ryzen 5 5600G).',
+              'Mindestens 16 GB Arbeitsspeicher, blitzschnelle NVMe-SSD (mind. 120 GB freier Speicher).'
+            ],
+          ],
+        },
+        hints: [
+          {
+            kind: 'tip',
+            text: 'Tipp für stabile Verbindungen: Schließen Sie den Hauptrechner immer mit einem echten Netzwerkkabel (LAN) an den WLAN-Router an, anstatt ihn über WLAN zu betreiben. Das sorgt für blitzschnelle Reaktionszeiten aller Handys.',
+          },
+        ],
+      },
     ],
   },
   {
@@ -649,6 +687,27 @@ export const HANDBOOK: DocChapter[] = [
           'Mit einem Klick lässt sich die Speisekarte in 4 verschiedenen A4- und A5-Layouts drucken oder als PDF speichern: Klassisch, Modernes Raster, Großschrift-Aushang für Kassenhäuschen und A5-Tischaufsteller.',
         ],
       },
+      {
+        id: '5.7',
+        heading: '5.7 PDF-Speisekarten-Import & Automatische Erkennung',
+        paragraphs: [
+          'Sparen Sie sich das mühsame manuelle Eintippen aller Speisen und Getränke: Über den Button "PDF-Karte importieren" in der Artikelverwaltung (/admin/products) können Sie bestehende PDF-Speisekarten, Flyer oder Preislisten direkt hochladen.',
+          'Automatische Erkennung: Das System liest die PDF-Datei ein, erkennt selbstständig die Namen der Gerichte und Getränke, die Preise und ordnet sie den passenden Warengruppen (z. B. Speisen, Getränke, Grill) sowie den richtigen Steuersätzen (7 % Speisen, 19 % Getränke) zu.',
+          'Interaktive Vorschlags-Tabelle: Vor der endgültigen Übernahme öffnet sich eine übersichtliche Tabelle. Hier können Sie jeden vorgeschlagenen Namen, Preis oder Steuersatz direkt per Tastatur anpassen, einzelne Zeilen abwählen, neue Zeilen hinzufügen oder nicht gewünschte Einträge löschen.',
+          'Mit einem Klick auf "Ausgewählte Artikel jetzt anlegen" werden alle bestätigten Positionen sofort in die Kasse übernommen und sind einsatzbereit.',
+        ],
+      },
+      {
+        id: '5.8',
+        heading: '5.8 Artikel-Zeitfenster (Zeitgesteuerte Verfügbarkeit)',
+        paragraphs: [
+          'Viele Speisen oder Getränke werden nur zu bestimmten Zeiten angeboten – zum Beispiel der Mittagstisch von 11:30 bis 14:00 Uhr, Kaffee und Kuchen ab 14:30 Uhr oder die Bar erst ab 20:00 Uhr am Abend.',
+          'Zeitfenster aktivieren: Im Artikel-Bearbeitungsfenster schalten Sie einfach das Kästchen "Zeitfenster aktivieren" ein. Wie bei den Sorten und Varianten können Sie beliebig viele Zeitfenster hinzufügen und wieder entfernen.',
+          'Uhrzeit und Wochentage: Für jedes Zeitfenster legen Sie die Startzeit, die Endzeit sowie die gewünschten Wochentage fest (z. B. nur Samstag und Sonntag oder nur werktags). Auch Nachtzeiten über Mitternacht hinweg (z. B. 21:00 bis 02:00 Uhr) werden voll unterstützt.',
+          'Automatische Ausblendung: Ist ein Artikel außerhalb seines Zeitfensters inaktiv, wird er auf den Smartphones der Bedienungen und an den Kassen automatisch ausgeblendet. Dadurch bleibt der Bildschirm stets aufgeräumt und es können keine Gerichte bestellt werden, die die Küche gerade gar nicht anbietet.',
+          'In der Artikelverwaltung bleibt der Artikel für den Betreiber sichtbar und zeigt mit einem farbigen Uhr-Symbol auf einen Blick, ob er gerade aktiv oder zeitgesteuert pausiert ist.',
+        ],
+      },
     ],
   },
   {
@@ -1070,9 +1129,13 @@ export const HANDBOOK: DocChapter[] = [
       },
       {
         id: '9.5',
-        heading: '9.5 System-Update & Versions-Manager',
+        heading: '9.5 System-Update & Echtzeit-Systemauslastung (Prozessor & Speicher)',
         paragraphs: [
-          'Unter /admin/system-update kann OpenBon mit einem Klick aktualisiert werden. Ein Arbeitsspeicher-Balken zeigt die Serverauslastung an. Der Schalter "Nur Releases anzeigen" stellt sicher, dass ausschließlich erprobte und stabile Hauptversionen installiert werden.',
+          'Unter /admin/system-update kann OpenBon mit einem Klick aktualisiert werden. Der Schalter "Nur Releases anzeigen" stellt sicher, dass ausschließlich erprobte und stabile Hauptversionen installiert werden.',
+          'Echtzeit-Messung der Auslastung: Die Auslastung des Hauptprozessors (CPU) und des Arbeitsspeichers (RAM) wird schneller als jede Sekunde (alle 750 Millisekunden) live aktualisiert. So sehen Sie sofort, wie stark der Kassenrechner bei Hochbetrieb gefordert ist.',
+          'Kein spürbarer Einfluss auf die Geschwindigkeit: Dank einer intelligenten internen Zwischenberechnung verbraucht diese Live-Messung weniger als 0,1 % eigene Rechenleistung des Computers. Kassiervorgänge und Bestellungen laufen völlig unbeeinflusst und ohne jede Verzögerung weiter.',
+          'Automatischer Stromsparmodus: Wechselt man zu einem anderen Programm oder minimiert den Browser, pausiert die Live-Abfrage automatisch, um Netzwerk und Akku zu schonen.',
+          'Schnellübersicht im Dashboard: Auch in der oberen Kopfleiste des Admin-Dashboards (/admin/dashboard) zeigt eine kompakte Live-Anzeige jederzeit die aktuelle Prozessor- und Speicherauslastung an und führt mit einem Klick direkt zur Diagnose.',
         ],
         image: {
           src: '/docs/images/38_admin_system_update.png',

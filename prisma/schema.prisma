@@ -212,6 +212,10 @@ model Product {
   isTokenProduct Boolean @default(false)
   tokenType      String? // DRINK, FOOD, DEPOSIT, GENERAL
 
+  // Zeitfenster & Zeitgesteuerte Verfuegbarkeit
+  hasTimeWindows Boolean @default(false)
+  timeWindows    String? @default("[]") // JSON Array z. B. [{ id, name, startTime, endTime, days }]
+
   subCategory  String? // BIER, WEIN, ALKOHOLFREI, HEISS, BAR, SPEISE
   sortIndex    Int                @default(0)
   categoryId   String

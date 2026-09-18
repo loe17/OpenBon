@@ -78,6 +78,8 @@ export async function POST(req: Request) {
         happyHourEnd: body.happyHourEnd || null,
         happyHourDays: typeof body.happyHourDays === 'string' ? body.happyHourDays : JSON.stringify(body.happyHourDays || []),
         happyHourRules: body.happyHourRules !== undefined && body.happyHourRules !== null ? (typeof body.happyHourRules === 'string' ? body.happyHourRules : JSON.stringify(body.happyHourRules)) : null,
+        hasTimeWindows: Boolean(body.hasTimeWindows),
+        timeWindows: body.timeWindows !== undefined && body.timeWindows !== null ? (typeof body.timeWindows === 'string' ? body.timeWindows : JSON.stringify(body.timeWindows)) : '[]',
         isTokenProduct: Boolean(body.isTokenProduct),
         tokenType: body.tokenType || null,
         subCategory: body.subCategory || null,

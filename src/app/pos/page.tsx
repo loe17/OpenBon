@@ -43,6 +43,7 @@ import { hasAnyCardPaymentConfigured, getActiveCardPaymentMethod } from '@/lib/p
 import { sendWithOutboxFallback } from '@/lib/offline/outbox';
 import { useToast } from '@/components/ui/toast';
 import { ChangeCalculator } from '@/components/ui/change-calculator';
+import { isProductActiveNow } from '@/lib/time-window';
 import { WaiterOrderHistoryModal } from '@/components/waiter/waiter-order-history-modal';
 import type { ProductDTO, ProductVariantDTO, OrderItemDTO, ProductCategoryDTO, EventConfigDTO } from '@/types/domain';
 
@@ -602,6 +603,7 @@ function PosCounterContent() {
   const [productSearch, setProductSearch] = useState('');
   const currentCategory = categories.find((c) => c.id === selectedCatId);
   const rawProducts = currentCategory?.products?.filter((p) => {
+    if (p.hasTimeWindows && !isProductActiveNow(p)) return false;
     if (selectedSubCat !== 'ALL' && p.subCategory !== selectedSubCat) return false;
     if (productSearch.trim()) {
       const q = productSearch.trim().toLowerCase();

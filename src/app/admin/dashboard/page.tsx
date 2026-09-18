@@ -26,6 +26,7 @@ import {
   ArrowUpRight,
   Receipt,
   HeartHandshake,
+  Cpu,
 } from 'lucide-react';
 import { formatCents, formatCurrency } from '@/lib/utils';
 import { APP_VERSION } from '@/lib/version';
@@ -39,6 +40,7 @@ export default function AdminDashboardPage() {
   const [devices, setDevices] = useState<any[]>([]);
   const [config, setConfig] = useState<EventConfigDTO | null>(null);
   const [loading, setLoading] = useState(true);
+  const [systemMetrics, setSystemMetrics] = useState<{ cpuPercent: number; ramPercent: number; ramFormatted: string } | null>(null);
 
   const fetchAllDashboardData = async () => {
     try {
@@ -92,6 +94,35 @@ export default function AdminDashboardPage() {
     };
   }, [socket]);
 
+  // Echtzeit-Hardware-Metriken (< 1 Sekunde: 750ms Takt)
+  useEffect(() => {
+    let isMounted = true;
+    const fetchMetrics = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      try {
+        const res = await fetch('/api/system/update?metricsOnly=1');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (isMounted && data?.cpu && data?.memory) {
+          setSystemMetrics({
+            cpuPercent: data.cpu.usedPercentage ?? 0,
+            ramPercent: data.memory.usedPercentage ?? 0,
+            ramFormatted: data.memory.formattedUsed ? `${data.memory.formattedUsed} / ${data.memory.formattedTotal}` : `${data.memory.usedPercentage}%`,
+          });
+        }
+      } catch {
+        // Leise ignorieren
+      }
+    };
+
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 750);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
   const occupiedTables = tablesData.filter((t) => t.openItemCount > 0);
   const openTableGross = occupiedTables.reduce((sum, t) => sum + (t.openGrossAmount || 0), 0);
   const onlineDevices = devices.filter((d) => d.status === 'ONLINE');
@@ -117,7 +148,35 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* Live Systemauslastung Badge */}
+          {systemMetrics && (
+            <Link
+              href="/admin/system-update"
+              className="flex items-center gap-2.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-850 rounded-xl text-xs border border-slate-800 transition shadow-inner group"
+              title="Klicken für Systemdetails & Update-Manager"
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <Cpu className="w-3.5 h-3.5 text-slate-400 group-hover:text-sky-400 transition-colors" />
+                <span className="font-semibold text-slate-300">CPU:</span>
+                <span className={`font-mono font-bold ${systemMetrics.cpuPercent > 85 ? 'text-rose-400 font-black animate-pulse' : systemMetrics.cpuPercent > 70 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  {systemMetrics.cpuPercent}%
+                </span>
+              </div>
+              <span className="text-slate-700">|</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-slate-300">RAM:</span>
+                <span className={`font-mono font-bold ${systemMetrics.ramPercent > 85 ? 'text-rose-400' : systemMetrics.ramPercent > 70 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  {systemMetrics.ramPercent}%
+                </span>
+              </div>
+            </Link>
+          )}
+
           <button
             onClick={fetchAllDashboardData}
             className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-200 border border-slate-700 transition"

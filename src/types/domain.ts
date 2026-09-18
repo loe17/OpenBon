@@ -229,6 +229,8 @@ export interface ProductDTO {
   happyHourDays?: string | null;
   isTokenProduct?: boolean;
   tokenType?: string | null;
+  hasTimeWindows?: boolean;
+  timeWindows?: string | null;
   subCategory: string | null;
   sortIndex: number;
   categoryId: string;

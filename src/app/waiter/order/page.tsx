@@ -46,6 +46,7 @@ import type {
 import { playConfirm, playVoidAlert } from '@/lib/audio-feedback';
 import { sendWithOutboxFallback } from '@/lib/offline/outbox';
 import { useToast } from '@/components/ui/toast';
+import { isProductActiveNow } from '@/lib/time-window';
 
 import StationGate from '@/components/auth/station-gate';
 const parseWordsList = (raw: any): string[] => {
@@ -490,7 +491,9 @@ function WaiterOrderContent() {
   };
 
   const currentCategory = categories.find((c) => c.id === selectedCatId);
-  const rawProducts = currentCategory?.products || [];
+  const rawProducts = (currentCategory?.products || []).filter(
+    (p) => !p.hasTimeWindows || isProductActiveNow(p)
+  );
   const displayedProducts = rawProducts;
 
   const totalAmount = cart.reduce(

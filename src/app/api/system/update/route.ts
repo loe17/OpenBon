@@ -47,9 +47,35 @@ function runGit(args: string[], timeoutMs = 30000): Promise<{ stdout: string; st
 /** M6.1 Strenger Git-Refname (Tags/Branches ohne Meta-Zeichen). */
 const SAFE_GIT_REF_RE = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$/;
 
+let lastCpuSnapshot: { times: os.CpuInfo[]; timestamp: number } | null = null;
+
 function getCpuUsage(): Promise<number> {
+  const currentCpus = os.cpus();
+  const now = Date.now();
+
+  if (lastCpuSnapshot && (now - lastCpuSnapshot.timestamp) >= 300 && (now - lastCpuSnapshot.timestamp) <= 15000) {
+    const prev = lastCpuSnapshot.times;
+    let idleDiff = 0;
+    let totalDiff = 0;
+    for (let i = 0; i < Math.min(prev.length, currentCpus.length); i++) {
+      const start = prev[i].times;
+      const end = currentCpus[i].times;
+      const idle = end.idle - start.idle;
+      const total = (end.user - start.user) +
+                    (end.nice - start.nice) +
+                    (end.sys - start.sys) +
+                    (end.irq - start.irq) +
+                    idle;
+      idleDiff += idle;
+      totalDiff += total;
+    }
+    lastCpuSnapshot = { times: currentCpus, timestamp: now };
+    const usage = totalDiff > 0 ? Math.round(((totalDiff - idleDiff) / totalDiff) * 100) : 0;
+    return Promise.resolve(Math.min(100, Math.max(0, usage)));
+  }
+
   return new Promise((resolve) => {
-    const startCpus = os.cpus();
+    const startCpus = currentCpus;
     setTimeout(() => {
       const endCpus = os.cpus();
       let idleDiff = 0;
@@ -66,9 +92,10 @@ function getCpuUsage(): Promise<number> {
         idleDiff += idle;
         totalDiff += total;
       }
+      lastCpuSnapshot = { times: endCpus, timestamp: Date.now() };
       const usage = totalDiff > 0 ? Math.round(((totalDiff - idleDiff) / totalDiff) * 100) : 0;
       resolve(Math.min(100, Math.max(0, usage)));
-    }, 120);
+    }, 40);
   });
 }
 

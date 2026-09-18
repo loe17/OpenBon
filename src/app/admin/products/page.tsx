@@ -26,7 +26,9 @@ import { EU_ALLERGENS, GASTRONOMY_ADDITIVES } from '@/lib/compliance';
 import { useToast } from '@/components/ui/toast';
 import { useSocket } from '@/components/providers/socket-provider';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { isProductActiveNow, parseTimeWindows, getTimeWindowSummary, WEEKDAY_LABELS, type TimeWindow } from '@/lib/time-window';
 import type { ProductDTO, ProductCategoryDTO, PrintGroupDTO } from '@/types/domain';
+import { PdfMenuImportModal } from '@/components/admin/pdf-menu-import-modal';
 
 export default function AdminProductsPage() {
   const { socket } = useSocket();
@@ -51,6 +53,9 @@ export default function AdminProductsPage() {
   // Printable Menu state
   const [showMenuPrintModal, setShowMenuPrintModal] = useState(false);
   const [menuTemplate, setMenuTemplate] = useState<'CLASSIC' | 'MODERN' | 'POSTER' | 'COMPACT'>('CLASSIC');
+
+  // PDF Menu Import state
+  const [showPdfImportModal, setShowPdfImportModal] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -86,6 +91,8 @@ export default function AdminProductsPage() {
     isTokenProduct: false,
     tokenType: 'DRINK',
     subCategory: '',
+    hasTimeWindows: false,
+    timeWindows: [] as TimeWindow[],
     variants: [] as {
       name: string;
       priceDelta: number;
@@ -246,6 +253,8 @@ export default function AdminProductsPage() {
       isTokenProduct: false,
       tokenType: 'DRINK',
       subCategory: '',
+      hasTimeWindows: false,
+      timeWindows: [],
       variants: [],
       options: [],
     });
@@ -306,6 +315,8 @@ export default function AdminProductsPage() {
       isTokenProduct: Boolean(prod.isTokenProduct),
       tokenType: prod.tokenType || 'DRINK',
       subCategory: prod.subCategory || '',
+      hasTimeWindows: Boolean(prod.hasTimeWindows),
+      timeWindows: parseTimeWindows(prod.timeWindows),
       variants: prod.variants
         ? prod.variants.map((v: any) => ({
             name: v.name,
@@ -367,8 +378,10 @@ export default function AdminProductsPage() {
         happyHourDays: JSON.stringify(formData.happyHourDays),
         happyHourPriceCents: formData.happyHourPrice === '' ? null : Math.round(parseFloat(String(formData.happyHourPrice)) * 100),
         happyHourPrice: formData.happyHourPrice === '' ? null : parseFloat(String(formData.happyHourPrice)),
-                minStockAlert: formData.trackStock ? (formData.minStockAlert !== null ? Number(formData.minStockAlert) : null) : null,
+        minStockAlert: formData.trackStock ? (formData.minStockAlert !== null ? Number(formData.minStockAlert) : null) : null,
         minAge: formData.hasAgeRestriction ? Number(formData.minAge) : null,
+        hasTimeWindows: Boolean(formData.hasTimeWindows),
+        timeWindows: JSON.stringify(formData.timeWindows || []),
       };
 
       if (editingProduct) {
@@ -464,6 +477,16 @@ export default function AdminProductsPage() {
           >
             <FileText className="w-4 h-4 text-emerald-400" />
             <span>Speisekarte drucken</span>
+          </button>
+
+          {/* PDF-Speisekarte Importieren */}
+          <button
+            onClick={() => setShowPdfImportModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-500/30 rounded-2xl text-xs font-bold transition shadow"
+            title="PDF-Speisekarte hochladen und Artikel mit automatischer Erkennung anlegen"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>PDF-Karte importieren</span>
           </button>
 
           {/* Manage Categories Button */}
@@ -608,6 +631,19 @@ export default function AdminProductsPage() {
                 {p.isTokenProduct && (
                   <span className="bg-purple-500/20 text-purple-300 text-[10px] font-black px-1.5 py-0.5 rounded border border-purple-500/30 flex items-center gap-1">
                     <Ticket className="w-3 h-3" /> Wertmarke
+                  </span>
+                )}
+                {p.hasTimeWindows && (
+                  <span
+                    className={`text-[10px] font-black px-1.5 py-0.5 rounded border flex items-center gap-1 ${
+                      isProductActiveNow(p)
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                        : 'bg-slate-800 text-slate-400 border-slate-700'
+                    }`}
+                    title={getTimeWindowSummary(p)}
+                  >
+                    <Clock className="w-3 h-3" />
+                    <span>{isProductActiveNow(p) ? 'Zeitfenster aktiv' : 'Zeitfenster inaktiv'}</span>
                   </span>
                 )}
               </div>
@@ -1250,6 +1286,153 @@ export default function AdminProductsPage() {
                 )}
               </div>
 
+              {/* Zeitfenster & Zeitgesteuerte Verfügbarkeit */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      id="hasTimeWindows"
+                      checked={formData.hasTimeWindows}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setFormData({
+                          ...formData,
+                          hasTimeWindows: checked,
+                          timeWindows: checked && formData.timeWindows.length === 0
+                            ? [{ id: 'tw_' + Date.now(), name: 'Reguläre Verkaufszeit', startTime: '11:00', endTime: '14:00', days: [1, 2, 3, 4, 5, 6, 0] }]
+                            : formData.timeWindows,
+                        });
+                      }}
+                      className="w-4 h-4 rounded text-amber-500 bg-slate-900 border-slate-700"
+                    />
+                    <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-amber-400" />
+                      <span>Zeitfenster aktivieren (nur zu bestimmten Uhrzeiten / Wochentagen verfügbar)</span>
+                    </span>
+                  </label>
+                  {formData.hasTimeWindows && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          timeWindows: [
+                            ...formData.timeWindows,
+                            {
+                              id: 'tw_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+                              name: '',
+                              startTime: '17:00',
+                              endTime: '22:00',
+                              days: [1, 2, 3, 4, 5, 6, 0],
+                            },
+                          ],
+                        })
+                      }
+                      className="px-2.5 py-1 bg-amber-600/20 text-amber-400 hover:bg-amber-600 hover:text-white rounded-lg text-xs font-bold transition border border-amber-500/30 flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Zeitfenster</span>
+                    </button>
+                  )}
+                </div>
+
+                {formData.hasTimeWindows && (
+                  <div className="space-y-2 pt-2 border-t border-slate-800">
+                    <p className="text-[11px] text-slate-400">
+                      Außerhalb dieser Zeitfenster wird der Artikel an der Kasse und auf Kellnergeräten automatisch ausgeblendet.
+                    </p>
+                    {formData.timeWindows.map((tw, idx) => (
+                      <div key={tw.id || idx} className="space-y-2 bg-slate-900/40 border border-slate-800 rounded-xl p-2.5">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            placeholder="Bezeichnung (z. B. Mittagstisch, Happy Hour)"
+                            value={tw.name || ''}
+                            onChange={(e) => {
+                              const updated = [...formData.timeWindows];
+                              updated[idx] = { ...updated[idx], name: e.target.value };
+                              setFormData({ ...formData, timeWindows: updated });
+                            }}
+                            className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
+                          />
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-slate-400 font-medium">Von:</span>
+                            <input
+                              type="time"
+                              value={tw.startTime || '11:00'}
+                              onChange={(e) => {
+                                const updated = [...formData.timeWindows];
+                                updated[idx] = { ...updated[idx], startTime: e.target.value };
+                                setFormData({ ...formData, timeWindows: updated });
+                              }}
+                              className="bg-slate-900 border border-slate-700 rounded-xl px-2 py-1 text-xs text-white font-mono"
+                            />
+                            <span className="text-[11px] text-slate-400 font-medium">Bis:</span>
+                            <input
+                              type="time"
+                              value={tw.endTime || '14:00'}
+                              onChange={(e) => {
+                                const updated = [...formData.timeWindows];
+                                updated[idx] = { ...updated[idx], endTime: e.target.value };
+                                setFormData({ ...formData, timeWindows: updated });
+                              }}
+                              className="bg-slate-900 border border-slate-700 rounded-xl px-2 py-1 text-xs text-white font-mono"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = formData.timeWindows.filter((_, i) => i !== idx);
+                              setFormData({ ...formData, timeWindows: updated });
+                            }}
+                            className="p-1.5 text-slate-500 hover:text-rose-400 transition"
+                            title="Zeitfenster entfernen"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Wochentage Auswahl */}
+                        <div className="flex items-center gap-1.5 pt-1 text-[11px]">
+                          <span className="text-slate-400 mr-1">Tage:</span>
+                          {[1, 2, 3, 4, 5, 6, 0].map((dayNum) => {
+                            const days = tw.days ?? [1, 2, 3, 4, 5, 6, 0];
+                            const isSelected = days.includes(dayNum);
+                            return (
+                              <button
+                                key={dayNum}
+                                type="button"
+                                onClick={() => {
+                                  const currentDays = tw.days ?? [1, 2, 3, 4, 5, 6, 0];
+                                  let nextDays: number[];
+                                  if (isSelected) {
+                                    nextDays = currentDays.filter((d) => d !== dayNum);
+                                    if (nextDays.length === 0) nextDays = [dayNum];
+                                  } else {
+                                    nextDays = [...currentDays, dayNum];
+                                  }
+                                  const updated = [...formData.timeWindows];
+                                  updated[idx] = { ...updated[idx], days: nextDays };
+                                  setFormData({ ...formData, timeWindows: updated });
+                                }}
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold transition ${
+                                  isSelected
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                    : 'bg-slate-800/40 text-slate-500 hover:text-slate-300 border border-transparent'
+                                }`}
+                              >
+                                {WEEKDAY_LABELS[dayNum]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Wertmarken / Gutschein Checkbox */}
               <div className="flex items-center gap-2 p-3 bg-slate-950 rounded-2xl border border-slate-800">
                 <input
@@ -1631,6 +1814,16 @@ export default function AdminProductsPage() {
           </div>
         </div>
       )}
+
+      {/* PDF Speisekarten Import Modal */}
+      <PdfMenuImportModal
+        isOpen={showPdfImportModal}
+        onClose={() => setShowPdfImportModal(false)}
+        categories={categories}
+        printGroups={printGroups}
+        onImportComplete={fetchData}
+        toast={{ success, error, warning }}
+      />
     </div>
   );
 }

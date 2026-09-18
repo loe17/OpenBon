@@ -266,12 +266,13 @@ export default function AdminSystemUpdatePage() {
     );
     fetchSystemStatus();
 
-    // Automatisches 10-Sekunden-Intervall für Live-Metriken (CPU, RAM, Festplatte, Uptime) ohne Git/GitHub-Poll
+    // Echtzeit-Intervall (750ms < 1 Sekunde) für Live-Metriken (CPU, RAM, Festplatte, Uptime) ohne Git/GitHub-Poll
+    // Pausiert automatisch bei minimiertem Tab oder Hintergrund-Status zur Schonung des Endgeräts
     const interval = setInterval(() => {
-      if (!updating) {
+      if (!updating && typeof document !== 'undefined' && document.visibilityState === 'visible') {
         fetchLiveHardwareMetrics();
       }
-    }, 10000);
+    }, 750);
 
     return () => clearInterval(interval);
   }, [updating]);
