@@ -74,10 +74,10 @@ export function startAutoBackupScheduler(): void {
   console.log('[BACKUP] Automatischer SQLite Backup-Scheduler aktiv (Intervall: 5 Minuten).');
   // Erstes Backup nach 10 Sekunden
   setTimeout(() => {
-    createDatabaseBackup();
+    createDatabaseBackup().catch((e) => console.error('[BACKUP] Fehler:', e));
   }, 10000);
 
   timer = setInterval(() => {
-    createDatabaseBackup();
+    createDatabaseBackup().catch((e) => console.error('[BACKUP] Fehler:', e));
   }, BACKUP_INTERVAL_MS);
 }

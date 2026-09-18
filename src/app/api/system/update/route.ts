@@ -99,12 +99,23 @@ function getCpuUsage(): Promise<number> {
   });
 }
 
+let cachedDiskSpace: ReturnType<typeof getDiskSpace> | null = null;
+let lastDiskSpaceCheck = 0;
+
+function getCachedDiskSpace(): ReturnType<typeof getDiskSpace> {
+  const now = Date.now();
+  if (cachedDiskSpace && now - lastDiskSpaceCheck < 10000) {
+    return cachedDiskSpace;
+  }
+  cachedDiskSpace = getDiskSpace(projectRoot);
+  lastDiskSpaceCheck = now;
+  return cachedDiskSpace;
+}
+
 export async function GET(req: Request) {
   const auth = await requireApiAuth(req, ['ADMIN']);
   if (!auth.ok) return auth.response;
 
-  const denied = await requireAdmin(req);
-  if (denied) return denied;
   try {
     const url = new URL(req.url);
     if (url.searchParams.get('metricsOnly') === '1' || url.searchParams.get('metricsOnly') === 'true') {
@@ -133,7 +144,7 @@ export async function GET(req: Request) {
 
       return NextResponse.json({
         uptime: Math.round(process.uptime()),
-        diskSpace: getDiskSpace(projectRoot),
+        diskSpace: getCachedDiskSpace(),
         memory,
         cpu,
         serverTimestamp: Date.now(),

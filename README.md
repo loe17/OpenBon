@@ -1,7 +1,7 @@
 # OpenBon – Enterprise Kassen-, Bestell- & Festmanagementsystem
 
-[![Version](https://img.shields.io/badge/version-v0.4.60-blue.svg)](https://github.com/loe17/OpenBon/releases)
-[![Tests](https://img.shields.io/badge/tests-55%20passed%20%7C%20377%20tests-brightgreen.svg)](https://github.com/loe17/OpenBon)
+[![Version](https://img.shields.io/badge/version-v0.4.61-blue.svg)](https://github.com/loe17/OpenBon/releases)
+[![Tests](https://img.shields.io/badge/tests-56%20passed%20%7C%20381%20tests-brightgreen.svg)](https://github.com/loe17/OpenBon)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-PWA%20%7C%20Linux%20%7C%20Windows%20%7C%20Docker%20%7C%20iOS%20%7C%20Android-lightgrey.svg)](https://github.com/loe17/OpenBon)
 [![Compliance](https://img.shields.io/badge/compliance-GoBD%20%7C%20KassenSichV%20%7C%20DSFinV--K-purple.svg)](https://github.com/loe17/OpenBon)
@@ -71,7 +71,7 @@ npm install
 npx prisma db push
 node prisma/seed.js
 
-# 3. Testsuite ausführen (55 Testsuiten, 377 Tests)
+# 3. Testsuite ausführen (56 Testsuiten, 381 Tests)
 npm test
 
 # 4. Server starten
@@ -196,7 +196,7 @@ npm test
 npm run build
 ```
 
-- **55 Test-Suiten / 377 Tests (100% bestanden):** Umfassende Testabdeckung für den gesamten Kassen-Lebenszyklus, Rechner-Metriken, Tisch-Splitting, E-Bon, Druckerspooler, Fiskalisierung, Artikel-Zeitfenster, PDF-Speisekarten-Import, Kassen-Uhrzeit, Setup-Wizard und WCAG-Kontrast.
+- **56 Test-Suiten / 381 Tests (100% bestanden):** Umfassende Testabdeckung für den gesamten Kassen-Lebenszyklus, Rechner-Metriken, Tisch-Splitting, E-Bon, Druckerspooler, Fiskalisierung, Artikel-Zeitfenster, PDF-Speisekarten-Import, Kassen-Uhrzeit, Setup-Wizard und WCAG-Kontrast.
 
 ---
 

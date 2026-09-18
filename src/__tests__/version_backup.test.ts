@@ -3,7 +3,7 @@ import { APP_VERSION, APP_NAME, GITHUB_REPO_URL, APP_IS_BETA } from '../lib/vers
 
 describe('OpenBon v0.4.44 & Selective Backup Tests', () => {
   it('should have consistent version and metadata', () => {
-    expect(['0.4.43', '0.4.44', '0.4.45', '0.4.46', '0.4.47', '0.4.48', '0.4.49', '0.4.50', '0.4.51', '0.4.52', '0.4.53', '0.4.54', '0.4.55', '0.4.56', '0.4.57', '0.4.58', '0.4.59', '0.4.60']).toContain(APP_VERSION);
+    expect(['0.4.43', '0.4.44', '0.4.45', '0.4.46', '0.4.47', '0.4.48', '0.4.49', '0.4.50', '0.4.51', '0.4.52', '0.4.53', '0.4.54', '0.4.55', '0.4.56', '0.4.57', '0.4.58', '0.4.59', '0.4.60', '0.4.61']).toContain(APP_VERSION);
     expect(APP_NAME).toBe('OpenBon');
     expect(GITHUB_REPO_URL).toBe('https://github.com/loe17/OpenBon');
   });

@@ -94,13 +94,18 @@ export default function AdminDashboardPage() {
     };
   }, [socket]);
 
-  // Echtzeit-Hardware-Metriken (400ms Takt)
+  // Echtzeit-Hardware-Metriken (400ms Takt) mit Überlappungsschutz
   useEffect(() => {
     let isMounted = true;
+    let isFetching = false;
     const fetchMetrics = async () => {
+      if (isFetching) return;
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      isFetching = true;
       try {
-        const res = await fetch('/api/system/update?metricsOnly=1');
+        const res = await fetch('/api/system/update?metricsOnly=1', {
+          signal: AbortSignal.timeout(3000),
+        });
         if (!res.ok) return;
         const data = await res.json();
         if (isMounted && data?.cpu && data?.memory) {
@@ -112,6 +117,8 @@ export default function AdminDashboardPage() {
         }
       } catch {
         // Leise ignorieren
+      } finally {
+        isFetching = false;
       }
     };
 

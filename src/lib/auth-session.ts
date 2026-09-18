@@ -79,12 +79,21 @@ export async function signSessionToken(payload: SessionPayload): Promise<string>
     .sign(getJwtSecretKey());
 }
 
+// Kurzzeit-Zwischenspeicher (3 Sekunden TTL) zur Entlastung von SQLite bei schnellem Polling
+const sessionVerifyCache = new Map<string, { payload: SessionPayload; expiresAt: number }>();
+
 /**
  * Verifiziert ein Session-Token und liefert das Payload zurueck.
  * Laeuft NUR im Node-Kontext (API-Routen, Server-Layouts): Hier ist das
  * persistente Secret via globalThis/process.env verfuegbar.
  */
 export async function verifySessionToken(token: string): Promise<SessionPayload | null> {
+  const now = Date.now();
+  const cached = sessionVerifyCache.get(token);
+  if (cached && cached.expiresAt > now) {
+    return cached.payload;
+  }
+
   try {
     const { payload } = await jwtVerify(token, getJwtSecretKey(), {
       algorithms: ['HS256'],
@@ -97,16 +106,30 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
       const { default: prisma } = await import('./db');
       if (p.jti) {
         const revoked = await prisma.revokedSession.findUnique({ where: { jti: p.jti } }).catch(() => null);
-        if (revoked) return null;
+        if (revoked) {
+          sessionVerifyCache.delete(token);
+          return null;
+        }
       }
     } catch {}
+
+    // Gültige Prüfung 3s zwischenspeichern
+    sessionVerifyCache.set(token, { payload: p, expiresAt: now + 3000 });
+    if (sessionVerifyCache.size > 200) {
+      for (const [k, v] of sessionVerifyCache.entries()) {
+        if (v.expiresAt <= now) sessionVerifyCache.delete(k);
+      }
+    }
+
     return p;
   } catch {
+    sessionVerifyCache.delete(token);
     return null;
   }
 }
 
 export async function revokeSessionToken(token: string): Promise<boolean> {
+  sessionVerifyCache.clear();
   try {
     const { decodeJwt } = await import('jose');
     const p = decodeJwt(token) as unknown as SessionPayload;

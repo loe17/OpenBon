@@ -190,9 +190,14 @@ export default function AdminSystemUpdatePage() {
     setTerminalHistory((prev) => [...prev, newLog]);
   };
 
+  const isFetchingLiveMetricsRef = React.useRef(false);
   const fetchLiveHardwareMetrics = async () => {
+    if (isFetchingLiveMetricsRef.current) return;
+    isFetchingLiveMetricsRef.current = true;
     try {
-      const res = await fetch('/api/system/update?metricsOnly=1');
+      const res = await fetch('/api/system/update?metricsOnly=1', {
+        signal: AbortSignal.timeout(3000),
+      });
       if (!res.ok) return;
       const data = await res.json();
       setSysInfo((prev) => {
@@ -210,6 +215,8 @@ export default function AdminSystemUpdatePage() {
       }
     } catch {
       // Leise ignorieren, kein Terminal-Log
+    } finally {
+      isFetchingLiveMetricsRef.current = false;
     }
   };
 

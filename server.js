@@ -1,3 +1,13 @@
+// Globale Absturzsicherung: Verhindert, dass abgerissene Client-Sockets,
+// unvollstaendige Requests oder unhandled Promise-Rejections den Server beenden.
+process.on('uncaughtException', (err) => {
+  console.error('[CRASH-SHIELD] Uncaught Exception abgefangen (Server bleibt online):', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[CRASH-SHIELD] Unhandled Rejection abgefangen (Server bleibt online):', reason);
+});
+
 try {
   require('dotenv').config();
 } catch {}
@@ -185,9 +195,24 @@ app.prepare().then(async () => {
       await handle(req, res);
     } catch (err) {
       console.error('Error handling request:', err);
-      res.statusCode = 500;
-      res.end('Internal Server Error');
+      if (!res.headersSent && !res.writableEnded) {
+        try {
+          res.statusCode = 500;
+          res.end('Internal Server Error');
+        } catch {}
+      }
     }
+  });
+
+  server.on('clientError', (err, socket) => {
+    if (err.code === 'ECONNRESET' || !socket.writable) return;
+    try {
+      socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
+    } catch {}
+  });
+
+  server.on('error', (err) => {
+    console.error('[HTTP-SERVER] Server-Fehler abgefangen:', err.message);
   });
 
   const io = new Server(server, {
@@ -216,11 +241,27 @@ app.prepare().then(async () => {
             await handle(req, res);
           } catch (err) {
             console.error('Error handling HTTPS request:', err);
-            res.statusCode = 500;
-            res.end('Internal Server Error');
+            if (!res.headersSent && !res.writableEnded) {
+              try {
+                res.statusCode = 500;
+                res.end('Internal Server Error');
+              } catch {}
+            }
           }
         }
       );
+
+      httpsServer.on('clientError', (err, socket) => {
+        if (err.code === 'ECONNRESET' || !socket.writable) return;
+        try {
+          socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
+        } catch {}
+      });
+
+      httpsServer.on('error', (err) => {
+        console.error('[HTTPS-SERVER] SSL-Server-Fehler abgefangen:', err.message);
+      });
+
       io.attach(httpsServer);
     } catch (e) {
       console.warn('[HTTPS] Konnte HTTPS-Server nicht initialisieren:', e.message);
@@ -509,6 +550,10 @@ app.prepare().then(async () => {
       const dgram = require('dgram');
       const os = require('os');
       const mdnsSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+
+      mdnsSocket.on('error', (err) => {
+        console.warn('[mDNS] UDP-Multicast Socket-Hinweis (ignoriert):', err.message);
+      });
       
       let localIp = '127.0.0.1';
       const ifaces = os.networkInterfaces();
@@ -543,7 +588,11 @@ app.prepare().then(async () => {
                 0x00, 0x01, 0x80, 0x01, 0x00, 0x00, 0x00, 0x78, 0x00, 0x04,
                 ipParts[0], ipParts[1], ipParts[2], ipParts[3],
               ]);
-              mdnsSocket.send(resp, 0, resp.length, 5353, '224.0.0.251');
+              mdnsSocket.send(resp, 0, resp.length, 5353, '224.0.0.251', (err) => {
+                if (err) {
+                  // Netzwerkfehler (z.B. Router-DHCP-Erneuerung oder fehlende Multicast-Route) ignorieren
+                }
+              });
             }
           }
         } catch {}
