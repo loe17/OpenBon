@@ -37,6 +37,10 @@ export interface SettlementOrderSummary {
 
 export interface SettlementReport {
   waiterName: string;
+  waiterId?: string | null;
+  waiterNumber?: number | null;
+  loggedInAt?: string | null;
+  loggedOutAt?: string | null;
   periodNumber: number;
   periodOpenedAt: string;
   generatedAt: string;
@@ -156,7 +160,14 @@ export async function GET(req: Request) {
       }),
       prisma.waiterProfile.findFirst({
         where: { name: cleanWaiterName },
-        select: { tipProfile: { select: { name: true } } },
+        select: {
+          id: true,
+          waiterNumber: true,
+          loggedInAt: true,
+          loggedOutAt: true,
+          tipProfile: { select: { name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
       }),
     ]);
 
@@ -249,6 +260,10 @@ export async function GET(req: Request) {
 
     const report: SettlementReport = {
       waiterName: rawWaiterName,
+      waiterId: profile?.id ?? null,
+      waiterNumber: profile?.waiterNumber ?? null,
+      loggedInAt: profile?.loggedInAt ? profile.loggedInAt.toISOString() : null,
+      loggedOutAt: profile?.loggedOutAt ? profile.loggedOutAt.toISOString() : null,
       periodNumber: period.periodNumber,
       periodOpenedAt: period.openedAt.toISOString(),
       generatedAt: new Date().toISOString(),

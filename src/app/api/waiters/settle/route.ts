@@ -104,10 +104,18 @@ export async function POST(req: Request) {
     //    nach der ersten Abrechnung samt PIN und Trinkgeldprofil dauerhaft aus
     //    der Datenbank. Jetzt wird sie nur noch inaktiv gesetzt und kann in der
     //    naechsten Schicht wieder aktiviert werden.
-    await prisma.waiterProfile.updateMany({
+    const profile = await prisma.waiterProfile.findFirst({
       where: { name },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, waiterNumber: true, loggedInAt: true, loggedOutAt: true },
+    });
+
+    await prisma.waiterProfile.updateMany({
+      where: { name, isActive: true },
       data: {
         isActive: false,
+        isPaused: false,
+        loggedOutAt: profile?.loggedOutAt || new Date(),
       },
     });
 
@@ -144,6 +152,10 @@ export async function POST(req: Request) {
           const { rawBuffer, textRepresentation } = EscPosBuilder.buildSettlementTicket(
             {
               waiterName: name,
+              waiterId: body.waiterId || profile?.id || undefined,
+              waiterNumber: body.waiterNumber ?? profile?.waiterNumber ?? undefined,
+              loggedInAt: body.loggedInAt || profile?.loggedInAt || undefined,
+              loggedOutAt: body.loggedOutAt || profile?.loggedOutAt || new Date(),
               eventName: config?.name || undefined,
               isTraining: config?.trainingMode ?? false,
               isCorrection: Boolean(isCorrection),

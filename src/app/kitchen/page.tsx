@@ -332,8 +332,8 @@ function KitchenMonitorContent() {
         </div>
       )}
 
-      {/* Top Header & Live Backlog Bar */}
-      <div className="bg-slate-900 border-b border-slate-700 p-3 sm:p-4 shadow-md space-y-3">
+      {/* Top Header & Live Backlog Bar (Fixiert oben) */}
+      <div className="bg-slate-900 border-b border-slate-700 p-3 sm:p-4 shadow-md space-y-3 shrink-0">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="bg-amber-500 text-black p-2.5 rounded-2xl shadow">
@@ -508,8 +508,8 @@ function KitchenMonitorContent() {
         </div>
       </div>
 
-      {/* Main Order Columns Grid */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden p-3 sm:p-5">
+      {/* Main Order Columns Grid (Vertikales Scrollen, mehrspaltiges Umbrechen) */}
+      <div className="flex-1 overflow-y-auto p-3 sm:p-5">
         {loading ? (
           <div className="flex items-center justify-center h-48 text-slate-400 font-bold">
             <RefreshCw className="w-6 h-6 animate-spin mr-2" />
@@ -522,7 +522,7 @@ function KitchenMonitorContent() {
             <p className="text-xs font-semibold mt-0.5">Aktuell liegen keine offenen Positionen für diese Warengruppen vor.</p>
           </div>
         ) : (
-          <div className="flex gap-4 h-full items-stretch">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 items-start pb-8">
             {filteredOrders.map((order) => {
               const elapsedMinutes = Math.floor(
                 (currentTime - new Date(order.createdAt).getTime()) / 60000
@@ -533,7 +533,7 @@ function KitchenMonitorContent() {
               return (
                 <div
                   key={order.id}
-                  className={`w-72 sm:w-80 flex-shrink-0 flex flex-col justify-between rounded-3xl border-2 shadow-2xl transition-all ${
+                  className={`w-full flex flex-col justify-between rounded-3xl border-2 shadow-xl transition-all overflow-hidden ${
                     isUrgent
                       ? 'bg-slate-900 border-rose-500 shadow-rose-950/60'
                       : isWarning
@@ -542,7 +542,7 @@ function KitchenMonitorContent() {
                   }`}
                 >
                   {/* Card Header */}
-                  <div className="p-3.5 border-b border-slate-800 flex items-center justify-between">
+                  <div className="p-3.5 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-950/40">
                     <div>
                       <div className="font-black text-base text-white flex items-center gap-1.5">
                         {order.tokenNumber ? (
@@ -577,7 +577,7 @@ function KitchenMonitorContent() {
                   </div>
 
                   {/* Items Checklist */}
-                  <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+                  <div className="flex-1 overflow-y-auto p-3 space-y-2.5 max-h-80 min-h-[90px]">
                     {[...order.items]
                       .sort((a, b) => (a.courseNumber ?? 1) - (b.courseNumber ?? 1))
                       .map((item, idx, arr) => {
@@ -675,7 +675,7 @@ function KitchenMonitorContent() {
                   </div>
 
                   {/* Card Footer: Druck-Quittung + Complete Button */}
-                  <div className="p-3.5 border-t border-slate-800 space-y-2">
+                  <div className="p-3 border-t border-slate-800 space-y-2 shrink-0 bg-slate-950/50">
                     <button
                       onClick={async () => {
                         triggerHapticFeedback();
@@ -693,15 +693,15 @@ function KitchenMonitorContent() {
                           console.error(e);
                         }
                       }}
-                      className="pos-touch-btn w-full h-12 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2"
+                      className="pos-touch-btn w-full h-11 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2"
                       title="Erst wenn der Bon wirklich aus dem Drucker kam (Papier prüfen)"
                     >
-                      <Printer className="w-5 h-5" />
+                      <Printer className="w-4 h-4" />
                       <span>Bon erhalten (Druck ok)</span>
                     </button>
                     <button
                       onClick={() => completeOrder(order.id)}
-                      className="pos-touch-btn w-full h-14 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-xl shadow-emerald-950/50"
+                      className="pos-touch-btn w-full h-13 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-xl shadow-emerald-950/50"
                     >
                       <CheckCircle2 className="w-5 h-5" />
                       <span>Bestellung Fertig</span>

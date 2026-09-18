@@ -68,6 +68,10 @@ export interface SettlementOrderSummary {
 
 interface SettlementReport {
   waiterName: string;
+  waiterId?: string | null;
+  waiterNumber?: number | null;
+  loggedInAt?: string | null;
+  loggedOutAt?: string | null;
   periodNumber: number;
   periodOpenedAt: string;
   generatedAt: string;
@@ -126,6 +130,9 @@ export interface WaiterEntity {
   name: string;
   pin: string;
   isActive: boolean;
+  isPaused?: boolean;
+  loggedInAt?: string | Date | null;
+  loggedOutAt?: string | Date | null;
   waiterNumber?: number | null;
   tipProfileId?: string | null;
   tipProfile?: TipProfile | null;
@@ -168,7 +175,19 @@ function AdminSettleContent() {
   const [printerId, setPrinterId] = useState<string>('');
   const [printers, setPrinters] = useState<{ id: string; name: string; isActive?: boolean }[]>([]);
   const [settleTemplate, setSettleTemplate] = useState<'OFFICIAL_A4' | 'RECEIPT_SLIP' | 'DASHBOARD_SUMMARY'>('OFFICIAL_A4');
-  const [rawWaiters, setRawWaiters] = useState<{ name: string; waiterNumber?: number | null; isSettled?: boolean; lastSettledAt?: string | null }[]>([]);
+  const [rawWaiters, setRawWaiters] = useState<
+    {
+      id?: string;
+      name: string;
+      waiterNumber?: number | null;
+      isActive?: boolean;
+      isPaused?: boolean;
+      loggedInAt?: string | Date | null;
+      loggedOutAt?: string | Date | null;
+      isSettled?: boolean;
+      lastSettledAt?: string | null;
+    }[]
+  >([]);
   const [filterMode, setFilterMode] = useState<'ALL' | 'OPEN' | 'SETTLED'>('ALL');
   const [done, setDone] = useState(false);
 
@@ -536,6 +555,10 @@ function AdminSettleContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           waiterName: report.waiterName,
+          waiterId: report.waiterId,
+          waiterNumber: report.waiterNumber,
+          loggedInAt: report.loggedInAt,
+          loggedOutAt: report.loggedOutAt,
           totalGross: report.totalGross ?? (report.totalGrossCents !== undefined ? report.totalGrossCents / 100 : 0),
           totalGrossCents: report.totalGrossCents ?? Math.round(((report.totalGross ?? 0)) * 100),
           cashGross: report.cashGross ?? (report.cashGrossCents !== undefined ? report.cashGrossCents / 100 : 0),
@@ -781,10 +804,20 @@ function AdminSettleContent() {
                           <span className={isSelected ? 'text-emerald-200' : 'text-emerald-400'}>
                             ✓ Bereits abgerechnet (PIN für Korrektur)
                           </span>
+                        ) : info?.isPaused ? (
+                          <span className={isSelected ? 'text-amber-200' : 'text-amber-400'}>
+                            ⏸ In Pause
+                          </span>
                         ) : (
                           <span className={isSelected ? 'text-amber-200' : 'text-amber-400'}>
                             ● Schicht aktiv / Offen
                           </span>
+                        )}
+                        {info?.loggedInAt && (
+                          <div className={`text-[9px] mt-0.5 opacity-80 font-mono ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>
+                            An: {new Date(info.loggedInAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                            {info.loggedOutAt && ` • Ab: ${new Date(info.loggedOutAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`}
+                          </div>
                         )}
                       </div>
                     </button>
@@ -1390,7 +1423,31 @@ function AdminSettleContent() {
               <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
                 <div>
                   <div className="text-xs text-slate-500 uppercase font-bold">Bedienung / Kellner</div>
-                  <div className="font-black text-base">{report.waiterName}</div>
+                  <div className="font-black text-base">
+                    {report.waiterName}
+                    {report.waiterNumber ? (
+                      <span className="ml-2 font-mono text-xs font-normal text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                        #{report.waiterNumber}
+                      </span>
+                    ) : report.waiterId ? (
+                      <span className="ml-2 font-mono text-[10px] font-normal text-slate-500">
+                        ID: {report.waiterId}
+                      </span>
+                    ) : null}
+                  </div>
+                  {report.loggedInAt && (
+                    <div className="text-xs text-slate-600 mt-1">
+                      <span className="font-medium">Angemeldet:</span>{' '}
+                      <span className="font-mono">{new Date(report.loggedInAt).toLocaleString('de-DE')}</span>
+                      {report.loggedOutAt && (
+                        <>
+                          <br />
+                          <span className="font-medium">Abgemeldet:</span>{' '}
+                          <span className="font-mono">{new Date(report.loggedOutAt).toLocaleString('de-DE')}</span>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-slate-500 uppercase font-bold">Kassenperiode / Datum</div>
@@ -1602,8 +1659,18 @@ function AdminSettleContent() {
                   </div>
                   <div className="font-bold">{report.eventName}</div>
                   <div>Z-Periode: Z-{report.periodNumber}</div>
-                  <div>Bedienung: {report.waiterName}</div>
-                  <div>{new Date().toLocaleString('de-DE')}</div>
+                  <div>Bedienung: {report.waiterName} {report.waiterNumber ? `(#${report.waiterNumber})` : ''}</div>
+                  {report.loggedInAt && (
+                    <div className="text-[10px]">
+                      Angemeldet: {new Date(report.loggedInAt).toLocaleString('de-DE')}
+                    </div>
+                  )}
+                  {report.loggedOutAt && (
+                    <div className="text-[10px]">
+                      Abgemeldet: {new Date(report.loggedOutAt).toLocaleString('de-DE')}
+                    </div>
+                  )}
+                  <div>Abgerechnet: {new Date().toLocaleString('de-DE')}</div>
                 </div>
 
                 <div className="py-2 border-b border-slate-400 space-y-1">
@@ -1844,6 +1911,7 @@ function AdminSettleContent() {
                 <thead>
                   <tr className="border-b border-slate-800 text-slate-400 font-bold text-xs uppercase tracking-wider">
                     <th className="pb-3">Name</th>
+                    <th className="pb-3">Schicht / Status</th>
                     <th className="pb-3">Station-PIN</th>
                     <th className="pb-3">Trinkgeld-Profil</th>
                     <th className="pb-3">Effektive Aufteilung</th>
@@ -1853,7 +1921,7 @@ function AdminSettleContent() {
                 <tbody className="divide-y divide-slate-800/60">
                   {staffList.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-6 text-center text-slate-500 text-xs">
+                      <td colSpan={6} className="py-6 text-center text-slate-500 text-xs">
                         Keine Bedienungen angelegt.
                       </td>
                     </tr>
@@ -1869,6 +1937,29 @@ function AdminSettleContent() {
                                 #{w.waiterNumber}
                               </span>
                             ) : null}
+                          </td>
+                          <td className="py-3 text-xs">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {w.isPaused ? (
+                                <span className="px-2 py-0.5 rounded-md bg-amber-950 border border-amber-800 text-[10px] font-bold text-amber-300">
+                                  ⏸ In Pause
+                                </span>
+                              ) : w.isActive ? (
+                                <span className="px-2 py-0.5 rounded-md bg-emerald-950 border border-emerald-800 text-[10px] font-bold text-emerald-300">
+                                  ● Aktiv
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-[10px] font-bold text-slate-400">
+                                  Beendet
+                                </span>
+                              )}
+                              {w.loggedInAt && (
+                                <span className="text-[11px] font-mono text-slate-400">
+                                  An: {new Date(w.loggedInAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                                  {w.loggedOutAt && ` • Ab: ${new Date(w.loggedOutAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="py-3 font-mono text-slate-400">{w.pin}</td>
                           <td className="py-3">

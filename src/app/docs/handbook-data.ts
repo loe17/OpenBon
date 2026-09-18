@@ -130,9 +130,10 @@ export const HANDBOOK: DocChapter[] = [
       },
       {
         id: '1.7',
-        heading: '1.7 Navigationsschutz & Menü-Scroll-Kapselung',
+        heading: '1.7 Navigationsschutz, Stationswechsel & Menü-Scroll-Kapselung',
         paragraphs: [
           'Damit bei langen Menüs oder Listen auf Touch-Geräten kein versehentliches Verschieben des Hintergrunds auftritt, kapselt OpenBon das Hauptmenü vollständig ab. Das Scrollen bleibt exakt im Menüfenster gebunden.',
+          'Direkter Stationswechsel im Hauptmenü: Tippt man im Seitenmenü auf eine andere Station (z. B. Küche, Kasse oder Verwaltung), schließt sich das Menü sofort von selbst und das PIN-Zahlenfeld erscheint direkt im Vordergrund. Niemand muss das Menü erst umständlich von Hand wegdrücken.',
           'Werden in den Systemeinstellungen Änderungen vorgenommen und der Benutzer möchte die Seite verlassen, erinnert ein automatischer Sicherheitsdialog an das Speichern ungesicherter Eingaben.',
         ],
       },
@@ -298,10 +299,14 @@ export const HANDBOOK: DocChapter[] = [
       },
       {
         id: '2.12',
-        heading: '2.12 Bedienungsname, Schichtwechsel & WLAN-Empfangs-Ampel',
+        heading: '2.12 Bedienungsname, Schichtwechsel, Pausen & Schicht-Ende',
         paragraphs: [
-          'Bedienungsname und Schichtwechsel: In der oberen Kopfzeile wird der Name der angemeldeten Bedienung angezeigt. Ein Klick auf das Stift-Symbol öffnet den Schichtdialog: Hier kann der Name geändert, ein anderer Helfer ausgewählt oder die Schicht per "Abmelden" beendet werden.',
-          'Live-Geräteübertragung: Der gewählte Name wird automatisch an die Kassenleitung (/admin/devices) übertragen, sodass immer ersichtlich ist, wer welches Smartphone nutzt.',
+          'Bedienungsname und Stift-Symbol: In der oberen Leiste steht der Name der aktuellen Bedienung. Ein Fingertipp auf das Stift-Symbol öffnet das Wechsel- und Abmeldefenster.',
+          'Sicherer Helferwechsel ohne Versehentliches Umschalten: Tippt man auf einen Namen aus der Schnellauswahl, wird dieser zunächst sicher in das Namensfeld eingetragen. Erst wenn man auf die grüne Taste "Wechseln & Weiter" tippt, wird der Wechsel tatsächlich ausgeführt.',
+          'Auswahl beim Abmelden (Pause vs. Schichtende):',
+          '• Kurze Pause (Nur sperren): Das Smartphone wird vorübergehend gesperrt, damit während einer kurzen Essens- oder WC-Pause niemand versehentlich darauf bucht. Bei erneuter Anmeldung setzt die Bedienung ihre Schicht nahtlos mit derselben Schicht-Kennnummer und Schichtzeit fort.',
+          '• Schicht beenden (Ganz abmelden): Beendet die aktuelle Schicht vollständig und erfasst das genaue Abmeldedatum mit Uhrzeit. Meldet sich dieselbe Person später für eine neue Schicht wieder an, vergibt das System automatisch eine neue Schicht-Kennnummer mit eigener, frischer Startzeit.',
+          'Live-Geräteübertragung: Der Name der angemeldeten Bedienung wird in Echtzeit an die Kassenleitung (/admin/devices) übertragen, sodass immer ersichtlich ist, wer welches Smartphone nutzt.',
           'WLAN-Empfangs-Ampel: Neben dem Namen befindet sich eine praktische Status-Ampel für das Zelt-WLAN:',
           '• Grün ("WLAN OK"): Die Funkverbindung zur Hauptkasse ist stabil. Bestellungen werden sofort übermittelt.',
           '• Rot blinkend ("Offline / WLAN getrennt"): Sobald eine Bedienung außerhalb der Funkreichweite gerät (z. B. im hinteren Biergarten), schlägt die Ampel rot an und ein auffälliges Warnbanner weist darauf hin. So weiß die Bedienung sofort, dass sie sich wieder ein Stück in Richtung Zelt bewegen muss, bevor sie Bestellungen absendet.',
@@ -461,9 +466,10 @@ export const HANDBOOK: DocChapter[] = [
           'Da OpenBon auf Vereinsfesten in einem eigenen, autarken Festzelt-Netzwerk ohne weltweite Internetverbindung läuft, besitzt die Kasse eine lokale Netzwerk-Adresse (z. B. https://192.168.178.50:3443). Der Browser kennt dieses lokale Festzelt-Zertifikat zunächst noch nicht und zeigt eine rote Sicherheitswarnung an.',
           'Die 2-Sekunden-Lösung (Sofort startklar ganz OHNE Datei-Installation – Empfohlen!):',
           'Tippen Sie auf dem Smartphone auf den grauen Button „Erweitert“ und danach ganz unten auf den Link „Weiter zu [IP-Adresse] (unsicher)“. Schon öffnet sich OpenBon sofort über https://[IP-Adresse]:3443 mit voller HTTPS-Verschlüsselung, PWA-Funktionen und Ton-Signalen. Diese Freigabe merkt sich Chrome dauerhaft.',
-          'Wichtiger Hinweis: Meldung „Für das Installieren von Zertifikaten ist ein Privater Schlüssel erforderlich“:',
-          'Tippen Sie die heruntergeladene Datei niemals direkt in den Android-Downloads an. Android versucht sonst fälschlicherweise, sie als persönliches Nutzer-/VPN-Zertifikat zu installieren und verlangt einen privaten Schlüssel. Möchten Sie das Zertifikat fest im Handy einspeichern, gehen Sie stattdessen immer über: Android-Einstellungen -> „Sicherheit & Datenschutz“ -> „Zertifikat installieren“ -> zwingend „CA-Zertifikat“ auswählen (und „Trotzdem installieren“ bestätigen).',
-          'Tipp: Wenn Sie keine Zertifikate auf den Geräten installieren möchten, nutzen Sie einfach „Fully Kiosk Browser“ (siehe Abschnitt 3.9). Dieser läuft auch über Standard-HTTP perfekt im Vollbildmodus.',
+          'Lösung für die Meldung: „Für das Installieren von Zertifikaten ist ein Privater Schlüssel erforderlich“:',
+          'Diese Meldung erscheint auf Android-Handys nur dann, wenn das Smartphone glaubt, man wolle ein persönliches Ausweis-Zertifikat einrichten. OpenBon stellt dafür ab Version 0.4.58 ein reines Stamm-Vertrauenszertifikat bereit (Download als openbon-ca.crt unter Admin -> QR-Codes).',
+          'So speichern Sie es dauerhaft im Handy ein: Öffnen Sie die Android-Einstellungen -> „Sicherheit & Datenschutz“ -> „Zertifikat installieren“ -> wählen Sie zwingend den Menüpunkt „CA-Zertifikat“ aus und bestätigen Sie die Datei openbon-ca.crt mit „Trotzdem installieren“. Es wird kein privater Schlüssel und kein Kennwort verlangt!',
+          'Tipp: Wenn Sie überhaupt keine Zertifikatsdateien auf Handys installieren möchten, nutzen Sie einfach „Fully Kiosk Browser“ (siehe Abschnitt 3.9). Dieser läuft auch über Standard-HTTP perfekt im Vollbildmodus.',
         ],
       },
       {
@@ -506,6 +512,7 @@ export const HANDBOOK: DocChapter[] = [
         heading: '4.1 Digitale Bonleiste & Farbsignalisierung',
         paragraphs: [
           'Der Küchen- und Schankmonitor (/kitchen) ersetzt Papierbons durch digitale Kacheln auf einem Touch-Bildschirm.',
+          'Feste Kopfleiste & vertikales Scrollen: Die obere Leiste mit Schnellfiltern (Ausverkauft, Warengruppen, Wartezeit-Sortierung) bleibt dauerhaft fest oben fixiert. Bei vielen gleichzeitigen Bestellungen scrollt nur der Kachelbereich nach unten durch. Alle Bestellkarten passen sich der Bildschirmbreite an, sodass kein Bon seitlich über den Bildschirmrand hinausragt.',
         ],
         table: {
           headers: ['Farbe der Bonkarte', 'Wartezeit', 'Status & Bedeutung'],
@@ -764,10 +771,10 @@ export const HANDBOOK: DocChapter[] = [
         heading: '7.3 Geführter Kassensturz & Touch-Numpad',
         paragraphs: [
           'Die Schichtabrechnung erfolgt in einem sicheren 5-Schritte-Assistenten:',
-          '1. Mitarbeiter wählen.',
+          '1. Mitarbeiter wählen: Neben dem Namen werden hier auch die Schicht-Kennnummer, der Pausenstatus sowie das genaue Anmelde- und Abmeldedatum mit Uhrzeit übersichtlich angezeigt.',
           '2. Soll-Umsatz und Zahlungsmittel prüfen.',
           '3. Gezähltes Bargeld eingeben: Hier erscheint bei Berührung automatisch das Touch-Zahlenfeld mit praktischen Tasten für +5, +10, +20, +50 €. Das Tippen ist fehlerfrei möglich, da störende führende Nullen automatisch ersetzt werden.',
-          '4. Abrechnungsbericht mit 4 Reitern prüfen: Übersicht, Verkaufte Artikel, Bestellungen und der neue Reiter "Stornierte Artikel".',
+          '4. Abrechnungsbericht mit 4 Reitern prüfen: Übersicht, Verkaufte Artikel, Bestellungen und der Reiter "Stornierte Artikel".',
           '5. Abrechnung ausdrucken und Schicht abschließen.',
         ],
         image: {
@@ -778,10 +785,11 @@ export const HANDBOOK: DocChapter[] = [
       },
       {
         id: '7.4',
-        heading: '7.4 Reiter "Stornierte Artikel" & Berichts-Ausdruck',
+        heading: '7.4 Schichtzeiten, Kennnummer & Berichts-Ausdruck',
         paragraphs: [
-          'In der Schichtabrechnung listet der neue Reiter "Stornierte Artikel" alle Stornierungen der Schicht auf (Artikelname, Anzahl, Einzelpreis und Gesamtsumme).',
-          'Sowohl auf dem A4-Ausdruck als auch auf dem 80mm-Thermobon-Ausdruck werden stornierte Posten transparent ausgewiesen, sodass Kassenleitung und Vereinsvorstand lückenlose Nachvollziehbarkeit haben.',
+          'Jede Kellnerschicht erhält eine eigene Kennnummer sowie die exakten Zeitstempel für Anmeldung und Schichtabmeldung.',
+          'Sowohl auf dem A4-Ausdruck als auch auf dem 80mm-Thermobon-Ausdruck werden die Kellner-Kennnummer, Schicht-ID sowie Beginn und Ende mit Datum und Uhrzeit lückenlos aufgedruckt.',
+          'Zusätzlich listet der Reiter "Stornierte Artikel" alle Stornierungen der Schicht auf (Artikelname, Anzahl, Einzelpreis und Gesamtsumme), sodass Kassenleitung und Vereinsvorstand vollständige Transparenz haben.',
         ],
         image: {
           src: '/docs/images/22_admin_settle.png',
@@ -1024,7 +1032,7 @@ export const HANDBOOK: DocChapter[] = [
             ['Brute-Force-Sperre', 'Automatischer Schutz', 'Nach 5 falschen PIN-Eingaben wird das betreffende Gerät für 30 Sekunden gesperrt, um Durchprobieren zu verhindern.'],
             ['Festzelt-HTTPS (Port 3443)', 'Verschlüsseltes WLAN (100 Jahre)', 'Sichere Datenübertragung im Festzelt über den gesicherten Port 3443 mit lebenslang gültigem Sicherheitszertifikat.'],
             ['Zertifikat neu generieren', '100 Jahre unbegrenzt gültig', 'Erzeugt mit 1 Klick ein frisches, 100 Jahre gültiges Sicherheitszertifikat für alle lokalen Kassen-Adressen.'],
-            ['Kassenzertifikat-Download', 'openbon-kasse.crt', 'Ein Klick lädt das Sicherheitszertifikat herunter. Auf Android-Tablets installiert, ermöglicht es die Installation von OpenBon als App in Google Chrome.'],
+            ['Kassenzertifikat-Download', 'openbon-ca.crt', 'Lädt das Stamm-Vertrauenszertifikat herunter. In Android als „CA-Zertifikat“ importiert, verlangt es keinen privaten Schlüssel und ermöglicht die sichere Vollbild-Nutzung von OpenBon.'],
           ],
         },
       },

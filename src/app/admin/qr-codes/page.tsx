@@ -405,19 +405,19 @@ export default function QrCodesPage() {
               <p className="text-xs text-amber-300/80 mt-1 leading-relaxed">
                 Da die Kasse im lokalen Festzelt-Netzwerk ohne Internetverbindung läuft, meldet Android beim ersten Aufruf: <strong>„Dies ist keine sichere Verbindung“</strong>.
                 <br />
-                <strong>Empfohlene 2-Sekunden-Lösung (ohne Installation):</strong> Tippe auf der roten Android-Warnseite einfach auf <strong>„Erweitert“</strong> und danach auf <strong>„Weiter zu {networkInfo?.localIp || 'IP'} (unsicher)“</strong>. Ab dann ist die verschlüsselte Verbindung dauerhaft aktiv!
+                <strong>Methode 1 (Empfohlen, in 2 Sekunden ohne Installation):</strong> Tippe auf der roten Android-Warnseite einfach auf <strong>„Erweitert“</strong> und danach auf <strong>„Weiter zu {networkInfo?.localIp || 'IP'} (unsicher)“</strong>. Chrome merkt sich das dauerhaft und alle Funktionen laufen sofort!
                 <br />
-                <strong>Falls Zertifikat im Handy gespeichert werden soll:</strong> Datei nicht direkt im Download-Ordner antippen (meldet sonst <em>„Privater Schlüssel erforderlich“</em>), sondern in den Android-Einstellungen unter <em>„Sicherheit &rarr; Zertifikat installieren“</em> zwingend <strong>„CA-Zertifikat“</strong> auswählen!
+                <strong>Methode 2 (Dauerhafte Installation als Stammzertifikat):</strong> Unten das Root-CA-Zertifikat herunterladen. Anschließend in den <em>Android-Einstellungen &rarr; Sicherheit &rarr; Zertifikat installieren &rarr; <strong>CA-Zertifikat</strong></em> auswählen und die Datei <code>openbon-ca.crt</code> wählen.
               </p>
             </div>
           </div>
           <a
             href="/api/system/cert"
-            download="openbon-kasse.crt"
+            download="openbon-ca.crt"
             className="shrink-0 flex items-center gap-2 px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition shadow"
           >
             <FileDown className="w-4 h-4" />
-            <span>Zertifikat herunterladen</span>
+            <span>CA-Zertifikat herunterladen</span>
           </a>
         </div>
       )}

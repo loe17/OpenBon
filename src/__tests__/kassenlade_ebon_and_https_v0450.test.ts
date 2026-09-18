@@ -25,12 +25,12 @@ describe('OpenBon v0.4.50: Kassenlade, E-Bon QR & Festzelt-HTTPS Tests', () => {
   });
 
   it('GET /api/system/cert liefert das Kassen-Zertifikat oder generiert ein valides Zertifikat', async () => {
-    const res = await getCert();
+    const res = await getCert(new Request('http://localhost/api/system/cert'));
     expect(res.status).toBe(200);
     const contentType = res.headers.get('content-type');
     expect(contentType).toContain('x-x509-ca-cert');
     const disposition = res.headers.get('content-disposition');
-    expect(disposition).toContain('openbon-kasse.crt');
+    expect(disposition).toContain('openbon-ca.crt');
     const text = await res.text();
     expect(text).toContain('BEGIN CERTIFICATE');
     expect(text).toContain('END CERTIFICATE');

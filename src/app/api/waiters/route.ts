@@ -29,11 +29,14 @@ export async function GET(req: Request) {
           waiterNumber: true,
           name: true,
           isActive: true,
+          isPaused: true,
+          loggedInAt: true,
+          loggedOutAt: true,
           tipProfileId: true,
           tipProfile: true,
           createdAt: true,
         },
-        orderBy: { name: 'asc' },
+        orderBy: { createdAt: 'desc' },
       }),
       prisma.order.findMany({
         select: { waiterName: true },
@@ -69,36 +72,45 @@ export async function GET(req: Request) {
       }),
     ]);
 
-    const namesMap = new Map<string, { id?: string; waiterNumber?: number | null; name: string; isActive: boolean; isSettled?: boolean; lastSettledAt?: Date | null; tipProfileId?: string | null; tipProfile?: any }>();
+    const namesMap = new Map<string, { id?: string; waiterNumber?: number | null; name: string; isActive: boolean; isPaused?: boolean; loggedInAt?: Date | null; loggedOutAt?: Date | null; isSettled?: boolean; lastSettledAt?: Date | null; tipProfileId?: string | null; tipProfile?: any }>();
 
     for (const p of profiles) {
       let wNum = p.waiterNumber;
       if (!wNum) {
         wNum = await getOrAssignWaiterNumber(p.name);
       }
-      namesMap.set(p.name.trim(), {
-        id: p.id,
-        waiterNumber: wNum,
-        name: p.name.trim(),
-        isActive: p.isActive,
-        tipProfileId: p.tipProfileId,
-        tipProfile: p.tipProfile,
-      });
+      if (!namesMap.has(p.name.trim())) {
+        namesMap.set(p.name.trim(), {
+          id: p.id,
+          waiterNumber: wNum,
+          name: p.name.trim(),
+          isActive: p.isActive,
+          isPaused: p.isPaused,
+          loggedInAt: p.loggedInAt,
+          loggedOutAt: p.loggedOutAt,
+          tipProfileId: p.tipProfileId,
+          tipProfile: p.tipProfile,
+        });
+      }
     }
 
     for (const o of distinctOrders) {
       const name = (o.waiterName || '').trim();
       if (name && !namesMap.has(name)) {
         const wNum = await getOrAssignWaiterNumber(name);
-        const prof = await prisma.waiterProfile.findUnique({
+        const prof = await prisma.waiterProfile.findFirst({
           where: { name },
           include: { tipProfile: true },
+          orderBy: { createdAt: 'desc' },
         });
         namesMap.set(name, {
           id: prof?.id || `adhoc-${name}`,
           waiterNumber: wNum,
           name,
           isActive: prof?.isActive ?? true,
+          isPaused: prof?.isPaused ?? false,
+          loggedInAt: prof?.loggedInAt ?? null,
+          loggedOutAt: prof?.loggedOutAt ?? null,
           tipProfileId: prof?.tipProfileId,
           tipProfile: prof?.tipProfile,
         });
@@ -109,15 +121,19 @@ export async function GET(req: Request) {
       const name = (p.waiterName || '').trim();
       if (name && !namesMap.has(name)) {
         const wNum = await getOrAssignWaiterNumber(name);
-        const prof = await prisma.waiterProfile.findUnique({
+        const prof = await prisma.waiterProfile.findFirst({
           where: { name },
           include: { tipProfile: true },
+          orderBy: { createdAt: 'desc' },
         });
         namesMap.set(name, {
           id: prof?.id || `adhoc-${name}`,
           waiterNumber: wNum,
           name,
           isActive: prof?.isActive ?? true,
+          isPaused: prof?.isPaused ?? false,
+          loggedInAt: prof?.loggedInAt ?? null,
+          loggedOutAt: prof?.loggedOutAt ?? null,
           tipProfileId: prof?.tipProfileId,
           tipProfile: prof?.tipProfile,
         });
@@ -195,24 +211,31 @@ export async function POST(req: NextRequest) {
     const waiterNumber = await getOrAssignWaiterNumber(name);
     const storedPin = resolveStoredPin(pin);
 
-    const waiter = await prisma.waiterProfile.upsert({
+    const existing = await prisma.waiterProfile.findFirst({
       where: { name: name.trim() },
-      update: {
-        pin: storedPin,
-        tipProfileId,
-        isActive: isActive !== undefined ? Boolean(isActive) : true,
-      },
-      create: {
-        name: name.trim(),
-        waiterNumber,
-        pin: storedPin,
-        tipProfileId,
-        isActive: isActive !== undefined ? Boolean(isActive) : true,
-      },
-      include: {
-        tipProfile: true,
-      },
+      orderBy: { createdAt: 'desc' },
     });
+
+    const waiter = existing
+      ? await prisma.waiterProfile.update({
+          where: { id: existing.id },
+          data: {
+            pin: storedPin,
+            tipProfileId,
+            isActive: isActive !== undefined ? Boolean(isActive) : true,
+          },
+          include: { tipProfile: true },
+        })
+      : await prisma.waiterProfile.create({
+          data: {
+            name: name.trim(),
+            waiterNumber,
+            pin: storedPin,
+            tipProfileId,
+            isActive: isActive !== undefined ? Boolean(isActive) : true,
+          },
+          include: { tipProfile: true },
+        });
 
     await logSystemActionSafe(() => ({
       action: 'WAITER_CREATED',

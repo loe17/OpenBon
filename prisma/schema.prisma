@@ -149,15 +149,21 @@ model TipProfile {
 model WaiterProfile {
   id           String      @id @default(cuid())
   waiterNumber Int?        @unique
-  name         String      @unique
+  name         String
   pin          String      @default("")
   isActive     Boolean     @default(true)
+  isPaused     Boolean     @default(false)
+  loggedInAt   DateTime    @default(now())
+  loggedOutAt  DateTime?
   tipProfileId String?
   tipProfile   TipProfile? @relation(fields: [tipProfileId], references: [id], onDelete: SetNull)
   orders       Order[]
   payments     Payment[]
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+
+  @@index([name])
+  @@index([isActive])
 }
 
 model ProductCategory {

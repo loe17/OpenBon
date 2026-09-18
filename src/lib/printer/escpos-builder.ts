@@ -1118,6 +1118,10 @@ export class EscPosBuilder {
   public static buildSettlementTicket(
     data: {
       waiterName: string;
+      waiterId?: string | null;
+      waiterNumber?: number | null;
+      loggedInAt?: string | Date | null;
+      loggedOutAt?: string | Date | null;
       eventName?: string;
       isTraining?: boolean;
       isCorrection?: boolean;
@@ -1184,6 +1188,27 @@ export class EscPosBuilder {
     builder.align('left');
     builder.size(true, true).bold(true).textLine(data.waiterName).size(false, false).bold(false);
     add(`Bedienung: ${data.waiterName}`);
+
+    if (data.waiterNumber) {
+      builder.textLine(`Kellner-Nr.: #${data.waiterNumber}`);
+      add(`Kellner-Nr.: #${data.waiterNumber}`);
+    } else if (data.waiterId) {
+      builder.textLine(`Schicht-ID: ${data.waiterId}`);
+      add(`Schicht-ID: ${data.waiterId}`);
+    }
+
+    if (data.loggedInAt) {
+      const loginDate = new Date(data.loggedInAt);
+      builder.textLine(`Angemeldet:  ${loginDate.toLocaleString('de-DE')}`);
+      add(`Angemeldet:  ${loginDate.toLocaleString('de-DE')}`);
+    }
+
+    if (data.loggedOutAt) {
+      const logoutDate = new Date(data.loggedOutAt);
+      builder.textLine(`Abgemeldet:  ${logoutDate.toLocaleString('de-DE')}`);
+      add(`Abgemeldet:  ${logoutDate.toLocaleString('de-DE')}`);
+    }
+
     const ts = data.settledAt ? new Date(data.settledAt) : new Date();
     builder.textLine(`Abgerechnet: ${ts.toLocaleString('de-DE')}`);
     add(`Abgerechnet: ${ts.toLocaleString('de-DE')}`);

@@ -31,12 +31,15 @@ async function getOrCreateSslCertificate() {
   const sslDir = path.join(__dirname, 'ssl');
   const certPath = path.join(sslDir, 'server.crt');
   const keyPath = path.join(sslDir, 'server.key');
+  const caCertPath = path.join(sslDir, 'ca.crt');
+  const caKeyPath = path.join(sslDir, 'ca.key');
 
-  if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+  if (fs.existsSync(certPath) && fs.existsSync(keyPath) && fs.existsSync(caCertPath)) {
     try {
       return {
         cert: fs.readFileSync(certPath, 'utf8'),
         key: fs.readFileSync(keyPath, 'utf8'),
+        ca: fs.readFileSync(caCertPath, 'utf8'),
       };
     } catch (e) {
       console.warn('[SSL] Bestehende Zertifikatsdateien konnten nicht gelesen werden:', e.message);
@@ -49,7 +52,23 @@ async function getOrCreateSslCertificate() {
       fs.mkdirSync(sslDir, { recursive: true });
     }
 
-    const attrs = [{ name: 'commonName', value: 'OpenBon Kasse' }];
+    // 1. Root-CA Stammzertifikat erzeugen (reines CA-Vertrauenszertifikat für Android/iOS ohne private key requirement)
+    const caAttrs = [{ name: 'commonName', value: 'OpenBon Kassen-Stammzertifikat (CA)' }];
+    const caPems = await selfsigned.generate(caAttrs, {
+      algorithm: 'sha256',
+      days: 36500, // 100 Jahre lebenslang
+      keySize: 2048,
+      extensions: [
+        { name: 'basicConstraints', cA: true, critical: true },
+        { name: 'keyUsage', keyCertSign: true, cRLSign: true, critical: true },
+      ],
+    });
+
+    fs.writeFileSync(caCertPath, caPems.cert, 'utf8');
+    fs.writeFileSync(caKeyPath, caPems.private, 'utf8');
+
+    // 2. Server-Zertifikat erzeugen, signiert von der Root-CA
+    const serverAttrs = [{ name: 'commonName', value: 'OpenBon Kasse' }];
     const altNames = [
       { type: 2, value: 'localhost' },
       { type: 2, value: 'openbon.local' },
@@ -66,23 +85,27 @@ async function getOrCreateSslCertificate() {
       }
     }
 
-    const pems = await selfsigned.generate(attrs, {
+    const serverPems = await selfsigned.generate(serverAttrs, {
       algorithm: 'sha256',
-      days: 36500, // 100 Jahre gültig (lebenslang unbegrenzt)
+      days: 36500,
       keySize: 2048,
+      ca: {
+        key: caPems.private,
+        cert: caPems.cert,
+      },
       extensions: [
-        { name: 'basicConstraints', cA: true },
-        { name: 'keyUsage', keyCertSign: true, digitalSignature: true, keyEncipherment: true },
-        { name: 'extKeyUsage', serverAuth: true, clientAuth: true },
+        { name: 'basicConstraints', cA: false },
+        { name: 'keyUsage', digitalSignature: true, keyEncipherment: true },
+        { name: 'extKeyUsage', serverAuth: true },
         { name: 'subjectAltName', altNames },
       ],
     });
 
-    fs.writeFileSync(certPath, pems.cert, 'utf8');
-    fs.writeFileSync(keyPath, pems.private, 'utf8');
+    fs.writeFileSync(certPath, serverPems.cert, 'utf8');
+    fs.writeFileSync(keyPath, serverPems.private, 'utf8');
 
-    console.log('[SSL] Neues automatisches Festzelt-Zertifikat erzeugt und gespeichert in /ssl');
-    return { cert: pems.cert, key: pems.private };
+    console.log('[SSL] Neues automatisches Festzelt-Zertifikat (Root-CA + Server) erzeugt in /ssl');
+    return { cert: serverPems.cert, key: serverPems.private, ca: caPems.cert };
   } catch (err) {
     console.warn('[SSL] Automatische Zertifikatserstellung nicht verfügbar:', err.message);
     return null;
@@ -187,7 +210,7 @@ app.prepare().then(async () => {
     try {
       const https = require('https');
       httpsServer = https.createServer(
-        { cert: ssl.cert, key: ssl.key },
+        { cert: ssl.cert, key: ssl.key, ca: ssl.ca },
         async (req, res) => {
           try {
             await handle(req, res);

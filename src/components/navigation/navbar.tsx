@@ -385,6 +385,7 @@ export default function Navbar() {
 
   // Bei jedem Stationswechsel PIN immer abfragen
   const handleRoleSelection = (targetRole: string) => {
+    setIsOpen(false);
     if (targetRole === role) return;
 
     if (typeof window !== 'undefined' && (window as any).__openbon_dirty_handler) {
@@ -393,7 +394,6 @@ export default function Navbar() {
         targetRole === 'POS_CASHIER' ? '/pos' :
         targetRole === 'KITCHEN' ? '/kitchen' :
         '/admin/dashboard';
-      setIsOpen(false);
       const handled = (window as any).__openbon_dirty_handler(targetPath);
       if (handled) return;
     }

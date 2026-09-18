@@ -32,24 +32,31 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     let updated;
     if (targetName) {
       const waiterNumber = await getOrAssignWaiterNumber(targetName);
-      updated = await prisma.waiterProfile.upsert({
+      const existing = await prisma.waiterProfile.findFirst({
         where: { name: targetName },
-        update: {
-          pin: storedPin,
-          tipProfileId: tipProfileId !== undefined ? tipProfileId : undefined,
-          isActive: isActive !== undefined ? Boolean(isActive) : undefined,
-        },
-        create: {
-          name: targetName,
-          waiterNumber,
-          pin: storedPin ?? hashPin('3333'),
-          tipProfileId: tipProfileId !== undefined ? tipProfileId : null,
-          isActive: isActive !== undefined ? Boolean(isActive) : true,
-        },
-        include: {
-          tipProfile: true,
-        },
+        orderBy: { createdAt: 'desc' },
       });
+
+      updated = existing
+        ? await prisma.waiterProfile.update({
+            where: { id: existing.id },
+            data: {
+              pin: storedPin,
+              tipProfileId: tipProfileId !== undefined ? tipProfileId : undefined,
+              isActive: isActive !== undefined ? Boolean(isActive) : undefined,
+            },
+            include: { tipProfile: true },
+          })
+        : await prisma.waiterProfile.create({
+            data: {
+              name: targetName,
+              waiterNumber,
+              pin: storedPin ?? hashPin('3333'),
+              tipProfileId: tipProfileId !== undefined ? tipProfileId : null,
+              isActive: isActive !== undefined ? Boolean(isActive) : true,
+            },
+            include: { tipProfile: true },
+          });
     } else {
       updated = await prisma.waiterProfile.update({
         where: { id },

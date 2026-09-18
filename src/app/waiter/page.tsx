@@ -37,6 +37,7 @@ import {
   Banknote,
   Wifi,
   WifiOff,
+  PauseCircle,
 } from 'lucide-react';
 import { VOID_REASONS, type OrderDTO } from '@/types/domain';
 import { playConfirm, playVoidAlert, playOrderReadyChime } from '@/lib/audio-feedback';
@@ -197,6 +198,7 @@ function WaiterTablesContent() {
   // Waiter Identification
   const [waiterName, setWaiterName] = useState('Bedienung');
   const [showWaiterPrompt, setShowWaiterPrompt] = useState(false);
+  const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
   const [inputWaiterName, setInputWaiterName] = useState('');
   const [availableWaiters, setAvailableWaiters] = useState<string[]>([]);
   const [waiterError, setWaiterError] = useState('');
@@ -845,12 +847,33 @@ function WaiterTablesContent() {
   };
 
   const handleLogoutWaiter = () => {
+    setShowLogoutConfirmModal(true);
+  };
+
+  const handlePerformLogout = async (mode: 'PAUSE' | 'FULL') => {
+    try {
+      if (waiterName && waiterName !== 'Bedienung') {
+        await fetch('/api/waiters/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: waiterName, mode }),
+        });
+      }
+    } catch (e) {
+      console.error('Logout error:', e);
+    }
     localStorage.removeItem('pos_waiter_name');
     setWaiterName('Bedienung');
     setInputWaiterName('');
     socket?.emit('device:waiter_update', { waiterName: null });
     setWaiterError('');
-    showToast('ok', 'Bedienung abgemeldet. Bereit für nächste Schicht.');
+    setShowLogoutConfirmModal(false);
+    setShowWaiterPrompt(false);
+    if (mode === 'PAUSE') {
+      showToast('ok', 'Pause gestartet. Bildschirm gesperrt.');
+    } else {
+      showToast('ok', 'Schicht beendet und abgemeldet.');
+    }
   };
 
   const myTablesCount = tables.filter(
@@ -1613,7 +1636,6 @@ function WaiterTablesContent() {
                     type="button"
                     onClick={() => {
                       setInputWaiterName(name);
-                      handleSaveWaiterName(name);
                     }}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 border ${
                       name === waiterName
@@ -1631,9 +1653,9 @@ function WaiterTablesContent() {
               {waiterName && waiterName !== 'Bedienung' && (
                 <button
                   type="button"
-                  onClick={handleLogoutWaiter}
+                  onClick={() => setShowLogoutConfirmModal(true)}
                   className="h-12 px-3.5 bg-slate-800 hover:bg-rose-950/60 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-800 active:scale-95 rounded-2xl font-bold text-xs transition flex items-center justify-center gap-1.5 shrink-0"
-                  title="Schicht beenden und für nächsten Helfer freigeben"
+                  title="Schicht beenden oder Bildschirmsperre für Pause aktivieren"
                 >
                   <LogOut className="w-4 h-4 text-rose-400" />
                   <span>Abmelden</span>
@@ -1648,6 +1670,84 @@ function WaiterTablesContent() {
                 <span>{waiterName && waiterName !== 'Bedienung' ? 'Wechseln & Weiter' : 'Anmelden & Weiter'}</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Abmelde-Auswahl Modal (Pause vs. Schicht beenden) */}
+      {showLogoutConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-2xl border border-amber-500/30">
+                  <UserCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-white">Abmelden oder Pause?</h3>
+                  <p className="text-xs text-slate-400">Bedienung: <strong className="text-white">{waiterName}</strong></p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirmModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Option 1: Kurze Pause */}
+              <button
+                type="button"
+                onClick={() => handlePerformLogout('PAUSE')}
+                className="w-full p-4 rounded-2xl bg-slate-950 hover:bg-amber-950/40 border border-slate-800 hover:border-amber-600 text-left transition group active:scale-95"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-500/10 group-hover:bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30 shrink-0">
+                    <PauseCircle className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-black text-sm text-white group-hover:text-amber-300">
+                      Kurze Pause (Nur sperren)
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5 leading-snug">
+                      Sperrt das Gerät. Schicht-ID und Arbeitszeit laufen weiter.
+                    </div>
+                  </div>
+                </div>
+              </button>
+
+              {/* Option 2: Schicht ganz beenden */}
+              <button
+                type="button"
+                onClick={() => handlePerformLogout('FULL')}
+                className="w-full p-4 rounded-2xl bg-slate-950 hover:bg-rose-950/40 border border-slate-800 hover:border-rose-600 text-left transition group active:scale-95"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-rose-500/10 group-hover:bg-rose-500/20 text-rose-400 rounded-xl border border-rose-500/30 shrink-0">
+                    <LogOut className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-black text-sm text-white group-hover:text-rose-300">
+                      Schicht beenden (Ganz abmelden)
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5 leading-snug">
+                      Speichert Abmeldezeit. Bei Neuanmeldung wird eine neue Schicht-ID angelegt.
+                    </div>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowLogoutConfirmModal(false)}
+              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
+            >
+              Abbrechen (Weiterarbeiten)
+            </button>
           </div>
         </div>
       )}
