@@ -94,7 +94,7 @@ export default function AdminDashboardPage() {
     };
   }, [socket]);
 
-  // Echtzeit-Hardware-Metriken (< 1 Sekunde: 750ms Takt)
+  // Echtzeit-Hardware-Metriken (400ms Takt)
   useEffect(() => {
     let isMounted = true;
     const fetchMetrics = async () => {
@@ -116,7 +116,7 @@ export default function AdminDashboardPage() {
     };
 
     fetchMetrics();
-    const interval = setInterval(fetchMetrics, 750);
+    const interval = setInterval(fetchMetrics, 400);
     return () => {
       isMounted = false;
       clearInterval(interval);

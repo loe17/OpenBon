@@ -8,6 +8,9 @@
  */
 
 import { PDFParse } from 'pdf-parse';
+import path from 'path';
+import fs from 'fs';
+import { pathToFileURL } from 'url';
 
 export interface ParsedMenuItem {
   id: string;
@@ -53,15 +56,76 @@ const FOOD_KEYWORDS = [
   'portion', 'teller', 'kartoffelsalat', 'sauerkraut', 'döner'
 ];
 
+let workerConfigured = false;
+
+/**
+ * Konfiguriert den PDF-Worker mit einer festen file:// URL,
+ * damit Next.js auf dem Server (z. B. Linux / Docker / Windows)
+ * nicht vergeblich nach einem relativen Pfad im Bundle sucht.
+ */
+function ensurePdfWorker() {
+  if (workerConfigured) return;
+  try {
+    const mainEntry = require.resolve('pdf-parse');
+    const workerInPkg = path.join(path.dirname(mainEntry), 'pdf.worker.mjs');
+    if (fs.existsSync(workerInPkg)) {
+      PDFParse.setWorker(pathToFileURL(workerInPkg).href);
+      workerConfigured = true;
+      return;
+    }
+  } catch {}
+
+  try {
+    const workerInNodeModules = path.join(
+      process.cwd(),
+      'node_modules',
+      'pdf-parse',
+      'dist',
+      'pdf-parse',
+      'cjs',
+      'pdf.worker.mjs'
+    );
+    if (fs.existsSync(workerInNodeModules)) {
+      PDFParse.setWorker(pathToFileURL(workerInNodeModules).href);
+      workerConfigured = true;
+      return;
+    }
+  } catch {}
+}
+
+/**
+ * Notfall-Textextraktion aus unverschlüsselten Text-Streams
+ */
+function extractFallbackAsciiText(buffer: Buffer): string {
+  try {
+    const raw = buffer.toString('latin1');
+    const matches = raw.match(/\(([^)]{2,100})\)\s*Tj/g);
+    if (matches && matches.length > 0) {
+      return matches.map((m) => m.replace(/^\(/, '').replace(/\)\s*Tj$/, '')).join('\n');
+    }
+  } catch {}
+  return '';
+}
+
 /**
  * Liest den Rohtext aus einem PDF-Buffer.
  */
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
+  ensurePdfWorker();
   let parser: PDFParse | null = null;
   try {
     parser = new PDFParse({ data: buffer });
     const result = await parser.getText();
     return result.text || '';
+  } catch (err: any) {
+    console.warn('PDFParse Fehler, versuche Notfall-Textanalyse:', err.message);
+    const fallback = extractFallbackAsciiText(buffer);
+    if (fallback.trim().length > 0) {
+      return fallback;
+    }
+    throw new Error(
+      `Die PDF-Speisekarte konnte nicht gelesen werden (${err.message || 'Unbekannter Fehler'}). Bitte prüfen Sie, ob die Datei geschützt ist oder fügen Sie den Text manuell ein.`
+    );
   } finally {
     if (parser) {
       await parser.destroy().catch(() => {});

@@ -1132,7 +1132,7 @@ export const HANDBOOK: DocChapter[] = [
         heading: '9.5 System-Update & Echtzeit-Systemauslastung (Prozessor & Speicher)',
         paragraphs: [
           'Unter /admin/system-update kann OpenBon mit einem Klick aktualisiert werden. Der Schalter "Nur Releases anzeigen" stellt sicher, dass ausschließlich erprobte und stabile Hauptversionen installiert werden.',
-          'Echtzeit-Messung der Auslastung: Die Auslastung des Hauptprozessors (CPU) und des Arbeitsspeichers (RAM) wird schneller als jede Sekunde (alle 750 Millisekunden) live aktualisiert. So sehen Sie sofort, wie stark der Kassenrechner bei Hochbetrieb gefordert ist.',
+          'Echtzeit-Messung der Auslastung: Die Auslastung des Hauptprozessors (CPU) und des Arbeitsspeichers (RAM) wird alle 400 Millisekunden (etwa 2,5 Mal pro Sekunde) live aktualisiert. So sehen Sie sofort und vollkommen flüssig, wie stark der Kassenrechner bei Hochbetrieb gefordert ist.',
           'Kein spürbarer Einfluss auf die Geschwindigkeit: Dank einer intelligenten internen Zwischenberechnung verbraucht diese Live-Messung weniger als 0,1 % eigene Rechenleistung des Computers. Kassiervorgänge und Bestellungen laufen völlig unbeeinflusst und ohne jede Verzögerung weiter.',
           'Automatischer Stromsparmodus: Wechselt man zu einem anderen Programm oder minimiert den Browser, pausiert die Live-Abfrage automatisch, um Netzwerk und Akku zu schonen.',
           'Schnellübersicht im Dashboard: Auch in der oberen Kopfleiste des Admin-Dashboards (/admin/dashboard) zeigt eine kompakte Live-Anzeige jederzeit die aktuelle Prozessor- und Speicherauslastung an und führt mit einem Klick direkt zur Diagnose.',
@@ -1154,6 +1154,7 @@ export const HANDBOOK: DocChapter[] = [
           '4. System & Verwaltung: Admin Command Center, Grundeinstellungen, Datensicherung & Backup, System-Update, Testbetrieb & Hardware-Diagnose, Revisions-Logs, Team-Funk und Handbuch.',
           'Keine doppelten Verkaufsreiter: Die operativen Stationen "Bonkasse" und "Bedienung" sind oben im Menü über die 4 großen Kacheln "Station wechseln" erreichbar und wurden aus den Admin-Listen entfernt.',
           'Kompakte Ansicht: Beim Öffnen des Menüs klappt automatisch nur diejenige Kategorie auf, auf deren Seite Sie sich gerade befinden. Dadurch bleibt das Menü angenehm kurz und übersichtlich auf einem Bildschirm sichtbar.',
+          'Kassen-Uhrzeit in der oberen Leiste: Direkt in der oberen Kopfleiste des Adminbereichs läuft dauerhaft eine gut sichtbare Digitaluhr mit Sekundenanzeige mit (z. B. 14:23:05 Uhr). Diese Uhr zeigt exakt die Systemzeit des Kassenrechners an. Sie ist der maßgebliche Taktgeber für die zeitgesteuerte Verfügbarkeit von Speisen und Getränken (Artikel-Zeitfenster) sowie für alle Buchungs- und Schichtzeitstempel.',
         ],
       },
     ],

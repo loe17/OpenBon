@@ -14,6 +14,7 @@ import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { POST as batchImportPost } from '../app/api/products/batch-import/route';
 import { POST as pdfPreviewPost } from '../app/api/products/pdf-preview/route';
 import { GET as systemUpdateGet } from '../app/api/system/update/route';
+import { GET as publicConfigGet } from '../app/api/config/public/route';
 import { NextRequest } from 'next/server';
 
 describe('OpenBon v0.4.59: Artikel-Zeitfenster, PDF-Speisekarten-Import & Echtzeit-Metriken', () => {
@@ -251,6 +252,9 @@ Mineralwasser 0,5l 2,50 €
       expect(typeof data.cpu.usedPercentage).toBe('number');
       expect(data.memory).toBeDefined();
       expect(data.memory.totalBytes).toBeGreaterThan(0);
+      expect(data.serverTimestamp).toBeDefined();
+      expect(typeof data.serverTimestamp).toBe('number');
+      expect(data.serverTime).toBeDefined();
 
       // Zweiter Aufruf profitiert vom Snapshot-Delta und muss extrem schnell sein
       const start2 = Date.now();
@@ -258,6 +262,16 @@ Mineralwasser 0,5l 2,50 €
       const duration2 = Date.now() - start2;
       expect(res2.status).toBe(200);
       expect(duration2).toBeLessThan(500); // Schneller als 500ms
+    });
+
+    it('/api/config/public liefert serverTimestamp für die Kassen-Uhr Synchronisation', async () => {
+      const res = await publicConfigGet();
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.serverTimestamp).toBeDefined();
+      expect(typeof data.serverTimestamp).toBe('number');
+      expect(Math.abs(data.serverTimestamp - Date.now())).toBeLessThan(5000);
+      expect(data.serverTime).toBeDefined();
     });
   });
 });

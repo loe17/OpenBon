@@ -34,7 +34,7 @@ const nextConfig = {
     // sowie Diagnose-, Aufraeum- und Backup-Zyklus gestartet - ohne den Hook
     // liefen alle vier still ins Leere.
     instrumentationHook: true,
-    serverComponentsExternalPackages: ["@prisma/client", "prisma", "iconv-lite"]
+    serverComponentsExternalPackages: ["@prisma/client", "prisma", "iconv-lite", "pdf-parse"]
   }
 };
 

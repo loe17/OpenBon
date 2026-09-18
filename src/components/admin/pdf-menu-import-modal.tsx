@@ -97,7 +97,13 @@ export function PdfMenuImportModal({
         toast.success(`${data.items.length} Artikel erfolgreich erkannt! Bitte prüfen und anpassen.`);
       }
     } catch (err: any) {
-      toast.error(err.message || 'Fehler beim Analysieren der Speisekarte');
+      const msg = err.message || '';
+      if (msg.includes('worker') || msg.includes('Cannot find module')) {
+        toast.error('Das PDF-Dokument konnte nicht verarbeitet werden. Sie können den Text alternativ direkt einfügen.');
+        setUseTextInput(true);
+      } else {
+        toast.error(msg || 'Fehler beim Analysieren der Speisekarte');
+      }
     } finally {
       setIsAnalyzing(false);
     }

@@ -53,7 +53,7 @@ function getCpuUsage(): Promise<number> {
   const currentCpus = os.cpus();
   const now = Date.now();
 
-  if (lastCpuSnapshot && (now - lastCpuSnapshot.timestamp) >= 300 && (now - lastCpuSnapshot.timestamp) <= 15000) {
+  if (lastCpuSnapshot && (now - lastCpuSnapshot.timestamp) >= 150 && (now - lastCpuSnapshot.timestamp) <= 15000) {
     const prev = lastCpuSnapshot.times;
     let idleDiff = 0;
     let totalDiff = 0;
@@ -95,7 +95,7 @@ function getCpuUsage(): Promise<number> {
       lastCpuSnapshot = { times: endCpus, timestamp: Date.now() };
       const usage = totalDiff > 0 ? Math.round(((totalDiff - idleDiff) / totalDiff) * 100) : 0;
       resolve(Math.min(100, Math.max(0, usage)));
-    }, 40);
+    }, 25);
   });
 }
 
@@ -136,6 +136,8 @@ export async function GET(req: Request) {
         diskSpace: getDiskSpace(projectRoot),
         memory,
         cpu,
+        serverTimestamp: Date.now(),
+        serverTime: new Date().toISOString(),
       });
     }
 

@@ -50,6 +50,7 @@ import {
   Sparkles,
   Activity,
   Scaling,
+  Clock,
 } from 'lucide-react';
 
 interface NavItem {
@@ -337,6 +338,9 @@ export default function Navbar() {
       .then((res) => res.json())
       .then((data) => {
         if (data) {
+          if (data.serverTimestamp) {
+            setServerTimeOffset(data.serverTimestamp - Date.now());
+          }
           if (data.trainingMode !== undefined) setTrainingMode(data.trainingMode);
           if (data.haPartnerUrl && data.haPartnerUrl.trim() !== '') {
             fetch('/api/sync/heartbeat')
@@ -352,6 +356,25 @@ export default function Navbar() {
       })
       .catch(() => {});
   }, [pathname]);
+
+  // Kassen-Uhrzeit (Serverzeit-Synchronisation für den Admin-Bereich)
+  const [serverTimeOffset, setServerTimeOffset] = useState<number>(0);
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setCurrentTime(new Date(Date.now() + serverTimeOffset));
+    const timer = setInterval(() => {
+      setCurrentTime(new Date(Date.now() + serverTimeOffset));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [serverTimeOffset]);
+
+  const formattedServerTime = currentTime
+    ? currentTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    : '';
+  const formattedServerDate = currentTime
+    ? currentTime.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+    : '';
 
   // Spec: Internet-Statusanzeige nur im Adminbereich (45s Polling)
   const [isInternetOnline, setIsInternetOnline] = useState<boolean | null>(null);
@@ -553,6 +576,17 @@ export default function Navbar() {
                 <span className="hidden sm:inline">
                   {isInternetOnline ? 'Internet online' : 'Kein Internet'}
                 </span>
+              </div>
+            )}
+
+            {/* Kassen-Uhrzeit (Nur im Admin-Bereich sichtbar) */}
+            {pathname.startsWith('/admin') && formattedServerTime && (
+              <div
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-slate-700/80 bg-slate-800/80 text-slate-200 font-mono font-bold text-[11px] shadow-sm select-none"
+                title={`Kassen-Uhrzeit (OpenBon Server): ${formattedServerDate}, ${formattedServerTime} Uhr\nMaßgeblich für Artikel-Zeitfenster, Bestellungen und Abrechnungen.`}
+              >
+                <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
+                <span>{formattedServerTime} Uhr</span>
               </div>
             )}
 

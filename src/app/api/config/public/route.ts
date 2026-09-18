@@ -158,6 +158,8 @@ export async function GET() {
       isInternetOnline: (await checkInternetConnectivity()).online,
       // N3.3: Versionskennung fuer den "Update verfuegbar"-Hinweis der Clients
       appVersion: APP_VERSION,
+      serverTimestamp: Date.now(),
+      serverTime: new Date().toISOString(),
     };
 
     return NextResponse.json(publicConfig, {
