@@ -39,19 +39,14 @@ export default function FullscreenButton() {
     <>
       <button
         onClick={toggleFullscreen}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold shadow-sm transition active:scale-95 touch-manipulation"
-        title="Vollbildmodus aktivieren/beenden"
+        className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition active:scale-95 touch-manipulation flex items-center justify-center"
+        title={isFullscreen ? 'Vollbild beenden (Fenstermodus)' : 'Vollbildmodus aktivieren'}
+        aria-label={isFullscreen ? 'Vollbild beenden' : 'Vollbild aktivieren'}
       >
         {isFullscreen ? (
-          <>
-            <Minimize2 className="w-4 h-4 text-amber-400" />
-            <span className="hidden md:inline">Fenster</span>
-          </>
+          <Minimize2 className="w-4 h-4 text-amber-400" />
         ) : (
-          <>
-            <Maximize2 className="w-4 h-4 text-blue-400" />
-            <span className="hidden md:inline">Vollbild</span>
-          </>
+          <Maximize2 className="w-4 h-4 text-blue-400" />
         )}
       </button>
 

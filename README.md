@@ -1,7 +1,7 @@
 # OpenBon – Enterprise Kassen-, Bestell- & Festmanagementsystem
 
-[![Version](https://img.shields.io/badge/version-v0.4.61-blue.svg)](https://github.com/loe17/OpenBon/releases)
-[![Tests](https://img.shields.io/badge/tests-56%20passed%20%7C%20381%20tests-brightgreen.svg)](https://github.com/loe17/OpenBon)
+[![Version](https://img.shields.io/badge/version-v0.4.62-blue.svg)](https://github.com/loe17/OpenBon/releases)
+[![Tests](https://img.shields.io/badge/tests-57%20passed%20%7C%20386%20tests-brightgreen.svg)](https://github.com/loe17/OpenBon)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-PWA%20%7C%20Linux%20%7C%20Windows%20%7C%20Docker%20%7C%20iOS%20%7C%20Android-lightgrey.svg)](https://github.com/loe17/OpenBon)
 [![Compliance](https://img.shields.io/badge/compliance-GoBD%20%7C%20KassenSichV%20%7C%20DSFinV--K-purple.svg)](https://github.com/loe17/OpenBon)
@@ -40,7 +40,7 @@
 | 👑 Admin-Dashboard & Live-Leitstand | 🍕 Artikelverwaltung & PDF-Import | 💼 Personal & Schichtabrechnung |
 | :---: | :---: | :---: |
 | ![Admin Dashboard](public/docs/images/16_admin_dashboard.png) | ![Artikelverwaltung](public/docs/images/17_admin_products.png) | ![Personal Kassensturz](public/docs/images/22_admin_settle.png) |
-| *Live-Umsatz, Kassen-Uhrzeit & 400ms CPU/RAM-Last.* | *Artikel-Zeitfenster & Speisekarten-Import aus PDFs.* | *Geführter Kassensturz, Zählprotokoll & Kellnerabrechnung.* |
+| *Live-Umsatz, Kassen-Uhrzeit, 400ms CPU/RAM-Last & kompakte Leiste.* | *Artikel-Zeitfenster & Speisekarten-Import aus PDFs.* | *Geführter Kassensturz, Zählprotokoll & Kellnerabrechnung.* |
 
 ---
 
@@ -71,7 +71,7 @@ npm install
 npx prisma db push
 node prisma/seed.js
 
-# 3. Testsuite ausführen (56 Testsuiten, 381 Tests)
+# 3. Testsuite ausführen (57 Testsuiten, 386 Tests)
 npm test
 
 # 4. Server starten
@@ -154,7 +154,7 @@ Jedes Endgerät im lokalen Netzwerk (WLAN) kann die Stationen direkt im Browser 
 - **Live-Druckerwarteschlange (Spooler Manager):** Interaktive Überwachung aller offenen, gedruckten und fehlgeschlagenen Druckaufträge mit 1-Klick-Wiederholung (Retry), Drucker-Umleitung (Reroute) und Bon-Vorschau.
 - **Artikel-Zeitfenster (zeitgesteuerte Sichtbarkeit):** Artikel können per Checkbox mit flexiblen Zeitfenstern (z. B. Mittagstisch 11:30–14:00 Uhr, Kuchenbuffet oder Barbetrieb) belegt werden. Außerhalb der Zeiten werden sie an Kasse und Kellnergeräten automatisch ausgeblendet.
 - **Intelligenter PDF-Speisekarten-Import:** Speisekarten und Festflyer als PDF hochladen – Speisen, Getränke, Preise und Steuersätze werden automatisch erkannt und in einer bearbeitbaren Tabelle zur 1-Klick-Übernahme aufbereitet.
-- **Sub-Sekunden-Systemmetriken (400 ms) & Kassen-Uhr:** CPU- und RAM-Last werden ca. 2,5 Mal pro Sekunde live erfasst (< 0,1 % Eigenlast). Eine permanente Kassen-Uhr in der oberen Admin-Leiste stellt sicher, dass alle Bediener die verbindliche Kassenzeit im Blick haben.
+- **Sub-Sekunden-Systemmetriken (400 ms), ruckelfreie Uptime & kompakte Menüleiste:** CPU- und RAM-Last werden ca. 2,5 Mal pro Sekunde live erfasst (< 0,1 % Eigenlast) mit stufenlos-monotoner Server-Laufzeitanzeige. Eine permanente Kassen-Uhr und ein schlanker Internet-Globus in der oberen Admin-Leiste halten die Menüleiste auf jedem Endgerät aufgeräumt und kompakt.
 - **Küchenmonitor mit vertikalem Scrollen & fixierter Leiste:** Flüssiges Scrollen auf Küchenmonitoren bei fixierter Filter-Kopfleiste.
 - **Kellner-Zwischenstand (X-Bon) & Auto-Lock:** Schneller 1-Klick Schichteinblick (Bargeld-Soll im Geldbeutel, Umsatz, Trinkgeld) und Inaktivitäts-Schutz auf Smartphones.
 - **Kontaktloser E-Bon per NFC & QR:** Direkte Belegübertragung via Web NFC an Gast-Smartphones oder per Cloudflare Tunnel / Netcup Webhosting über Mobilfunk (§33 KassenSichV).
@@ -196,7 +196,7 @@ npm test
 npm run build
 ```
 
-- **56 Test-Suiten / 381 Tests (100% bestanden):** Umfassende Testabdeckung für den gesamten Kassen-Lebenszyklus, Rechner-Metriken, Tisch-Splitting, E-Bon, Druckerspooler, Fiskalisierung, Artikel-Zeitfenster, PDF-Speisekarten-Import, Kassen-Uhrzeit, Setup-Wizard und WCAG-Kontrast.
+- **57 Test-Suiten / 386 Tests (100% bestanden):** Umfassende Testabdeckung für den gesamten Kassen-Lebenszyklus, Rechner-Metriken, Tisch-Splitting, E-Bon, Druckerspooler, Fiskalisierung, Artikel-Zeitfenster, PDF-Speisekarten-Import, Kassen-Uhrzeit, kompakte Menüleiste, Setup-Wizard und WCAG-Kontrast.
 
 ---
 

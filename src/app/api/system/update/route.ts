@@ -143,7 +143,7 @@ export async function GET(req: Request) {
       };
 
       return NextResponse.json({
-        uptime: Math.round(process.uptime()),
+        uptime: Math.floor(process.uptime()),
         diskSpace: getCachedDiskSpace(),
         memory,
         cpu,
@@ -376,7 +376,7 @@ export async function GET(req: Request) {
       nodeVersion: process.version,
       platform: process.platform,
       arch: process.arch,
-      uptime: Math.round(process.uptime()),
+      uptime: Math.floor(process.uptime()),
       diskSpace: getDiskSpace(projectRoot),
       memory,
       cpu,

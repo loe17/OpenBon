@@ -101,14 +101,7 @@ export default function AdminSystemUpdatePage() {
   const [updateElapsed, setUpdateElapsed] = useState(0);
   const terminalEndRef = React.useRef<HTMLDivElement | null>(null);
 
-  // Live Server-Uptime Sekundenzähler
-  useEffect(() => {
-    if (liveUptime === null) return;
-    const t = setInterval(() => {
-      setLiveUptime((prev) => (prev !== null ? prev + 1 : null));
-    }, 1000);
-    return () => clearInterval(t);
-  }, [liveUptime !== null]);
+  // Live Server-Uptime: Wird ruckelfrei & monoton direkt aus den 400ms-Serverdaten aktualisiert
 
   const formatLiveUptime = (totalSec: number | null | undefined) => {
     if (totalSec === null || totalSec === undefined) return 'Online';
@@ -211,7 +204,7 @@ export default function AdminSystemUpdatePage() {
         };
       });
       if (typeof data.uptime === 'number') {
-        setLiveUptime(data.uptime);
+        setLiveUptime((prev) => (prev === null ? data.uptime : Math.max(prev, data.uptime)));
       }
     } catch {
       // Leise ignorieren, kein Terminal-Log
@@ -228,7 +221,7 @@ export default function AdminSystemUpdatePage() {
       const data = await res.json();
       setSysInfo(data);
       if (typeof data.uptime === 'number') {
-        setLiveUptime(data.uptime);
+        setLiveUptime((prev) => (prev === null ? data.uptime : Math.max(prev, data.uptime)));
       }
 
       if (data.availableTags && data.availableTags.length > 0) {

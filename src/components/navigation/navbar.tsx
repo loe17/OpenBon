@@ -36,7 +36,6 @@ import {
   Square,
   LayoutGrid,
   Check,
-  Server,
   Package,
   Boxes,
   Wallet,
@@ -51,6 +50,7 @@ import {
   Activity,
   Scaling,
   Clock,
+  Globe,
 } from 'lucide-react';
 
 interface NavItem {
@@ -527,12 +527,12 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* Controls: Outbox Badge, Theme Switcher, Fullscreen, HA Status, Role */}
-          <div className="flex items-center gap-2 sm:gap-3 text-xs relative">
+          {/* Controls: Outbox Badge, Internet, Clock, Tool-Group, Server-Status, Role */}
+          <div className="flex items-center gap-1.5 sm:gap-2 text-xs relative">
             {/* Offline / Outbox Status Badge */}
             {(!isOnline || pendingOutboxCount > 0) && (
               <div
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border font-bold text-[11px] animate-pulse ${
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-xl border font-bold text-[11px] animate-pulse ${
                   !isOnline
                     ? 'bg-rose-950/80 border-rose-700 text-rose-300'
                     : 'bg-amber-950/80 border-amber-700 text-amber-300'
@@ -544,7 +544,7 @@ export default function Navbar() {
                 }
               >
                 <div
-                  className={`w-2 h-2 rounded-full ${
+                  className={`w-1.5 h-1.5 rounded-full ${
                     !isOnline ? 'bg-rose-500' : 'bg-amber-400'
                   }`}
                 />
@@ -554,10 +554,10 @@ export default function Navbar() {
               </div>
             )}
 
-            {/* Internet Status Badge (Nur im Admin-Bereich sichtbar) */}
+            {/* Internet Status (Nur im Admin-Bereich sichtbar) - Option A: Schlanker Globus mit Signalpunkt */}
             {pathname.startsWith('/admin') && isInternetOnline !== null && (
               <div
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border font-bold text-[11px] transition ${
+                className={`flex items-center justify-center p-2 rounded-xl border transition cursor-default ${
                   isInternetOnline
                     ? 'bg-emerald-950/70 border-emerald-800 text-emerald-300'
                     : 'bg-amber-950/70 border-amber-800 text-amber-300'
@@ -567,26 +567,27 @@ export default function Navbar() {
                     ? 'Internetverbindung aktiv (E-Bon & Webhosting online)'
                     : 'Kein Internet – Kasse läuft offline (E-Bons pausiert, Papierbon aktiv)'
                 }
+                aria-label={isInternetOnline ? 'Internet online' : 'Kein Internet'}
               >
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    isInternetOnline ? 'bg-emerald-400' : 'bg-amber-400'
-                  }`}
-                />
-                <span className="hidden sm:inline">
-                  {isInternetOnline ? 'Internet online' : 'Kein Internet'}
-                </span>
+                <div className="relative flex items-center justify-center">
+                  <Globe className="w-4 h-4" />
+                  <span
+                    className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ring-1 ring-slate-900 ${
+                      isInternetOnline ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                    }`}
+                  />
+                </div>
               </div>
             )}
 
             {/* Kassen-Uhrzeit (Nur im Admin-Bereich sichtbar) */}
             {pathname.startsWith('/admin') && formattedServerTime && (
               <div
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-slate-700/80 bg-slate-800/80 text-slate-200 font-mono font-bold text-[11px] shadow-sm select-none"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-700/80 bg-slate-800/80 text-slate-200 font-mono font-bold text-xs shadow-sm select-none"
                 title={`Kassen-Uhrzeit (OpenBon Server): ${formattedServerDate}, ${formattedServerTime} Uhr\nMaßgeblich für Artikel-Zeitfenster, Bestellungen und Abrechnungen.`}
               >
                 <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
-                <span>{formattedServerTime} Uhr</span>
+                <span>{formattedServerTime}</span>
               </div>
             )}
 
@@ -594,8 +595,9 @@ export default function Navbar() {
             <div className="relative">
               <button
                 onClick={() => setShowThemePicker(!showThemePicker)}
-                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition active:scale-95 flex items-center gap-1"
+                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition active:scale-95 flex items-center justify-center"
                 title="Farbschema wechseln"
+                aria-label="Farbschema wechseln"
               >
                 <Sun className="w-4 h-4 text-amber-400" />
               </button>
@@ -640,7 +642,7 @@ export default function Navbar() {
             {/* Fullscreen Button */}
             <FullscreenButton />
 
-            {/* Screen Auto-Fit Scale Toggle (Symbol-Only, between Fullscreen and Server Status) */}
+            {/* Screen Auto-Fit Scale Toggle */}
             <button
               onClick={toggleAutoFit}
               className={`p-2 rounded-xl border transition active:scale-95 flex items-center justify-center ${
@@ -649,39 +651,54 @@ export default function Navbar() {
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
               }`}
               title={isAutoFit ? 'Bildschirmanpassung aktiv (Klick zum Deaktivieren)' : 'Auf Bildschirmhöhe einpassen (Scrollen vermeiden)'}
+              aria-label="Bildschirmanpassung"
             >
               <Scaling className="w-4 h-4" />
             </button>
 
-            {/* HA / Server Status Indicator */}
+            {/* Kassen- & Server-Verbindungsstatus */}
             <div
-              className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold border ${
-                haStatus === 'CONNECTED'
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold transition select-none ${
+                !isConnected
+                  ? 'bg-rose-950/80 text-rose-300 border-rose-700'
+                  : haStatus === 'CONNECTED'
                   ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700'
                   : haStatus === 'DISCONNECTED'
-                  ? 'bg-rose-950/80 text-rose-300 border-rose-700'
-                  : 'bg-emerald-950/40 text-emerald-300 border-emerald-800/60'
+                  ? 'bg-amber-950/80 text-amber-300 border-amber-700'
+                  : 'bg-slate-800/90 text-slate-200 border-slate-700'
               }`}
               title={
-                haStatus === 'CONNECTED'
-                  ? 'HA Partner verbunden & synchronisiert'
+                !isConnected
+                  ? 'Verbindung zum Kassen-Server getrennt!'
+                  : haStatus === 'CONNECTED'
+                  ? 'HA Verbund aktiv & synchronisiert'
                   : haStatus === 'DISCONNECTED'
                   ? 'HA Partner getrennt!'
-                  : 'Kassen-Server aktiv & bereit (Lokal)'
+                  : 'Kassen-Server verbunden & bereit'
               }
             >
-              <Server className="w-3.5 h-3.5" />
-              <span>{haStatus === 'CONNECTED' ? 'HA OK' : haStatus === 'DISCONNECTED' ? 'HA Offline' : 'Lokal (Aktiv)'}</span>
-            </div>
-
-            {/* Connection Pill */}
-            <div className="flex items-center gap-1.5 bg-slate-800 border border-slate-700 px-2.5 py-1.5 rounded-xl text-slate-300">
-              <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'}`} />
-              <span className="hidden sm:inline font-bold">{isConnected ? 'Online' : 'Getrennt'}</span>
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  !isConnected
+                    ? 'bg-rose-500'
+                    : haStatus === 'DISCONNECTED'
+                    ? 'bg-amber-400'
+                    : 'bg-emerald-400 animate-pulse'
+                }`}
+              />
+              <span className="hidden sm:inline">
+                {!isConnected
+                  ? 'Getrennt'
+                  : haStatus === 'CONNECTED'
+                  ? 'HA OK'
+                  : haStatus === 'DISCONNECTED'
+                  ? 'HA Offline'
+                  : 'Kasse'}
+              </span>
             </div>
 
             {/* Role Badge */}
-            <div className="bg-blue-950 text-blue-300 border border-blue-700 px-3 py-1.5 rounded-xl font-bold uppercase tracking-wider text-[10px] sm:text-xs shadow">
+            <div className="bg-blue-950 text-blue-300 border border-blue-700 px-2.5 py-1 rounded-xl font-bold uppercase tracking-wider text-[10px] sm:text-xs shadow select-none">
               {role === 'WAITER' ? 'Bedienung' : role === 'POS_CASHIER' ? 'Bonkasse' : role === 'KITCHEN' ? 'Küche' : 'Admin'}
             </div>
           </div>
