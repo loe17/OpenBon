@@ -36,11 +36,21 @@ Willkommen bei **OpenBon**, dem plattformunabhängigen, hochverfügbaren Kassens
 - **Bedienungswechsel**: Schneller Wechsel durch Antippen des Kellnernamens (mit Schließen-Knopf im PIN-Dialog).
 
 ### 2. Bonkasse / Thekenverkauf (Counter Express)
-- Für den Direktverkauf an der Theke ohne Tischauswahl.
-- Unterstützt 3 Ausgabe-Modi:
-  1. *Nur Kassieren*
-  2. *Gutscheinbon für den Gast (Wertmarken)*
-  3. *Gutschein + Gegenbon (Gast-Wertmarke UND Küchen-Gegenbon mit fortlaufender Nummer)*
+- Für den schnellen Direktverkauf und Wertmarkenausgabe an der Theke ohne Tischauswahl.
+- **Klare Kassier-Auswahl im Bezahlfenster**:
+  - `[ Barzahlung ]`: Direkte Barzahlung an der Theke ohne Bon-Druck für die Küche/Schänke.
+  - `[ Wertmarke ]`: Barzahlung mit automatischem Ausdruck von Wertmarken/Abholbons für Küche und Schänke.
+  - `[ Kartenzahlung (Beta) ]`: Kartenzahlung bei angebundenem Kartenterminal.
+- **Kompakte Kassenansicht ohne Scrollen**:
+  - Bargeldrechner (Scheine, Münzen und Ziffernblock) nebeneinander angeordnet – kein vertikales Scrollen nötig.
+  - Aufgeräumter Kassieren-Button für schnellen Durchsatz.
+- **4-Pfeile Trinkgeld-System**:
+  - Wie in der Bedienansicht: 4 Pfeiltasten (▲/▼ links für 1,00 € und ▲/▼ rechts für 0,50 €) zum blitzschnellen Aufrunden.
+- **Touch-Artikelsuche mit Bildschirmtastatur**:
+  - Such-Knopf mit Lupe oben in der Funktionsleiste neben der Kassenladen-Steuerung.
+  - Öffnet ein Vollbildfenster mit Live-Artikelsuche auf der linken Seite und einer großen Touch-Bildschirmtastatur auf der rechten Seite.
+- **Fenster minimieren / Vollbild beenden**:
+  - Ein Klick auf das Bonkassen-Symbol ganz oben links beendet den Vollbildmodus bzw. minimiert das Fenster.
 - Kassenlade springt bei Barzahlung automatisch auf.
 - **Beleg-Auswahl nach dem Kassieren**:
   - Touch-Auswahlfenster mit `[ ((o)) E-Bon per NFC ]`, `[ 🖨 Papierbon ]` (wenn aktiviert) und `[ ⊘ Kein Beleg ]` für sofortigen Kassenabschluss.

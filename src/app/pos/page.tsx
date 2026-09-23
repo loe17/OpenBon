@@ -35,6 +35,10 @@ import {
   History,
   RefreshCw,
   WifiOff,
+  Search,
+  ChevronUp,
+  ChevronDown,
+  Minimize2,
 } from 'lucide-react';
 import { SubCategoryIcon } from '@/components/ui/subcategory-icon';
 import { calculateMinBirthdate, EU_ALLERGENS } from '@/lib/compliance';
@@ -59,9 +63,11 @@ function PosCounterContent() {
   const [showEBonModal, setShowEBonModal] = useState(false);
   const [posReceiptPrinted, setPosReceiptPrinted] = useState(false);
   const [cart, setCart] = useState<any[]>([]);
-  const [mode, setMode] = useState<'DIRECT' | 'VOUCHER' | 'DUAL'>('DIRECT');
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
   const [givenAmount, setGivenAmount] = useState<number>(0);
+  const [tipCents, setTipCents] = useState<number>(0);
+  const [showSearchModal, setShowSearchModal] = useState<boolean>(false);
+  const [searchModalQuery, setSearchModalQuery] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastToken, setLastToken] = useState<number | null>(null);
   const [completedPayment, setCompletedPayment] = useState<any | null>(null);
@@ -474,12 +480,103 @@ function PosCounterContent() {
     setShowEBonModal(false);
   };
 
-  const handleCheckout = async (explicitMethod?: string) => {
+  const handleMinimizeWindow = () => {
+    triggerHapticFeedback();
+    try {
+      if (typeof document !== 'undefined' && document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+        return;
+      }
+      if (typeof window !== 'undefined') {
+        if ((window as any).electronAPI?.minimize) {
+          (window as any).electronAPI.minimize();
+          return;
+        }
+        window.blur();
+      }
+    } catch {
+      // Fallback
+    }
+  };
+
+  const payableItems = cart.filter((item) =>
+    selectedCartItemIds.length > 0 ? selectedCartItemIds.includes(item.id) : true
+  );
+  const payableTotalCents = payableItems.reduce(
+    (s, i) => s + Math.round((i.price + i.deposit) * 100) * i.quantity,
+    0
+  );
+  const payableTotal = payableTotalCents / 100;
+
+  const roundUpEuro = () => {
+    triggerHapticFeedback();
+    const current = payableTotalCents + tipCents;
+    let next = (Math.floor(current / 100) + 1) * 100;
+    if (next <= current) next = current + 100;
+    setTipCents(Math.max(0, next - payableTotalCents));
+  };
+
+  const roundDownEuro = () => {
+    triggerHapticFeedback();
+    const current = payableTotalCents + tipCents;
+    const next = Math.max(payableTotalCents, current - 100);
+    setTipCents(Math.max(0, next - payableTotalCents));
+  };
+
+  const roundUp50Cents = () => {
+    triggerHapticFeedback();
+    const current = payableTotalCents + tipCents;
+    let next = Math.ceil((current + 1) / 50) * 50;
+    if (next <= current) next = current + 50;
+    setTipCents(Math.max(0, next - payableTotalCents));
+  };
+
+  const roundDown50Cents = () => {
+    triggerHapticFeedback();
+    const current = payableTotalCents + tipCents;
+    const next = Math.max(payableTotalCents, current - 50);
+    setTipCents(Math.max(0, next - payableTotalCents));
+  };
+
+  const allAvailableProducts = React.useMemo(() => {
+    const list: Array<{ product: ProductDTO; categoryName: string }> = [];
+    categories.forEach((cat) => {
+      (cat.products || []).forEach((prod) => {
+        list.push({ product: prod, categoryName: cat.name });
+      });
+    });
+    return list;
+  }, [categories]);
+
+  const searchMatchingProducts = React.useMemo(() => {
+    const q = searchModalQuery.trim().toLowerCase();
+    return allAvailableProducts.filter(({ product, categoryName }) => {
+      if (product.hasTimeWindows && !isProductActiveNow(product)) return false;
+      if (!q) return true;
+      return (
+        product.name.toLowerCase().includes(q) ||
+        categoryName.toLowerCase().includes(q) ||
+        (product.variants && product.variants.some((v) => v.name.toLowerCase().includes(q)))
+      );
+    });
+  }, [allAvailableProducts, searchModalQuery]);
+
+  const handleVirtualKeyPress = (char: string) => {
+    triggerHapticFeedback();
+    setSearchModalQuery((prev) => prev + char);
+  };
+  const handleVirtualBackspace = () => {
+    triggerHapticFeedback();
+    setSearchModalQuery((prev) => prev.slice(0, -1));
+  };
+  const handleVirtualClear = () => {
+    triggerHapticFeedback();
+    setSearchModalQuery('');
+  };
+
+  const handleCheckout = async (targetOrderType: 'COUNTER_DIRECT' | 'COUNTER_VOUCHER' = 'COUNTER_DIRECT', explicitMethod: string = 'CASH') => {
     const activeMethod = explicitMethod || paymentMethod;
-    const itemsToPay = cart.filter((item) =>
-      selectedCartItemIds.length > 0 ? selectedCartItemIds.includes(item.id) : true
-    );
-    if (itemsToPay.length === 0 || isProcessing) return;
+    if (payableItems.length === 0 || isProcessing) return;
     setIsProcessing(true);
     triggerHapticFeedback();
 
@@ -492,19 +589,21 @@ function PosCounterContent() {
       // Atomic Checkout: Bestellung + Zahlung in einem Request (serverseitig eine Transaktion).
       // Bei Netzwerkabbruch landet der Vorgang in der Offline-Outbox und wird automatisch nachgesendet.
       const result = await sendWithOutboxFallback('ORDER', '/api/orders/checkout', {
-        orderType: mode === 'DIRECT' ? 'COUNTER_DIRECT' : 'COUNTER_VOUCHER',
+        orderType: targetOrderType,
         source: 'POS_CASHIER',
         waiterName: stationName || waiterName,
         cashierStationName: stationName,
         targetPrinterId: posPrinterId || (typeof window !== 'undefined' ? localStorage.getItem('openbon_pos_printer_id') : null) || undefined,
         deviceId,
         idempotencyKey,
-        items: itemsToPay.map((item) => ({
+        items: payableItems.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
           variantName: item.variantName || undefined,
         })),
         paymentMethod: activeMethod,
+        tipAmountCents: tipCents,
+        tipAmount: tipCents / 100,
         givenAmountCents: activeMethod === 'CASH' ? Math.round(givenAmount * 100) : undefined,
         givenAmount: activeMethod === 'CASH' ? givenAmount : undefined,
         openDrawer: false,
@@ -524,9 +623,10 @@ function PosCounterContent() {
             ? `Server meldet einen Fehler – Vorgang wurde gesichert und wird erneut gesendet. Bon noch NICHT gebucht. (${result.error || ''})`
             : 'Keine Serververbindung – Vorgang wurde offline gespeichert und wird automatisch synchronisiert.'
         );
-        const remaining = cart.filter((item) => !itemsToPay.some((p) => p.id === item.id));
+        const remaining = cart.filter((item) => !payableItems.some((p) => p.id === item.id));
         setCart(remaining);
         setGivenAmount(0);
+        setTipCents(0);
         if (remaining.length === 0) {
           setShowCheckoutModal(false);
         }
@@ -563,17 +663,16 @@ function PosCounterContent() {
         setCompletedPayment(null);
       }
       triggerHapticFeedback();
-      if (mode === 'VOUCHER') {
+      if (targetOrderType === 'COUNTER_VOUCHER') {
         success(`Zahlung erfolgreich! Wertmarken #${payData?.tokenNumber || ''} an Drucker gesendet.`);
-      } else if (mode === 'DUAL') {
-        success(`Zahlung erfolgreich! Gast-Wertmarke & Küchen-Gegenbon #${payData?.tokenNumber || ''} an Drucker gesendet.`);
       } else {
         success('Zahlung erfolgreich abgeschlossen!');
       }
 
-      const remaining = cart.filter((item) => !itemsToPay.some((p) => p.id === item.id));
+      const remaining = cart.filter((item) => !payableItems.some((p) => p.id === item.id));
       setCart(remaining);
       setGivenAmount(0);
+      setTipCents(0);
 
       if (remaining.length > 0) {
         // Teilzahlung: verbleibende Artikel direkt für den nächsten Bezahlvorgang anwählen
@@ -600,15 +699,10 @@ function PosCounterContent() {
     }
   };
 
-  const [productSearch, setProductSearch] = useState('');
   const currentCategory = categories.find((c) => c.id === selectedCatId);
   const rawProducts = currentCategory?.products?.filter((p) => {
     if (p.hasTimeWindows && !isProductActiveNow(p)) return false;
     if (selectedSubCat !== 'ALL' && p.subCategory !== selectedSubCat) return false;
-    if (productSearch.trim()) {
-      const q = productSearch.trim().toLowerCase();
-      if (!p.name.toLowerCase().includes(q)) return false;
-    }
     return true;
   }) || [];
 
@@ -619,9 +713,15 @@ function PosCounterContent() {
       {/* Top Header */}
       <div className={`${isAutoFitScreen ? 'p-2 sm:p-3' : 'p-3 sm:p-4'} bg-slate-900 border-b border-slate-700 flex items-center justify-between flex-wrap gap-3 shadow-md`}>
         <div className="flex items-center gap-3">
-          <div className="bg-emerald-600 text-white p-2.5 rounded-2xl shadow">
+          <button
+            type="button"
+            onClick={handleMinimizeWindow}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white p-2.5 rounded-2xl shadow transition active:scale-95 cursor-pointer"
+            title="Vollbild beenden / Fenster minimieren"
+            aria-label="Vollbild beenden / Fenster minimieren"
+          >
             <Ticket className="w-5 h-5" />
-          </div>
+          </button>
           <div>
             <div className="flex items-center gap-2">
               <h2 className="font-black text-lg sm:text-xl">Bonkasse & Thekenverkauf</h2>
@@ -639,51 +739,24 @@ function PosCounterContent() {
               </button>
             </div>
             <p className="text-xs text-slate-400 font-semibold">
-              {mode === 'DIRECT'
-                ? 'Direktverkauf (Theke / Bar ohne Küchenbon)'
-                : mode === 'VOUCHER'
-                ? 'Gutscheinbon / Wertmarke (Einzelbons mit Abhol-Nr.)'
-                : 'Gutschein + Gegenbon (Gastbon + Küchenbon)'}
+              Direktverkauf &amp; Wertmarken-Kasse
             </p>
           </div>
         </div>
 
-        {/* Mode Selector (Ausgabe-Modus: Direktverkauf vs. Wertmarken/Bons für Küchen-/Schänkenausgabe) */}
-        <div className="flex items-center gap-2 bg-slate-950 px-2.5 py-1.5 rounded-2xl border border-slate-700">
-          <span
-            className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden lg:inline"
-            title="Steuert, ob Bons für die Essens-/Getränkeausgabe gedruckt werden oder direkt ausgegeben wird"
-          >
-            Ausgabe-Modus:
-          </span>
-          <button
-            onClick={() => setMode('DIRECT')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-              mode === 'DIRECT' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
-            }`}
-            title="Direktverkauf (Theke/Bar): Kassieren und Speisen/Getränke direkt aushändigen, kein Bon-Ausdruck für Küche/Schänke"
-          >
-            Nur Kassieren
-          </button>
-          <button
-            onClick={() => setMode('VOUCHER')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-              mode === 'VOUCHER' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
-            }`}
-            title="Wertmarken / Abholbons: Druckt Wertmarken je Artikel, die der Gast an Schänke oder Küche gegen Speisen/Getränke einlöst"
-          >
-            Wertmarken
-          </button>
-          <button
-            onClick={() => setMode('DUAL')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-              mode === 'DUAL' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
-            }`}
-            title="Gutschein + Gegenbon: Druckt Gast-Wertmarke UND zusätzlichen Küchen-Gegenbon zur Zubereitung"
-          >
-            Gutschein + Gegenbon
-          </button>
-        </div>
+        {/* Suchen Button */}
+        <button
+          type="button"
+          onClick={() => {
+            triggerHapticFeedback();
+            setShowSearchModal(true);
+          }}
+          className="pos-touch-btn flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2.5 rounded-2xl text-xs font-bold border border-slate-700 shadow transition active:scale-95"
+          title="Artikel suchen (öffnet Touch-Bildschirmtastatur)"
+        >
+          <Search className="w-4 h-4 text-emerald-400" />
+          <span>Suchen</span>
+        </button>
 
         {/* Bestellhistorie Button */}
         <button
@@ -752,26 +825,6 @@ function PosCounterContent() {
           <span className="text-slate-600">|</span>
           <span>Ab 18 J. (Spirituosen): <strong className="text-red-400 font-bold">≤ {minBirth18.formattedDate}</strong></span>
         </div>
-      </div>
-
-      {/* Suche */}
-      <div className="bg-slate-900 px-3 py-2 border-b border-slate-800 flex items-center gap-2">
-        <input
-          value={productSearch}
-          onChange={(e) => setProductSearch(e.target.value)}
-          placeholder="Artikel suchen …"
-          aria-label="Artikel suchen"
-          className="w-full max-w-xs bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 min-h-[48px]"
-        />
-        {productSearch && (
-          <button
-            onClick={() => setProductSearch('')}
-            className="text-xs text-slate-400 hover:text-white px-2 py-2 min-h-[48px]"
-            aria-label="Suche löschen"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        )}
       </div>
 
       {/* Categories */}
@@ -985,6 +1038,7 @@ function PosCounterContent() {
                 triggerHapticFeedback();
                 setSelectedCartItemIds(cart.map((i) => i.id));
                 setGivenAmount(0);
+                setTipCents(0);
                 setShowCheckoutModal(true);
               }}
               className={`pos-touch-btn w-full h-14 sm:h-16 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 shadow-2xl transition ${
@@ -994,63 +1048,117 @@ function PosCounterContent() {
               }`}
             >
               <Banknote className="w-5 h-5" />
-              <span>Kassieren ({formatCents(Math.round((totalAmount) * 100))})</span>
+              <span>Kassieren</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Neuer Kassiervorgang nach Bild 1 (Scheine/Münzen/Teilzahlung) */}
+      {/* Neuer Kassiervorgang (Scheine/Münzen nebeneinander, 4-Pfeile-Trinkgeld & Teilzahlung) */}
       {showCheckoutModal && (() => {
-        const payableItems = cart.filter((item) =>
-          selectedCartItemIds.length > 0 ? selectedCartItemIds.includes(item.id) : true
-        );
-        const payableTotal = payableItems.reduce((s, i) => s + (i.price + i.deposit) * i.quantity, 0);
         const isPartial = payableItems.length < cart.length;
 
         return (
           <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 animate-in fade-in">
             <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-5xl max-h-[96vh] shadow-2xl flex flex-col overflow-hidden text-white animate-in zoom-in-95">
-              {/* Modal Header mit großem Betrag */}
-              <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between flex-wrap gap-3">
+              {/* Modal Header mit 4-Pfeile Trinkgeld & großem Betrag */}
+              <div className="p-3 sm:p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3">
                   <div className="bg-emerald-600 text-white p-2.5 rounded-2xl shadow">
                     <Banknote className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-lg sm:text-xl font-black">Bezahlvorgang &amp; Kasse</h3>
+                    <h3 className="text-base sm:text-lg font-black">Bezahlvorgang &amp; Kasse</h3>
                     <p className="text-xs text-slate-400">
                       {isPartial ? `Teilzahlung (${payableItems.length} von ${cart.length} Artikeln)` : 'Vollständige Zahlung'} • {stationName}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
+                {/* 4-Pfeile Trinkgeldsystem (wie in der Bedienansicht) */}
+                <div className="flex items-center gap-2 sm:gap-3 bg-slate-900 px-3 py-1.5 rounded-2xl border border-slate-800 shadow">
+                  {/* Linke Pfeile: 1,00 € Schritte vor dem Komma */}
+                  <div className="flex flex-col items-center gap-0.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={roundUpEuro}
+                      aria-label="Auf nächsten vollen Euro aufrunden"
+                      className="w-10 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 flex items-center justify-center text-emerald-400 font-bold transition shadow"
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                    </button>
+                    <span className="text-[10px] font-mono font-bold text-slate-400">1 €</span>
+                    <button
+                      type="button"
+                      onClick={roundDownEuro}
+                      disabled={tipCents <= 0}
+                      aria-label="1 Euro abziehen"
+                      className="w-10 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition disabled:opacity-30 disabled:pointer-events-none shadow"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Mitte: Betrag inkl. Trinkgeld */}
+                  <div className="text-center px-2 min-w-[120px]">
                     <span className="text-[10px] uppercase font-bold text-slate-400 block">Zu zahlen:</span>
                     <span className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono leading-none">
-                      {formatCents(Math.round((payableTotal) * 100))}
+                      {formatCents(payableTotalCents + tipCents)}
                     </span>
+                    {tipCents > 0 && (
+                      <div className="text-[11px] font-bold text-amber-400 mt-0.5">
+                        + {formatCents(tipCents)} Trinkgeld
+                      </div>
+                    )}
                   </div>
-                  <button
-                    onClick={() => setShowCheckoutModal(false)}
-                    className="p-2 bg-slate-800 hover:bg-slate-700 rounded-2xl text-slate-400 hover:text-white transition"
-                    title="Schließen"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+
+                  {/* Rechte Pfeile: 0,50 € Schritte nach dem Komma */}
+                  <div className="flex flex-col items-center gap-0.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={roundUp50Cents}
+                      aria-label="Auf nächste 50 Cent aufrunden"
+                      className="w-10 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 flex items-center justify-center text-blue-400 font-bold transition shadow"
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                    </button>
+                    <span className="text-[10px] font-mono font-bold text-slate-400">0,50 €</span>
+                    <button
+                      type="button"
+                      onClick={roundDown50Cents}
+                      disabled={tipCents <= 0}
+                      aria-label="50 Cent abziehen"
+                      className="w-10 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition disabled:opacity-30 disabled:pointer-events-none shadow"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
+
+                <button
+                  onClick={() => {
+                    setShowCheckoutModal(false);
+                    setTipCents(0);
+                  }}
+                  className="p-2 bg-slate-800 hover:bg-slate-700 rounded-2xl text-slate-400 hover:text-white transition"
+                  title="Schließen"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
               {/* Modal Body: Split View (Links: Zahlungs-Buttons & Rechner | Rechts: Artikel-Auswahl & Teilzahlung) */}
               <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
-                {/* Left Column: Aktions-Buttons (Bild 1) & Scheine/Münzen Rechner */}
-                <div className="flex-1 p-4 sm:p-5 overflow-y-auto border-b md:border-b-0 md:border-r border-slate-800 space-y-4">
-                  {/* Top Action Buttons (Bild 1 Layout: Rot Abbrechen, Grün Barzahlung, Blau Kartenzahlung, Amber Wertmarke) */}
+                {/* Left Column: Aktions-Buttons & Scheine/Münzen Rechner */}
+                <div className="flex-1 p-4 sm:p-5 overflow-y-auto border-b md:border-b-0 md:border-r border-slate-800 space-y-3">
+                  {/* Top Action Buttons (Rot Abbrechen, Grün Barzahlung, Blau Kartenzahlung, Amber Wertmarke) */}
                   <div className={`grid gap-2 ${hasAnyCardPaymentConfigured(config) ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
                     <button
                       type="button"
-                      onClick={() => setShowCheckoutModal(false)}
+                      onClick={() => {
+                        setShowCheckoutModal(false);
+                        setTipCents(0);
+                      }}
                       className="min-h-[50px] rounded-2xl font-black text-xs sm:text-sm bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-950/50 flex items-center justify-center gap-1.5 transition active:scale-95"
                     >
                       <X className="w-4 h-4" />
@@ -1060,8 +1168,9 @@ function PosCounterContent() {
                     <button
                       type="button"
                       disabled={isProcessing || payableItems.length === 0}
-                      onClick={() => handleCheckout('CASH')}
+                      onClick={() => handleCheckout('COUNTER_DIRECT', 'CASH')}
                       className="min-h-[50px] rounded-2xl font-black text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white shadow-lg shadow-emerald-950/60 flex items-center justify-center gap-1.5 transition active:scale-95"
+                      title="Barzahlung als Direktverkauf (ohne Wertmarken)"
                     >
                       <Banknote className="w-4 h-4" />
                       <span>Barzahlung</span>
@@ -1073,9 +1182,10 @@ function PosCounterContent() {
                         disabled={isProcessing || payableItems.length === 0}
                         onClick={() => {
                           const activeCard = getActiveCardPaymentMethod(config);
-                          if (activeCard) handleCheckout(activeCard);
+                          if (activeCard) handleCheckout('COUNTER_DIRECT', activeCard);
                         }}
                         className="min-h-[50px] rounded-2xl font-black text-xs sm:text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 shadow-md flex items-center justify-center gap-1.5 transition active:scale-95"
+                        title="Kartenzahlung als Direktverkauf"
                       >
                         <CreditCard className="w-4 h-4 text-blue-400" />
                         <span>Kartenzahlung (Beta)</span>
@@ -1085,8 +1195,9 @@ function PosCounterContent() {
                     <button
                       type="button"
                       disabled={isProcessing || payableItems.length === 0}
-                      onClick={() => handleCheckout('TOKEN')}
+                      onClick={() => handleCheckout('COUNTER_VOUCHER', 'CASH')}
                       className="min-h-[50px] rounded-2xl font-black text-xs sm:text-sm bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-950/50 flex items-center justify-center gap-1.5 transition active:scale-95"
+                      title="Barzahlung mit Ausdruck von Wertmarken/Bons für Küche und Schänke"
                     >
                       <Ticket className="w-4 h-4" />
                       <span>Wertmarke</span>
@@ -1110,11 +1221,14 @@ function PosCounterContent() {
                     </div>
                   )}
 
-                  {/* Bargeld-Rückgeldrechner (Scheine 5-200€, Münzen 1ct-2€, Numpad ohne 00) */}
+                  {/* Bargeld-Rückgeldrechner nebeneinander, kein Scrollen nötig */}
                   <div>
                     <ChangeCalculator
-                      amountDueCents={Math.round(payableTotal * 100)} amountDue={payableTotal}
-                      givenCents={Math.round(givenAmount * 100)} givenAmount={givenAmount}
+                      layout="side-by-side"
+                      amountDueCents={payableTotalCents + tipCents}
+                      amountDue={(payableTotalCents + tipCents) / 100}
+                      givenCents={Math.round(givenAmount * 100)}
+                      givenAmount={givenAmount}
                       onGivenChange={(val) => setGivenAmount(val)}
                       defaultExpanded={true}
                     />
@@ -1217,7 +1331,7 @@ function PosCounterContent() {
                       <span>
                         {isProcessing
                           ? 'Wird gebucht & gedruckt...'
-                          : `Jetzt kassieren (${formatCents(Math.round((payableTotal) * 100))})`}
+                          : 'Jetzt kassieren'}
                       </span>
                     </button>
                   </div>
@@ -1634,6 +1748,227 @@ function PosCounterContent() {
               >
                 Speichern
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Search Modal mit Touch-Bildschirmtastatur */}
+      {showSearchModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-5xl h-[90vh] max-h-[720px] shadow-2xl flex flex-col overflow-hidden text-white animate-in zoom-in-95">
+            {/* Modal Header */}
+            <div className="p-3 sm:p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-emerald-600 text-white p-2 rounded-2xl shadow">
+                  <Search className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black">Artikelsuche</h3>
+                  <p className="text-xs text-slate-400">Schnellsuche per Touch-Tastatur oder Tippen</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSearchModal(false)}
+                className="p-2 bg-slate-800 hover:bg-slate-700 rounded-2xl text-slate-400 hover:text-white transition"
+                title="Schließen"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content: Split View (Links: Suchfeld & Trefferliste | Rechts: Touch-Tastatur) */}
+            <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
+              {/* Left Column: Suchfeld & gefilterte Artikel */}
+              <div className="flex-1 flex flex-col overflow-hidden p-3 sm:p-4 border-b md:border-b-0 md:border-r border-slate-800">
+                {/* Input field */}
+                <div className="relative mb-3">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    autoFocus
+                    value={searchModalQuery}
+                    onChange={(e) => setSearchModalQuery(e.target.value)}
+                    placeholder="Artikel eingeben..."
+                    className="w-full bg-slate-950 border border-slate-700 rounded-2xl pl-10 pr-10 py-3 text-base text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 font-bold"
+                  />
+                  {searchModalQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchModalQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="text-xs font-bold text-slate-400 mb-2 flex items-center justify-between">
+                  <span>Treffer: {searchMatchingProducts.length} Artikel</span>
+                  {cart.length > 0 && (
+                    <span className="text-emerald-400">Im Warenkorb: {cart.reduce((s, i) => s + i.quantity, 0)}</span>
+                  )}
+                </div>
+
+                {/* Results list */}
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                  {searchMatchingProducts.length === 0 ? (
+                    <div className="text-center py-12 text-slate-500 text-sm">
+                      Keine Artikel für &ldquo;{searchModalQuery}&rdquo; gefunden.
+                    </div>
+                  ) : (
+                    searchMatchingProducts.map(({ product, categoryName }) => {
+                      const isOut = product.isSoldOut;
+                      const { priceCents: effectivePriceCents } = getEffectiveProductPrice(product as any);
+                      const inCart = productCartCounts[product.id] || 0;
+
+                      return (
+                        <button
+                          key={product.id}
+                          disabled={isOut}
+                          type="button"
+                          onClick={() => {
+                            handleProductClick(product);
+                          }}
+                          className={`w-full p-3 rounded-2xl border text-left flex items-center justify-between gap-3 transition select-none ${
+                            isOut
+                              ? 'bg-slate-950/60 border-rose-900/40 opacity-40 cursor-not-allowed line-through'
+                              : inCart > 0
+                              ? 'bg-emerald-950/40 border-emerald-500/80 shadow-md ring-1 ring-emerald-500/30'
+                              : 'bg-slate-950 border-slate-800 hover:border-emerald-500 hover:bg-slate-800/80 active:scale-98'
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="font-extrabold text-sm sm:text-base text-white truncate">
+                              {product.name}
+                            </div>
+                            <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                              <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-semibold">{categoryName}</span>
+                              {isOut && <span className="text-rose-400 font-bold">Ausverkauft</span>}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0">
+                            {inCart > 0 && (
+                              <span className="bg-emerald-600 text-white font-black font-mono text-xs px-2 py-0.5 rounded-lg shadow border border-emerald-400/50">
+                                {inCart}x
+                              </span>
+                            )}
+                            <span className="font-mono font-black text-emerald-400 text-sm sm:text-base">
+                              {formatCents(effectivePriceCents)}
+                            </span>
+                            <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200">
+                              <Plus className="w-4 h-4" />
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Touch-Bildschirmtastatur */}
+              <div className="w-full md:w-[460px] p-3 sm:p-4 bg-slate-950 flex flex-col justify-between shrink-0">
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  Touch-Tastatur
+                </div>
+
+                <div className="flex flex-col gap-2 flex-1 justify-center">
+                  {/* Numbers row */}
+                  <div className="grid grid-cols-10 gap-1.5">
+                    {['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => handleVirtualKeyPress(k)}
+                        className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-white font-black text-sm border border-slate-700 flex items-center justify-center transition shadow"
+                      >
+                        {k}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Row QWERTZ... */}
+                  <div className="grid grid-cols-11 gap-1.5">
+                    {['Q', 'W', 'E', 'R', 'T', 'Z', 'U', 'I', 'O', 'P', 'Ü'].map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => handleVirtualKeyPress(k)}
+                        className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-white font-black text-sm border border-slate-700 flex items-center justify-center transition shadow"
+                      >
+                        {k}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Row ASDF... */}
+                  <div className="grid grid-cols-11 gap-1.5">
+                    {['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'Ö', 'Ä'].map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => handleVirtualKeyPress(k)}
+                        className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-white font-black text-sm border border-slate-700 flex items-center justify-center transition shadow"
+                      >
+                        {k}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Row YXCV... + Backspace */}
+                  <div className="flex gap-1.5">
+                    <div className="grid grid-cols-7 gap-1.5 flex-1">
+                      {['Y', 'X', 'C', 'V', 'B', 'N', 'M'].map((k) => (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => handleVirtualKeyPress(k)}
+                          className="h-11 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-white font-black text-sm border border-slate-700 flex items-center justify-center transition shadow"
+                        >
+                          {k}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleVirtualBackspace}
+                      className="w-16 h-11 rounded-xl bg-rose-900/60 hover:bg-rose-800 active:scale-95 text-rose-200 font-bold border border-rose-700/60 flex items-center justify-center transition shadow"
+                      title="Letztes Zeichen löschen"
+                    >
+                      ⌫
+                    </button>
+                  </div>
+
+                  {/* Bottom row: Clear, Space, Fertig */}
+                  <div className="flex gap-1.5 mt-1">
+                    <button
+                      type="button"
+                      onClick={handleVirtualClear}
+                      className="px-3 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 font-bold text-xs border border-slate-700 flex items-center justify-center transition shadow shrink-0"
+                    >
+                      Löschen
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleVirtualKeyPress(' ')}
+                      className="flex-1 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 font-bold text-xs border border-slate-700 flex items-center justify-center transition shadow tracking-wider"
+                    >
+                      Leerzeichen
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowSearchModal(false)}
+                      className="px-5 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-xs border border-emerald-500 flex items-center justify-center transition shadow shrink-0 gap-1"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>Fertig</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

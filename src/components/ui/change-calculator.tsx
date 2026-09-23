@@ -17,6 +17,7 @@ interface ChangeCalculatorProps {
   className?: string;
   defaultExpanded?: boolean;
   hideSummary?: boolean;
+  layout?: 'vertical' | 'side-by-side';
 }
 
 function toCents(v: number | undefined): number {
@@ -37,6 +38,7 @@ export function ChangeCalculator({
   onGivenChange,
   className = '',
   hideSummary = false,
+  layout = 'vertical',
 }: ChangeCalculatorProps) {
   const [keypadBuffer, setKeypadBuffer] = useState('');
 
@@ -134,10 +136,47 @@ export function ChangeCalculator({
     { value: 1, label: '1', style: 'coin-btn bg-orange-400 border-2 border-orange-700 text-orange-950 font-black' },
   ] as const;
 
+  const renderKeypad = () => (
+    <div className="grid grid-cols-3 gap-1.5">
+      {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
+        <button
+          key={digit}
+          type="button"
+          onClick={() => handleKeypadPress(digit)}
+          className="min-h-[42px] rounded-xl font-mono font-black text-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-white transition active:scale-95 shadow flex items-center justify-center keypad-key"
+        >
+          {digit}
+        </button>
+      ))}
+      <button
+        type="button"
+        onClick={() => handleKeypadPress('C')}
+        className="min-h-[42px] rounded-xl font-mono font-black text-base bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 transition active:scale-95 shadow flex items-center justify-center keypad-key"
+        title="Eingabe löschen"
+      >
+        C
+      </button>
+      <button
+        type="button"
+        onClick={() => handleKeypadPress('0')}
+        className="min-h-[42px] rounded-xl font-mono font-black text-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-white transition active:scale-95 shadow flex items-center justify-center keypad-key"
+      >
+        0
+      </button>
+      <button
+        type="button"
+        onClick={() => handleKeypadPress(',')}
+        className="min-h-[42px] rounded-xl font-mono font-black text-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-white transition active:scale-95 shadow flex items-center justify-center keypad-key"
+      >
+        ,
+      </button>
+    </div>
+  );
+
   return (
-    <div className={`space-y-3 ${className}`}>
+    <div className={`space-y-2.5 ${className}`}>
       {!hideSummary && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 shadow-md space-y-2">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2.5 shadow-md space-y-1.5">
           <div className="flex items-center justify-between text-xs font-bold text-slate-400">
             <span className="flex items-center gap-1.5 text-white">
               <Calculator className="w-4 h-4 text-emerald-400" />
@@ -177,82 +216,105 @@ export function ChangeCalculator({
         </div>
       )}
 
-      <div>
-        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1">
-          <Banknote className="w-3 h-3 text-blue-400" />
-          <span>Scheine (+ Addieren)</span>
-        </div>
-        <div className="grid grid-cols-6 gap-1.5">
-          {banknotesCents.map((note) => (
-            <button
-              key={note.value}
-              type="button"
-              onClick={() => handleAddCents(note.value)}
-              className={`h-11 rounded-xl border-2 font-black font-mono text-xs sm:text-sm transition active:scale-95 flex flex-col items-center justify-center shadow ${note.color}`}
-              title={`+ ${note.label} €`}
-            >
-              <span className="leading-none">{note.label} €</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      {layout === 'side-by-side' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
+          {/* Left: Scheine (2x3) & Münzen (2x4) */}
+          <div className="space-y-2">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1">
+                <Banknote className="w-3 h-3 text-blue-400" />
+                <span>Scheine (+ Addieren)</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {banknotesCents.map((note) => (
+                  <button
+                    key={note.value}
+                    type="button"
+                    onClick={() => handleAddCents(note.value)}
+                    className={`h-10 rounded-xl border-2 font-black font-mono text-xs transition active:scale-95 flex flex-col items-center justify-center shadow ${note.color}`}
+                    title={`+ ${note.label} €`}
+                  >
+                    <span className="leading-none">{note.label} €</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
-      <div>
-        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1">
-          <Coins className="w-3 h-3 text-amber-400" />
-          <span>Münzen (+ Addieren)</span>
-        </div>
-        <div className="grid grid-cols-8 gap-1.5">
-          {coinsCents.map((coin) => (
-            <button
-              key={coin.value}
-              type="button"
-              onClick={() => handleAddCents(coin.value)}
-              className={`w-full aspect-square rounded-full flex items-center justify-center font-black font-mono text-xs sm:text-sm shadow-md transition active:scale-90 ${coin.style}`}
-              title={`+ ${coin.label}`}
-            >
-              <span>{coin.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1">
+                <Coins className="w-3 h-3 text-amber-400" />
+                <span>Münzen (+ Addieren)</span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {coinsCents.map((coin) => (
+                  <button
+                    key={coin.value}
+                    type="button"
+                    onClick={() => handleAddCents(coin.value)}
+                    className={`h-9 rounded-xl flex items-center justify-center font-black font-mono text-xs shadow-md transition active:scale-90 ${coin.style}`}
+                    title={`+ ${coin.label}`}
+                  >
+                    <span>{coin.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
 
-      <div>
-        <div className="grid grid-cols-3 gap-1.5">
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
-            <button
-              key={digit}
-              type="button"
-              onClick={() => handleKeypadPress(digit)}
-              className="min-h-[46px] rounded-2xl font-mono font-black text-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-white transition active:scale-95 shadow flex items-center justify-center keypad-key"
-            >
-              {digit}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => handleKeypadPress('C')}
-            className="min-h-[46px] rounded-2xl font-mono font-black text-lg bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 transition active:scale-95 shadow flex items-center justify-center keypad-key"
-            title="Eingabe löschen"
-          >
-            C
-          </button>
-          <button
-            type="button"
-            onClick={() => handleKeypadPress('0')}
-            className="min-h-[46px] rounded-2xl font-mono font-black text-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-white transition active:scale-95 shadow flex items-center justify-center keypad-key"
-          >
-            0
-          </button>
-          <button
-            type="button"
-            onClick={() => handleKeypadPress(',')}
-            className="min-h-[46px] rounded-2xl font-mono font-black text-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-white transition active:scale-95 shadow flex items-center justify-center keypad-key"
-          >
-            ,
-          </button>
+          {/* Right: Numpad */}
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1">
+              <Calculator className="w-3 h-3 text-emerald-400" />
+              <span>Betrag eingeben</span>
+            </div>
+            {renderKeypad()}
+          </div>
         </div>
-      </div>
+      ) : (
+        <>
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1">
+              <Banknote className="w-3 h-3 text-blue-400" />
+              <span>Scheine (+ Addieren)</span>
+            </div>
+            <div className="grid grid-cols-6 gap-1.5">
+              {banknotesCents.map((note) => (
+                <button
+                  key={note.value}
+                  type="button"
+                  onClick={() => handleAddCents(note.value)}
+                  className={`h-11 rounded-xl border-2 font-black font-mono text-xs sm:text-sm transition active:scale-95 flex flex-col items-center justify-center shadow ${note.color}`}
+                  title={`+ ${note.label} €`}
+                >
+                  <span className="leading-none">{note.label} €</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1">
+              <Coins className="w-3 h-3 text-amber-400" />
+              <span>Münzen (+ Addieren)</span>
+            </div>
+            <div className="grid grid-cols-8 gap-1.5">
+              {coinsCents.map((coin) => (
+                <button
+                  key={coin.value}
+                  type="button"
+                  onClick={() => handleAddCents(coin.value)}
+                  className={`w-full aspect-square rounded-full flex items-center justify-center font-black font-mono text-xs sm:text-sm shadow-md transition active:scale-90 ${coin.style}`}
+                  title={`+ ${coin.label}`}
+                >
+                  <span>{coin.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>{renderKeypad()}</div>
+        </>
+      )}
     </div>
   );
 }

@@ -364,7 +364,9 @@ export const HANDBOOK: DocChapter[] = [
         heading: '3.1 Sofortverkauf an der Bonkasse',
         paragraphs: [
           'Unter /pos befindet sich die optimierte Theken- und Bonkasse für feste Kassenplätze, Wertmarkenbuden und Zelteingänge.',
-          'Artikel werden mit einem Klick ausgewählt und erscheinen im übersichtlichen Warenkorb. Für maximale Übersicht wurde die alte Anzeige der Abholnummer entfernt.',
+          'Artikel werden mit einem Klick ausgewählt und erscheinen im übersichtlichen Warenkorb.',
+          'Touch-Artikelsuche mit Bildschirmtastatur: Oben in der Menüleiste befindet sich neben der Kassenlade die Suchfunktion mit Lupen-Symbol. Ein Klick öffnet links die Live-Trefferliste und rechts eine Touch-Tastatur zur bequemen Eingabe ohne physische Tastatur.',
+          'Ergonomischer Bezahlvorgang: Im Bezahlfenster stehen Scheine, Münzen und Ziffernblock nebeneinander, sodass auf keinem Bildschirm mehr gescrollt werden muss. Mit dem integrierten 4-Pfeile-Trinkgeldsystem kann der Betrag wie in der Kellner-Ansicht in 1-Euro- oder 50-Cent-Schritten aufgerundet werden.',
         ],
         image: {
           src: '/docs/images/07_pos_direct_sale.png',
@@ -403,6 +405,7 @@ export const HANDBOOK: DocChapter[] = [
         heading: '3.4 Wertmarken & Abhol-Tokens',
         paragraphs: [
           'Für Festzelte mit separater Essens- oder Getränkeausgabe druckt OpenBon auf Wunsch fortlaufende Wertmarkennummern auf separate Bons, sodass Gäste ihre Speisen an der Essensausgabe per Nummernabruf abholen können.',
+          'Direkte Auswahl beim Bezahlen: Der Kassierende entscheidet direkt im Bezahlfenster mit einem Klick zwischen [Barzahlung] (reiner Thekenverkauf ohne Bons) und [Wertmarke] (automatischer Druck von Abholbons für Küche und Schänke).',
         ],
       },
       {
