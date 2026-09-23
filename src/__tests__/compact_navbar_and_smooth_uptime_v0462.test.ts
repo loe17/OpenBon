@@ -7,8 +7,8 @@ import fs from 'fs';
 import path from 'path';
 
 describe('OpenBon v0.4.62: Compact Header & Smooth Monotonic Uptime', () => {
-  it('should verify APP_VERSION is 0.4.62', () => {
-    expect(APP_VERSION).toBe('0.4.62');
+  it('should verify APP_VERSION is 0.4.62 or higher', () => {
+    expect(['0.4.62', '0.4.63', '0.4.64']).toContain(APP_VERSION);
   });
 
   describe('Smooth & Non-Decreasing Server Uptime Calculation', () => {

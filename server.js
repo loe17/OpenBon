@@ -513,6 +513,21 @@ app.prepare().then(async () => {
       socket.broadcast.emit('pos:request_cart_state', payload);
     });
 
+    // Web-Relay fuer USB-Drucker (Loesung B)
+    socket.on('printer:register_relay', (data) => {
+      if (!isStaffSocket()) return;
+      const station = data?.station || 'POS_CASHIER';
+      socket.join(`relay:${station}`);
+      socket.join('relay_printers');
+      console.log(`[RELAY] Client "${socket.deviceId || socket.id}" als Drucker-Relay registriert für Station: ${station}`);
+    });
+
+    socket.on('printer:relay_ack', (data) => {
+      if (global.relayAckEmitter && data?.jobId) {
+        global.relayAckEmitter.emit(`ack:${data.jobId}`, data);
+      }
+    });
+
     socket.on('disconnect', () => {
       if (socket.deviceId && global.connectedDevices.has(socket.deviceId)) {
         const device = global.connectedDevices.get(socket.deviceId);

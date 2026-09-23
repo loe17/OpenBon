@@ -409,6 +409,63 @@ export default function AdminReportsPage() {
             </div>
           </div>
 
+          {/* Bon- & Papierverbrauch Übersicht */}
+          {data.paperStats && (
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Printer className="w-5 h-5 text-blue-400" />
+                  <div>
+                    <h2 className="text-sm font-black text-white">Bon- &amp; Papierverbrauch der Veranstaltung</h2>
+                    <p className="text-xs text-slate-400">
+                      Gesamtverbrauch: <span className="font-bold text-white font-mono">{data.paperStats.totalMeters.toFixed(2)} Meter</span> Bonpapier
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href="/admin/printers"
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                >
+                  <span>Drucker &amp; Rollen verwalten</span>
+                </a>
+              </div>
+
+              {data.paperStats.printers.length === 0 ? (
+                <p className="text-xs text-slate-500">Noch keine Drucker für die Verbrauchsmessung eingerichtet.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-1">
+                  {data.paperStats.printers.map((p) => {
+                    const barColor = p.percentUsed > 90 ? 'bg-rose-500' : p.percentUsed > 75 ? 'bg-amber-400' : 'bg-blue-500';
+                    return (
+                      <div key={p.id} className="p-3 bg-slate-950/70 rounded-2xl border border-slate-800 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-white">{p.name}</span>
+                          <span className="font-mono text-xs font-bold text-slate-300">
+                            {p.totalMeters.toFixed(2)} m / {p.rollLengthM} m
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                          <div className={`h-full ${barColor} transition-all duration-300`} style={{ width: `${p.percentUsed}%` }} />
+                        </div>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-slate-400">{p.percentUsed}% verbraucht</span>
+                          {p.sensorNearEndActive ? (
+                            <span className="text-amber-400 font-bold flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                              Vorwarnhebel aktiv
+                            </span>
+                          ) : (
+                            <span className="text-emerald-400">Rolle bereit</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Sub Navigation Tabs */}
           <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded-2xl border border-slate-800 w-fit">
             {([

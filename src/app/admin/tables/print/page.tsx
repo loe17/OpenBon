@@ -13,6 +13,7 @@ interface AisleItem {
 export default function PrintTableOverviewPage() {
   const [tables, setTables] = useState<any[]>([]);
   const [aisles, setAisles] = useState<AisleItem[]>([]);
+  const [landmarks, setLandmarks] = useState<any[]>([]);
   const [eventName, setEventName] = useState('Festveranstaltung 2026');
   const [hideEmptySpaces, setHideEmptySpaces] = useState(false);
 
@@ -32,6 +33,12 @@ export default function PrintTableOverviewPage() {
           try {
             const parsed = JSON.parse(cfg.aisles);
             if (Array.isArray(parsed)) setAisles(parsed);
+          } catch {}
+        }
+        if (cfg?.tablePlanLandmarks) {
+          try {
+            const parsed = JSON.parse(cfg.tablePlanLandmarks);
+            if (Array.isArray(parsed)) setLandmarks(parsed);
           } catch {}
         }
       })
@@ -99,82 +106,193 @@ export default function PrintTableOverviewPage() {
           const maxCols = Math.max(6, maxTableX, maxAisleX);
           const maxRows = Math.max(4, maxTableY, maxAisleY);
 
+          const hasLeft = landmarks.some((l) => l.side === 'LEFT');
+          const hasRight = landmarks.some((l) => l.side === 'RIGHT');
+          const hasTop = landmarks.some((l) => l.side === 'TOP');
+          const hasBottom = landmarks.some((l) => l.side === 'BOTTOM');
+
+          const colTemplate = `${hasLeft ? '75px ' : ''}repeat(${maxCols}, minmax(0, 1fr))${hasRight ? ' 75px' : ''}`;
+
           return (
             <div
               className="grid gap-2 mb-8"
               style={{
-                gridTemplateColumns: `repeat(${maxCols}, minmax(0, 1fr))`,
+                gridTemplateColumns: colTemplate,
               }}
             >
+              {/* Top Landmarks Row */}
+              {hasTop && (
+                <>
+                  {hasLeft && <div key="corner-tl" />}
+                  {Array.from({ length: maxCols }).map((_, cIdx) => {
+                    const colNum = cIdx + 1;
+                    const topLm = landmarks.find((l) => l.side === 'TOP' && l.index === colNum);
+                    const isCovered = landmarks.some(
+                      (l) => l.side === 'TOP' && l.index < colNum && colNum < l.index + l.span
+                    );
+                    if (isCovered) return null;
+                    if (topLm) {
+                      const span = Math.min(topLm.span || 1, maxCols - colNum + 1);
+                      return (
+                        <div
+                          key={`top-lm-${topLm.id}`}
+                          style={{ gridColumn: `span ${span}` }}
+                          className="p-1 bg-slate-100 border-2 border-black rounded flex items-center justify-center text-center text-xs font-black uppercase tracking-wider"
+                        >
+                          {topLm.label}
+                        </div>
+                      );
+                    }
+                    return <div key={`top-empty-${colNum}`} />;
+                  })}
+                  {hasRight && <div key="corner-tr" />}
+                </>
+              )}
+
+              {/* Main Room Grid Rows (with optional Left & Right Landmarks) */}
               {Array.from({ length: maxRows }).map((_, rIdx) => {
                 const y = rIdx + 1;
                 const isRowAisle = aisles.some((a) => a.type === 'ROW' && a.index === y);
 
-                return Array.from({ length: maxCols }).map((__, cIdx) => {
-                  const x = cIdx + 1;
-                  const isColAisle = aisles.some((a) => a.type === 'COL' && a.index === x);
-                  const isAisle = isRowAisle || isColAisle;
+                const leftLm = landmarks.find((l) => l.side === 'LEFT' && l.index === y);
+                const isLeftCovered = landmarks.some(
+                  (l) => l.side === 'LEFT' && l.index < y && y < l.index + l.span
+                );
 
-                  if (isAisle) {
-                    const isCrossing = isRowAisle && isColAisle;
-                    return (
-                      <div
-                        key={`aisle-${x}-${y}`}
-                        className={`min-h-[72px] flex flex-col justify-center items-center text-amber-900 transition ${
-                          isCrossing
-                            ? 'bg-amber-100/90 border-2 border-dashed border-amber-400 rounded-xl'
-                            : isRowAisle
-                            ? 'bg-amber-50/80 border-y-2 border-dashed border-amber-300/80'
-                            : 'bg-amber-50/80 border-x-2 border-dashed border-amber-300/80'
-                        }`}
-                      >
-                        <Footprints className="w-3.5 h-3.5 text-amber-600/70 opacity-60" />
-                        <span className="text-[8px] font-bold uppercase tracking-widest text-amber-700/60 mt-0.5">
-                          {isCrossing ? 'KREUZUNG' : 'GANG'}
-                        </span>
-                      </div>
-                    );
-                  }
+                const rightLm = landmarks.find((l) => l.side === 'RIGHT' && l.index === y);
+                const isRightCovered = landmarks.some(
+                  (l) => l.side === 'RIGHT' && l.index < y && y < l.index + l.span
+                );
 
-                  const t = tables.find((tbl) => (tbl.gridX || 1) === x && (tbl.gridY || 1) === y);
+                return (
+                  <React.Fragment key={`row-frag-${y}`}>
+                    {/* Left Landmark Cell */}
+                    {hasLeft && !isLeftCovered && (
+                      leftLm ? (
+                        <div
+                          key={`left-lm-${leftLm.id}`}
+                          style={{ gridRow: `span ${Math.min(leftLm.span || 1, maxRows - y + 1)}` }}
+                          className="p-1 bg-slate-100 border-2 border-black rounded flex items-center justify-center text-center text-[10px] font-black uppercase tracking-wider"
+                        >
+                          {leftLm.label}
+                        </div>
+                      ) : (
+                        <div key={`left-empty-${y}`} />
+                      )
+                    )}
 
-                  if (t) {
-                    return (
-                      <div
-                        key={`t-${t.id}`}
-                        className={`p-2 rounded-lg border-2 text-center flex items-center justify-center min-h-[72px] ${
-                          t.isActive !== false
-                            ? 'border-black bg-white shadow-sm'
-                            : 'border-slate-300 bg-slate-100 opacity-40 line-through'
-                        }`}
-                      >
-                        <span className="text-2xl sm:text-3xl font-black text-black font-mono leading-none">
-                          {t.tableNumber}
-                        </span>
-                      </div>
-                    );
-                  }
+                    {/* Table / Aisle Cells */}
+                    {Array.from({ length: maxCols }).map((__, cIdx) => {
+                      const x = cIdx + 1;
+                      const isColAisle = aisles.some((a) => a.type === 'COL' && a.index === x);
+                      const isAisle = isRowAisle || isColAisle;
 
-                  if (hideEmptySpaces) {
-                    return (
-                      <div
-                        key={`empty-${x}-${y}`}
-                        className="min-h-[72px] bg-transparent border-none"
-                      />
-                    );
-                  }
+                      if (isAisle) {
+                        const isCrossing = isRowAisle && isColAisle;
+                        return (
+                          <div
+                            key={`aisle-${x}-${y}`}
+                            className={`min-h-[72px] flex flex-col justify-center items-center text-amber-900 transition ${
+                              isCrossing
+                                ? 'bg-amber-100/90 border-2 border-dashed border-amber-400 rounded-xl'
+                                : isRowAisle
+                                ? 'bg-amber-50/80 border-y-2 border-dashed border-amber-300/80'
+                                : 'bg-amber-50/80 border-x-2 border-dashed border-amber-300/80'
+                            }`}
+                          >
+                            <Footprints className="w-3.5 h-3.5 text-amber-600/70 opacity-60" />
+                            <span className="text-[8px] font-bold uppercase tracking-widest text-amber-700/60 mt-0.5">
+                              {isCrossing ? 'KREUZUNG' : 'GANG'}
+                            </span>
+                          </div>
+                        );
+                      }
 
-                  return (
-                    <div
-                      key={`empty-${x}-${y}`}
-                      className="p-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 text-center flex flex-col justify-center items-center min-h-[72px] text-slate-400"
-                    >
-                      <span className="text-[10px] font-mono">Frei</span>
-                      <span className="text-[8px] font-mono text-slate-400">({x},{y})</span>
-                    </div>
-                  );
-                });
+                      const t = tables.find((tbl) => (tbl.gridX || 1) === x && (tbl.gridY || 1) === y);
+
+                      if (t) {
+                        return (
+                          <div
+                            key={`t-${t.id}`}
+                            className={`p-2 rounded-lg border-2 text-center flex items-center justify-center min-h-[72px] ${
+                              t.isActive !== false
+                                ? 'border-black bg-white shadow-sm'
+                                : 'border-slate-300 bg-slate-100 opacity-40 line-through'
+                            }`}
+                          >
+                            <span className="text-2xl sm:text-3xl font-black text-black font-mono leading-none">
+                              {t.tableNumber}
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      if (hideEmptySpaces) {
+                        return (
+                          <div
+                            key={`empty-${x}-${y}`}
+                            className="min-h-[72px] bg-transparent border-none"
+                          />
+                        );
+                      }
+
+                      return (
+                        <div
+                          key={`empty-${x}-${y}`}
+                          className="p-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 text-center flex flex-col justify-center items-center min-h-[72px] text-slate-400"
+                        >
+                          <span className="text-[10px] font-mono">Frei</span>
+                          <span className="text-[8px] font-mono text-slate-400">({x},{y})</span>
+                        </div>
+                      );
+                    })}
+
+                    {/* Right Landmark Cell */}
+                    {hasRight && !isRightCovered && (
+                      rightLm ? (
+                        <div
+                          key={`right-lm-${rightLm.id}`}
+                          style={{ gridRow: `span ${Math.min(rightLm.span || 1, maxRows - y + 1)}` }}
+                          className="p-1 bg-slate-100 border-2 border-black rounded flex items-center justify-center text-center text-[10px] font-black uppercase tracking-wider"
+                        >
+                          {rightLm.label}
+                        </div>
+                      ) : (
+                        <div key={`right-empty-${y}`} />
+                      )
+                    )}
+                  </React.Fragment>
+                );
               })}
+
+              {/* Bottom Landmarks Row */}
+              {hasBottom && (
+                <>
+                  {hasLeft && <div key="corner-bl" />}
+                  {Array.from({ length: maxCols }).map((_, cIdx) => {
+                    const colNum = cIdx + 1;
+                    const btmLm = landmarks.find((l) => l.side === 'BOTTOM' && l.index === colNum);
+                    const isCovered = landmarks.some(
+                      (l) => l.side === 'BOTTOM' && l.index < colNum && colNum < l.index + l.span
+                    );
+                    if (isCovered) return null;
+                    if (btmLm) {
+                      const span = Math.min(btmLm.span || 1, maxCols - colNum + 1);
+                      return (
+                        <div
+                          key={`btm-lm-${btmLm.id}`}
+                          style={{ gridColumn: `span ${span}` }}
+                          className="p-1 bg-slate-100 border-2 border-black rounded flex items-center justify-center text-center text-xs font-black uppercase tracking-wider"
+                        >
+                          {btmLm.label}
+                        </div>
+                      );
+                    }
+                    return <div key={`btm-empty-${colNum}`} />;
+                  })}
+                  {hasRight && <div key="corner-br" />}
+                </>
+              )}
             </div>
           );
         })()}

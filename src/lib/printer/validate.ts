@@ -51,13 +51,16 @@ export function validatePrinterAddress(
 
   const allowAny = process.env.PRINTERS_ALLOW_ANY_IP === '1';
 
-  // USB- und serielle Geraetepfade (/dev/usb/lp0, /dev/ttyUSB0, COM1, \\localhost\...)
+  // USB- und serielle Geraetepfade (/dev/usb/lp0, /dev/ttyUSB0, COM1, \\localhost\...) sowie Browser-Relay
   if (
     ip.startsWith('/dev/usb/lp') ||
     ip.startsWith('/dev/tty') ||
     ip.startsWith('/dev/lp') ||
     /^COM\d+$/i.test(ip) ||
-    ip.startsWith('\\\\')
+    ip.startsWith('\\\\') ||
+    ip.toUpperCase() === 'WEB_RELAY' ||
+    ip.toUpperCase().startsWith('RELAY') ||
+    ip.toUpperCase() === 'USB_SERVER'
   ) {
     return { ok: true, ip, port: Number(rawPort) || 0 };
   }

@@ -16,6 +16,8 @@ interface SpoolJob {
   ticketData: TicketData;
   retries: number;
   createdAt: Date;
+  lengthMm?: number;
+  ticketType?: string;
 }
 
 class NetworkSpooler {
@@ -23,6 +25,8 @@ class NetworkSpooler {
   private isProcessing = false;
   /** Verhindert, dass ein zweiter Aufruf dieselben Jobs erneut einreiht (Doppeldruck). */
   private recoveryRunning = false;
+  /** Tracker fuer Drucker mit ausgeloestem Papier-Vorwarnhebel (Countdown bis zum Stopp-Ticket) */
+  private nearEndTrackers: Map<string, { remainingMm: number; stopTicketSent: boolean }> = new Map();
 
   constructor() {
     // Beim Initialisieren nicht abgeschlossene Jobs aus der DB nachladen.
@@ -36,9 +40,12 @@ class NetworkSpooler {
     ticketData: TicketData,
     options?: { orderId?: string; printGroupId?: string; itemIds?: string[] }
   ): Promise<{ success: boolean; isVirtual: boolean; jobId?: string; error?: string }> {
-    // 1. In Datenbank persistieren (Resilienz gegen Abstürze)
-    // rawPayload enthält zusätzlich itemIds für pro-Item-ACK (nur dieses Ticket, nicht ganze Order)
+    // 1. Physische Bonlaenge errechnen
     const payloadWithIds = { ...ticketData, __itemIds: options?.itemIds || [] };
+    const built = EscPosBuilder.buildTicket(payloadWithIds, printer.paperWidth || 80);
+    const lengthMm = built.lengthMm;
+
+    // 2. In Datenbank persistieren (Resilienz gegen Abstürze)
     let dbJob = null;
     try {
       dbJob = await prisma.printJob.create({
@@ -47,6 +54,8 @@ class NetworkSpooler {
           printGroupId: options?.printGroupId || null,
           orderId: options?.orderId || null,
           title: ticketData.title || 'Bon',
+          ticketType: 'TICKET',
+          lengthMm,
           rawPayload: JSON.stringify(payloadWithIds),
           status: printer.isVirtual ? 'PRINTED' : 'PENDING',
           attempts: 0,
@@ -69,10 +78,18 @@ class NetworkSpooler {
       ticketData,
       retries: 0,
       createdAt: new Date(),
+      lengthMm,
+      ticketType: 'TICKET',
     };
 
     if (printer.isVirtual) {
       const res = await this.processVirtualPrint(job);
+      if (printer.id) {
+        await prisma.printer.update({
+          where: { id: printer.id },
+          data: { totalPaperMm: { increment: lengthMm } },
+        }).catch(() => null);
+      }
       return { success: res.success, isVirtual: true, jobId: job.id };
     } else {
       // Ehrlich: PENDING einreihen, erst nach Socket-ACK als PRINTED melden.
@@ -86,14 +103,41 @@ class NetworkSpooler {
   public async sendRawBuffer(
     printer: { id?: string; name: string; ipAddress: string; port: number; isVirtual: boolean; paperWidth?: number },
     rawBuffer: Buffer,
-    textRepresentation?: string
+    textRepresentation?: string,
+    meta?: { lengthMm?: number; ticketType?: string }
   ): Promise<{ success: boolean; isVirtual: boolean; error?: string }> {
+    const lengthMm = meta?.lengthMm ?? Math.max(15, Math.round((textRepresentation || '').split('\n').length * 3.75 + 15));
+
+    const onPrintSuccess = async () => {
+      if (printer.id) {
+        await prisma.printer.update({
+          where: { id: printer.id },
+          data: { totalPaperMm: { increment: lengthMm } },
+        }).catch(() => null);
+
+        await prisma.printJob.create({
+          data: {
+            printerId: printer.id,
+            title: meta?.ticketType || 'Druckauftrag',
+            ticketType: meta?.ticketType || 'RAW',
+            lengthMm,
+            rawPayload: textRepresentation || '[ESC/POS Raw]',
+            status: 'PRINTED',
+            attempts: 1,
+            printedAt: new Date(),
+          },
+        }).catch(() => null);
+
+        this.checkNearEndCountdownAndTriggerStop(printer.id, printer.name, printer.paperWidth || 80, lengthMm);
+      }
+    };
+
     // Spiegelung für den Virtuellen Monitor bereithalten
     const record: VirtualTicketRecord = {
       id: Math.random().toString(36).substring(2, 11),
       printerName: printer.name,
       printerIp: printer.ipAddress,
-      ticketData: { title: 'Druckauftrag', items: [] },
+      ticketData: { title: meta?.ticketType || 'Druckauftrag', items: [] },
       rawText: textRepresentation || '[ESC/POS Binärdaten]',
       printedAt: new Date().toISOString(),
     };
@@ -109,16 +153,44 @@ class NetworkSpooler {
     }
 
     if (printer.isVirtual) {
+      await onPrintSuccess();
       return { success: true, isVirtual: true };
     }
 
-    if (printer.ipAddress.startsWith('/dev/')) {
+    // Web-Relay (Lösung B: Browser-Relay über WebSocket)
+    if (printer.ipAddress.toUpperCase() === 'WEB_RELAY' || printer.ipAddress.startsWith('RELAY')) {
+      const dbPrinter = printer.id ? await prisma.printer.findUnique({ where: { id: printer.id } }).catch(() => null) : null;
+      try {
+        await this.dispatchWebRelay(dbPrinter, {
+          id: record.id,
+          printerId: printer.id || 'virtual',
+          printerName: printer.name,
+          printerIp: printer.ipAddress,
+          printerPort: printer.port || 9100,
+          isVirtual: false,
+          paperWidth: printer.paperWidth || 80,
+          ticketData: record.ticketData,
+          retries: 0,
+          createdAt: new Date(),
+          lengthMm,
+        }, rawBuffer);
+        await onPrintSuccess();
+        return { success: true, isVirtual: false };
+      } catch (err: any) {
+        return { success: false, isVirtual: false, error: err.message };
+      }
+    }
+
+    // Direkt am Server angeschlossener USB / COM-Drucker (Lösung A)
+    if (printer.ipAddress.startsWith('/dev/') || printer.ipAddress.startsWith('\\\\') || /^COM\d+$/i.test(printer.ipAddress)) {
+      const portPath = /^COM\d+$/i.test(printer.ipAddress) ? `\\\\.\\${printer.ipAddress}` : printer.ipAddress;
       return new Promise((resolve) => {
         try {
-          fs.writeFile(printer.ipAddress, rawBuffer, (err) => {
+          fs.writeFile(portPath, rawBuffer, async (err) => {
             if (err) {
               resolve({ success: false, isVirtual: false, error: `USB-Fehler: ${err.message}` });
             } else {
+              await onPrintSuccess();
               resolve({ success: true, isVirtual: false });
             }
           });
@@ -145,13 +217,29 @@ class NetworkSpooler {
       };
 
       client.connect(printer.port || 9100, printer.ipAddress, () => {
+        // DLE EOT 4 Statusabfrage fuer Papierhebel
+        try {
+          client.write(Buffer.from([0x10, 0x04, 0x04]));
+        } catch {}
+
         client.write(rawBuffer, (err) => {
           if (err) {
             cleanup({ success: false, isVirtual: false, error: err.message });
           } else {
+            void onPrintSuccess();
             cleanup({ success: true, isVirtual: false });
           }
         });
+      });
+
+      client.on('data', (buf) => {
+        if (buf.length > 0 && printer.id) {
+          const b = buf[0];
+          const isNearEnd = (b & 0x0C) !== 0;
+          const isEmpty = (b & 0x60) !== 0;
+          const sensorState = isEmpty ? 'EMPTY' : (isNearEnd ? 'NEAR_END' : 'OK');
+          void this.handlePrinterSensorUpdate(printer.id, printer.name, printer.paperWidth || 80, isNearEnd, sensorState);
+        }
       });
 
       client.on('error', (err) => {
@@ -210,6 +298,17 @@ class NetworkSpooler {
         await this.sendToRawSocket(job);
         // Spiegelung für Virtuellen Monitor
         await this.processVirtualPrint(job);
+      }
+
+      // Bonverbrauchsrechner: Papierverbrauch aufaddieren
+      if (job.printerId) {
+        const length = job.lengthMm || 60;
+        await prisma.printer.update({
+          where: { id: job.printerId },
+          data: { totalPaperMm: { increment: length } },
+        }).catch(() => null);
+
+        this.checkNearEndCountdownAndTriggerStop(job.printerId, job.printerName, job.paperWidth, length);
       }
 
       // In DB als gedruckt markieren + async ACK (OrderItems + Socket)
@@ -347,13 +446,22 @@ class NetworkSpooler {
     }
   }
 
-  private sendToRawSocket(job: SpoolJob): Promise<void> {
-    const { rawBuffer } = EscPosBuilder.buildTicket(job.ticketData, job.paperWidth);
+  private async sendToRawSocket(job: SpoolJob): Promise<void> {
+    const { rawBuffer, lengthMm } = EscPosBuilder.buildTicket(job.ticketData, job.paperWidth);
+    job.lengthMm = lengthMm;
 
-    if (job.printerIp.startsWith('/dev/')) {
+    const printerRecord = job.printerId ? await prisma.printer.findUnique({ where: { id: job.printerId } }).catch(() => null) : null;
+    const connType = printerRecord?.connectionType || (job.printerIp.toUpperCase() === 'WEB_RELAY' ? 'WEB_RELAY' : 'NETWORK');
+
+    if (connType === 'WEB_RELAY') {
+      return this.dispatchWebRelay(printerRecord, job, rawBuffer);
+    }
+
+    if (connType === 'USB_SERVER' || job.printerIp.startsWith('/dev/') || /^COM\d+$/i.test(job.printerIp) || job.printerIp.startsWith('\\\\')) {
+      const portName = /^COM\d+$/i.test(job.printerIp) ? `\\\\.\\${job.printerIp}` : job.printerIp;
       return new Promise((resolve, reject) => {
         try {
-          fs.writeFile(job.printerIp, rawBuffer, (err) => {
+          fs.writeFile(portName, rawBuffer, (err) => {
             if (err) reject(new Error(`USB-Druckfehler (${job.printerIp}): ${err.message}`));
             else resolve();
           });
@@ -381,10 +489,25 @@ class NetworkSpooler {
       };
 
       client.connect(job.printerPort, job.printerIp, () => {
+        // DLE EOT 4 Statusabfrage fuer Papierhebel
+        try {
+          client.write(Buffer.from([0x10, 0x04, 0x04]));
+        } catch {}
+
         client.write(rawBuffer, () => {
           client.end();
           cleanup();
         });
+      });
+
+      client.on('data', (buf) => {
+        if (buf.length > 0 && job.printerId) {
+          const b = buf[0];
+          const isNearEnd = (b & 0x0C) !== 0;
+          const isEmpty = (b & 0x60) !== 0;
+          const sensorState = isEmpty ? 'EMPTY' : (isNearEnd ? 'NEAR_END' : 'OK');
+          void this.handlePrinterSensorUpdate(job.printerId, job.printerName, job.paperWidth, isNearEnd, sensorState);
+        }
       });
 
       client.on('error', (err) => {
@@ -393,6 +516,130 @@ class NetworkSpooler {
 
       client.on('timeout', () => {
         cleanup(new Error(`Timeout bei Verbindung zu ${job.printerIp}:${job.printerPort}`));
+      });
+    });
+  }
+
+  public async handlePrinterSensorUpdate(
+    printerId: string | undefined,
+    printerName: string,
+    paperWidth: number,
+    isNearEnd: boolean,
+    sensorState: string
+  ): Promise<void> {
+    if (!printerId) return;
+
+    await prisma.printer.update({
+      where: { id: printerId },
+      data: {
+        sensorNearEndActive: isNearEnd,
+        paperSensorState: sensorState,
+      },
+    }).catch(() => null);
+
+    if (global.io) {
+      global.io.emit('printer:status_update', {
+        printerId,
+        sensorNearEndActive: isNearEnd,
+        paperSensorState: sensorState,
+      });
+    }
+
+    const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } }).catch(() => null);
+    if (config?.enablePaperNearEndWarning === false) {
+      this.nearEndTrackers.delete(printerId);
+      return;
+    }
+
+    if (isNearEnd) {
+      if (!this.nearEndTrackers.has(printerId)) {
+        // ca. 2.0 Meter Restpapier nach Auslösen des Hebels
+        this.nearEndTrackers.set(printerId, { remainingMm: 2000, stopTicketSent: false });
+        console.warn(`[SPOOLER] Vorwarnhebel an Drucker "${printerName}" ausgeloest! Noch ca. 2m Restpapier.`);
+      }
+    } else {
+      this.nearEndTrackers.delete(printerId);
+    }
+  }
+
+  private async checkNearEndCountdownAndTriggerStop(
+    printerId: string,
+    printerName: string,
+    paperWidth: number,
+    lengthMm: number
+  ) {
+    const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } }).catch(() => null);
+    if (config?.enablePaperNearEndWarning === false) {
+      this.nearEndTrackers.delete(printerId);
+      return;
+    }
+
+    const tracker = this.nearEndTrackers.get(printerId);
+    if (!tracker) return;
+
+    tracker.remainingMm -= lengthMm;
+    // Wenn Restlänge <= 250mm (~1 Ticket übrig) und noch kein Stopp-Ticket gesendet wurde:
+    if (tracker.remainingMm <= 250 && !tracker.stopTicketSent) {
+      tracker.stopTicketSent = true;
+      console.warn(`[SPOOLER] Papier fast leer auf "${printerName}" (Rest: ${tracker.remainingMm}mm). Drucke STOPP-TICKET!`);
+      const stopTicket = EscPosBuilder.buildPaperEmptyStopTicket(printerName, paperWidth);
+      void prisma.printer.findUnique({ where: { id: printerId } }).then((pr) => {
+        if (pr) {
+          void this.sendRawBuffer(pr, stopTicket.rawBuffer, stopTicket.textRepresentation, {
+            lengthMm: stopTicket.lengthMm,
+            ticketType: 'STOP_TICKET',
+          });
+        }
+      });
+    }
+  }
+
+  private dispatchWebRelay(
+    printerRecord: any,
+    job: SpoolJob,
+    rawBuffer: Buffer
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!global.io) {
+        return reject(new Error('Kein WebSocket-Server aktiv fuer Web-Relay'));
+      }
+      const relayStation = printerRecord?.relayStation || 'POS_CASHIER';
+
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          if ((global as any).relayAckEmitter) {
+            (global as any).relayAckEmitter.removeListener(`ack:${job.id}`, onAck);
+          }
+          reject(new Error(`Web-Relay Timeout: Keine Antwort von Station ${relayStation}`));
+        }
+      }, 8000);
+
+      const onAck = (res: { success: boolean; error?: string }) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          if (res.success) resolve();
+          else reject(new Error(res.error || 'Druckfehler an Web-Relay Station'));
+        }
+      };
+
+      if (!(global as any).relayAckEmitter) {
+        const { EventEmitter } = require('events');
+        (global as any).relayAckEmitter = new EventEmitter();
+      }
+      (global as any).relayAckEmitter.once(`ack:${job.id}`, onAck);
+
+      global.io.emit('printer:relay_job', {
+        jobId: job.id,
+        dbJobId: job.dbJobId,
+        printerId: job.printerId,
+        printerName: job.printerName,
+        relayStation,
+        rawBase64: rawBuffer.toString('base64'),
+        paperWidth: job.paperWidth,
+        lengthMm: job.lengthMm || 60,
       });
     });
   }

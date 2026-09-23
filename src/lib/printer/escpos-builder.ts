@@ -127,14 +127,20 @@ export interface ZBonReport {
 
 export class EscPosBuilder {
   private buffer: Buffer[] = [];
-  private paperWidth: number; // 80 or 58 mm
+  public paperWidth: number; // 80 or 58 mm
   private charLimit: number; // 42 or 32 chars per line
   private encoding: string;
+  private calibLineMm: number;
+  private calibFeedMm: number;
+  private currentHeightMult: number = 1;
+  private accumulatedHeightMm: number = 0;
 
-  constructor(paperWidth = 80, encoding = 'CP858') {
+  constructor(paperWidth = 80, encoding = 'CP858', calibLineMm = 3.75, calibFeedMm = 15.0) {
     this.paperWidth = paperWidth;
     this.charLimit = paperWidth === 58 ? 32 : 42;
     this.encoding = encoding;
+    this.calibLineMm = calibLineMm;
+    this.calibFeedMm = calibFeedMm;
     this.init();
   }
 
@@ -160,6 +166,7 @@ export class EscPosBuilder {
     let n = 0;
     if (doubleWidth) n |= 0x20;
     if (doubleHeight) n |= 0x01;
+    this.currentHeightMult = doubleHeight ? 2 : 1;
     this.buffer.push(Buffer.from([ESC, 0x21, n]));
     return this;
   }
@@ -167,12 +174,14 @@ export class EscPosBuilder {
   public charSize(widthMult = 1, heightMult = 1): this {
     const w = Math.min(8, Math.max(1, Math.round(widthMult))) - 1;
     const h = Math.min(8, Math.max(1, Math.round(heightMult))) - 1;
+    this.currentHeightMult = Math.min(8, Math.max(1, Math.round(heightMult)));
     const n = (w << 4) | h;
     this.buffer.push(Buffer.from([GS, 0x21, n]));
     return this;
   }
 
   public resetCharSize(): this {
+    this.currentHeightMult = 1;
     return this.charSize(1, 1);
   }
 
@@ -185,6 +194,7 @@ export class EscPosBuilder {
     for (let i = 0; i < count; i++) {
       this.buffer.push(Buffer.from([0x0a]));
     }
+    this.accumulatedHeightMm += count * (this.calibLineMm * this.currentHeightMult);
     return this;
   }
 
@@ -202,11 +212,16 @@ export class EscPosBuilder {
   }
 
   public text(str: string): this {
+    const sanitized = EscPosBuilder.sanitizeText(str);
+    const newlines = (sanitized.match(/\n/g) || []).length;
+    if (newlines > 0) {
+      this.accumulatedHeightMm += newlines * (this.calibLineMm * this.currentHeightMult);
+    }
     try {
-      const encoded = iconv.encode(EscPosBuilder.sanitizeText(str), this.encoding);
+      const encoded = iconv.encode(sanitized, this.encoding);
       this.buffer.push(encoded);
     } catch {
-      this.buffer.push(Buffer.from(EscPosBuilder.sanitizeText(str), 'latin1'));
+      this.buffer.push(Buffer.from(sanitized, 'latin1'));
     }
     return this;
   }
@@ -257,14 +272,20 @@ export class EscPosBuilder {
     this.buffer.push(dataBuf);
     // 5. Print QR symbol
     this.buffer.push(Buffer.from([GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30]));
+    this.accumulatedHeightMm += Math.max(15, size * 3.5);
     this.lineFeed(1);
     return this;
   }
 
   public cut(partial = false): this {
     this.lineFeed(4);
+    this.accumulatedHeightMm += this.calibFeedMm;
     this.buffer.push(Buffer.from([GS, 0x56, partial ? 1 : 0]));
     return this;
+  }
+
+  public get lengthMm(): number {
+    return Math.max(1, Math.round(this.accumulatedHeightMm));
   }
 
   public build(): Buffer {
@@ -313,7 +334,7 @@ export class EscPosBuilder {
   }
 
   // 1. Standard POS Ticket Builder
-  public static buildTicket(data: TicketData, paperWidth = 80): { rawBuffer: Buffer; textRepresentation: string } {
+  public static buildTicket(data: TicketData, paperWidth = 80): { rawBuffer: Buffer; textRepresentation: string; lengthMm: number } {
     const builder = new EscPosBuilder(paperWidth);
     const textLines: string[] = [];
 
@@ -604,11 +625,12 @@ export class EscPosBuilder {
     return {
       rawBuffer: builder.build(),
       textRepresentation: textLines.join('\n'),
+      lengthMm: builder.lengthMm,
     };
   }
 
   // 2. Station Joining QR-Code Ticket
-  public static buildStationJoinTicket(station: { title: string; role: string; description: string; url: string; pin: string }, paperWidth = 80): { rawBuffer: Buffer; textRepresentation: string } {
+  public static buildStationJoinTicket(station: { title: string; role: string; description: string; url: string; pin: string }, paperWidth = 80): { rawBuffer: Buffer; textRepresentation: string; lengthMm: number } {
     const builder = new EscPosBuilder(paperWidth);
     const textLines: string[] = [];
 
@@ -641,6 +663,7 @@ export class EscPosBuilder {
         `STATIONS-PIN: ${station.pin}`,
         `URL: ${station.url}`,
       ].join('\n'),
+      lengthMm: builder.lengthMm,
     };
   }
 
@@ -656,7 +679,7 @@ export class EscPosBuilder {
       noteText?: string;
     },
     paperWidth = 80
-  ): { rawBuffer: Buffer; textRepresentation: string } {
+  ): { rawBuffer: Buffer; textRepresentation: string; lengthMm: number } {
     const builder = new EscPosBuilder(paperWidth);
     const label = data.numberOnly ? String(data.tableNumber) : (data.label || `Tisch ${data.tableNumber}`);
     const textLines: string[] = [];
@@ -725,6 +748,7 @@ export class EscPosBuilder {
     return {
       rawBuffer: builder.build(),
       textRepresentation: textLines.join('\n'),
+      lengthMm: builder.lengthMm,
     };
   }
 
@@ -751,7 +775,7 @@ export class EscPosBuilder {
       showOptions?: boolean;
     },
     paperWidth = 80
-  ): { rawBuffer: Buffer; textRepresentation: string } {
+  ): { rawBuffer: Buffer; textRepresentation: string; lengthMm: number } {
     const builder = new EscPosBuilder(paperWidth);
     const lines: string[] = [];
     const add = (t: string) => lines.push(t);
@@ -825,6 +849,7 @@ export class EscPosBuilder {
     return {
       rawBuffer: builder.build(),
       textRepresentation: lines.join('\n'),
+      lengthMm: builder.lengthMm,
     };
   }
 
@@ -847,7 +872,7 @@ export class EscPosBuilder {
       createdAt?: string | Date;
     },
     paperWidth = 80
-  ): { rawBuffer: Buffer; textRepresentation: string } {
+  ): { rawBuffer: Buffer; textRepresentation: string; lengthMm: number } {
     const builder = new EscPosBuilder(paperWidth);
     const lines: string[] = [];
     const add = (t: string) => lines.push(t);
@@ -916,7 +941,7 @@ export class EscPosBuilder {
     add('NICHT ZUBEREITEN - NICHT AUSGEBEN');
     builder.cut();
 
-    return { rawBuffer: builder.build(), textRepresentation: lines.join('\n') };
+    return { rawBuffer: builder.build(), textRepresentation: lines.join('\n'), lengthMm: builder.lengthMm };
   }
 
   /**
@@ -970,7 +995,7 @@ export class EscPosBuilder {
       cashExpected?: number;
     },
     paperWidth = 80
-  ): { rawBuffer: Buffer; textRepresentation: string } {
+  ): { rawBuffer: Buffer; textRepresentation: string; lengthMm: number } {
     const builder = new EscPosBuilder(paperWidth);
     const lines: string[] = [];
     const add = (t: string) => lines.push(t);
@@ -1045,7 +1070,7 @@ export class EscPosBuilder {
     add('*** KASSE BLEIBT GEOEFFNET ***');
     builder.cut();
 
-    return { rawBuffer: builder.build(), textRepresentation: lines.join('\n') };
+    return { rawBuffer: builder.build(), textRepresentation: lines.join('\n'), lengthMm: builder.lengthMm };
   }
 
   /**
@@ -1064,7 +1089,7 @@ export class EscPosBuilder {
       amount?: number;
     },
     paperWidth = 80
-  ): { rawBuffer: Buffer; textRepresentation: string } {
+  ): { rawBuffer: Buffer; textRepresentation: string; lengthMm: number } {
     const builder = new EscPosBuilder(paperWidth);
     const lines: string[] = [];
     const add = (t: string) => lines.push(t);
@@ -1105,7 +1130,7 @@ export class EscPosBuilder {
     builder.textLine('Unterschrift: ____________________________');
     builder.cut();
 
-    return { rawBuffer: builder.build(), textRepresentation: lines.join('\n') };
+    return { rawBuffer: builder.build(), textRepresentation: lines.join('\n'), lengthMm: builder.lengthMm };
   }
 
   /**
@@ -1160,7 +1185,7 @@ export class EscPosBuilder {
       cashDifference?: number;
     },
     paperWidth = 80
-  ): { rawBuffer: Buffer; textRepresentation: string } {
+  ): { rawBuffer: Buffer; textRepresentation: string; lengthMm: number } {
     const builder = new EscPosBuilder(paperWidth);
     const lines: string[] = [];
     const add = (t: string) => lines.push(t);
@@ -1314,14 +1339,14 @@ export class EscPosBuilder {
     builder.textLine('Kassenleitung: ________________________');
     builder.cut();
 
-    return { rawBuffer: builder.build(), textRepresentation: lines.join('\n') };
+    return { rawBuffer: builder.build(), textRepresentation: lines.join('\n'), lengthMm: builder.lengthMm };
   }
 
   // 3. Official Z-Bon Tagesabschluss Report Ticket
   public static buildZBonTicket(
     report: ZBonReport,
     paperWidth = 80
-  ): { rawBuffer: Buffer; textRepresentation: string } {
+  ): { rawBuffer: Buffer; textRepresentation: string; lengthMm: number } {
     const builder = new EscPosBuilder(paperWidth);
 
     builder.align('center').bold(true).textLine('========================================');
@@ -1418,6 +1443,61 @@ export class EscPosBuilder {
     return {
       rawBuffer: builder.build(),
       textRepresentation: `Z-BON TAGESABSCHLUSS - ${fmtCents(report.totalGrossCents, report.totalGross)}`,
+      lengthMm: builder.lengthMm,
+    };
+  }
+
+  /**
+   * Vorwarnungs-Ticket, wenn der Drucker-Sensorhebel erstmals "Papier fast leer" meldet.
+   */
+  public static buildPaperNearEndTicket(
+    printerName: string,
+    paperWidth = 80
+  ): { rawBuffer: Buffer; textRepresentation: string; lengthMm: number } {
+    const builder = new EscPosBuilder(paperWidth);
+    builder.align('center').bold(true).invert(true).textLine(' ACHTUNG: PAPIERROLLE FAST LEER ').invert(false).bold(false);
+    builder.lineFeed(1);
+    builder.align('center').textLine(`Drucker: ${printerName}`);
+    builder.textLine('Vorwarnhebel im Drucker wurde ausgeloest.');
+    builder.textLine('Restlaenge: noch ca. 1.5 - 2.5 Meter.');
+    builder.lineFeed(1);
+    builder.bold(true).textLine('Bitte rechtzeitig Ersatzrolle bereitlegen!').bold(false);
+    builder.divider();
+    builder.textLine(new Date().toLocaleString('de-DE'));
+    builder.cut();
+    return {
+      rawBuffer: builder.build(),
+      textRepresentation: `[WARNUNG] Papier fast leer auf ${printerName}`,
+      lengthMm: builder.lengthMm,
+    };
+  }
+
+  /**
+   * Stop-Ticket: Wird vor dem endgültigen Abreißen als allerletzter Bon gedruckt.
+   * Hinweis: Absichtlich OHNE Signalton/Beep (reiner Ausdruck per Benutzeranforderung).
+   */
+  public static buildPaperEmptyStopTicket(
+    printerName: string,
+    paperWidth = 80
+  ): { rawBuffer: Buffer; textRepresentation: string; lengthMm: number } {
+    const builder = new EscPosBuilder(paperWidth);
+    builder.align('center').bold(true).invert(true).size(true, true).textLine(' STOPP - ROLLE WECHSELN! ').size(false, false).invert(false).bold(false);
+    builder.lineFeed(1);
+    builder.align('center').bold(true).textLine('LETZTER BON AUF DIESER PAPIERROLLE').bold(false);
+    builder.doubleDivider();
+    builder.textLine(`Drucker: ${printerName}`);
+    builder.textLine('Die Papierrolle ist nahezu vollstaendig verbraucht.');
+    builder.lineFeed(1);
+    builder.invert(true).bold(true).textLine(' BITTE JETZT NEUE ROLLE EINLEGEN! ').bold(false).invert(false);
+    builder.lineFeed(1);
+    builder.textLine('Danach Druck fortsetzen.');
+    builder.doubleDivider();
+    builder.textLine(`Zeitpunkt: ${new Date().toLocaleString('de-DE')}`);
+    builder.cut();
+    return {
+      rawBuffer: builder.build(),
+      textRepresentation: `[STOPP] Letzter Bon auf dieser Rolle - JETZT WECHSELN (${printerName})`,
+      lengthMm: builder.lengthMm,
     };
   }
 }

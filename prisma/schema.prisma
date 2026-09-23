@@ -41,6 +41,7 @@ model EventConfig {
   receiptPrinterId            String?
   enableWaiterReceiptPrint    Boolean @default(false)
   enablePosReceiptPrint       Boolean @default(false)
+  enablePaperNearEndWarning   Boolean @default(true) // Papierrollen-Erkennung & geräuschloser Stopp-Bon aktivierbar
   enableOrderPrintDelay       Boolean @default(false)
   orderPrintDelaySeconds      Int     @default(60)
 
@@ -125,7 +126,8 @@ model EventConfig {
   haRole          String   @default("STANDALONE") // STANDALONE, PRIMARY, STANDBY
   haPartnerUrl    String?
   haAutoFailover  Boolean  @default(false)
-  aisles          String?  @default("[]")
+  aisles             String?  @default("[]")
+  tablePlanLandmarks String?  @default("[]")
   tokenSequence   Int      @default(1)
   invoiceSequence Int      @default(1)
   orderSequence   Int      @default(1)
@@ -310,10 +312,18 @@ model Printer {
   port          Int          @default(9100)
   paperWidth    Int          @default(80)
   characterSet  String       @default("CP858")
-  isVirtual     Boolean      @default(false)
-  isActive      Boolean      @default(true)
-  hasCashDrawer Boolean      @default(false)
-  printGroups   PrintGroup[]
+  isVirtual           Boolean      @default(false)
+  isActive            Boolean      @default(true)
+  hasCashDrawer       Boolean      @default(false)
+  connectionType      String       @default("NETWORK") // NETWORK, USB_SERVER (Lösung A), WEB_RELAY (Lösung B)
+  relayStation        String?      // Station für Web-Relay, z.B. "POS_CASHIER"
+  totalPaperMm        Int          @default(0) // Gesamtverbrauch in Millimetern
+  rollLengthM         Int          @default(80) // Konfigurierte Rollenlänge (z.B. 80m oder 50m)
+  sensorNearEndActive Boolean      @default(false) // Ist der Vorwarnhebel im Drucker aktuell ausgelöst?
+  paperSensorState    String       @default("UNKNOWN") // OK, NEAR_END, EMPTY, UNKNOWN
+  calibLineMm         Float        @default(3.75) // Manuell anpassbare Zeilenhöhe in mm
+  calibFeedMm         Float        @default(15.0) // Manuell anpassbarer Schnittvorschub in mm
+  printGroups         PrintGroup[]
 }
 
 model PrintGroup {
@@ -683,6 +693,8 @@ model PrintJob {
   maxAttempts    Int       @default(3)
   lastError      String?
   rawPayload     String? // Base64 oder formatierter ESC/POS Text
+  lengthMm       Int?      @default(0) // Errechnete physische Bonlänge in Millimetern
+  ticketType     String?   // z.B. TICKET, SINGLE_ITEM, VOID, X_BON, Z_BON, SETTLEMENT, CASH_MOVEMENT, STATION_JOIN
   createdAt      DateTime  @default(now())
   printedAt      DateTime?
   confirmedAt    DateTime? // Küchen-Quittung: physisch angekommen (echtes ACK)

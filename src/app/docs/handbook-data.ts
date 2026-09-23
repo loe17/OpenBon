@@ -714,24 +714,39 @@ export const HANDBOOK: DocChapter[] = [
     id: 'printers',
     chapterNumber: 6,
     title: 'Druckermanagement & Raumpläne',
-    subtitle: 'ESC/POS-Netzwerkdrucker, Bon-Routing, Tischplan-Editor und Druckansicht',
+    subtitle: 'ESC/POS-Bondrucker, Bonverbrauchsrechner, Web-Relay, Tischplan-Editor und Randleisten',
     icon: 'printers',
     sections: [
       {
         id: '6.1',
-        heading: '6.1 Netzwerkdrucker einrichten',
+        heading: '6.1 Bondrucker einrichten & Verbindungsarten',
         paragraphs: [
-          'OpenBon steuert Standard-Thermodrucker (Epson, Star, Munbyn etc.) direkt über das Netzwerk via TCP Port 9100 an. Es müssen keine Druckertreiber auf Windows installiert werden.',
+          'OpenBon steuert Standard-Thermodrucker (z. B. Epson, Star, Munbyn) flexibel über drei verschiedene Wege an:',
+          '• Netzwerk (LAN / WLAN): Der Drucker hängt direkt im Fest-Netzwerk und wird über seine IP-Adresse (Port 9100) angesteuert. Es sind keinerlei Treiber auf Windows erforderlich.',
+          '• Server-Direkt (USB/COM): Der Drucker ist direkt per USB-Kabel oder seriellem Anschluss am Hauptserver angeschlossen (z. B. /dev/usb/lp0 unter Linux oder COM3 unter Windows).',
+          '• USB-Freigabe über Kassen-PC (Web-Relay): Ist ein Drucker per USB an einem Computer angeschlossen, auf dem die Bonkasse im Browser läuft, kann er mit einem einzigen Klick im Browser gekoppelt werden. Alle anderen Geräte im System (Kellner-Smartphones, Kiosk, weitere Kassen) können dann vollautomatisch über diese Kassen-Station drucken – ganz ohne komplizierte Windows-Freigaben.',
         ],
         image: {
           src: '/docs/images/20_admin_printers.png',
           alt: 'Druckerverwaltung',
-          caption: 'Konfiguration von Bondruckern mit IP-Adresse und Druckergruppen',
+          caption: 'Konfiguration von Bondruckern mit Verbindungsart, Papierüberwachung und Druckergruppen',
         },
       },
       {
         id: '6.2',
-        heading: '6.2 Virtueller Testdrucker',
+        heading: '6.2 Bonverbrauchsrechner & Rollenüberwachung',
+        paragraphs: [
+          'OpenBon misst millimetergenau, wie viel Papier jeder Drucker während der Veranstaltung verbraucht:',
+          '• Echte Längenmessung: Für jede Bonart (Kassenbelege, Küchenbons, Stornos, Zwischenstände und Tagesabschlüsse) wird anhand der Zeilen und Vorschübe die genaue Bonlänge berechnet und als Gesamtzähler in Metern gespeichert.',
+          '• Rollen-Fortschritt & manuelle Anpassung: Unter /admin/printers und /admin/reports sehen Sie auf einen Blick, wie viele Meter einer Rolle (z. B. 80 Meter) verbraucht sind. Sie können den Zählerstand jederzeit von Hand korrigieren oder mit dem Knopf "Neue Rolle eingelegt" auf 0 Meter zurücksetzen.',
+          '• Drucker-Sensorhebel (Papier fast leer): Jeder Drucker zeigt an, ob sein mechanischer Vorwarnhebel ruht (genug Papier) oder aktiv ist (Rolle fast leer).',
+          '• Countdown & Stopp-Bon: Sobald der Vorwarnhebel auslöst, zählt OpenBon die verbleibenden Meter herunter. Kurz bevor die Rolle endgültig abreißt, wird vollautomatisch ein deutlicher Stopp-Bon gedruckt ("STOPP - LETZTER BON AUF DIESER ROLLE"). So wird verhindert, dass eine Bestellung mitten im Text abreißt. Wichtig: Der Stopp-Bon druckt absichtlich ohne lauten Alarmton, um Gäste und Helfer nicht zu erschrecken.',
+          '• Ein- und Ausschaltbar: In den Admin-Einstellungen unter "Drucker" (/admin/settings) kann die Sensor-Überwachung und der automatische Stopp-Bon mit einem einzigen Klick jederzeit aktiviert oder deaktiviert werden.',
+        ],
+      },
+      {
+        id: '6.3',
+        heading: '6.3 Virtueller Testdrucker',
         paragraphs: [
           'Ist kein echter Bondrucker angeschlossen, fängt der "Virtuelle Drucker" alle Belege ab und zeigt sie 1:1 im Browserfenster an. Perfekt zum Testen vor dem Fest.',
         ],
@@ -742,40 +757,44 @@ export const HANDBOOK: DocChapter[] = [
         },
       },
       {
-        id: '6.3',
-        heading: '6.3 Druckergruppen & Bon-Splitting',
+        id: '6.4',
+        heading: '6.4 Druckergruppen & Bon-Splitting',
         paragraphs: [
           'Jeder Artikel ist einer Druckergruppe zugeordnet (z. B. Küche -> Grillstation, Getränke -> Ausschank 1). Bestellt ein Gast Steak und Bier zusammen, trennt OpenBon die Positionen automatisch und druckt parallel an den richtigen Stationen.',
           'Werden viele Getränke auf einmal geordert, teilt das Tablett-Splitting den Druck automatisch in handliche Bons auf (z. B. max. 6 Krüge pro Bon).',
         ],
       },
       {
-        id: '6.4',
-        heading: '6.4 Tisch- & Raumplan-Editor',
+        id: '6.5',
+        heading: '6.5 Tisch- & Raumplan-Editor mit Randleisten',
         paragraphs: [
-          'Unter /admin/tables können Räume (z. B. "Festzelt", "Biergarten", "Bar") und Tische per Drag-and-Drop angeordnet und beschriftet werden.',
+          'Unter /admin/tables können Tische frei im Raum angeordnet, Gänge eingefügt und Raum-Orientierungen festgelegt werden:',
+          '• Randleisten an allen vier Seiten: An jeder Seite des Tischplans (oben/Nord, unten/Süd, links/West, rechts/Ost) befindet sich eine Randleiste mit halbhohen bzw. halbbreiten Feldern.',
+          '• Schnellauswahl & Freitext: Mit einem Klick können wichtige Orientierungspunkte wie "Eingang / Tür", "Notausgang", "Küche", "Bar / Schank", "WC", "Bühne", "Garderobe" oder freie Beschriftungen eingefügt werden.',
+          '• Flexible Breite & Farben: Randfelder können sich über mehrere Tische erstrecken (z. B. eine 3 Tische breite Theke) und farblich hervorgehoben werden (z. B. Grün für Türen, Rot für Notausgänge, Gelb für die Bar).',
+          '• Nur im Designer und Ausdruck sichtbar: Die Randfelder sind bewusst nur im Tischplan-Designer und auf dem Raumplan-Ausdruck zu sehen. Auf den Bildschirmen der Bedienungen bleiben die Tische sauber und übersichtlich.',
         ],
         image: {
           src: '/docs/images/18_admin_tables.png',
           alt: 'Tischplan Editor',
-          caption: 'Visueller Raumplan-Editor mit Tischen und Raumkategorien',
-        },
-      },
-      {
-        id: '6.5',
-        heading: '6.5 Tischplan drucken (Nur Tischnummern)',
-        paragraphs: [
-          'Für die Schichtleitung, die Feuerwehr oder den Ausschank kann der Tischplan ausgedruckt werden. Auf dem Ausdruck wird in jedem Tisch ausschließlich die Tischnummer groß und lesbar abgebildet – ohne störende Zusatzangaben wie Koordinaten oder Beschriftungs-Präfixe.',
-        ],
-        image: {
-          src: '/docs/images/19_admin_tables_print.png',
-          alt: 'Druckbarer Tischplan',
-          caption: 'Druckfertiger Tischplan mit klaren, großen Tischnummern',
+          caption: 'Visueller Raumplan-Editor mit Tischen, Gängen und Randfeldern für Türen, Küche und Bar',
         },
       },
       {
         id: '6.6',
-        heading: '6.6 Tischmarken für Biertische drucken (Bondrucker)',
+        heading: '6.6 Tischplan drucken (Offizieller Raumplan)',
+        paragraphs: [
+          'Für die Schichtleitung, die Feuerwehr oder den Ausschank kann der Tischplan unter /admin/tables/print ausgedruckt werden. Auf dem Ausdruck sind alle Tische mit großen, klaren Nummern sowie die Randfelder (Türen, Notausgänge, Küche, Bar, WC) gut lesbar abgebildet.',
+        ],
+        image: {
+          src: '/docs/images/19_admin_tables_print.png',
+          alt: 'Druckbarer Tischplan',
+          caption: 'Druckfertiger Tischplan mit Tischen und Randmarkierungen',
+        },
+      },
+      {
+        id: '6.7',
+        heading: '6.7 Tischmarken für Biertische drucken (Bondrucker)',
         paragraphs: [
           'Über den Tischplan-Designer (/admin/tables) können praktische Tischmarken für Biertische und Garnituren auf jedem beliebigen Bondrucker ausgedruckt werden:',
           '• Flexible Anzahl je Tisch (Standard: 2): Legen Sie fest, wie viele Marken pro Tisch gedruckt werden sollen (z. B. 2 Ausdrucke, damit an beiden Seiten einer langen Bierzeltgarnitur die Tischnummer gut sichtbar angebracht werden kann). Bei 10 Tischen und Anzahl 2 druckt OpenBon vollautomatisch 20 fertige Abschnitte.',

@@ -123,6 +123,7 @@ export interface EventConfigDTO {
   receiptPrinterId?: string | null;
   enableWaiterReceiptPrint?: boolean;
   enablePosReceiptPrint?: boolean;
+  enablePaperNearEndWarning?: boolean;
   enableOrderPrintDelay?: boolean;
   orderPrintDelaySeconds?: number;
   cardSumupEnabled?: boolean;
@@ -163,6 +164,17 @@ export interface EventConfigDTO {
   depositTiers?: { unit: number; unitCents: number; label: string }[];
   isInternetOnline?: boolean;
   syncFoodDrinkReceiptSettings?: boolean;
+  aisles?: string | null;
+  tablePlanLandmarks?: string | null;
+}
+
+export interface LandmarkItem {
+  id: string;
+  side: 'TOP' | 'BOTTOM' | 'LEFT' | 'RIGHT';
+  index: number;
+  span: number;
+  label: string;
+  color?: string;
 }
 
 export interface ProductVariantDTO {
@@ -668,6 +680,18 @@ export interface ReportSummary {
   totalDiscounts?: number;
   /** @deprecated Anzeige-Euro */
   totalSurcharges?: number;
+  paperStats?: {
+    totalMeters: number;
+    printers: {
+      id: string;
+      name: string;
+      totalMeters: number;
+      rollLengthM: number;
+      percentUsed: number;
+      sensorNearEndActive: boolean;
+      paperSensorState: string;
+    }[];
+  };
 }
 
 /** Vorschau des Z-Bons vor dem Tagesabschluss (Cent) */

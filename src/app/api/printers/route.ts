@@ -62,7 +62,7 @@ export async function POST(req: Request) {
       const printer = await prisma.printer.findUnique({ where: { id: body.printerId } });
       if (!printer) return NextResponse.json({ error: 'Drucker nicht gefunden' }, { status: 404 });
 
-      const { rawBuffer, textRepresentation } = EscPosBuilder.buildStationJoinTicket(
+      const { rawBuffer, textRepresentation, lengthMm } = EscPosBuilder.buildStationJoinTicket(
         {
           title: body.title || 'Station',
           role: body.role || 'WAITER',
@@ -73,7 +73,10 @@ export async function POST(req: Request) {
         printer.paperWidth
       );
 
-      const result = await networkSpooler.sendRawBuffer(printer, rawBuffer, textRepresentation);
+      const result = await networkSpooler.sendRawBuffer(printer, rawBuffer, textRepresentation, {
+        lengthMm,
+        ticketType: 'STATION_JOIN',
+      });
       return NextResponse.json(result);
     }
 
@@ -82,8 +85,11 @@ export async function POST(req: Request) {
       const printer = await prisma.printer.findUnique({ where: { id: body.printerId } });
       if (!printer) return NextResponse.json({ error: 'Drucker nicht gefunden' }, { status: 404 });
 
-      const { rawBuffer, textRepresentation } = EscPosBuilder.buildZBonTicket(body.reportData, printer.paperWidth);
-      const result = await networkSpooler.sendRawBuffer(printer, rawBuffer, textRepresentation);
+      const { rawBuffer, textRepresentation, lengthMm } = EscPosBuilder.buildZBonTicket(body.reportData, printer.paperWidth);
+      const result = await networkSpooler.sendRawBuffer(printer, rawBuffer, textRepresentation, {
+        lengthMm,
+        ticketType: 'Z_BON',
+      });
       return NextResponse.json(result);
     }
 
@@ -103,8 +109,11 @@ export async function POST(req: Request) {
         footerText: `${printer.ipAddress.startsWith('/dev/') ? 'USB-Port: ' : 'IP: '}${printer.ipAddress}${printer.port ? `:${printer.port}` : ''} | Breite: ${printer.paperWidth}mm`,
       };
 
-      const { rawBuffer, textRepresentation } = EscPosBuilder.buildTicket(testTicket, printer.paperWidth);
-      const result = await networkSpooler.sendRawBuffer(printer, rawBuffer, textRepresentation);
+      const { rawBuffer, textRepresentation, lengthMm } = EscPosBuilder.buildTicket(testTicket, printer.paperWidth);
+      const result = await networkSpooler.sendRawBuffer(printer, rawBuffer, textRepresentation, {
+        lengthMm,
+        ticketType: 'TEST',
+      });
       
       if (!result.success) {
         return NextResponse.json(
@@ -113,6 +122,46 @@ export async function POST(req: Request) {
         );
       }
       return NextResponse.json(result);
+    }
+
+    // 4. Manuelle Anpassung von Papierverbrauch / Rollenwerten
+    if (body.action === 'ADJUST_PAPER_METERS') {
+      const printer = await prisma.printer.findUnique({ where: { id: body.printerId } });
+      if (!printer) return NextResponse.json({ error: 'Drucker nicht gefunden' }, { status: 404 });
+
+      const updated = await prisma.printer.update({
+        where: { id: body.printerId },
+        data: {
+          totalPaperMm: typeof body.totalPaperMm === 'number' ? Math.max(0, Math.round(body.totalPaperMm)) : undefined,
+          rollLengthM: typeof body.rollLengthM === 'number' ? Math.max(1, Math.round(body.rollLengthM)) : undefined,
+          calibLineMm: typeof body.calibLineMm === 'number' ? Number(body.calibLineMm) : undefined,
+          calibFeedMm: typeof body.calibFeedMm === 'number' ? Number(body.calibFeedMm) : undefined,
+        },
+      });
+      if (global.io) {
+        global.io.emit('printer:paper_updated', { printerId: printer.id, totalPaperMm: updated.totalPaperMm });
+      }
+      return NextResponse.json({ success: true, printer: updated });
+    }
+
+    // 5. Neue Rolle eingelegt (Zähler & Sensorwarnung zurücksetzen)
+    if (body.action === 'RESET_ROLL') {
+      const printer = await prisma.printer.findUnique({ where: { id: body.printerId } });
+      if (!printer) return NextResponse.json({ error: 'Drucker nicht gefunden' }, { status: 404 });
+
+      const updated = await prisma.printer.update({
+        where: { id: body.printerId },
+        data: {
+          totalPaperMm: 0,
+          sensorNearEndActive: false,
+          paperSensorState: 'OK',
+        },
+      });
+      if (global.io) {
+        global.io.emit('printer:paper_updated', { printerId: printer.id, totalPaperMm: 0 });
+        global.io.emit('printer:status_update', { printerId: printer.id, sensorNearEndActive: false, paperSensorState: 'OK' });
+      }
+      return NextResponse.json({ success: true, printer: updated });
     }
 
     // 5. Retry failed print jobs
@@ -143,18 +192,51 @@ export async function POST(req: Request) {
         ? await prisma.printer.findMany({ where: { id: body.printerId } })
         : await prisma.printer.findMany();
 
-      const results: Record<string, { online: boolean; latencyMs?: number; isVirtual: boolean; hasCashDrawer?: boolean }> = {};
+      const results: Record<string, { online: boolean; latencyMs?: number; isVirtual: boolean; hasCashDrawer?: boolean; sensorNearEndActive?: boolean; paperSensorState?: string; totalPaperMm?: number; rollLengthM?: number }> = {};
 
       await Promise.all(
         printers.map((p) => {
           if (p.isVirtual) {
-            results[p.id] = { online: true, isVirtual: true, latencyMs: 0, hasCashDrawer: p.hasCashDrawer };
+            results[p.id] = {
+              online: true,
+              isVirtual: true,
+              latencyMs: 0,
+              hasCashDrawer: p.hasCashDrawer,
+              sensorNearEndActive: p.sensorNearEndActive,
+              paperSensorState: p.paperSensorState,
+              totalPaperMm: p.totalPaperMm,
+              rollLengthM: p.rollLengthM,
+            };
             return Promise.resolve();
           }
 
-          if (p.ipAddress.startsWith('/dev/')) {
-            const exists = fs.existsSync(p.ipAddress);
-            results[p.id] = { online: exists, isVirtual: false, latencyMs: exists ? 1 : undefined, hasCashDrawer: p.hasCashDrawer };
+          if (p.connectionType === 'WEB_RELAY' || p.ipAddress.toUpperCase() === 'WEB_RELAY' || p.ipAddress.startsWith('RELAY')) {
+            // Web-Relay: Online wenn Socket.IO aktiv ist
+            results[p.id] = {
+              online: Boolean(global.io),
+              isVirtual: false,
+              latencyMs: 1,
+              hasCashDrawer: p.hasCashDrawer,
+              sensorNearEndActive: p.sensorNearEndActive,
+              paperSensorState: p.paperSensorState,
+              totalPaperMm: p.totalPaperMm,
+              rollLengthM: p.rollLengthM,
+            };
+            return Promise.resolve();
+          }
+
+          if (p.ipAddress.startsWith('/dev/') || p.ipAddress.startsWith('\\\\') || /^COM\d+$/i.test(p.ipAddress)) {
+            const exists = p.ipAddress.startsWith('/dev/') ? fs.existsSync(p.ipAddress) : true;
+            results[p.id] = {
+              online: exists,
+              isVirtual: false,
+              latencyMs: exists ? 1 : undefined,
+              hasCashDrawer: p.hasCashDrawer,
+              sensorNearEndActive: p.sensorNearEndActive,
+              paperSensorState: p.paperSensorState,
+              totalPaperMm: p.totalPaperMm,
+              rollLengthM: p.rollLengthM,
+            };
             return Promise.resolve();
           }
 
@@ -174,6 +256,10 @@ export async function POST(req: Request) {
                   isVirtual: false,
                   hasCashDrawer: p.hasCashDrawer,
                   latencyMs: online ? Date.now() - start : undefined,
+                  sensorNearEndActive: p.sensorNearEndActive,
+                  paperSensorState: p.paperSensorState,
+                  totalPaperMm: p.totalPaperMm,
+                  rollLengthM: p.rollLengthM,
                 };
                 resolve();
               }
@@ -209,6 +295,11 @@ export async function POST(req: Request) {
         isVirtual: body.isVirtual ?? false,
         isActive: body.isActive ?? true,
         hasCashDrawer: Boolean(body.hasCashDrawer),
+        connectionType: body.connectionType || 'NETWORK',
+        relayStation: body.relayStation || null,
+        rollLengthM: parseInt(body.rollLengthM || 80, 10),
+        calibLineMm: body.calibLineMm !== undefined ? parseFloat(body.calibLineMm) : 3.75,
+        calibFeedMm: body.calibFeedMm !== undefined ? parseFloat(body.calibFeedMm) : 15.0,
       },
     });
     await logSystemActionSafe(() => ({
@@ -265,6 +356,14 @@ export async function PUT(req: Request) {
           isVirtual: body.isVirtual !== undefined ? body.isVirtual : undefined,
           isActive: body.isActive !== undefined ? body.isActive : undefined,
           hasCashDrawer: body.hasCashDrawer !== undefined ? Boolean(body.hasCashDrawer) : undefined,
+          connectionType: body.connectionType !== undefined ? body.connectionType : undefined,
+          relayStation: body.relayStation !== undefined ? body.relayStation : undefined,
+          rollLengthM: body.rollLengthM !== undefined ? parseInt(body.rollLengthM, 10) : undefined,
+          totalPaperMm: body.totalPaperMm !== undefined ? parseInt(body.totalPaperMm, 10) : undefined,
+          sensorNearEndActive: body.sensorNearEndActive !== undefined ? Boolean(body.sensorNearEndActive) : undefined,
+          paperSensorState: body.paperSensorState !== undefined ? body.paperSensorState : undefined,
+          calibLineMm: body.calibLineMm !== undefined ? parseFloat(body.calibLineMm) : undefined,
+          calibFeedMm: body.calibFeedMm !== undefined ? parseFloat(body.calibFeedMm) : undefined,
         },
       });
     await logSystemActionSafe(() => ({

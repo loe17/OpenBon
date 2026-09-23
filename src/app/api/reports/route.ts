@@ -254,6 +254,26 @@ export async function GET(req: Request) {
       surcharges: totalSurcharges / 100,
     };
 
+    // Bonverbrauchsrechner: Papierverbrauch je Drucker
+    const allPrinters = await prisma.printer.findMany();
+    const paperStats = allPrinters.map((p) => {
+      const meters = Number((p.totalPaperMm / 1000).toFixed(2));
+      const rollLengthM = p.rollLengthM || 80;
+      const usedPercent = Math.min(100, Math.round((p.totalPaperMm / (rollLengthM * 1000)) * 100));
+      return {
+        id: p.id,
+        name: p.name,
+        totalPaperMm: p.totalPaperMm,
+        totalPaperMeters: meters,
+        rollLengthM,
+        remainingMeters: Number(Math.max(0, rollLengthM - meters).toFixed(2)),
+        usedPercent,
+        sensorNearEndActive: p.sensorNearEndActive,
+        paperSensorState: p.paperSensorState,
+        connectionType: p.connectionType,
+      };
+    });
+
     const summary = {
       totalGross: totalGross / 100,
       totalNet: totalNet / 100,
@@ -276,6 +296,7 @@ export async function GET(req: Request) {
       hourlySales,
       categoryBreakdown,
       forecast,
+      paperStats,
       exportedAt: new Date().toISOString(),
     };
 
