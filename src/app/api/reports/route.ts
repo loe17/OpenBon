@@ -26,7 +26,7 @@ export async function GET(req: Request) {
   try {
 
     // 1. Fetch real (non-training) completed payments, orders, products & categories schlank (zeitbegrenzt)
-    const [payments, orders, products, categories] = await Promise.all([
+    const [payments, orders, products, categories, config] = await Promise.all([
       prisma.payment.findMany({
         where: { isCancelled: false, isTraining: false, createdAt: { gte: since } },
         include: { table: true },
@@ -39,6 +39,7 @@ export async function GET(req: Request) {
         include: { stockItem: true },
       }),
       prisma.productCategory.findMany(),
+      prisma.eventConfig.findUnique({ where: { id: 'default' } }),
     ]);
 
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -254,25 +255,32 @@ export async function GET(req: Request) {
       surcharges: totalSurcharges / 100,
     };
 
-    // Bonverbrauchsrechner: Papierverbrauch je Drucker
-    const allPrinters = await prisma.printer.findMany();
-    const paperStats = allPrinters.map((p) => {
-      const meters = Number((p.totalPaperMm / 1000).toFixed(2));
-      const rollLengthM = p.rollLengthM || 80;
-      const usedPercent = Math.min(100, Math.round((p.totalPaperMm / (rollLengthM * 1000)) * 100));
-      return {
-        id: p.id,
-        name: p.name,
-        totalPaperMm: p.totalPaperMm,
-        totalPaperMeters: meters,
-        rollLengthM,
-        remainingMeters: Number(Math.max(0, rollLengthM - meters).toFixed(2)),
-        usedPercent,
-        sensorNearEndActive: p.sensorNearEndActive,
-        paperSensorState: p.paperSensorState,
-        connectionType: p.connectionType,
+    // Bonverbrauchsrechner: Papierverbrauch je Drucker (nur wenn Rollen-Überwachung aktiv)
+    let paperStats: any = undefined;
+    if (config?.enablePaperNearEndWarning) {
+      const allPrinters = await prisma.printer.findMany();
+      const totalMm = allPrinters.reduce((acc, p) => acc + (p.totalPaperMm || 0), 0);
+      paperStats = {
+        totalMeters: Number((totalMm / 1000).toFixed(2)),
+        printers: allPrinters.map((p) => {
+          const meters = Number((p.totalPaperMm / 1000).toFixed(2));
+          const rollLengthM = p.rollLengthM || 80;
+          const usedPercent = Math.min(100, Math.round((p.totalPaperMm / (rollLengthM * 1000)) * 100));
+          return {
+            id: p.id,
+            name: p.name,
+            totalPaperMm: p.totalPaperMm,
+            totalPaperMeters: meters,
+            rollLengthM,
+            remainingMeters: Number(Math.max(0, rollLengthM - meters).toFixed(2)),
+            usedPercent,
+            sensorNearEndActive: p.sensorNearEndActive,
+            paperSensorState: p.paperSensorState,
+            connectionType: p.connectionType,
+          };
+        }),
       };
-    });
+    }
 
     const summary = {
       totalGross: totalGross / 100,

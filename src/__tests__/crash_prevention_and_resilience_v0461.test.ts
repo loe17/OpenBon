@@ -6,7 +6,7 @@ import { NextRequest } from 'next/server';
 
 describe('OpenBon v0.4.61: Crash Prevention & Runtime Resilience', () => {
   it('should verify APP_VERSION is 0.4.61 or higher', () => {
-    expect(['0.4.61', '0.4.62', '0.4.63', '0.4.64']).toContain(APP_VERSION);
+    expect(['0.4.61', '0.4.62', '0.4.63', '0.4.64', '0.4.65']).toContain(APP_VERSION);
   });
 
   describe('Session Verification Cache & Revocation Resilience', () => {

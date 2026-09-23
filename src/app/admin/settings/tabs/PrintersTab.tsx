@@ -11,7 +11,7 @@ interface PrintersTabProps {
 }
 
 export function PrintersTab({ config, onChange, printers }: PrintersTabProps) {
-  const isNearEndActive = config.enablePaperNearEndWarning !== false;
+  const isNearEndActive = !!config.enablePaperNearEndWarning;
 
   return (
     <div className="space-y-6">

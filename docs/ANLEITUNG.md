@@ -94,17 +94,19 @@ Willkommen bei **OpenBon**, dem plattformunabhängigen, hochverfügbaren Kassens
 - Fest-Vorlagen (Tische, Warengruppen, Artikel, Bon-Layouts) können im Reiter *Vorlagen & Snapshots* als Datei heruntergeladen und auf anderen Kassenrechnern importiert werden, ohne Verkaufs- oder Finanzdaten zu überschreiben.
 
 ### 13. Druckerverwaltung, Bonverbrauchsrechner & Rollenüberwachung (`/admin/printers` & `/admin/reports`)
-- **Bonverbrauchsrechner in Metern**:
+- **Bonverbrauchsrechner & Live-Aktualisierung in Metern**:
   - Jeder gedruckte Bon (egal ob Kassenbon, Küchen-Einzelbon, Stornobeleg, Zwischenbericht oder Tagesabschluss) wird automatisch millimetergenau berechnet.
-  - In der Druckerverwaltung sieht man für jeden Drucker live, wie viele Meter Papier bei der aktuellen Veranstaltung bereits verbraucht wurden und wie viel Prozent der aktuellen Rolle noch voll sind.
-  - Im Veranstaltungsbericht (`/admin/reports`) wird der gesamte Papierverbrauch aller Drucker in einer eigenen Übersichtskarte zusammengefasst.
+  - Bei aktiver Rollen-Überwachung sieht man für jeden Drucker live, wie viele Meter Papier bei der aktuellen Veranstaltung bereits verbraucht wurden und wie viel Prozent der aktuellen Rolle noch voll sind.
+  - Der Zählerstand und der farbige Rollenbalken zählen im Browser bei jedem Druck sofort mit, ohne dass die Seite neu geladen werden muss.
+  - Im Veranstaltungsbericht (`/admin/reports`) wird der gesamte Papierverbrauch aller Drucker zusammengefasst.
 - **Rollenwechsel & manuelle Zählerkorrektur**:
-  - Nach dem Einlegen einer neuen Rolle genügt ein Klick auf *"Rolle gewechselt"*, um den Zähler wieder auf 0 Meter zurückzusetzen.
-  - Wurde eine bereits angebrochene Rolle eingelegt, kann der verbrauchte Meterstand über das Stift-Symbol jederzeit von Hand angepasst werden.
+  - Nach dem Einlegen einer neuen Rolle genügt ein Klick auf *"Neue Rolle eingelegt"*, um den Zähler wieder auf 0 Meter zurückzusetzen.
+  - Wurde eine bereits angebrochene Rolle eingelegt, kann der verbrauchte Meterstand über *"Werte & Kalibrierung"* jederzeit von Hand angepasst werden.
 - **Papierrollen-Vorwarnhebel & geräuschloser Stopp-Bon (aktivierbar / deaktivierbar)**:
   - In den **Admin-Einstellungen** (`/admin/settings` → Reiter *Drucker*) kann die Papierrollen-Überwachung jederzeit per Schalter flexibel aktiviert oder deaktiviert werden.
-  - Bei aktiver Überwachung fragt das System den mechanischen Fühlerhebel im Drucker ab und zeigt seinen Status in der Druckerverwaltung übersichtlich an (*"🟢 Sensorhebel ruht"* oder *"⚠️ Vorwarnhebel aktiv"*).
-  - Schlägt der Hebel an, weil die Rolle fast leer ist, zählt das System die letzten Meter herunter und druckt kurz vor dem Rollenende automatisch einen gut sichtbaren Warnbeleg (*"🛑 STOPP - LETZTER BON AUF DIESER ROLLE!"*).
+  - **Standardmäßig ist die Überwachung ausgeschaltet.** Ist sie deaktiviert, werden die Sensorplakette und die Papierverbrauchs-Anzeige in der Druckerverwaltung und im Bericht vollständig ausgeblendet, damit die Ansicht ruhig und übersichtlich bleibt.
+  - Bei eingeschalteter Überwachung fragt das System den mechanischen Fühlerhebel im Drucker ab und zeigt seinen Status übersichtlich an (*"Sensorhebel ruht"* oder *"Vorwarnhebel aktiv"*).
+  - Schlägt der Hebel an, weil die Rolle fast leer ist, zählt das System die letzten Meter herunter und druckt kurz vor dem Rollenende automatisch einen gut sichtbaren Warnbeleg (*"STOPP - LETZTER BON AUF DIESER ROLLE!"*).
   - So wird verhindert, dass eine Kundenbestellung mitten im Druck abreißt. Wichtig: Dieser Hinweis erfolgt rein als Ausdruck und **vollständig geräuschlos ohne Piepton**, um Gäste und Thekenpersonal nicht zu erschrecken.
   - Ist die Funktion in den Einstellungen deaktiviert, druckt das System ohne Vorwarnung oder Stopp-Bons ganz normal bis zum physischen Ende der Rolle durch.
 - **USB-Drucker an Kassenstationen für alle freigeben (Web-Relay)**:
@@ -114,12 +116,14 @@ Willkommen bei **OpenBon**, dem plattformunabhängigen, hochverfügbaren Kassens
 ### 14. Grafischer Tischplan-Designer mit Orientierungs-Randleisten (`/admin/tables`)
 - **Randleisten an allen vier Seiten**:
   - Rund um das Tischnetz (oben, unten, links und rechts) befinden sich schmale Randleisten.
-  - In diese Leisten können halbhohe bzw. halbreite Orientierungsfelder eingefügt werden, um den Raumplan für das Team verständlich zu beschriften.
-- **Wegweiser & Markierungen**:
-  - Typische Raummerkmale wie *Eingang*, *Notausgang*, *Küche*, *Theke / Bar*, *Toiletten / WC*, *Bühne* oder *Garderobe* können per Schnellklick ausgewählt oder frei beschriftet werden.
+  - In diese Leisten können Orientierungsfelder eingefügt werden, um den Raumplan für das Team verständlich zu beschriften.
+  - Die Randfelder links und rechts sind genau halb so breit (38 Pixel, abgestimmt auf die Höhe der oberen und unteren Felder). Der Text steht darin platzsparend um 90° gedreht.
+- **Wegweiser & Markierungen ohne Emojis**:
+  - Typische Raummerkmale wie *Eingang*, *Ausgang*, *Notausgang*, *Küche*, *Bar / Schank*, *WC*, *Bühne*, *Garderobe* oder *Kasse / Info* können per Vorlage ausgewählt oder frei eingetippt werden.
+  - Alle Vorlagen und Felder sind bewusst sachlich ohne Emojis gehalten.
   - Jedes Feld kann farblich hervorgehoben und bei Bedarf über mehrere Tische hinweg in die Länge gezogen werden (z. B. für eine lange Theke oder eine breite Bühne).
 - **Wo sind die Randleisten sichtbar?**:
-  - Die Beschriftungsfelder erscheinen ausschließlich im **Tischplan-Designer** (`/admin/tables`) sowie auf dem **ausgedruckten Tischplan** (`/admin/tables/print`), der zur Orientierung für Aushilfen im Ausschank oder der Küche aufgehängt wird.
+  - Die Beschriftungsfelder erscheinen im **Tischplan-Designer** (`/admin/tables`) sowie auf dem **ausgedruckten Tischplan** (`/admin/tables/print`), der zur Orientierung für Aushilfen im Ausschank oder der Küche aufgehängt wird.
   - Auf den **Smartphones der Bedienungen** (`/waiter`) bleibt der Bildschirm bewusst übersichtlich und blendet nur die Tische ein, damit alles schnell mit einem Daumen erreichbar bleibt.
 
 

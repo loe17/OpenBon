@@ -737,11 +737,11 @@ export const HANDBOOK: DocChapter[] = [
         heading: '6.2 Bonverbrauchsrechner & Rollenüberwachung',
         paragraphs: [
           'OpenBon misst millimetergenau, wie viel Papier jeder Drucker während der Veranstaltung verbraucht:',
-          '• Echte Längenmessung: Für jede Bonart (Kassenbelege, Küchenbons, Stornos, Zwischenstände und Tagesabschlüsse) wird anhand der Zeilen und Vorschübe die genaue Bonlänge berechnet und als Gesamtzähler in Metern gespeichert.',
-          '• Rollen-Fortschritt & manuelle Anpassung: Unter /admin/printers und /admin/reports sehen Sie auf einen Blick, wie viele Meter einer Rolle (z. B. 80 Meter) verbraucht sind. Sie können den Zählerstand jederzeit von Hand korrigieren oder mit dem Knopf "Neue Rolle eingelegt" auf 0 Meter zurücksetzen.',
-          '• Drucker-Sensorhebel (Papier fast leer): Jeder Drucker zeigt an, ob sein mechanischer Vorwarnhebel ruht (genug Papier) oder aktiv ist (Rolle fast leer).',
-          '• Countdown & Stopp-Bon: Sobald der Vorwarnhebel auslöst, zählt OpenBon die verbleibenden Meter herunter. Kurz bevor die Rolle endgültig abreißt, wird vollautomatisch ein deutlicher Stopp-Bon gedruckt ("STOPP - LETZTER BON AUF DIESER ROLLE"). So wird verhindert, dass eine Bestellung mitten im Text abreißt. Wichtig: Der Stopp-Bon druckt absichtlich ohne lauten Alarmton, um Gäste und Helfer nicht zu erschrecken.',
-          '• Ein- und Ausschaltbar: In den Admin-Einstellungen unter "Drucker" (/admin/settings) kann die Sensor-Überwachung und der automatische Stopp-Bon mit einem einzigen Klick jederzeit aktiviert oder deaktiviert werden.',
+          '• Echte Längenmessung & Live-Zähler: Für jede Bonart (Kassenbelege, Küchenbons, Stornos, Zwischenstände und Tagesabschlüsse) wird die genaue Bonlänge berechnet. Bei aktiver Rollen-Überwachung zählt der Meterstand und der Fortschrittsbalken im Browser sofort live bei jedem Druckvorgang mit.',
+          '• Standardmäßig aus & vollkommen ausgeblendet: Ist die Rollen-Überwachung in den Admin-Einstellungen deaktiviert (Standard), werden der Status-Sensor und die Papierverbrauchs-Boxen sowohl in der Druckerverwaltung als auch im Bericht vollständig ausgeblendet.',
+          '• Rollen-Fortschritt & manuelle Anpassung: Bei aktivierter Überwachung sehen Sie unter /admin/printers und /admin/reports, wie viele Meter einer Rolle verbraucht sind. Mit dem Knopf "Neue Rolle eingelegt" setzen Sie den Zähler auf 0 Meter zurück.',
+          '• Drucker-Sensorhebel & Countdown: Schlägt der Vorwarnhebel im Drucker an, zählt das System die letzten Meter herunter und druckt vollautomatisch einen geräuschlosen Stopp-Bon ("STOPP - LETZTER BON AUF DIESER ROLLE"), damit kein Bon unvollständig abreißt.',
+          '• Flexibel aktivierbar: Unter /admin/settings (Reiter "Drucker") kann die Rollen-Überwachung jederzeit mit einem Schalter ein- oder ausgeschaltet werden.',
         ],
       },
       {
@@ -769,9 +769,10 @@ export const HANDBOOK: DocChapter[] = [
         heading: '6.5 Tisch- & Raumplan-Editor mit Randleisten',
         paragraphs: [
           'Unter /admin/tables können Tische frei im Raum angeordnet, Gänge eingefügt und Raum-Orientierungen festgelegt werden:',
-          '• Randleisten an allen vier Seiten: An jeder Seite des Tischplans (oben/Nord, unten/Süd, links/West, rechts/Ost) befindet sich eine Randleiste mit halbhohen bzw. halbbreiten Feldern.',
-          '• Schnellauswahl & Freitext: Mit einem Klick können wichtige Orientierungspunkte wie "Eingang / Tür", "Notausgang", "Küche", "Bar / Schank", "WC", "Bühne", "Garderobe" oder freie Beschriftungen eingefügt werden.',
-          '• Flexible Breite & Farben: Randfelder können sich über mehrere Tische erstrecken (z. B. eine 3 Tische breite Theke) und farblich hervorgehoben werden (z. B. Grün für Türen, Rot für Notausgänge, Gelb für die Bar).',
+          '• Randleisten an allen vier Seiten: An jeder Seite des Tischplans (oben/Nord, unten/Süd, links/West, rechts/Ost) befindet sich eine Randleiste. Die Felder links und rechts sind mit 38 Pixeln genau halb so breit, abgestimmt auf die oberen und unteren Randfelder.',
+          '• Um 90° gedrehte Beschriftung: Die Texte in den seitlichen Randfeldern stehen platzsparend um 90° gedreht.',
+          '• Sachliche Vorlagen ohne Emojis: Wichtige Orientierungspunkte wie "Eingang", "Ausgang", "Notausgang", "Küche", "Bar / Schank", "WC", "Bühne", "Garderobe" oder "Kasse / Info" können direkt per Knopfdruck ausgewählt oder frei beschriftet werden – ganz ohne ablenkende Emojis.',
+          '• Flexible Breite & Farben: Randfelder können sich über mehrere Tische erstrecken und farblich markiert werden (z. B. Grün für Türen, Rot für Notausgänge, Gelb für die Bar).',
           '• Nur im Designer und Ausdruck sichtbar: Die Randfelder sind bewusst nur im Tischplan-Designer und auf dem Raumplan-Ausdruck zu sehen. Auf den Bildschirmen der Bedienungen bleiben die Tische sauber und übersichtlich.',
         ],
         image: {

@@ -110,10 +110,17 @@ class NetworkSpooler {
 
     const onPrintSuccess = async () => {
       if (printer.id) {
-        await prisma.printer.update({
+        const updated = await prisma.printer.update({
           where: { id: printer.id },
           data: { totalPaperMm: { increment: lengthMm } },
         }).catch(() => null);
+
+        if (global.io && updated) {
+          global.io.emit('printer:paper_updated', {
+            printerId: printer.id,
+            totalPaperMm: updated.totalPaperMm,
+          });
+        }
 
         await prisma.printJob.create({
           data: {
@@ -303,10 +310,17 @@ class NetworkSpooler {
       // Bonverbrauchsrechner: Papierverbrauch aufaddieren
       if (job.printerId) {
         const length = job.lengthMm || 60;
-        await prisma.printer.update({
+        const updated = await prisma.printer.update({
           where: { id: job.printerId },
           data: { totalPaperMm: { increment: length } },
         }).catch(() => null);
+
+        if (global.io && updated) {
+          global.io.emit('printer:paper_updated', {
+            printerId: job.printerId,
+            totalPaperMm: updated.totalPaperMm,
+          });
+        }
 
         this.checkNearEndCountdownAndTriggerStop(job.printerId, job.printerName, job.paperWidth, length);
       }
@@ -546,7 +560,7 @@ class NetworkSpooler {
     }
 
     const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } }).catch(() => null);
-    if (config?.enablePaperNearEndWarning === false) {
+    if (!config?.enablePaperNearEndWarning) {
       this.nearEndTrackers.delete(printerId);
       return;
     }
@@ -569,7 +583,7 @@ class NetworkSpooler {
     lengthMm: number
   ) {
     const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } }).catch(() => null);
-    if (config?.enablePaperNearEndWarning === false) {
+    if (!config?.enablePaperNearEndWarning) {
       this.nearEndTrackers.delete(printerId);
       return;
     }

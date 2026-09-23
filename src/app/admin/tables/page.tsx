@@ -27,7 +27,7 @@ import {
   Landmark,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
-import type { LandmarkItem } from '@/types/domain';
+import { LandmarkItem, cleanLandmarkLabel } from '@/types/domain';
 
 interface AdminTableRow {
   id: string;
@@ -139,7 +139,14 @@ export default function AdminTablesPage() {
         if (cfgData.tablePlanLandmarks) {
           try {
             const parsed = JSON.parse(cfgData.tablePlanLandmarks);
-            if (Array.isArray(parsed)) setLandmarks(parsed);
+            if (Array.isArray(parsed)) {
+              setLandmarks(
+                parsed.map((l: LandmarkItem) => ({
+                  ...l,
+                  label: cleanLandmarkLabel(l.label),
+                }))
+              );
+            }
           } catch {}
         }
       }
@@ -181,12 +188,13 @@ export default function AdminTablesPage() {
   };
 
   const handleSaveLandmark = async (lm: LandmarkItem) => {
+    const cleanedLm = { ...lm, label: cleanLandmarkLabel(lm.label) };
     let updated: LandmarkItem[];
-    if (lm.id) {
-      updated = landmarks.map((item) => (item.id === lm.id ? lm : item));
+    if (cleanedLm.id) {
+      updated = landmarks.map((item) => (item.id === cleanedLm.id ? cleanedLm : item));
     } else {
       const newId = Math.random().toString(36).substring(2, 9);
-      updated = [...landmarks, { ...lm, id: newId }];
+      updated = [...landmarks, { ...cleanedLm, id: newId }];
     }
     setLandmarks(updated);
     setShowLandmarkModal(false);
@@ -537,9 +545,9 @@ export default function AdminTablesPage() {
             className={`h-[38px] rounded-xl border-2 flex items-center justify-center px-2 cursor-pointer transition shadow hover:brightness-125 select-none shrink-0 text-xs font-black truncate gap-1 ${getLandmarkColorClass(
               coveredBy.color
             )}`}
-            title={`Randfeld: ${coveredBy.label} (Klicken zum Bearbeiten)`}
+            title={`Randfeld: ${cleanLandmarkLabel(coveredBy.label)} (Klicken zum Bearbeiten)`}
           >
-            <span className="truncate">{coveredBy.label}</span>
+            <span className="truncate">{cleanLandmarkLabel(coveredBy.label)}</span>
           </div>
         );
       } else {
@@ -572,7 +580,7 @@ export default function AdminTablesPage() {
 
     return (
       <div className="flex items-center gap-2">
-        <div className="w-[98px] shrink-0 flex items-center justify-end pr-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 font-mono">
+        <div className="w-[86px] shrink-0 flex items-center justify-end pr-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 font-mono">
           {side === 'TOP' ? 'Nord ↑' : 'Süd ↓'}
         </div>
         <div className="flex items-center gap-2">
@@ -607,13 +615,16 @@ export default function AdminTablesPage() {
               setEditingLandmark({ ...coveredBy });
               setShowLandmarkModal(true);
             }}
-            className={`w-[50px] rounded-xl border-2 flex flex-col items-center justify-center p-1 cursor-pointer transition shadow hover:brightness-125 select-none shrink-0 text-center ${getLandmarkColorClass(
+            className={`w-[38px] rounded-xl border-2 flex items-center justify-center p-0.5 cursor-pointer transition shadow hover:brightness-125 select-none shrink-0 overflow-hidden relative ${getLandmarkColorClass(
               coveredBy.color
             )}`}
-            title={`Randfeld: ${coveredBy.label} (Klicken zum Bearbeiten)`}
+            title={`Randfeld: ${cleanLandmarkLabel(coveredBy.label)} (Klicken zum Bearbeiten)`}
           >
-            <span className="text-[10px] font-black leading-tight break-words line-clamp-3">
-              {coveredBy.label}
+            <span
+              style={{ maxWidth: `${totalH - 6}px` }}
+              className="text-[10px] font-black uppercase tracking-wider transform -rotate-90 whitespace-nowrap select-none truncate text-center"
+            >
+              {cleanLandmarkLabel(coveredBy.label)}
             </span>
           </div>
         );
@@ -634,7 +645,7 @@ export default function AdminTablesPage() {
               });
               setShowLandmarkModal(true);
             }}
-            className="w-[50px] rounded-xl border border-dashed border-slate-800 hover:border-slate-600 hover:bg-slate-800/40 flex items-center justify-center text-slate-600 hover:text-slate-300 cursor-pointer transition select-none shrink-0 group text-[11px]"
+            className="w-[38px] rounded-xl border border-dashed border-slate-800 hover:border-slate-600 hover:bg-slate-800/40 flex items-center justify-center text-slate-600 hover:text-slate-300 cursor-pointer transition select-none shrink-0 group text-[11px]"
             title={`Randfeld (${side === 'LEFT' ? 'Links' : 'Rechts'}, Reihe ${r}) hinzufügen`}
           >
             <span className="opacity-0 group-hover:opacity-100 font-bold transition">
@@ -646,7 +657,7 @@ export default function AdminTablesPage() {
     }
 
     return (
-      <div className="w-[50px] shrink-0 flex flex-col gap-2">
+      <div className="w-[38px] shrink-0 flex flex-col gap-2">
         {elements}
       </div>
     );
@@ -773,7 +784,7 @@ export default function AdminTablesPage() {
 
               {/* 2. COLUMN INSERT / HEADER TOOLBAR */}
               <div className="flex items-center gap-2">
-                <div className="w-[98px] shrink-0 text-right pr-2 font-mono text-[9px] text-slate-600 uppercase">
+                <div className="w-[86px] shrink-0 text-right pr-2 font-mono text-[9px] text-slate-600 uppercase">
                   Spalten →
                 </div>
                 <div className="flex items-center gap-2">
@@ -1087,15 +1098,15 @@ export default function AdminTablesPage() {
                 </label>
                 <div className="grid grid-cols-3 gap-1.5">
                   {[
-                    { label: '🚪 Eingang', color: 'emerald' },
-                    { label: '🚪 Ausgang', color: 'emerald' },
-                    { label: '🚨 Notausgang', color: 'rose' },
-                    { label: '🍳 Küche', color: 'blue' },
-                    { label: '🍸 Bar / Schank', color: 'amber' },
-                    { label: '🚻 WC', color: 'slate' },
-                    { label: '🎭 Bühne', color: 'purple' },
-                    { label: '🧥 Garderobe', color: 'slate' },
-                    { label: 'ℹ️ Kasse / Info', color: 'blue' },
+                    { label: 'Eingang', color: 'emerald' },
+                    { label: 'Ausgang', color: 'emerald' },
+                    { label: 'Notausgang', color: 'rose' },
+                    { label: 'Küche', color: 'blue' },
+                    { label: 'Bar / Schank', color: 'amber' },
+                    { label: 'WC', color: 'slate' },
+                    { label: 'Bühne', color: 'purple' },
+                    { label: 'Garderobe', color: 'slate' },
+                    { label: 'Kasse / Info', color: 'blue' },
                   ].map((preset) => (
                     <button
                       key={preset.label}

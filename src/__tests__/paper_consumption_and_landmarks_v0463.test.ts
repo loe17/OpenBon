@@ -161,6 +161,19 @@ describe('OpenBon v0.4.63: Paper Consumption, Near-End Stop Ticket & Table Landm
       expect(parsed[3].color).toBe('amber');
     });
 
+    it('should strip emojis from landmark labels using cleanLandmarkLabel', async () => {
+      const { cleanLandmarkLabel } = await import('../types/domain');
+      expect(cleanLandmarkLabel('🚪 Eingang')).toBe('Eingang');
+      expect(cleanLandmarkLabel('🚨 Notausgang')).toBe('Notausgang');
+      expect(cleanLandmarkLabel('🍳 Küche')).toBe('Küche');
+      expect(cleanLandmarkLabel('🍸 Bar / Schank')).toBe('Bar / Schank');
+      expect(cleanLandmarkLabel('🚻 WC')).toBe('WC');
+      expect(cleanLandmarkLabel('🎭 Bühne')).toBe('Bühne');
+      expect(cleanLandmarkLabel('🧥 Garderobe')).toBe('Garderobe');
+      expect(cleanLandmarkLabel('ℹ️ Kasse / Info')).toBe('Kasse / Info');
+      expect(cleanLandmarkLabel('Kein Emoji')).toBe('Kein Emoji');
+    });
+
     it('should verify only TOP, BOTTOM, LEFT, RIGHT are valid landmark sides', () => {
       const validSides = ['TOP', 'BOTTOM', 'LEFT', 'RIGHT'];
       const testItem: LandmarkItem = {

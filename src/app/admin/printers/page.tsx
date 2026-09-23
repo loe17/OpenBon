@@ -66,7 +66,7 @@ export default function AdminPrintersPage() {
   const [showPrinterModal, setShowPrinterModal] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [enableVirtual, setEnableVirtual] = useState(true);
-  const [enablePaperNearEnd, setEnablePaperNearEnd] = useState(true);
+  const [enablePaperNearEnd, setEnablePaperNearEnd] = useState(false);
   const [mainTab, setMainTab] = useState<'CONFIG' | 'QUEUE'>('CONFIG');
 
   // Network Scan State
@@ -161,8 +161,52 @@ export default function AdminPrintersPage() {
 
   useEffect(() => {
     fetchPrintersAndGroups();
-    const interval = setInterval(() => checkPrinterPings(), 5000);
-    return () => clearInterval(interval);
+
+    let socketObj: any = null;
+    let cleanupSocket = () => {};
+
+    import('@/lib/socket-client').then(({ getSocket }) => {
+      socketObj = getSocket();
+      const onPaperUpdated = (data: { printerId: string; totalPaperMm: number }) => {
+        if (!data?.printerId) return;
+        setPrinters((prev) =>
+          prev.map((p) => (p.id === data.printerId ? { ...p, totalPaperMm: data.totalPaperMm } : p))
+        );
+      };
+      const onStatusUpdated = (data: { printerId: string; sensorNearEndActive?: boolean; paperSensorState?: string }) => {
+        if (!data?.printerId) return;
+        setPrinters((prev) =>
+          prev.map((p) =>
+            p.id === data.printerId
+              ? {
+                  ...p,
+                  ...(data.sensorNearEndActive !== undefined ? { sensorNearEndActive: data.sensorNearEndActive } : {}),
+                  ...(data.paperSensorState !== undefined ? { paperSensorState: data.paperSensorState } : {}),
+                }
+              : p
+          )
+        );
+      };
+
+      socketObj.on('printer:paper_updated', onPaperUpdated);
+      socketObj.on('printer:status_update', onStatusUpdated);
+
+      cleanupSocket = () => {
+        socketObj.off('printer:paper_updated', onPaperUpdated);
+        socketObj.off('printer:status_update', onStatusUpdated);
+      };
+    }).catch(() => null);
+
+    // Visibility-aware pinging: Pausiert wenn Fenster minimiert ist (Effizienzoptimierung)
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      checkPrinterPings();
+    }, 5000);
+
+    return () => {
+      clearInterval(interval);
+      cleanupSocket();
+    };
   }, []);
 
   const handleToggleVirtualPrinters = async () => {
@@ -696,59 +740,59 @@ export default function AdminPrintersPage() {
                     </div>
                   </div>
 
-                  {/* Sensorhebel-Statusanzeige */}
-                  <div className="mb-3">
-                    {!enablePaperNearEnd ? (
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/60 text-slate-400 border border-slate-700/60 rounded-xl text-xs font-medium">
-                        <span className="w-2 h-2 rounded-full bg-slate-500" />
-                        <span>⚪ Rollen-Überwachung deaktiviert (in Einstellungen)</span>
+                  {/* Sensorhebel & Bonverbrauchsrechner (nur anzeigen, wenn Rollen-Überwachung in Einstellungen aktiviert ist) */}
+                  {enablePaperNearEnd && (
+                    <>
+                      {/* Sensorhebel-Statusanzeige */}
+                      <div className="mb-3">
+                        {p.sensorNearEndActive ? (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold animate-pulse">
+                            <span className="w-2 h-2 rounded-full bg-amber-400" />
+                            <span>⚠️ Vorwarnhebel aktiv (Papierrolle fast leer)</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-semibold">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                            <span>🟢 Sensorhebel ruht (Ausreichend Papier)</span>
+                          </div>
+                        )}
                       </div>
-                    ) : p.sensorNearEndActive ? (
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold animate-pulse">
-                        <span className="w-2 h-2 rounded-full bg-amber-400" />
-                        <span>⚠️ Vorwarnhebel aktiv (Papierrolle fast leer)</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-semibold">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                        <span>🟢 Sensorhebel ruht (Ausreichend Papier)</span>
-                      </div>
-                    )}
-                  </div>
 
-                  {/* Bonverbrauchsrechner: Zähler & Rollen-Fortschritt */}
-                  <div className="p-2.5 bg-slate-950/70 rounded-2xl border border-slate-800 space-y-1.5 mb-3">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400">Papierverbrauch:</span>
-                      <span className="font-mono font-bold text-white">
-                        {((p.totalPaperMm || 0) / 1000).toFixed(2)} m / {p.rollLengthM || 80} m
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-                      {(() => {
-                        const usedM = (p.totalPaperMm || 0) / 1000;
-                        const rollM = p.rollLengthM || 80;
-                        const pct = Math.min(100, Math.round((usedM / rollM) * 100));
-                        const barColor = pct > 90 ? 'bg-rose-500' : pct > 75 ? 'bg-amber-400' : 'bg-blue-500';
-                        return <div className={`h-full ${barColor} transition-all duration-300`} style={{ width: `${pct}%` }} />;
-                      })()}
-                    </div>
-                    <div className="flex items-center justify-between gap-2 pt-1">
-                      <button
-                        onClick={() => openPaperModal(p)}
-                        className="text-[11px] text-blue-400 hover:text-blue-300 underline font-medium"
-                      >
-                        Werte &amp; Kalibrierung
-                      </button>
-                      <button
-                        onClick={() => handleResetRoll(p.id)}
-                        className="px-2 py-0.5 bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border border-emerald-800/80 rounded-lg text-[10px] font-bold transition"
-                        title="Setzt den Zähler auf 0m und Vorwarnung zurück"
-                      >
-                        Neue Rolle eingelegt
-                      </button>
-                    </div>
-                  </div>
+                      {/* Bonverbrauchsrechner: Zähler & Rollen-Fortschritt */}
+                      <div className="p-2.5 bg-slate-950/70 rounded-2xl border border-slate-800 space-y-1.5 mb-3">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-400">Papierverbrauch:</span>
+                          <span className="font-mono font-bold text-white">
+                            {((p.totalPaperMm || 0) / 1000).toFixed(2)} m / {p.rollLengthM || 80} m
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                          {(() => {
+                            const usedM = (p.totalPaperMm || 0) / 1000;
+                            const rollM = p.rollLengthM || 80;
+                            const pct = Math.min(100, Math.round((usedM / rollM) * 100));
+                            const barColor = pct > 90 ? 'bg-rose-500' : pct > 75 ? 'bg-amber-400' : 'bg-blue-500';
+                            return <div className={`h-full ${barColor} transition-all duration-300`} style={{ width: `${pct}%` }} />;
+                          })()}
+                        </div>
+                        <div className="flex items-center justify-between gap-2 pt-1">
+                          <button
+                            onClick={() => openPaperModal(p)}
+                            className="text-[11px] text-blue-400 hover:text-blue-300 underline font-medium"
+                          >
+                            Werte &amp; Kalibrierung
+                          </button>
+                          <button
+                            onClick={() => handleResetRoll(p.id)}
+                            className="px-2 py-0.5 bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border border-emerald-800/80 rounded-lg text-[10px] font-bold transition"
+                            title="Setzt den Zähler auf 0m und Vorwarnung zurück"
+                          >
+                            Neue Rolle eingelegt
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   {/* Web-Relay Browser-Kopplung (Lösung B) */}
                   {p.connectionType === 'WEB_RELAY' && (

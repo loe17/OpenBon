@@ -41,7 +41,7 @@ model EventConfig {
   receiptPrinterId            String?
   enableWaiterReceiptPrint    Boolean @default(false)
   enablePosReceiptPrint       Boolean @default(false)
-  enablePaperNearEndWarning   Boolean @default(true) // Papierrollen-Erkennung & geräuschloser Stopp-Bon aktivierbar
+  enablePaperNearEndWarning   Boolean @default(false) // Standardmäßig deaktiviert, in Einstellungen aktivierbar
   enableOrderPrintDelay       Boolean @default(false)
   orderPrintDelaySeconds      Int     @default(60)
 

@@ -177,6 +177,13 @@ export interface LandmarkItem {
   color?: string;
 }
 
+export function cleanLandmarkLabel(text: string): string {
+  return (text || '')
+    .replace(/\p{Extended_Pictographic}|\uFE0F|\u200D/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export interface ProductVariantDTO {
   id: string;
   productId: string;

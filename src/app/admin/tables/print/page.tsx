@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Printer, ArrowLeft, Grid, Check, Footprints } from 'lucide-react';
 import Link from 'next/link';
+import { cleanLandmarkLabel } from '@/types/domain';
 
 interface AisleItem {
   id: string;
@@ -38,7 +39,14 @@ export default function PrintTableOverviewPage() {
         if (cfg?.tablePlanLandmarks) {
           try {
             const parsed = JSON.parse(cfg.tablePlanLandmarks);
-            if (Array.isArray(parsed)) setLandmarks(parsed);
+            if (Array.isArray(parsed)) {
+              setLandmarks(
+                parsed.map((l: any) => ({
+                  ...l,
+                  label: cleanLandmarkLabel(l.label),
+                }))
+              );
+            }
           } catch {}
         }
       })
@@ -111,7 +119,7 @@ export default function PrintTableOverviewPage() {
           const hasTop = landmarks.some((l) => l.side === 'TOP');
           const hasBottom = landmarks.some((l) => l.side === 'BOTTOM');
 
-          const colTemplate = `${hasLeft ? '75px ' : ''}repeat(${maxCols}, minmax(0, 1fr))${hasRight ? ' 75px' : ''}`;
+          const colTemplate = `${hasLeft ? '38px ' : ''}repeat(${maxCols}, minmax(0, 1fr))${hasRight ? ' 38px' : ''}`;
 
           return (
             <div
@@ -139,7 +147,7 @@ export default function PrintTableOverviewPage() {
                           style={{ gridColumn: `span ${span}` }}
                           className="p-1 bg-slate-100 border-2 border-black rounded flex items-center justify-center text-center text-xs font-black uppercase tracking-wider"
                         >
-                          {topLm.label}
+                          {cleanLandmarkLabel(topLm.label)}
                         </div>
                       );
                     }
@@ -172,9 +180,11 @@ export default function PrintTableOverviewPage() {
                         <div
                           key={`left-lm-${leftLm.id}`}
                           style={{ gridRow: `span ${Math.min(leftLm.span || 1, maxRows - y + 1)}` }}
-                          className="p-1 bg-slate-100 border-2 border-black rounded flex items-center justify-center text-center text-[10px] font-black uppercase tracking-wider"
+                          className="p-0.5 bg-slate-100 border-2 border-black rounded flex items-center justify-center text-center overflow-hidden"
                         >
-                          {leftLm.label}
+                          <span className="text-[9px] font-black uppercase tracking-wider transform -rotate-90 whitespace-nowrap select-none">
+                            {cleanLandmarkLabel(leftLm.label)}
+                          </span>
                         </div>
                       ) : (
                         <div key={`left-empty-${y}`} />
@@ -253,9 +263,11 @@ export default function PrintTableOverviewPage() {
                         <div
                           key={`right-lm-${rightLm.id}`}
                           style={{ gridRow: `span ${Math.min(rightLm.span || 1, maxRows - y + 1)}` }}
-                          className="p-1 bg-slate-100 border-2 border-black rounded flex items-center justify-center text-center text-[10px] font-black uppercase tracking-wider"
+                          className="p-0.5 bg-slate-100 border-2 border-black rounded flex items-center justify-center text-center overflow-hidden"
                         >
-                          {rightLm.label}
+                          <span className="text-[9px] font-black uppercase tracking-wider transform -rotate-90 whitespace-nowrap select-none">
+                            {cleanLandmarkLabel(rightLm.label)}
+                          </span>
                         </div>
                       ) : (
                         <div key={`right-empty-${y}`} />
@@ -284,7 +296,7 @@ export default function PrintTableOverviewPage() {
                           style={{ gridColumn: `span ${span}` }}
                           className="p-1 bg-slate-100 border-2 border-black rounded flex items-center justify-center text-center text-xs font-black uppercase tracking-wider"
                         >
-                          {btmLm.label}
+                          {cleanLandmarkLabel(btmLm.label)}
                         </div>
                       );
                     }
