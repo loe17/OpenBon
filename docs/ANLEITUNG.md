@@ -60,10 +60,17 @@ Willkommen bei **OpenBon**, dem plattformunabhängigen, hochverfügbaren Kassens
   - Bei aktiver Einstellung stehen Touch-Schnellumschalter in der Kopfleiste (`[ 🖨 Papierbon: AN / AUS ]`) und im Warenkorb bereit.
   - Nachdruck-Funktion: Bei Papierstau oder Gast-Nachfrage kann der Beleg jederzeit über `[ 🖨 Erneut drucken ]` nochmals gedruckt werden.
 
-### 3. Küchenmonitor (KDS)
-- Zeigt alle offenen Zubereitungsaufträge in Echtzeit.
-- **Dringlichkeits-Ampel**: Zeigt die Wartezeit in Minuten (Grün -> Gelb -> Rot bei >10 min).
-- **Rückstandszähler**: Zeigt oben in Echtzeit den Gesamtrückstand (z. B. *"Noch 18x Pommes"*).
+### 3. Küchen- & Schankmonitor (KDS)
+- **Tischweise Spalten (Volle Bildschirmhöhe)**: Optimiert für Tablets im Querformat. Jeder Tisch nimmt eine eigene senkrechte Karte über die gesamte Bildschirmhöhe ein (`h-full`). Mehrere Tische lassen sich flüssig seitlich durchwischen (horizontales Scrollen).
+- **Sortierung nach Wartezeit (Ältester Tisch ganz rechts)**: Neue Bestellungen reihen sich links ein, während der Tisch, an dem die Gäste am längsten warten, ganz rechts im Blickfeld steht.
+- **Einzelnes Abhaken von Artikeln**: Positionen können einzeln per Fingertipp abgehakt werden (mit deutlichem grünem Häkchen). Versehentlich abgehakte Positionen können innerhalb von 10 Minuten mit einem Klick auf *„Rückgängig“* wiederhergestellt werden.
+- **Trennung von Speisen und Getränken**: Speisen und Getränke (Bier, Wein, Alkoholfrei) sind innerhalb der Tischkarte klar voneinander getrennt. Über den Warengruppen-Filter oben können Stationen gezielt gefiltert werden (z. B. Grill-Tablet nur für Speisen, Schank-Tablet nur für Getränke).
+- **Umschaltbare Betriebsmodi**:
+  - **Reine Überwachung**: Bons drucken sofort beim Kellner; der Küchenmonitor dient als Live-Übersicht.
+  - **Monitor steuert Druck**: Der Bon druckt erst dann am Drucker aus, wenn die Küche fertige Positionen abgehakt hat und auf *„Bons drucken & bestätigen“* tippt! Nicht fertige Artikel verbleiben auf dem Tisch.
+- **Kompakter Warte-Bon für verzögerte Speisen**: Dauert eine Speise länger (z. B. Kaiserschmarrn), kann bei Teillieferung ein kompakter, papiersparender Hinweisbon gedruckt werden (*„Speise folgt in Kürze nach!“*), damit die Bedienung den Gast am Tisch sofort informieren kann.
+- **Dringlichkeits-Ampel**: Zeigt die Wartezeit in Minuten (Grau -> Bernstein ab 5 Min. -> Rot blinkend ab 10 Min.).
+- **Rückstandszähler**: Zeigt oben in Echtzeit den Gesamtrückstand aller offenen Speisen (z. B. *"Noch 18x Pommes"*).
 - **Audio-Gong**: Bei jedem neuen Bon ertönt ein akustisches Signal.
 
 ### 4. Geräteübersicht & Akku-Monitor (`/admin/devices`)

@@ -358,21 +358,28 @@ export async function POST(req: Request) {
     }
 
     // 4. Ticket Routing & ESC/POS Printing
-    // Wenn Bestellverzögerung aktiv ist, wird der Druck um X Sekunden verzögert,
-    // damit die Bedienung versehentlich getippte Artikel am Tisch direkt stornieren kann.
-    const isDelayEnabled = Boolean(config?.enableOrderPrintDelay && (config.orderPrintDelaySeconds || 60) > 0);
-    if (isDelayEnabled) {
-      const delaySeconds = config.orderPrintDelaySeconds || 60;
-      scheduleDelayedPrint(order.id, delaySeconds);
-      if (global.io) {
-        global.io.emit('order:delayed', {
-          orderId: order.id,
-          tableId: order.tableId,
-          delaySeconds,
-        });
-      }
+    if (config?.kdsControlsPrinting) {
+      // Küchenmonitor steuert den Druck: Bon-Druck wird zurückgehalten, bis die Küche bestätigt
+      await prisma.orderItem.updateMany({
+        where: { orderId: order.id, printStatus: 'PENDING' },
+        data: { printStatus: 'HELD' },
+      });
     } else {
-      try {
+      // Wenn Bestellverzögerung aktiv ist, wird der Druck um X Sekunden verzögert,
+      // damit die Bedienung versehentlich getippte Artikel am Tisch direkt stornieren kann.
+      const isDelayEnabled = Boolean(config?.enableOrderPrintDelay && (config.orderPrintDelaySeconds || 60) > 0);
+      if (isDelayEnabled) {
+        const delaySeconds = config.orderPrintDelaySeconds || 60;
+        scheduleDelayedPrint(order.id, delaySeconds);
+        if (global.io) {
+          global.io.emit('order:delayed', {
+            orderId: order.id,
+            tableId: order.tableId,
+            delaySeconds,
+          });
+        }
+      } else {
+        try {
         const { jobIds } = await TicketSplitter.routeAndPrintOrder({
           id: order.id,
           orderNumber: order.orderNumber,
@@ -403,6 +410,7 @@ export async function POST(req: Request) {
         console.error('Error during ticket print spooling:', printErr);
       }
     }
+  }
 
     // 5. HA Replikations-Log
     await haService.logMutation('ORDER', order.id, 'INSERT', order);

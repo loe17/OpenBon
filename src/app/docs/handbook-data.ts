@@ -571,18 +571,26 @@ export const HANDBOOK: DocChapter[] = [
       },
       {
         id: '4.2',
-        heading: '4.2 Arbeitsablauf & Gang-Freigaben',
+        heading: '4.2 Tisch-Spalten, Einzel-Abhaken & Wartezeit-Sortierung',
+        paragraphs: [
+          'Der Küchenmonitor bündelt alle aktiven Bestellungen tischweise in übersichtlichen, senkrechten Spalten über die gesamte Bildschirmhöhe (ideal für Tablets im Querformat). Mehrere Tische lassen sich bequem seitlich durchwischen.',
+          'Sortierung nach Wartezeit: Neue Bestellungen reihen sich links ein, während der Tisch, an dem die Gäste am längsten warten, ganz rechts im Blickfeld steht.',
+          'Positionen können einzeln per Berührung abgehakt werden. Innerhalb der Tischkarte sind Speisen (Küche/Grill) und Getränke (Bier, Wein, Alkoholfrei) optisch getrennt.',
+        ],
         steps: [
-          'Beim Start der Zubereitung: Den Bon einmal antippen (Status wechselt auf Gelb "In Arbeit").',
-          'Wenn Speisen oder Getränke fertig sind: Den Bon erneut antippen (wechselt auf Grün "Fertig").',
-          'Das Kellner-Team sieht den Status sofort auf den Smartphones und kann die Bestellung abholen.',
+          'Artikel antippen: Das grüne Häkchen markiert die Speise als fertig zubereitet.',
+          'Wurde ein Artikel versehentlich angetippt, kann dies innerhalb von 10 Minuten mit "Rückgängig" korrigiert werden.',
+          'Über den Warengruppen-Filter in der Kopfzeile lässt sich der Monitor auf Speisen (Küche) oder Getränke (Schänke) eingrenzen.',
         ],
       },
       {
         id: '4.3',
-        heading: '4.3 Bons wiederherstellen',
+        heading: '4.3 Drucksteuerung durch den Monitor & Warte-Bons',
         paragraphs: [
-          'Wurde ein Bon versehentlich als fertig abgehakt, tippt das Küchenpersonal auf "Erledigte anzeigen" und kann den Bon mit einer Berührung reaktivieren.',
+          'Über den Modus-Schalter in der Kopfleiste kann zwischen zwei Arbeitsweisen gewählt werden:',
+          '1. "Reine Überwachung": Bons drucken sofort beim Kellner; der Monitor dient zur Übersicht.',
+          '2. "Monitor steuert Druck": Wenn Kellner bestellen, wird noch kein Küchenbon gedruckt. Erst wenn das Küchenteam fertige Speisen abhakt und auf "Bons drucken & bestätigen" tippt, druckt der Bon aus. Noch nicht fertige Positionen verbleiben auf dem Monitor.',
+          'Warte-Bon: Dauert ein Artikel länger (z. B. Kaiserschmarrn), kann bei Teillieferungen zeitgleich ein kompakter Hinweisbon für den Service gedruckt werden ("Speise folgt in Kürze nach!"). So weiß die Bedienung Bescheid und informiert die Gäste am Tisch direkt.',
         ],
       },
       {

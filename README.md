@@ -1,7 +1,7 @@
 # OpenBon – Enterprise Kassen-, Bestell- & Festmanagementsystem
 
-[![Version](https://img.shields.io/badge/version-v0.4.66-blue.svg)](https://github.com/loe17/OpenBon/releases)
-[![Tests](https://img.shields.io/badge/tests-59%20passed%20%7C%20410%20tests-brightgreen.svg)](https://github.com/loe17/OpenBon)
+[![Version](https://img.shields.io/badge/version-v0.4.67-blue.svg)](https://github.com/loe17/OpenBon/releases)
+[![Tests](https://img.shields.io/badge/tests-60%20passed%20%7C%20418%20tests-brightgreen.svg)](https://github.com/loe17/OpenBon)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-PWA%20%7C%20Linux%20%7C%20Windows%20%7C%20Docker%20%7C%20iOS%20%7C%20Android-lightgrey.svg)](https://github.com/loe17/OpenBon)
 [![Compliance](https://img.shields.io/badge/compliance-GoBD%20%7C%20KassenSichV%20%7C%20DSFinV--K-purple.svg)](https://github.com/loe17/OpenBon)
@@ -32,7 +32,7 @@
 | 👨‍🍳 Küchen- & Ausschankmonitor (KDS) | 🧾 Digitaler E-Bon (§33 KassenSichV) |
 | :---: | :---: |
 | ![Küchenmonitor KDS](public/docs/images/08_kitchen_kds.png) | ![Digitaler E-Bon](public/docs/images/12_receipt_ebon.png) |
-| *Digitale Bons abhaken, Farbcodes nach Wartezeit & fixierte Filterleiste.* | *Rechtssicherer, papierloser Beleg am Gast-Smartphone via QR-Code & NFC.* |
+| *Tischweise Vollbild-Spalten (FIFO ältester Tisch rechts), Einzel-Abhaken, umschaltbare KDS-Drucksteuerung & Warte-Bons.* | *Rechtssicherer, papierloser Beleg am Gast-Smartphone via QR-Code & NFC.* |
 
 ---
 
@@ -104,7 +104,7 @@ Jedes Endgerät im lokalen Netzwerk (WLAN) kann die Stationen direkt im Browser 
 | **👑 Admin Dashboard** | `http://openbon.local/admin/dashboard` | Live-Umsatz, Kassenrechner-Uhrzeit, 400ms Systemmetriken & Leitstand. |
 | **💳 Bonkasse / Theke** | `http://openbon.local/pos` | Schneller Thekenverkauf, Wertmarken, ZVT-Kartenzahlung & Barwechselgeld. |
 | **📱 Kellner-Mobilteil** | `http://openbon.local/waiter` | Mobile Tischbestellung, Gänge, Funknotrufe & direktes Kassieren am Tisch. |
-| **👨‍🍳 Küchenmonitor (KDS)** | `http://openbon.local/kitchen` | Digitale Küchenbons mit Farbcodes und vertikalem Scrollen. |
+| **👨‍🍳 Küchenmonitor (KDS)** | `http://openbon.local/kitchen` | Tisch-Spalten in voller Höhe, Wartezeit-Sortierung (ältester Tisch rechts), Einzel-Abhaken, KDS-Drucksteuerung & Warte-Bons. |
 | **💼 Personal & Abrechnung** | `http://openbon.local/admin/settle` | Geführter Kassensturz, Kellner-PINs, Trinkgeld-Pools & Live-Umsätze. |
 | **🖥️ SB-Kiosk Terminal** | `http://openbon.local/kiosk` | Eigenständiges Gäste-Bestellterminal für Selbstabholer. |
 | **📲 QR-Tischbestellung** | `http://openbon.local/guest/table/1` | Kontaktlose Gastbestellung direkt vom Tisch per Smartphone. |
@@ -155,7 +155,7 @@ Jedes Endgerät im lokalen Netzwerk (WLAN) kann die Stationen direkt im Browser 
 - **Artikel-Zeitfenster (zeitgesteuerte Sichtbarkeit):** Artikel können per Checkbox mit flexiblen Zeitfenstern (z. B. Mittagstisch 11:30–14:00 Uhr, Kuchenbuffet oder Barbetrieb) belegt werden. Außerhalb der Zeiten werden sie an Kasse und Kellnergeräten automatisch ausgeblendet.
 - **Intelligenter PDF-Speisekarten-Import:** Speisekarten und Festflyer als PDF hochladen – Speisen, Getränke, Preise und Steuersätze werden automatisch erkannt und in einer bearbeitbaren Tabelle zur 1-Klick-Übernahme aufbereitet.
 - **Sub-Sekunden-Systemmetriken (400 ms), ruckelfreie Uptime & kompakte Menüleiste:** CPU- und RAM-Last werden ca. 2,5 Mal pro Sekunde live erfasst (< 0,1 % Eigenlast) mit stufenlos-monotoner Server-Laufzeitanzeige. Eine permanente Kassen-Uhr und ein schlanker Internet-Globus in der oberen Admin-Leiste halten die Menüleiste auf jedem Endgerät aufgeräumt und kompakt.
-- **Küchenmonitor mit vertikalem Scrollen & fixierter Leiste:** Flüssiges Scrollen auf Küchenmonitoren bei fixierter Filter-Kopfleiste.
+- **Küchenmonitor mit Tisch-Spalten, KDS-Drucksteuerung & Warte-Bons:** Vollbild-Spalten über die gesamte Bildschirmhöhe (Querformat-Tablets), seitlich durchwischbar, nach Wartezeit sortiert (ältester Tisch ganz rechts). Positionen sind einzeln abhakbar. Umschaltbar zwischen *Reiner Überwachung* und *Drucksteuerung durch den Monitor* inklusive automatischem Warte-Hinweisbon für noch in Zubereitung befindliche Speisen.
 - **Kellner-Zwischenstand (X-Bon) & Auto-Lock:** Schneller 1-Klick Schichteinblick (Bargeld-Soll im Geldbeutel, Umsatz, Trinkgeld) und Inaktivitäts-Schutz auf Smartphones.
 - **Kontaktloser E-Bon per NFC & QR:** Direkte Belegübertragung via Web NFC an Gast-Smartphones oder per Cloudflare Tunnel / Netcup Webhosting über Mobilfunk (§33 KassenSichV).
 - **Beleg-Auswahl an der Bonkasse:** Touch-Fenster nach dem Kassieren mit `E-Bon per NFC`, optionalem `Papierbon` und `Kein Beleg` für maximalen Durchsatz an der Theke.

@@ -405,31 +405,39 @@ export async function POST(req: Request) {
           }
         }
       } else {
-        const { jobIds } = await TicketSplitter.routeAndPrintOrder({
-          id: order.id,
-          orderNumber: order.orderNumber,
-          tableLabel: order.source === 'POS_CASHIER' ? 'Kasse' : (order.table?.label || (order.tokenNumber ? `Abholmarke #${order.tokenNumber}` : 'Theke')),
-          waiterName: order.waiterName,
-          tokenNumber: order.tokenNumber,
-          isTraining: order.isTraining,
-          createdAt: order.createdAt,
-          items: order.items.map((i: any) => ({
-            id: i.id,
-            productId: i.productId,
-            productName: i.productName,
-            alternativeName: i.product?.alternativeTicketName,
-            quantity: i.quantity,
-            unitPriceCents: i.unitPriceCents,
-            depositCents: i.depositCents ?? 0,
-            variantName: i.variantName,
-            selectedOptions: i.selectedOptions,
-            customizationText: i.customizationText,
-            courseNumber: i.courseNumber,
-            isHold: i.isHold,
-          })),
-        });
-        if (global.io && jobIds.length > 0) {
-          global.io.emit('print:queued', { orderId: order.id, jobIds });
+        if (config?.kdsControlsPrinting) {
+          // KDS steuert den Druck: Bon-Druck wird zurückgehalten, bis die Küche bestätigt
+          await prisma.orderItem.updateMany({
+            where: { orderId: order.id, printStatus: 'PENDING' },
+            data: { printStatus: 'HELD' },
+          });
+        } else {
+          const { jobIds } = await TicketSplitter.routeAndPrintOrder({
+            id: order.id,
+            orderNumber: order.orderNumber,
+            tableLabel: order.source === 'POS_CASHIER' ? 'Kasse' : (order.table?.label || (order.tokenNumber ? `Abholmarke #${order.tokenNumber}` : 'Theke')),
+            waiterName: order.waiterName,
+            tokenNumber: order.tokenNumber,
+            isTraining: order.isTraining,
+            createdAt: order.createdAt,
+            items: order.items.map((i: any) => ({
+              id: i.id,
+              productId: i.productId,
+              productName: i.productName,
+              alternativeName: i.product?.alternativeTicketName,
+              quantity: i.quantity,
+              unitPriceCents: i.unitPriceCents,
+              depositCents: i.depositCents ?? 0,
+              variantName: i.variantName,
+              selectedOptions: i.selectedOptions,
+              customizationText: i.customizationText,
+              courseNumber: i.courseNumber,
+              isHold: i.isHold,
+            })),
+          });
+          if (global.io && jobIds.length > 0) {
+            global.io.emit('print:queued', { orderId: order.id, jobIds });
+          }
         }
       }
     } catch (printErr) {

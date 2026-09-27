@@ -1500,4 +1500,69 @@ export class EscPosBuilder {
       lengthMm: builder.lengthMm,
     };
   }
+
+  /**
+   * Warte-Hinweisbon fuer Positionen, die laenger brauchen (kompakt & papiersparend).
+   */
+  public static buildDelayNoticeTicket(
+    data: {
+      tableLabel?: string | null;
+      waiterName?: string | null;
+      orderNumber?: number;
+      createdAt?: Date | string;
+      items: { name: string; quantity: number; variantName?: string | null; options?: string[]; customizationText?: string | null }[];
+    },
+    paperWidth = 80
+  ): { rawBuffer: Buffer; textRepresentation: string; lengthMm: number } {
+    const builder = new EscPosBuilder(paperWidth);
+    const lines: string[] = [];
+    const add = (t: string) => lines.push(t);
+
+    builder.doubleDivider();
+    add('================================');
+    builder.align('center').invert(true).bold(true).textLine(' * HINWEIS: DAUERT LAENGER * ').bold(false).invert(false);
+    add('* HINWEIS: DAUERT LAENGER *');
+
+    const tableStr = data.tableLabel ? `Tisch ${data.tableLabel}` : (data.orderNumber ? `Bon #${data.orderNumber}` : 'Theke');
+    const waiterStr = data.waiterName || 'Service';
+    const timeStr = data.createdAt
+      ? new Date(data.createdAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+      : new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    builder.align('left');
+    builder.twoColumn(tableStr, `${waiterStr} | ${timeStr}`);
+    add(`${tableStr} | ${waiterStr} | ${timeStr}`);
+    builder.divider();
+    add('--------------------------------');
+
+    for (const item of data.items) {
+      const varSuffix = item.variantName ? ` (${item.variantName})` : '';
+      const line = `${item.quantity}x ${item.name}${varSuffix}`;
+      builder.bold(true).textLine(line).bold(false);
+      add(line);
+      if (item.options && item.options.length > 0) {
+        builder.textLine(`   + ${item.options.join(', ')}`);
+        add(`   + ${item.options.join(', ')}`);
+      }
+      if (item.customizationText) {
+        builder.textLine(`   ! ${item.customizationText}`);
+        add(`   ! ${item.customizationText}`);
+      }
+    }
+
+    builder.divider();
+    add('--------------------------------');
+    builder.align('center').bold(true).textLine('Speise folgt in Kuerze nach!').bold(false);
+    add('Speise folgt in Kuerze nach!');
+    builder.doubleDivider();
+    add('================================');
+    builder.cut();
+
+    return {
+      rawBuffer: builder.build(),
+      textRepresentation: lines.join('\n'),
+      lengthMm: builder.lengthMm,
+    };
+  }
 }
+

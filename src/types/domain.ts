@@ -126,6 +126,8 @@ export interface EventConfigDTO {
   enablePaperNearEndWarning?: boolean;
   enableOrderPrintDelay?: boolean;
   orderPrintDelaySeconds?: number;
+  kdsControlsPrinting?: boolean;
+  kdsPrintDelayTicket?: boolean;
   cardSumupEnabled?: boolean;
   cardVrPayEnabled?: boolean;
   cardSparkasseEnabled?: boolean;

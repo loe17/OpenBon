@@ -21,10 +21,17 @@ import {
   Ban,
   Search,
   X,
+  Utensils,
+  Wine,
+  CheckSquare,
+  Square,
+  Eye,
+  FileText,
 } from 'lucide-react';
 
 import StationGate from '@/components/auth/station-gate';
 import { useToast } from '@/components/ui/toast';
+
 interface KitchenOrder {
   id: string;
   orderNumber: number;
@@ -42,10 +49,12 @@ interface KitchenOrder {
     selectedOptions?: string | null;
     customizationText?: string | null;
     kdsStatus: string;
+    printStatus?: string;
     courseNumber?: number;
     isHold?: boolean;
     isCancelled?: boolean;
     cancellationReason?: string | null;
+    createdAt?: string;
     product?: {
       id?: string;
       categoryId?: string | null;
@@ -67,6 +76,36 @@ interface ProductSoldOutItem {
   category?: { id: string; name: string } | null;
 }
 
+interface TableGroupItem {
+  id: string;
+  orderId: string;
+  orderNumber: number;
+  waiterName: string;
+  productName: string;
+  quantity: number;
+  variantName?: string | null;
+  selectedOptions?: string | null;
+  customizationText?: string | null;
+  kdsStatus: string;
+  printStatus?: string;
+  courseNumber?: number;
+  isHold?: boolean;
+  isCancelled?: boolean;
+  cancellationReason?: string | null;
+  createdAt: string;
+  product?: any;
+  isDrink: boolean;
+}
+
+interface TableGroup {
+  tableKey: string;
+  tableLabel: string;
+  waiterNames: string[];
+  orderNumbers: number[];
+  oldestTimestamp: number;
+  items: TableGroupItem[];
+}
+
 function KitchenMonitorContent() {
   const { socket } = useSocket();
   const { error: toastError, success: toastSuccess } = useToast();
@@ -74,10 +113,17 @@ function KitchenMonitorContent() {
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [showFilterBar, setShowFilterBar] = useState(false);
-  const [viewMode, setViewMode] = useState<'FIFO' | 'TABLE'>('FIFO');
+  const [viewMode, setViewMode] = useState<'TABLE' | 'FIFO'>('TABLE');
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [voidAlert, setVoidAlert] = useState<string | null>(null);
+
+  // KDS Drucksteuerung
+  const [kdsControlsPrinting, setKdsControlsPrinting] = useState(false);
+  const [kdsPrintDelayTicket, setKdsPrintDelayTicket] = useState(true);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [delayTicketToggles, setDelayTicketToggles] = useState<Record<string, boolean>>({});
+  const [isSubmittingPrint, setIsSubmittingPrint] = useState(false);
 
   // Ausverkauft-Schnellzugriff & Modal
   const [productsList, setProductsList] = useState<ProductSoldOutItem[]>([]);
@@ -85,6 +131,19 @@ function KitchenMonitorContent() {
   const [soldOutSearch, setSoldOutSearch] = useState('');
   const [soldOutFilterCategory, setSoldOutFilterCategory] = useState<string>('ALL');
   const [togglingProductId, setTogglingProductId] = useState<string | null>(null);
+
+  const fetchConfig = async () => {
+    try {
+      const res = await fetch('/api/config/public', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        setKdsControlsPrinting(Boolean(data.kdsControlsPrinting));
+        setKdsPrintDelayTicket(data.kdsPrintDelayTicket ?? true);
+      }
+    } catch (e) {
+      console.error('Fehler beim Laden der KDS-Konfiguration:', e);
+    }
+  };
 
   const fetchCategories = async () => {
     try {
@@ -100,7 +159,6 @@ function KitchenMonitorContent() {
             setSelectedCategoryIds(data.map((c: any) => c.id));
           }
         } else {
-          // Standardmäßig alle aktiviert
           setSelectedCategoryIds(data.map((c: any) => c.id));
         }
       }
@@ -109,7 +167,7 @@ function KitchenMonitorContent() {
 
   const fetchKdsOrders = async () => {
     try {
-      const res = await fetch('/api/orders?kds=true');
+      const res = await fetch('/api/orders?kds=true', { cache: 'no-store' });
       const data = await res.json();
       if (Array.isArray(data)) {
         setOrders(data);
@@ -132,6 +190,30 @@ function KitchenMonitorContent() {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleTogglePrintMode = async () => {
+    triggerHapticFeedback();
+    const nextMode = !kdsControlsPrinting;
+    setKdsControlsPrinting(nextMode);
+    try {
+      const res = await fetch('/api/kds/mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kdsControlsPrinting: nextMode }),
+      });
+      if (res.ok) {
+        toastSuccess(
+          nextMode
+            ? 'Modus geändert: Monitor steuert Druck (Bons drucken erst nach Bestätigung)'
+            : 'Modus geändert: Reine Überwachung (Sofortdruck beim Kellner)'
+        );
+      } else {
+        toastError('Fehler beim Umschalten des KDS-Druckmodus');
+      }
+    } catch {
+      toastError('Netzwerkfehler beim Umschalten');
     }
   };
 
@@ -166,6 +248,7 @@ function KitchenMonitorContent() {
   };
 
   useEffect(() => {
+    fetchConfig();
     fetchCategories();
     fetchKdsOrders();
     fetchProducts();
@@ -173,7 +256,7 @@ function KitchenMonitorContent() {
     const timer = setInterval(() => setCurrentTime(Date.now()), 10000);
 
     if (socket) {
-      socket.on('order:new', (newOrder: KitchenOrder) => {
+      socket.on('order:new', () => {
         playKitchenChime();
         fetchKdsOrders();
       });
@@ -181,13 +264,21 @@ function KitchenMonitorContent() {
       socket.on('kds:item_updated', () => fetchKdsOrders());
       socket.on('kds:order_updated', () => fetchKdsOrders());
 
+      socket.on('kds:mode_updated', (data: { kdsControlsPrinting?: boolean; kdsPrintDelayTicket?: boolean }) => {
+        if (typeof data.kdsControlsPrinting === 'boolean') {
+          setKdsControlsPrinting(data.kdsControlsPrinting);
+        }
+        if (typeof data.kdsPrintDelayTicket === 'boolean') {
+          setKdsPrintDelayTicket(data.kdsPrintDelayTicket);
+        }
+      });
+
       socket.on('product:updated', (updated: ProductSoldOutItem) => {
         setProductsList((prev) =>
           prev.map((p) => (p.id === updated.id ? { ...p, isSoldOut: updated.isSoldOut } : p))
         );
       });
 
-      // Spec 6.4: Storno akustisch und sichtbar melden
       socket.on('order:voided', (payload: { reason?: string }) => {
         playVoidAlert();
         setVoidAlert(payload?.reason ? `Storno eingegangen: ${payload.reason}` : 'Storno eingegangen');
@@ -195,7 +286,6 @@ function KitchenMonitorContent() {
         fetchKdsOrders();
       });
 
-      // Spec 6.5: nachträglich abgerufener Gang
       socket.on('order:course_released', () => {
         playKitchenChime();
         fetchKdsOrders();
@@ -208,6 +298,7 @@ function KitchenMonitorContent() {
         socket.off('order:new');
         socket.off('kds:item_updated');
         socket.off('kds:order_updated');
+        socket.off('kds:mode_updated');
         socket.off('product:updated');
         socket.off('order:voided');
         socket.off('order:course_released');
@@ -215,29 +306,44 @@ function KitchenMonitorContent() {
     };
   }, [socket]);
 
-  const toggleItemDone = async (orderId: string, itemId: string, currentStatus: string) => {
+  // Item Auswahl / Abhaken
+  const toggleItemSelection = (itemId: string) => {
+    triggerHapticFeedback();
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectTableItems = (table: TableGroup) => {
+    triggerHapticFeedback();
+    const openItems = table.items.filter((i) => i.kdsStatus !== 'COMPLETED' && !i.isCancelled);
+    const allSelected = openItems.length > 0 && openItems.every((i) => selectedItemIds.has(i.id));
+
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        openItems.forEach((i) => next.delete(i.id));
+      } else {
+        openItems.forEach((i) => next.add(i.id));
+      }
+      return next;
+    });
+  };
+
+  const toggleItemDoneDirect = async (orderId: string, itemId: string, currentStatus: string) => {
     triggerHapticFeedback();
     const nextStatus = currentStatus === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
-
     try {
       await fetch(`/api/orders/${orderId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ itemId, itemKdsStatus: nextStatus }),
-      });
-      fetchKdsOrders();
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const completeOrder = async (orderId: string) => {
-    triggerHapticFeedback();
-    try {
-      await fetch(`/api/orders/${orderId}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderStatus: 'COMPLETED' }),
       });
       fetchKdsOrders();
     } catch (e) {
@@ -258,6 +364,107 @@ function KitchenMonitorContent() {
         toastError(j.error || 'Rückgängig nicht möglich (nur 10 Minuten).');
         return;
       }
+      toastSuccess('Position wieder als offen markiert');
+      fetchKdsOrders();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Aktion: Drucken & Bestätigen (Modus "Monitor steuert Druck")
+  const handlePrintTableSelection = async (table: TableGroup) => {
+    triggerHapticFeedback();
+    const openItems = table.items.filter((i) => i.kdsStatus !== 'COMPLETED' && !i.isCancelled);
+    const checkedItemIds = openItems.filter((i) => selectedItemIds.has(i.id)).map((i) => i.id);
+
+    if (checkedItemIds.length === 0) {
+      toastError('Bitte mindestens einen fertigen Artikel zum Drucken antippen');
+      return;
+    }
+
+    const remainingItems = openItems.filter((i) => !selectedItemIds.has(i.id));
+    const wantDelayTicket = delayTicketToggles[table.tableKey] ?? kdsPrintDelayTicket;
+
+    setIsSubmittingPrint(true);
+    try {
+      const res = await fetch('/api/kds/print', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tableLabel: table.tableLabel,
+          itemIds: checkedItemIds,
+          printDelayTicket: wantDelayTicket && remainingItems.length > 0,
+          delayedItemIds: remainingItems.map((i) => i.id),
+        }),
+      });
+
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        toastError(j.error || 'Fehler beim Drucken der Bons.');
+        return;
+      }
+
+      const result = await res.json();
+      toastSuccess(
+        result.delayTicketPrinted
+          ? `${checkedItemIds.length} Position(en) gedruckt + Warte-Bon ausgegeben!`
+          : `${checkedItemIds.length} Position(en) gedruckt & fertig!`
+      );
+
+      // Gewählte IDs bereinigen
+      setSelectedItemIds((prev) => {
+        const next = new Set(prev);
+        checkedItemIds.forEach((id) => next.delete(id));
+        return next;
+      });
+
+      fetchKdsOrders();
+    } catch (err) {
+      toastError('Netzwerkfehler beim KDS-Druck.');
+    } finally {
+      setIsSubmittingPrint(false);
+    }
+  };
+
+  // Aktion: Fertig melden ohne Druck (Modus "Reine Überwachung")
+  const handleMarkTableDone = async (table: TableGroup) => {
+    triggerHapticFeedback();
+    const openItems = table.items.filter((i) => i.kdsStatus !== 'COMPLETED' && !i.isCancelled);
+    const checkedItemIds = openItems.filter((i) => selectedItemIds.has(i.id)).map((i) => i.id);
+    const idsToComplete = checkedItemIds.length > 0 ? checkedItemIds : openItems.map((i) => i.id);
+
+    if (idsToComplete.length === 0) return;
+
+    try {
+      for (const it of openItems.filter((i) => idsToComplete.includes(i.id))) {
+        await fetch(`/api/orders/${it.orderId}/status`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ itemId: it.id, itemKdsStatus: 'COMPLETED' }),
+        });
+      }
+
+      setSelectedItemIds((prev) => {
+        const next = new Set(prev);
+        idsToComplete.forEach((id) => next.delete(id));
+        return next;
+      });
+
+      toastSuccess(`${idsToComplete.length} Position(en) als fertig markiert`);
+      fetchKdsOrders();
+    } catch {
+      toastError('Fehler beim Aktualisieren des Status');
+    }
+  };
+
+  const completeOrder = async (orderId: string) => {
+    triggerHapticFeedback();
+    try {
+      await fetch(`/api/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderStatus: 'COMPLETED' }),
+      });
       fetchKdsOrders();
     } catch (e) {
       console.error(e);
@@ -297,6 +504,81 @@ function KitchenMonitorContent() {
     }))
     .filter((order) => order.items.length > 0);
 
+  // Gruppierung nach Tisch mit FIFO Sortierung (Ältester Tisch ganz rechts)
+  const tableGroups: TableGroup[] = React.useMemo(() => {
+    const map = new Map<string, TableGroup>();
+
+    for (const order of filteredOrders) {
+      const tableLabel = order.tokenNumber
+        ? `Marke #${order.tokenNumber}`
+        : (order.table?.label || order.tableLabel || `Bestellung #${order.orderNumber}`);
+      const tableKey = order.tokenNumber
+        ? `token_${order.tokenNumber}`
+        : (order.table?.label || order.tableLabel || `order_${order.id}`);
+
+      if (!map.has(tableKey)) {
+        map.set(tableKey, {
+          tableKey,
+          tableLabel,
+          waiterNames: [],
+          orderNumbers: [],
+          oldestTimestamp: new Date(order.createdAt).getTime(),
+          items: [],
+        });
+      }
+
+      const group = map.get(tableKey)!;
+      if (order.waiterName && !group.waiterNames.includes(order.waiterName)) {
+        group.waiterNames.push(order.waiterName);
+      }
+      if (!group.orderNumbers.includes(order.orderNumber)) {
+        group.orderNumbers.push(order.orderNumber);
+      }
+
+      const orderTime = new Date(order.createdAt).getTime();
+      if (orderTime < group.oldestTimestamp) {
+        group.oldestTimestamp = orderTime;
+      }
+
+      for (const item of order.items) {
+        const catName = item.product?.category?.name?.toLowerCase() || '';
+        const prodName = item.productName.toLowerCase();
+        const isDrink = /getränk|getraenk|bier|wein|alkohol|softdrink|wasser|limo|cola|saft|schnaps|bar|ausschank|theke/i.test(
+          catName + ' ' + prodName
+        );
+
+        group.items.push({
+          id: item.id,
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          waiterName: order.waiterName,
+          productName: item.productName,
+          quantity: item.quantity,
+          variantName: item.variantName,
+          selectedOptions: item.selectedOptions,
+          customizationText: item.customizationText,
+          kdsStatus: item.kdsStatus,
+          printStatus: item.printStatus,
+          courseNumber: item.courseNumber,
+          isHold: item.isHold,
+          isCancelled: item.isCancelled,
+          cancellationReason: item.cancellationReason,
+          createdAt: order.createdAt,
+          product: item.product,
+          isDrink,
+        });
+      }
+    }
+
+    const list = Array.from(map.values());
+    // FIFO Sortierung:
+    // "setze den tisch an dem die gäste am längsten warten nach ganz rechts"
+    // Neueste Bestellungen links (größter Zeitstempel), älteste Bestellungen rechts (kleinster Zeitstempel)
+    list.sort((a, b) => b.oldestTimestamp - a.oldestTimestamp);
+
+    return list;
+  }, [filteredOrders]);
+
   const backlogMap = new Map<string, number>();
   for (const ord of filteredOrders) {
     for (const item of ord.items) {
@@ -326,28 +608,55 @@ function KitchenMonitorContent() {
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white">
       {/* Spec 6.4: Storno-Hinweis für die Küche */}
       {voidAlert && (
-        <div className="bg-rose-600 text-white px-4 py-2.5 text-center text-sm font-black tracking-wide uppercase flex items-center justify-center gap-2 shadow-lg animate-pulse">
+        <div className="bg-rose-600 text-white px-4 py-2 text-center text-sm font-black tracking-wide uppercase flex items-center justify-center gap-2 shadow-lg animate-pulse shrink-0">
           <AlertTriangle className="w-5 h-5" />
           <span>{voidAlert} – bitte Storno-Bon beachten, nicht zubereiten</span>
         </div>
       )}
 
       {/* Top Header & Live Backlog Bar (Fixiert oben) */}
-      <div className="bg-slate-900 border-b border-slate-700 p-3 sm:p-4 shadow-md space-y-3 shrink-0">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="bg-amber-500 text-black p-2.5 rounded-2xl shadow">
-              <ChefHat className="w-6 h-6" />
+      <div className="bg-slate-900 border-b border-slate-800 p-2.5 sm:p-3 shadow-md space-y-2.5 shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="bg-amber-500 text-black p-2 rounded-2xl shadow">
+              <ChefHat className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div>
-              <h2 className="font-black text-lg sm:text-xl">Küchen- & Schankmonitor (KDS)</h2>
-              <p className="text-xs text-slate-400 font-semibold">
-                {filteredOrders.length} aktive Bestellungen • {selectedCategoryIds.length} von {categories.length} Warengruppen
+              <div className="flex items-center gap-2">
+                <h2 className="font-black text-base sm:text-lg">Küchen- & Schankmonitor</h2>
+                <span
+                  className={`text-[11px] font-black px-2 py-0.5 rounded-full border shadow-sm ${
+                    kdsControlsPrinting
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                      : 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                  }`}
+                >
+                  {kdsControlsPrinting ? 'Drucksteuerung aktiv' : 'Reine Überwachung'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 font-medium">
+                {viewMode === 'TABLE' ? `${tableGroups.length} aktive Tische` : `${filteredOrders.length} aktive Bestellungen`} •{' '}
+                {selectedCategoryIds.length} von {categories.length} Warengruppen
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Umschalter: Drucksteuerung vs. Reine Überwachung */}
+            <button
+              type="button"
+              onClick={handleTogglePrintMode}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition border shadow-sm ${
+                kdsControlsPrinting
+                  ? 'bg-amber-500 text-black border-amber-400 font-black shadow-amber-950/40'
+                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+              }`}
+              title="Klicken zum Umschalten: Druckt der Bon erst bei Freigabe oder sofort bei Bestellung?"
+            >
+              {kdsControlsPrinting ? <Printer className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              <span>{kdsControlsPrinting ? 'Monitor steuert Druck' : 'Reine Überwachung'}</span>
+            </button>
+
             {/* Ausverkauft / Artikel sperren Schnellzugriff */}
             <button
               type="button"
@@ -356,7 +665,7 @@ function KitchenMonitorContent() {
                 fetchProducts();
                 setShowSoldOutModal(true);
               }}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition border ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
                 soldOutCount > 0
                   ? 'bg-rose-950/80 text-rose-300 border-rose-600 shadow-md font-black'
                   : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
@@ -372,21 +681,21 @@ function KitchenMonitorContent() {
               )}
             </button>
 
-            {/* Filter Toggle Button */}
+            {/* Warengruppen-Filter Toggle Button */}
             <button
               type="button"
               onClick={() => {
                 triggerHapticFeedback();
                 setShowFilterBar(!showFilterBar);
               }}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition border ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
                 showFilterBar || selectedCategoryIds.length < categories.length
-                  ? 'bg-amber-500 text-black border-amber-400 shadow-md font-black'
+                  ? 'bg-amber-500 text-black border-amber-400 shadow font-black'
                   : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
               }`}
             >
               <Filter className="w-3.5 h-3.5" />
-              <span>Warengruppen-Filter</span>
+              <span>Filter</span>
               {selectedCategoryIds.length < categories.length && (
                 <span className="bg-black text-amber-300 px-1.5 py-0.2 rounded text-[10px]">
                   {selectedCategoryIds.length}/{categories.length}
@@ -394,25 +703,27 @@ function KitchenMonitorContent() {
               )}
             </button>
 
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-700">
-              <button
-                onClick={() => setViewMode('FIFO')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                  viewMode === 'FIFO' ? 'bg-amber-500 text-black shadow-md' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <ListOrdered className="w-4 h-4" />
-                <span>FIFO (Wartezeit)</span>
-              </button>
+            {/* Ansicht-Umschalter: Tisch-Spalten vs. Einzelbons */}
+            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-700">
               <button
                 onClick={() => setViewMode('TABLE')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                  viewMode === 'TABLE' ? 'bg-amber-500 text-black shadow-md' : 'text-slate-400 hover:text-white'
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                  viewMode === 'TABLE' ? 'bg-amber-500 text-black shadow' : 'text-slate-400 hover:text-white'
                 }`}
+                title="Tischweise Spalten über die volle Bildschirmhöhe"
               >
-                <Layers className="w-4 h-4" />
-                <span>Nach Tisch</span>
+                <Layers className="w-3.5 h-3.5" />
+                <span>Tische</span>
+              </button>
+              <button
+                onClick={() => setViewMode('FIFO')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                  viewMode === 'FIFO' ? 'bg-amber-500 text-black shadow' : 'text-slate-400 hover:text-white'
+                }`}
+                title="Einzelne Bestellbons nebeneinander"
+              >
+                <ListOrdered className="w-3.5 h-3.5" />
+                <span>Einzelbons</span>
               </button>
             </div>
 
@@ -421,17 +732,17 @@ function KitchenMonitorContent() {
                 playKitchenChime();
                 fetchKdsOrders();
               }}
-              className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-2xl text-slate-300 border border-slate-700 transition"
-              title="Aktualisieren & Testton"
+              className="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 border border-slate-700 transition"
+              title="Aktualisieren & Signalton"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
         {/* Ausklappbare Warengruppen-Filterleiste */}
         {showFilterBar && (
-          <div className="bg-slate-950 p-3.5 rounded-2xl border-2 border-amber-500/50 space-y-2 animate-in fade-in">
+          <div className="bg-slate-950 p-3 rounded-2xl border-2 border-amber-500/50 space-y-2 animate-in fade-in">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black uppercase text-amber-400 tracking-wider">
                 Warengruppen auswählen (z. B. Küche / Grill, Ausschank, Alkoholfrei):
@@ -467,7 +778,7 @@ function KitchenMonitorContent() {
                     key={cat.id}
                     type="button"
                     onClick={() => toggleCategory(cat.id)}
-                    className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 border transition active:scale-95 touch-manipulation ${
+                    className={`min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-2 border transition active:scale-95 touch-manipulation ${
                       isSelected
                         ? 'bg-amber-500 text-black border-amber-400 shadow-md'
                         : 'bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500'
@@ -489,7 +800,7 @@ function KitchenMonitorContent() {
         )}
 
         {/* Live Backlog Summary Strip */}
-        <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 flex items-center gap-2 overflow-x-auto shadow-inner">
+        <div className="bg-slate-950 px-3 py-2 rounded-2xl border border-slate-800 flex items-center gap-2 overflow-x-auto shadow-inner">
           <span className="text-xs font-black uppercase tracking-wider text-amber-400 whitespace-nowrap mr-1">
             Offener Rückstand:
           </span>
@@ -499,7 +810,7 @@ function KitchenMonitorContent() {
             Array.from(backlogMap.entries()).map(([name, qty]) => (
               <span
                 key={name}
-                className="bg-slate-800 text-slate-200 border border-slate-700 px-3 py-1 rounded-xl text-xs font-black whitespace-nowrap shadow-sm"
+                className="bg-slate-800 text-slate-200 border border-slate-700 px-2.5 py-0.5 rounded-xl text-xs font-black whitespace-nowrap shadow-sm"
               >
                 {qty}x <span className="text-white font-bold">{name}</span>
               </span>
@@ -508,217 +819,421 @@ function KitchenMonitorContent() {
         </div>
       </div>
 
-      {/* Main Order Columns Grid (Vertikales Scrollen, mehrspaltiges Umbrechen) */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-5">
-        {loading ? (
-          <div className="flex items-center justify-center h-48 text-slate-400 font-bold">
-            <RefreshCw className="w-6 h-6 animate-spin mr-2" />
-            <span>Lade Küchenbons...</span>
-          </div>
-        ) : filteredOrders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-slate-500">
-            <ChefHat className="w-16 h-16 text-slate-700 mb-3" />
-            <h3 className="text-lg font-black text-slate-300">Monitor ist bereit</h3>
-            <p className="text-xs font-semibold mt-0.5">Aktuell liegen keine offenen Positionen für diese Warengruppen vor.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 items-start pb-8">
-            {filteredOrders.map((order) => {
-              const elapsedMinutes = Math.floor(
-                (currentTime - new Date(order.createdAt).getTime()) / 60000
-              );
-              const isUrgent = elapsedMinutes >= 10;
-              const isWarning = elapsedMinutes >= 5 && elapsedMinutes < 10;
+      {/* HAUPTBEREICH: TISCH-SPALTEN (Volle Bildschirmhöhe, seitlich scrollbar für Tablet-Querformat) */}
+      {viewMode === 'TABLE' ? (
+        <div className="flex-1 overflow-x-auto overflow-y-hidden p-3 sm:p-4 min-h-0">
+          {loading ? (
+            <div className="flex items-center justify-center h-full text-slate-400 font-bold">
+              <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+              <span>Lade Küchenübersicht...</span>
+            </div>
+          ) : tableGroups.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-slate-500">
+              <ChefHat className="w-16 h-16 text-slate-700 mb-3" />
+              <h3 className="text-lg font-black text-slate-300">Monitor ist bereit</h3>
+              <p className="text-xs font-semibold mt-0.5">Aktuell liegen keine offenen Positionen für diese Warengruppen vor.</p>
+            </div>
+          ) : (
+            <div className="flex flex-row items-stretch h-full gap-4 pb-2">
+              {tableGroups.map((table) => {
+                const openItems = table.items.filter((i) => i.kdsStatus !== 'COMPLETED' && !i.isCancelled);
+                const completedItems = table.items.filter((i) => i.kdsStatus === 'COMPLETED');
+                const checkedOpenItems = openItems.filter((i) => selectedItemIds.has(i.id));
+                const remainingOpenItems = openItems.filter((i) => !selectedItemIds.has(i.id));
 
-              return (
-                <div
-                  key={order.id}
-                  className={`w-full flex flex-col justify-between rounded-3xl border-2 shadow-xl transition-all overflow-hidden ${
-                    isUrgent
-                      ? 'bg-slate-900 border-rose-500 shadow-rose-950/60'
-                      : isWarning
-                      ? 'bg-slate-900 border-amber-500 shadow-amber-950/40'
-                      : 'bg-slate-900 border-slate-700'
-                  }`}
-                >
-                  {/* Card Header */}
-                  <div className="p-3.5 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-950/40">
-                    <div>
-                      <div className="font-black text-base text-white flex items-center gap-1.5">
-                        {order.tokenNumber ? (
-                          <span className="bg-amber-500 text-black px-2.5 py-0.5 rounded-lg text-sm font-black shadow">
-                            #{order.tokenNumber}
+                const elapsedMinutes = Math.floor((currentTime - table.oldestTimestamp) / 60000);
+                const isUrgent = elapsedMinutes >= 10;
+                const isWarning = elapsedMinutes >= 5 && elapsedMinutes < 10;
+
+                const wantDelayTicket = delayTicketToggles[table.tableKey] ?? kdsPrintDelayTicket;
+
+                const foodItems = table.items.filter((i) => !i.isDrink);
+                const drinkItems = table.items.filter((i) => i.isDrink);
+
+                return (
+                  <div
+                    key={table.tableKey}
+                    className={`w-80 sm:w-88 min-w-[310px] max-w-[360px] h-full flex flex-col rounded-3xl border-2 bg-slate-900 shadow-xl overflow-hidden shrink-0 transition-all ${
+                      isUrgent
+                        ? 'border-rose-500 shadow-rose-950/60'
+                        : isWarning
+                        ? 'border-amber-500 shadow-amber-950/40'
+                        : 'border-slate-700'
+                    }`}
+                  >
+                    {/* Tisch-Kopfzeile (Fixiert oben im Tisch) */}
+                    <div className="p-3.5 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-950/60">
+                      <div className="min-w-0 pr-2">
+                        <div className="font-black text-base sm:text-lg text-white flex items-center gap-1.5 truncate">
+                          <span className="truncate">{table.tableLabel}</span>
+                          <span className="text-[11px] text-slate-400 font-semibold shrink-0">
+                            ({openItems.length} offen)
                           </span>
-                        ) : (
-                          <span>{order.table?.label || 'Theke'}</span>
-                        )}
-                        <span className="text-xs text-slate-400 font-semibold">
-                          (#{order.orderNumber})
-                        </span>
-                      </div>
-                      <div className="text-xs text-slate-400 mt-0.5 font-medium">
-                        Bedienung: <span className="text-slate-200 font-bold">{order.waiterName}</span>
-                      </div>
-                    </div>
-
-                    {/* Timer Badge */}
-                    <div
-                      className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-black font-mono shadow ${
-                        isUrgent
-                          ? 'bg-rose-600 text-white animate-pulse'
-                          : isWarning
-                          ? 'bg-amber-500 text-black'
-                          : 'bg-slate-800 text-slate-300 border border-slate-700'
-                      }`}
-                    >
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>{elapsedMinutes}m</span>
-                    </div>
-                  </div>
-
-                  {/* Items Checklist */}
-                  <div className="flex-1 overflow-y-auto p-3 space-y-2.5 max-h-80 min-h-[90px]">
-                    {[...order.items]
-                      .sort((a, b) => (a.courseNumber ?? 1) - (b.courseNumber ?? 1))
-                      .map((item, idx, arr) => {
-                      const isDone = item.kdsStatus === 'COMPLETED';
-                      const isVoided = Boolean(item.isCancelled);
-                      const course = item.courseNumber ?? 1;
-                      const showCourseHeader =
-                        arr.some((i) => (i.courseNumber ?? 1) > 1) &&
-                        (idx === 0 || (arr[idx - 1].courseNumber ?? 1) !== course);
-                      return (
-                        <React.Fragment key={item.id}>
-                        {showCourseHeader && (
-                          <div className="flex items-center gap-2 pt-1 first:pt-0">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-violet-300 bg-violet-950 border border-violet-800 px-2 py-0.5 rounded-lg">
-                              {COURSES.find((c) => c.number === course)?.label ?? `Gang ${course}`}
-                            </span>
-                            <span className="flex-1 h-px bg-slate-800" />
-                          </div>
-                        )}
-                        <div
-                          onClick={() => !isVoided && toggleItemDone(order.id, item.id, item.kdsStatus)}
-                          className={`p-3 rounded-2xl border-2 select-none transition-all flex items-start justify-between gap-2.5 ${
-                            isVoided
-                              ? 'bg-rose-950/50 border-rose-700 text-rose-200 line-through cursor-not-allowed'
-                              : isDone
-                              ? 'bg-slate-950/60 border-slate-800/80 opacity-40 line-through cursor-pointer'
-                              : 'bg-slate-950 border-slate-700 hover:border-slate-500 text-white shadow-md cursor-pointer'
-                          }`}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="font-extrabold text-sm flex items-baseline gap-1.5 flex-wrap">
-                              <span className="text-amber-400 font-mono text-base font-black">
-                                {item.quantity}x
-                              </span>
-                              <span>{item.productName}</span>
-                              {isVoided && (
-                                <span className="text-[10px] font-black uppercase tracking-wider bg-rose-600 text-white px-1.5 py-0.5 rounded no-underline">
-                                  Storniert
-                                </span>
-                              )}
-                              {item.isHold && !isVoided && (
-                                <span className="text-[10px] font-black uppercase tracking-wider bg-amber-600 text-black px-1.5 py-0.5 rounded">
-                                  Zurückgehalten
-                                </span>
-                              )}
-                              {!isVoided && (item as { printStatus?: string }).printStatus === 'PENDING' && (
-                                <span className="text-[10px] font-black uppercase tracking-wider bg-sky-600 text-white px-1.5 py-0.5 rounded">
-                                  Druck wartet
-                                </span>
-                              )}
-                              {!isVoided && ((item as { printStatus?: string }).printStatus === 'ERROR' || (item as { printStatus?: string }).printStatus === 'FAILED') && (
-                                <span className="text-[10px] font-black uppercase tracking-wider bg-red-600 text-white px-1.5 py-0.5 rounded">
-                                  Druck fehlgeschlagen – erneut prüfen
-                                </span>
-                              )}
-                            </div>
-
-                            {item.variantName && (
-                              <div className="text-xs text-slate-400 ml-5 font-bold">
-                                {item.variantName}
-                              </div>
-                            )}
-
-                            {item.customizationText && (
-                              <div className="text-xs font-black text-rose-300 ml-5 mt-1 bg-rose-950 px-2 py-0.5 rounded-lg border border-rose-800">
-                                ! {item.customizationText}
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex flex-col items-end gap-1.5 shrink-0">
-                            <div
-                              className={`w-6 h-6 rounded-lg flex items-center justify-center mt-0.5 border ${
-                                isDone
-                                  ? 'bg-emerald-600 border-emerald-500 text-white'
-                                  : 'border-slate-700 bg-slate-800 text-transparent'
-                              }`}
-                            >
-                              <CheckCircle2 className="w-4 h-4" />
-                            </div>
-                            {isDone && !isVoided && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); void undoItem(item.id); }}
-                                className="text-[10px] font-bold text-slate-400 hover:text-white underline px-2 py-1 min-h-[32px]"
-                                title="Versehentlich abgehakt? 10 Minuten rückgängig"
-                              >
-                                Rückgängig
-                              </button>
-                            )}
-                          </div>
                         </div>
-                        </React.Fragment>
-                      );
-                    })}
-                  </div>
+                        <div className="text-xs text-slate-400 font-medium truncate mt-0.5">
+                          Bedienung:{' '}
+                          <span className="text-slate-200 font-bold">
+                            {table.waiterNames.join(', ') || 'Kasse'}
+                          </span>
+                        </div>
+                      </div>
 
-                  {/* Card Footer: Druck-Quittung + Complete Button */}
-                  <div className="p-3 border-t border-slate-800 space-y-2 shrink-0 bg-slate-950/50">
-                    <button
-                      onClick={async () => {
-                        triggerHapticFeedback();
-                        try {
-                          const res = await fetch('/api/printers/confirm', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ orderId: order.id }),
-                          });
-                          if (!res.ok) {
-                            const j = await res.json().catch(() => ({}));
-                            toastError(j.error || 'Kein offener Druckauftrag für diese Bestellung.');
-                          }
-                        } catch (e) {
-                          console.error(e);
-                        }
-                      }}
-                      className="pos-touch-btn w-full h-11 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2"
-                      title="Erst wenn der Bon wirklich aus dem Drucker kam (Papier prüfen)"
-                    >
-                      <Printer className="w-4 h-4" />
-                      <span>Bon erhalten (Druck ok)</span>
-                    </button>
-                    <button
-                      onClick={() => completeOrder(order.id)}
-                      className="pos-touch-btn w-full h-13 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-xl shadow-emerald-950/50"
-                    >
-                      <CheckCircle2 className="w-5 h-5" />
-                      <span>Bestellung Fertig</span>
-                    </button>
+                      {/* Wartezeit-Badge */}
+                      <div
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-black font-mono shadow shrink-0 ${
+                          isUrgent
+                            ? 'bg-rose-600 text-white animate-pulse'
+                            : isWarning
+                            ? 'bg-amber-500 text-black'
+                            : 'bg-slate-800 text-slate-300 border border-slate-700'
+                        }`}
+                        title="Wartezeit seit Bestelleingang"
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{elapsedMinutes}m</span>
+                      </div>
+                    </div>
+
+                    {/* Artikel-Liste des Tisches (Scrollt innerhalb der Tischspalte) */}
+                    <div className="flex-1 overflow-y-auto min-h-0 p-3 space-y-3">
+                      {/* Speisen-Bereich */}
+                      {foodItems.length > 0 && (
+                        <div className="space-y-2">
+                          {drinkItems.length > 0 && (
+                            <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-400 bg-amber-950/50 px-2 py-0.5 rounded-md border border-amber-800/40">
+                              <Utensils className="w-3 h-3" />
+                              <span>Speisen / Küche</span>
+                            </div>
+                          )}
+
+                          {foodItems
+                            .sort((a, b) => (a.courseNumber ?? 1) - (b.courseNumber ?? 1))
+                            .map((item) => (
+                              <TableItemCard
+                                key={item.id}
+                                item={item}
+                                isChecked={selectedItemIds.has(item.id)}
+                                kdsControlsPrinting={kdsControlsPrinting}
+                                onToggleCheck={() => toggleItemSelection(item.id)}
+                                onToggleDoneDirect={() => toggleItemDoneDirect(item.orderId, item.id, item.kdsStatus)}
+                                onUndo={() => undoItem(item.id)}
+                              />
+                            ))}
+                        </div>
+                      )}
+
+                      {/* Getränke-Bereich */}
+                      {drinkItems.length > 0 && (
+                        <div className="space-y-2 pt-1">
+                          {foodItems.length > 0 && (
+                            <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-cyan-400 bg-cyan-950/50 px-2 py-0.5 rounded-md border border-cyan-800/40">
+                              <Wine className="w-3 h-3" />
+                              <span>Getränke / Ausschank</span>
+                            </div>
+                          )}
+
+                          {drinkItems.map((item) => (
+                            <TableItemCard
+                              key={item.id}
+                              item={item}
+                              isChecked={selectedItemIds.has(item.id)}
+                              kdsControlsPrinting={kdsControlsPrinting}
+                              onToggleCheck={() => toggleItemSelection(item.id)}
+                              onToggleDoneDirect={() => toggleItemDoneDirect(item.orderId, item.id, item.kdsStatus)}
+                              onUndo={() => undoItem(item.id)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Fußzeile: Aktionen (Drucken / Fertigstellen / Warte-Bon) */}
+                    <div className="p-3 border-t border-slate-800 shrink-0 bg-slate-950/80 space-y-2">
+                      {kdsControlsPrinting ? (
+                        /* Modus: Küchenmonitor steuert Druck */
+                        <>
+                          {/* Warte-Bon Schalter (wird nur eingeblendet, wenn noch Speisen zurückgehalten werden) */}
+                          {checkedOpenItems.length > 0 && remainingOpenItems.length > 0 && (
+                            <label className="flex items-center justify-between text-xs text-amber-300 font-bold bg-amber-950/40 px-3 py-1.5 rounded-xl border border-amber-800/60 cursor-pointer select-none">
+                              <span className="flex items-center gap-1.5">
+                                <FileText className="w-3.5 h-3.5 text-amber-400" />
+                                <span>Warte-Bon für {remainingOpenItems.length} verzögerte Speise(n)</span>
+                              </span>
+                              <input
+                                type="checkbox"
+                                checked={wantDelayTicket}
+                                onChange={() =>
+                                  setDelayTicketToggles((prev) => ({
+                                    ...prev,
+                                    [table.tableKey]: !wantDelayTicket,
+                                  }))
+                                }
+                                className="w-4 h-4 rounded text-amber-500 accent-amber-500 cursor-pointer"
+                              />
+                            </label>
+                          )}
+
+                          {/* Druck & Bestätigen Button */}
+                          <button
+                            type="button"
+                            disabled={isSubmittingPrint || openItems.length === 0}
+                            onClick={() => {
+                              if (checkedOpenItems.length > 0) {
+                                void handlePrintTableSelection(table);
+                              } else {
+                                // Wenn noch nichts angetippt wurde: Alle offenen markieren
+                                toggleSelectTableItems(table);
+                              }
+                            }}
+                            className={`w-full min-h-[46px] rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg transition active:scale-98 ${
+                              checkedOpenItems.length > 0
+                                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/50'
+                                : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700'
+                            }`}
+                          >
+                            <Printer className="w-4 h-4" />
+                            <span>
+                              {checkedOpenItems.length > 0
+                                ? `${checkedOpenItems.length} Bon(s) drucken & bestätigen`
+                                : `Alle ${openItems.length} auswählen & drucken`}
+                            </span>
+                          </button>
+
+                          <div className="flex items-center justify-between px-1">
+                            <button
+                              type="button"
+                              onClick={() => toggleSelectTableItems(table)}
+                              className="text-[11px] text-slate-400 hover:text-white underline font-semibold"
+                            >
+                              {checkedOpenItems.length === openItems.length ? 'Auswahl aufheben' : 'Alle anwählen'}
+                            </button>
+                            {completedItems.length > 0 && (
+                              <span className="text-[11px] text-emerald-400 font-bold">
+                                {completedItems.length} bereits serviert
+                              </span>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        /* Modus: Reine Überwachung (Sofortdruck war bereits aktiv) */
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void handleMarkTableDone(table)}
+                            disabled={openItems.length === 0}
+                            className={`w-full min-h-[46px] rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg transition active:scale-98 ${
+                              checkedOpenItems.length > 0
+                                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/50'
+                                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                            }`}
+                          >
+                            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                            <span>
+                              {checkedOpenItems.length > 0
+                                ? `${checkedOpenItems.length} als fertig markieren`
+                                : `Tisch komplett fertig (${openItems.length})`}
+                            </span>
+                          </button>
+                          <div className="flex items-center justify-between px-1">
+                            <button
+                              type="button"
+                              onClick={() => toggleSelectTableItems(table)}
+                              className="text-[11px] text-slate-400 hover:text-white underline font-semibold"
+                            >
+                              {checkedOpenItems.length === openItems.length ? 'Auswahl aufheben' : 'Teilauswahl'}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* ALTERNATIVE ANSICHT: EINZELBONS (Klassisches Kachel-Layout) */
+        <div className="flex-1 overflow-y-auto p-3 sm:p-5">
+          {loading ? (
+            <div className="flex items-center justify-center h-48 text-slate-400 font-bold">
+              <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+              <span>Lade Küchenbons...</span>
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-slate-500">
+              <ChefHat className="w-16 h-16 text-slate-700 mb-3" />
+              <h3 className="text-lg font-black text-slate-300">Monitor ist bereit</h3>
+              <p className="text-xs font-semibold mt-0.5">Aktuell liegen keine offenen Positionen für diese Warengruppen vor.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 items-start pb-8">
+              {filteredOrders.map((order) => {
+                const elapsedMinutes = Math.floor(
+                  (currentTime - new Date(order.createdAt).getTime()) / 60000
+                );
+                const isUrgent = elapsedMinutes >= 10;
+                const isWarning = elapsedMinutes >= 5 && elapsedMinutes < 10;
+
+                return (
+                  <div
+                    key={order.id}
+                    className={`w-full flex flex-col justify-between rounded-3xl border-2 shadow-xl transition-all overflow-hidden ${
+                      isUrgent
+                        ? 'bg-slate-900 border-rose-500 shadow-rose-950/60'
+                        : isWarning
+                        ? 'bg-slate-900 border-amber-500 shadow-amber-950/40'
+                        : 'bg-slate-900 border-slate-700'
+                    }`}
+                  >
+                    <div className="p-3.5 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-950/40">
+                      <div>
+                        <div className="font-black text-base text-white flex items-center gap-1.5">
+                          {order.tokenNumber ? (
+                            <span className="bg-amber-500 text-black px-2.5 py-0.5 rounded-lg text-sm font-black shadow">
+                              #{order.tokenNumber}
+                            </span>
+                          ) : (
+                            <span>{order.table?.label || 'Theke'}</span>
+                          )}
+                          <span className="text-xs text-slate-400 font-semibold">
+                            (#{order.orderNumber})
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-400 mt-0.5 font-medium">
+                          Bedienung: <span className="text-slate-200 font-bold">{order.waiterName}</span>
+                        </div>
+                      </div>
+
+                      <div
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-black font-mono shadow ${
+                          isUrgent
+                            ? 'bg-rose-600 text-white animate-pulse'
+                            : isWarning
+                            ? 'bg-amber-500 text-black'
+                            : 'bg-slate-800 text-slate-300 border border-slate-700'
+                        }`}
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{elapsedMinutes}m</span>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2.5 max-h-80 min-h-[90px]">
+                      {[...order.items]
+                        .sort((a, b) => (a.courseNumber ?? 1) - (b.courseNumber ?? 1))
+                        .map((item, idx, arr) => {
+                          const isDone = item.kdsStatus === 'COMPLETED';
+                          const isVoided = Boolean(item.isCancelled);
+                          const course = item.courseNumber ?? 1;
+                          const showCourseHeader =
+                            arr.some((i) => (i.courseNumber ?? 1) > 1) &&
+                            (idx === 0 || (arr[idx - 1].courseNumber ?? 1) !== course);
+                          return (
+                            <React.Fragment key={item.id}>
+                              {showCourseHeader && (
+                                <div className="flex items-center gap-2 pt-1 first:pt-0">
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-violet-300 bg-violet-950 border border-violet-800 px-2 py-0.5 rounded-lg">
+                                    {COURSES.find((c) => c.number === course)?.label ?? `Gang ${course}`}
+                                  </span>
+                                  <span className="flex-1 h-px bg-slate-800" />
+                                </div>
+                              )}
+                              <div
+                                onClick={() => !isVoided && toggleItemDoneDirect(order.id, item.id, item.kdsStatus)}
+                                className={`p-3 rounded-2xl border-2 select-none transition-all flex items-start justify-between gap-2.5 ${
+                                  isVoided
+                                    ? 'bg-rose-950/50 border-rose-700 text-rose-200 line-through cursor-not-allowed'
+                                    : isDone
+                                    ? 'bg-slate-950/60 border-slate-800/80 opacity-40 line-through cursor-pointer'
+                                    : 'bg-slate-950 border-slate-700 hover:border-slate-500 text-white shadow-md cursor-pointer'
+                                }`}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-extrabold text-sm flex items-baseline gap-1.5 flex-wrap">
+                                    <span className="text-amber-400 font-mono text-base font-black">
+                                      {item.quantity}x
+                                    </span>
+                                    <span>{item.productName}</span>
+                                    {isVoided && (
+                                      <span className="text-[10px] font-black uppercase tracking-wider bg-rose-600 text-white px-1.5 py-0.5 rounded no-underline">
+                                        Storniert
+                                      </span>
+                                    )}
+                                    {item.isHold && !isVoided && (
+                                      <span className="text-[10px] font-black uppercase tracking-wider bg-amber-600 text-black px-1.5 py-0.5 rounded">
+                                        Zurückgehalten
+                                      </span>
+                                    )}
+                                    {!isVoided && item.printStatus === 'PENDING' && (
+                                      <span className="text-[10px] font-black uppercase tracking-wider bg-sky-600 text-white px-1.5 py-0.5 rounded">
+                                        Druck wartet
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {item.variantName && (
+                                    <div className="text-xs text-slate-400 ml-5 font-bold">
+                                      {item.variantName}
+                                    </div>
+                                  )}
+
+                                  {item.customizationText && (
+                                    <div className="text-xs font-black text-rose-300 ml-5 mt-1 bg-rose-950 px-2 py-0.5 rounded-lg border border-rose-800">
+                                      ! {item.customizationText}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                  <div
+                                    className={`w-6 h-6 rounded-lg flex items-center justify-center mt-0.5 border ${
+                                      isDone
+                                        ? 'bg-emerald-600 border-emerald-500 text-white'
+                                        : 'border-slate-700 bg-slate-800 text-transparent'
+                                    }`}
+                                  >
+                                    <CheckCircle2 className="w-4 h-4" />
+                                  </div>
+                                  {isDone && !isVoided && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        void undoItem(item.id);
+                                      }}
+                                      className="text-[10px] font-bold text-slate-400 hover:text-white underline px-2 py-1 min-h-[32px]"
+                                    >
+                                      Rückgängig
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </React.Fragment>
+                          );
+                        })}
+                    </div>
+
+                    <div className="p-3 border-t border-slate-800 space-y-2 shrink-0 bg-slate-950/50">
+                      <button
+                        onClick={() => completeOrder(order.id)}
+                        className="pos-touch-btn w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-xl shadow-emerald-950/50"
+                      >
+                        <CheckCircle2 className="w-5 h-5" />
+                        <span>Bestellung Fertig</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Ausverkauft Modal für die Küche */}
       {showSoldOutModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-            {/* Modal Header */}
             <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-rose-600/20 text-rose-400 border border-rose-600/30 rounded-2xl">
@@ -740,7 +1255,6 @@ function KitchenMonitorContent() {
               </button>
             </div>
 
-            {/* Filter & Suche */}
             <div className="p-4 border-b border-slate-800 space-y-3 bg-slate-900/50">
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -753,7 +1267,6 @@ function KitchenMonitorContent() {
                 />
               </div>
 
-              {/* Kategorie-Tabs */}
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
                 <button
                   type="button"
@@ -794,7 +1307,6 @@ function KitchenMonitorContent() {
               </div>
             </div>
 
-            {/* Produkt-Liste */}
             <div className="p-4 flex-1 overflow-y-auto space-y-2">
               {filteredSoldOutProducts.length === 0 ? (
                 <div className="text-center py-10 text-slate-500 text-sm">
@@ -855,7 +1367,6 @@ function KitchenMonitorContent() {
               )}
             </div>
 
-            {/* Modal Footer */}
             <div className="p-4 border-t border-slate-800 flex items-center justify-between bg-slate-950/60">
               <span className="text-xs text-slate-400">
                 {soldOutCount} Artikel aktuell gesperrt
@@ -871,6 +1382,120 @@ function KitchenMonitorContent() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Einzelne Artikelkarte innerhalb einer Tischspalte */
+function TableItemCard({
+  item,
+  isChecked,
+  kdsControlsPrinting,
+  onToggleCheck,
+  onToggleDoneDirect,
+  onUndo,
+}: {
+  item: TableGroupItem;
+  isChecked: boolean;
+  kdsControlsPrinting: boolean;
+  onToggleCheck: () => void;
+  onToggleDoneDirect: () => void;
+  onUndo: () => void;
+}) {
+  const isDone = item.kdsStatus === 'COMPLETED';
+  const isVoided = Boolean(item.isCancelled);
+
+  return (
+    <div
+      onClick={() => {
+        if (isVoided) return;
+        if (isDone) return;
+        if (kdsControlsPrinting) {
+          onToggleCheck();
+        } else {
+          onToggleCheck();
+        }
+      }}
+      className={`p-3 rounded-2xl border-2 select-none transition-all flex items-start justify-between gap-2.5 touch-manipulation cursor-pointer ${
+        isVoided
+          ? 'bg-rose-950/50 border-rose-700 text-rose-200 line-through cursor-not-allowed'
+          : isDone
+          ? 'bg-slate-950/60 border-slate-800/80 opacity-40 line-through'
+          : isChecked
+          ? 'bg-emerald-950/40 border-emerald-500 shadow-md text-white'
+          : 'bg-slate-950 border-slate-800 hover:border-slate-600 text-white shadow-sm'
+      }`}
+    >
+      <div className="flex-1 min-w-0">
+        <div className="font-extrabold text-sm flex items-baseline gap-1.5 flex-wrap">
+          <span className="text-amber-400 font-mono text-base font-black">
+            {item.quantity}x
+          </span>
+          <span className={isChecked ? 'text-emerald-200' : ''}>{item.productName}</span>
+          {isVoided && (
+            <span className="text-[10px] font-black uppercase tracking-wider bg-rose-600 text-white px-1.5 py-0.5 rounded no-underline">
+              Storniert
+            </span>
+          )}
+          {item.isHold && !isVoided && (
+            <span className="text-[10px] font-black uppercase tracking-wider bg-amber-600 text-black px-1.5 py-0.5 rounded">
+              Zurückgehalten
+            </span>
+          )}
+          {item.courseNumber && item.courseNumber > 1 && (
+            <span className="text-[10px] font-black uppercase tracking-widest text-violet-300 bg-violet-950 border border-violet-800 px-1.5 py-0.5 rounded">
+              Gang {item.courseNumber}
+            </span>
+          )}
+        </div>
+
+        {item.variantName && (
+          <div className="text-xs text-slate-400 ml-5 font-bold">
+            {item.variantName}
+          </div>
+        )}
+
+        {item.selectedOptions && (
+          <div className="text-xs text-amber-300/80 ml-5 font-semibold">
+            {item.selectedOptions}
+          </div>
+        )}
+
+        {item.customizationText && (
+          <div className="text-xs font-black text-rose-300 ml-5 mt-1 bg-rose-950 px-2 py-0.5 rounded-lg border border-rose-800 inline-block">
+            ! {item.customizationText}
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col items-end gap-1 shrink-0">
+        {/* Checkbox / Status Icon */}
+        <div
+          className={`w-6 h-6 rounded-lg flex items-center justify-center border transition ${
+            isDone
+              ? 'bg-slate-800 border-slate-700 text-slate-400'
+              : isChecked
+              ? 'bg-emerald-600 border-emerald-500 text-white shadow'
+              : 'border-slate-700 bg-slate-900 text-transparent hover:border-slate-500'
+          }`}
+        >
+          {isDone ? <Check className="w-3.5 h-3.5" /> : isChecked ? <Check className="w-4 h-4 stroke-[3]" /> : null}
+        </div>
+
+        {isDone && !isVoided && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUndo();
+            }}
+            className="text-[10px] font-bold text-slate-400 hover:text-white underline px-1 py-0.5 mt-0.5"
+            title="Versehentlich als erledigt markiert? 10 Minuten lang rückgängig machen"
+          >
+            Rückgängig
+          </button>
+        )}
+      </div>
     </div>
   );
 }

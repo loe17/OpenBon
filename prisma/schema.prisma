@@ -44,6 +44,8 @@ model EventConfig {
   enablePaperNearEndWarning   Boolean @default(false) // Standardmäßig deaktiviert, in Einstellungen aktivierbar
   enableOrderPrintDelay       Boolean @default(false)
   orderPrintDelaySeconds      Int     @default(60)
+  kdsControlsPrinting         Boolean @default(false) // KDS steuert Druck (Bypass Sofortdruck)
+  kdsPrintDelayTicket         Boolean @default(true) // Warte-Bon bei Teillieferung drucken
 
   // Beleg- & Bon-Druck Layout & Schriftgrößen
   receiptHeader                 String? @default("")

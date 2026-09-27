@@ -90,6 +90,63 @@ export function PrintersTab({ config, onChange, printers }: PrintersTabProps) {
           </select>
         </div>
       </div>
+
+      {/* Küchenmonitor-Drucksteuerung (KDS) */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+        <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
+          <Printer className="w-5 h-5 text-amber-400" />
+          <h3 className="font-bold text-base text-white">Küchenmonitor-Drucksteuerung (KDS)</h3>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-slate-950 border border-slate-800">
+          <div className="min-w-0">
+            <div className="font-bold text-sm text-white">
+              Küchenmonitor steuert Bon-Ausgabe
+            </div>
+            <p className="text-xs text-slate-400 leading-snug mt-0.5">
+              Wenn aktiv, druckt bei einer Kellner-Bestellung noch kein Bon. Der Bon druckt erst, wenn die Küche fertige Positionen abhakt und auf „Bons drucken“ tippt.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onChange({ kdsControlsPrinting: !config.kdsControlsPrinting })}
+            aria-pressed={!!config.kdsControlsPrinting}
+            aria-label="Küchenmonitor steuert Bon-Ausgabe"
+            className="p-1.5 shrink-0 active:scale-95 touch-manipulation transition-transform"
+          >
+            {config.kdsControlsPrinting ? (
+              <ToggleRight className="w-10 h-10 text-emerald-400" />
+            ) : (
+              <ToggleLeft className="w-10 h-10 text-slate-600" />
+            )}
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-slate-950 border border-slate-800">
+          <div className="min-w-0">
+            <div className="font-bold text-sm text-white">
+              Warte-Bon für verzögerte Speisen
+            </div>
+            <p className="text-xs text-slate-400 leading-snug mt-0.5">
+              Druckt bei Teillieferungen einen kompakten Hinweisbon für verbleibende Speisen aus, damit Servicekraft und Gast informiert sind.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onChange({ kdsPrintDelayTicket: config.kdsPrintDelayTicket === false ? true : false })}
+            aria-pressed={config.kdsPrintDelayTicket !== false}
+            aria-label="Warte-Bon für verzögerte Speisen"
+            className="p-1.5 shrink-0 active:scale-95 touch-manipulation transition-transform"
+          >
+            {config.kdsPrintDelayTicket !== false ? (
+              <ToggleRight className="w-10 h-10 text-emerald-400" />
+            ) : (
+              <ToggleLeft className="w-10 h-10 text-slate-600" />
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
+
