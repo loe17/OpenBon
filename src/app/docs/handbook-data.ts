@@ -574,13 +574,16 @@ export const HANDBOOK: DocChapter[] = [
         heading: '4.2 Tisch-Spalten, Einzel-Abhaken & Wartezeit-Sortierung',
         paragraphs: [
           'Der Küchenmonitor bündelt alle aktiven Bestellungen tischweise in übersichtlichen, senkrechten Spalten über die gesamte Bildschirmhöhe (ideal für Tablets im Querformat). Mehrere Tische lassen sich bequem seitlich durchwischen.',
+          'Feste Display-Höhe: Die Tischkarten überschreiten niemals die Bildschirmhöhe. Kopf- und Fußzeile bleiben fixiert; bei vielen Positionen scrollt der Inhalt flüssig innerhalb der Karte.',
+          'Tischbezeichnung oben & Bestellnummer beim Kellner: Im Kopf der Karte steht prominent die Tischnummer (bzw. "Theke" oder "Abholmarke"). Die Bestellnummer(n) stehen in Klammern hinter dem Kellnernamen.',
           'Sortierung nach Wartezeit: Neue Bestellungen reihen sich links ein, während der Tisch, an dem die Gäste am längsten warten, ganz rechts im Blickfeld steht.',
-          'Positionen können einzeln per Berührung abgehakt werden. Innerhalb der Tischkarte sind Speisen (Küche/Grill) und Getränke (Bier, Wein, Alkoholfrei) optisch getrennt.',
+          'Klare Warengruppen-Trennung: Innerhalb der Tischkarte sind die Positionen nach ihren exakten Warengruppen übersichtlich mit Trennbannern (ohne Emojis) gegliedert.',
         ],
         steps: [
           'Artikel antippen: Das grüne Häkchen markiert die Speise als fertig zubereitet.',
+          'Mit "Alles markieren" / "Auswahl aufheben" können alle offenen Positionen mit einem Tipp an- oder abgewählt werden.',
           'Wurde ein Artikel versehentlich angetippt, kann dies innerhalb von 10 Minuten mit "Rückgängig" korrigiert werden.',
-          'Über den Warengruppen-Filter in der Kopfzeile lässt sich der Monitor auf Speisen (Küche) oder Getränke (Schänke) eingrenzen.',
+          'Über den Warengruppen-Filter in der Kopfzeile lässt sich der Monitor gezielt auf bestimmte Warengruppen eingrenzen (z. B. nur Küche oder nur Schänke; "Keine" leert die Ansicht).',
         ],
       },
       {

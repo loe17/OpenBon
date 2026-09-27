@@ -21,8 +21,6 @@ import {
   Ban,
   Search,
   X,
-  Utensils,
-  Wine,
   CheckSquare,
   Square,
   Eye,
@@ -35,6 +33,7 @@ import { useToast } from '@/components/ui/toast';
 interface KitchenOrder {
   id: string;
   orderNumber: number;
+  tableId?: string | null;
   tableLabel?: string | null;
   table?: { label: string } | null;
   tokenNumber?: number | null;
@@ -94,6 +93,7 @@ interface TableGroupItem {
   cancellationReason?: string | null;
   createdAt: string;
   product?: any;
+  categoryName: string;
   isDrink: boolean;
 }
 
@@ -472,10 +472,30 @@ function KitchenMonitorContent() {
   };
 
   const isItemVisible = (item: KitchenOrder['items'][0]) => {
-    if (selectedCategoryIds.length === 0) return true;
+    if (categories.length === 0) return true;
+    if (selectedCategoryIds.length === 0) return false;
+    if (selectedCategoryIds.length === categories.length) return true;
+
     const catId = item.product?.categoryId || item.product?.category?.id;
-    if (!catId) return true;
-    return selectedCategoryIds.includes(catId);
+    if (catId && selectedCategoryIds.includes(catId)) return true;
+
+    const itemCatName =
+      item.product?.category?.name ||
+      categories.find((c) => c.id === item.product?.categoryId)?.name ||
+      (categories as any[]).find((c) =>
+        c.products?.some((p: any) => p.id === (item.product?.id || (item as any).productId))
+      )?.name;
+
+    if (itemCatName) {
+      const selectedNames = categories
+        .filter((c) => selectedCategoryIds.includes(c.id))
+        .map((c) => c.name.trim().toLowerCase());
+      if (selectedNames.includes(itemCatName.trim().toLowerCase())) {
+        return true;
+      }
+    }
+
+    return false;
   };
 
   const toggleCategory = (catId: string) => {
@@ -511,10 +531,10 @@ function KitchenMonitorContent() {
     for (const order of filteredOrders) {
       const tableLabel = order.tokenNumber
         ? `Marke #${order.tokenNumber}`
-        : (order.table?.label || order.tableLabel || `Bestellung #${order.orderNumber}`);
+        : (order.table?.label || order.tableLabel || 'Theke');
       const tableKey = order.tokenNumber
         ? `token_${order.tokenNumber}`
-        : (order.table?.label || order.tableLabel || `order_${order.id}`);
+        : (order.table?.label || order.tableLabel || (order.tableId ? `table_${order.tableId}` : `theke_${order.waiterName || 'kasse'}_${order.id}`));
 
       if (!map.has(tableKey)) {
         map.set(tableKey, {
@@ -541,10 +561,25 @@ function KitchenMonitorContent() {
       }
 
       for (const item of order.items) {
-        const catName = item.product?.category?.name?.toLowerCase() || '';
+        let categoryName = item.product?.category?.name;
+        if (!categoryName && item.product?.categoryId) {
+          const foundCat = categories.find((c) => c.id === item.product?.categoryId);
+          if (foundCat) categoryName = foundCat.name;
+        }
+        if (!categoryName) {
+          const catForProd = (categories as any[]).find((c) =>
+            c.products?.some((p: any) => p.id === (item.product?.id || (item as any).productId))
+          );
+          if (catForProd) categoryName = catForProd.name;
+        }
+        if (!categoryName) {
+          categoryName = 'Sonstiges';
+        }
+
+        const catLower = categoryName.toLowerCase();
         const prodName = item.productName.toLowerCase();
         const isDrink = /getränk|getraenk|bier|wein|alkohol|softdrink|wasser|limo|cola|saft|schnaps|bar|ausschank|theke/i.test(
-          catName + ' ' + prodName
+          catLower + ' ' + prodName
         );
 
         group.items.push({
@@ -565,6 +600,7 @@ function KitchenMonitorContent() {
           cancellationReason: item.cancellationReason,
           createdAt: order.createdAt,
           product: item.product,
+          categoryName,
           isDrink,
         });
       }
@@ -577,7 +613,7 @@ function KitchenMonitorContent() {
     list.sort((a, b) => b.oldestTimestamp - a.oldestTimestamp);
 
     return list;
-  }, [filteredOrders]);
+  }, [filteredOrders, categories]);
 
   const backlogMap = new Map<string, number>();
   for (const ord of filteredOrders) {
@@ -821,7 +857,7 @@ function KitchenMonitorContent() {
 
       {/* HAUPTBEREICH: TISCH-SPALTEN (Volle Bildschirmhöhe, seitlich scrollbar für Tablet-Querformat) */}
       {viewMode === 'TABLE' ? (
-        <div className="flex-1 overflow-x-auto overflow-y-hidden p-3 sm:p-4 min-h-0">
+        <div className="flex-1 overflow-x-auto overflow-y-hidden p-2.5 sm:p-3 min-h-0 max-h-full">
           {loading ? (
             <div className="flex items-center justify-center h-full text-slate-400 font-bold">
               <RefreshCw className="w-6 h-6 animate-spin mr-2" />
@@ -834,7 +870,7 @@ function KitchenMonitorContent() {
               <p className="text-xs font-semibold mt-0.5">Aktuell liegen keine offenen Positionen für diese Warengruppen vor.</p>
             </div>
           ) : (
-            <div className="flex flex-row items-stretch h-full gap-4 pb-2">
+            <div className="flex flex-row items-stretch h-full max-h-full gap-3 pb-1 min-h-0">
               {tableGroups.map((table) => {
                 const openItems = table.items.filter((i) => i.kdsStatus !== 'COMPLETED' && !i.isCancelled);
                 const completedItems = table.items.filter((i) => i.kdsStatus === 'COMPLETED');
@@ -847,13 +883,32 @@ function KitchenMonitorContent() {
 
                 const wantDelayTicket = delayTicketToggles[table.tableKey] ?? kdsPrintDelayTicket;
 
-                const foodItems = table.items.filter((i) => !i.isDrink);
-                const drinkItems = table.items.filter((i) => i.isDrink);
+                const categoryGroups = (() => {
+                  const map = new Map<string, TableGroupItem[]>();
+                  for (const item of table.items) {
+                    const cName = item.categoryName || 'Sonstiges';
+                    if (!map.has(cName)) map.set(cName, []);
+                    map.get(cName)!.push(item);
+                  }
+                  const orderList = categories.map((c) => c.name.trim());
+                  const sortedKeys = Array.from(map.keys()).sort((a, b) => {
+                    const idxA = orderList.indexOf(a);
+                    const idxB = orderList.indexOf(b);
+                    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                    if (idxA !== -1) return -1;
+                    if (idxB !== -1) return 1;
+                    return a.localeCompare(b);
+                  });
+                  return sortedKeys.map((name) => ({
+                    name,
+                    items: map.get(name)!.sort((a, b) => (a.courseNumber ?? 1) - (b.courseNumber ?? 1)),
+                  }));
+                })();
 
                 return (
                   <div
                     key={table.tableKey}
-                    className={`w-80 sm:w-88 min-w-[310px] max-w-[360px] h-full flex flex-col rounded-3xl border-2 bg-slate-900 shadow-xl overflow-hidden shrink-0 transition-all ${
+                    className={`w-80 sm:w-88 min-w-[300px] max-w-[350px] h-full max-h-full flex flex-col rounded-3xl border-2 bg-slate-900 shadow-xl overflow-hidden shrink-0 transition-all ${
                       isUrgent
                         ? 'border-rose-500 shadow-rose-950/60'
                         : isWarning
@@ -875,6 +930,11 @@ function KitchenMonitorContent() {
                           <span className="text-slate-200 font-bold">
                             {table.waiterNames.join(', ') || 'Kasse'}
                           </span>
+                          {table.orderNumbers.length > 0 && (
+                            <span className="text-slate-400 ml-1 font-semibold">
+                              (#{table.orderNumbers.join(', #')})
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -895,20 +955,20 @@ function KitchenMonitorContent() {
                     </div>
 
                     {/* Artikel-Liste des Tisches (Scrollt innerhalb der Tischspalte) */}
-                    <div className="flex-1 overflow-y-auto min-h-0 p-3 space-y-3">
-                      {/* Speisen-Bereich */}
-                      {foodItems.length > 0 && (
-                        <div className="space-y-2">
-                          {drinkItems.length > 0 && (
-                            <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-400 bg-amber-950/50 px-2 py-0.5 rounded-md border border-amber-800/40">
-                              <Utensils className="w-3 h-3" />
-                              <span>Speisen / Küche</span>
+                    <div className="flex-1 overflow-y-auto min-h-0 p-2.5 sm:p-3 space-y-3 overscroll-contain touch-pan-y">
+                      {categoryGroups.map((catGroup) => {
+                        const openCount = catGroup.items.filter((i) => i.kdsStatus !== 'COMPLETED' && !i.isCancelled).length;
+                        return (
+                          <div key={catGroup.name} className="space-y-2">
+                            {/* Warengruppen-Trennleiste: Schlicht, klar, ohne Emojis/Symbole, exakter Warengruppenname */}
+                            <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-slate-800/90 border border-slate-700/80 shadow-sm text-xs font-black uppercase tracking-wider text-amber-300">
+                              <span className="truncate">{catGroup.name}</span>
+                              <span className="text-[10px] text-slate-400 font-semibold shrink-0 ml-1.5">
+                                {openCount > 0 ? `${openCount} offen` : 'erledigt'}
+                              </span>
                             </div>
-                          )}
 
-                          {foodItems
-                            .sort((a, b) => (a.courseNumber ?? 1) - (b.courseNumber ?? 1))
-                            .map((item) => (
+                            {catGroup.items.map((item) => (
                               <TableItemCard
                                 key={item.id}
                                 item={item}
@@ -919,32 +979,9 @@ function KitchenMonitorContent() {
                                 onUndo={() => undoItem(item.id)}
                               />
                             ))}
-                        </div>
-                      )}
-
-                      {/* Getränke-Bereich */}
-                      {drinkItems.length > 0 && (
-                        <div className="space-y-2 pt-1">
-                          {foodItems.length > 0 && (
-                            <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-cyan-400 bg-cyan-950/50 px-2 py-0.5 rounded-md border border-cyan-800/40">
-                              <Wine className="w-3 h-3" />
-                              <span>Getränke / Ausschank</span>
-                            </div>
-                          )}
-
-                          {drinkItems.map((item) => (
-                            <TableItemCard
-                              key={item.id}
-                              item={item}
-                              isChecked={selectedItemIds.has(item.id)}
-                              kdsControlsPrinting={kdsControlsPrinting}
-                              onToggleCheck={() => toggleItemSelection(item.id)}
-                              onToggleDoneDirect={() => toggleItemDoneDirect(item.orderId, item.id, item.kdsStatus)}
-                              onUndo={() => undoItem(item.id)}
-                            />
-                          ))}
-                        </div>
-                      )}
+                          </div>
+                        );
+                      })}
                     </div>
 
                     {/* Fußzeile: Aktionen (Drucken / Fertigstellen / Warte-Bon) */}
@@ -1005,7 +1042,7 @@ function KitchenMonitorContent() {
                               onClick={() => toggleSelectTableItems(table)}
                               className="text-[11px] text-slate-400 hover:text-white underline font-semibold"
                             >
-                              {checkedOpenItems.length === openItems.length ? 'Auswahl aufheben' : 'Alle anwählen'}
+                              {checkedOpenItems.length === openItems.length && openItems.length > 0 ? 'Auswahl aufheben' : 'Alles markieren'}
                             </button>
                             {completedItems.length > 0 && (
                               <span className="text-[11px] text-emerald-400 font-bold">
@@ -1040,7 +1077,7 @@ function KitchenMonitorContent() {
                               onClick={() => toggleSelectTableItems(table)}
                               className="text-[11px] text-slate-400 hover:text-white underline font-semibold"
                             >
-                              {checkedOpenItems.length === openItems.length ? 'Auswahl aufheben' : 'Teilauswahl'}
+                              {checkedOpenItems.length === openItems.length && openItems.length > 0 ? 'Auswahl aufheben' : 'Alles markieren'}
                             </button>
                           </div>
                         </>
@@ -1096,12 +1133,12 @@ function KitchenMonitorContent() {
                           ) : (
                             <span>{order.table?.label || 'Theke'}</span>
                           )}
-                          <span className="text-xs text-slate-400 font-semibold">
-                            (#{order.orderNumber})
-                          </span>
                         </div>
                         <div className="text-xs text-slate-400 mt-0.5 font-medium">
-                          Bedienung: <span className="text-slate-200 font-bold">{order.waiterName}</span>
+                          Bedienung: <span className="text-slate-200 font-bold">{order.waiterName || 'Kasse'}</span>
+                          <span className="text-slate-400 ml-1 font-semibold">
+                            (#{order.orderNumber})
+                          </span>
                         </div>
                       </div>
 

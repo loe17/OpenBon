@@ -61,10 +61,13 @@ Willkommen bei **OpenBon**, dem plattformunabhängigen, hochverfügbaren Kassens
   - Nachdruck-Funktion: Bei Papierstau oder Gast-Nachfrage kann der Beleg jederzeit über `[ 🖨 Erneut drucken ]` nochmals gedruckt werden.
 
 ### 3. Küchen- & Schankmonitor (KDS)
-- **Tischweise Spalten (Volle Bildschirmhöhe)**: Optimiert für Tablets im Querformat. Jeder Tisch nimmt eine eigene senkrechte Karte über die gesamte Bildschirmhöhe ein (`h-full`). Mehrere Tische lassen sich flüssig seitlich durchwischen (horizontales Scrollen).
+- **Tischweise Spalten (Volle Bildschirmhöhe & internes Scrollen)**: Optimiert für Tablets im Querformat. Jeder Tisch nimmt eine eigene senkrechte Karte über die gesamte Bildschirmhöhe ein, die niemals über den unteren Bildschirmrand hinauswächst. Kopfzeile (Tisch, Bedienung) und Fußzeile (Bestätigen, Drucken) bleiben dauerhaft fixiert; bei vielen Positionen scrollt der Inhalt flüssig innerhalb der Tischkarte. Mehrere Tische lassen sich seitlich durchwischen (horizontales Scrollen).
+- **Tischbezeichnung oben & Bestellnummer beim Kellner**: Im Kopf der Karte steht prominent die Tischnummer (bzw. „Theke“ oder „Abholmarke“). Die Bestellnummer(n) werden übersichtlich in Klammern hinter dem Namen der Bedienung angezeigt (z. B. `Bedienung: Anna (#101)`).
 - **Sortierung nach Wartezeit (Ältester Tisch ganz rechts)**: Neue Bestellungen reihen sich links ein, während der Tisch, an dem die Gäste am längsten warten, ganz rechts im Blickfeld steht.
+- **Klare Trennung nach Warengruppen (ohne störende Emojis)**: Die Positionen werden pro Tisch nach ihren exakten Warengruppen übersichtlich mit Trennbannern unterteilt.
+- **Zuverlässiger Warengruppen-Filter**: Über den Warengruppen-Filter oben können Stationen gezielt gefiltert werden (z. B. Grill-Tablet nur für Speisen, Schank-Tablet nur für Getränke). Ein Klick auf „Keine“ leert die Anzeige für eine gezielte Auswahl.
+- **Schnellumschalter „Alles markieren“ / „Auswahl aufheben“**: Ermöglicht mit einem Klick das Markieren aller noch offenen Positionen oder das Aufheben der Markierung.
 - **Einzelnes Abhaken von Artikeln**: Positionen können einzeln per Fingertipp abgehakt werden (mit deutlichem grünem Häkchen). Versehentlich abgehakte Positionen können innerhalb von 10 Minuten mit einem Klick auf *„Rückgängig“* wiederhergestellt werden.
-- **Trennung von Speisen und Getränken**: Speisen und Getränke (Bier, Wein, Alkoholfrei) sind innerhalb der Tischkarte klar voneinander getrennt. Über den Warengruppen-Filter oben können Stationen gezielt gefiltert werden (z. B. Grill-Tablet nur für Speisen, Schank-Tablet nur für Getränke).
 - **Umschaltbare Betriebsmodi**:
   - **Reine Überwachung**: Bons drucken sofort beim Kellner; der Küchenmonitor dient als Live-Übersicht.
   - **Monitor steuert Druck**: Der Bon druckt erst dann am Drucker aus, wenn die Küche fertige Positionen abgehakt hat und auf *„Bons drucken & bestätigen“* tippt! Nicht fertige Artikel verbleiben auf dem Tisch.

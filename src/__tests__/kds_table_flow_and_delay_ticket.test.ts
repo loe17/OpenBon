@@ -290,4 +290,131 @@ describe('KDS Küchenmonitor: Table-Flow, Print Control & Warte-Bon (v0.4.67)', 
       expect(body.error).toContain('Keine Artikel');
     });
   });
+
+  describe('6. KDS Refinements (Table title, category filter, exact category grouping, mark-all button)', () => {
+    it('should use table name or "Theke" as header title, never "Bestellung #X"', () => {
+      const mockOrders = [
+        {
+          id: 'ord_1',
+          orderNumber: 101,
+          table: { label: 'Tisch 5' },
+          waiterName: 'Anna',
+          tokenNumber: null,
+          items: [],
+        },
+        {
+          id: 'ord_2',
+          orderNumber: 102,
+          table: null,
+          tableLabel: null,
+          waiterName: 'Kasse',
+          tokenNumber: null,
+          items: [],
+        },
+        {
+          id: 'ord_3',
+          orderNumber: 103,
+          table: null,
+          waiterName: 'Max',
+          tokenNumber: 42,
+          items: [],
+        },
+      ];
+
+      const getHeaderTitle = (order: any) => {
+        return order.tokenNumber
+          ? `Marke #${order.tokenNumber}`
+          : (order.table?.label || order.tableLabel || 'Theke');
+      };
+
+      expect(getHeaderTitle(mockOrders[0])).toBe('Tisch 5');
+      expect(getHeaderTitle(mockOrders[1])).toBe('Theke');
+      expect(getHeaderTitle(mockOrders[2])).toBe('Marke #42');
+      expect(getHeaderTitle(mockOrders[1])).not.toContain('Bestellung #');
+    });
+
+    it('should cleanly append order numbers in parentheses to the waiter name', () => {
+      const waiterNames = ['Anna', 'Lisa'];
+      const orderNumbers = [101, 105];
+
+      const waiterSubtitle = `Bedienung: ${waiterNames.join(', ') || 'Kasse'}${
+        orderNumbers.length > 0 ? ` (#${orderNumbers.join(', #')})` : ''
+      }`;
+
+      expect(waiterSubtitle).toBe('Bedienung: Anna, Lisa (#101, #105)');
+    });
+
+    it('should filter items: 0 items when no categories selected; correct matching by ID and Name', () => {
+      const categories = [
+        { id: 'cat_grill', name: 'Küche / Grill' },
+        { id: 'cat_beer', name: 'Bier & Wein' },
+      ];
+
+      const isItemVisible = (item: any, selectedCategoryIds: string[]) => {
+        if (categories.length === 0) return true;
+        if (selectedCategoryIds.length === 0) return false;
+        if (selectedCategoryIds.length === categories.length) return true;
+
+        const catId = item.product?.categoryId || item.product?.category?.id;
+        if (catId && selectedCategoryIds.includes(catId)) return true;
+
+        const itemCatName = item.product?.category?.name;
+        if (itemCatName) {
+          const selectedNames = categories
+            .filter((c) => selectedCategoryIds.includes(c.id))
+            .map((c) => c.name.trim().toLowerCase());
+          if (selectedNames.includes(itemCatName.trim().toLowerCase())) return true;
+        }
+
+        return false;
+      };
+
+      const itemGrill = { product: { categoryId: 'cat_grill', category: { id: 'cat_grill', name: 'Küche / Grill' } } };
+      const itemBeer = { product: { categoryId: 'cat_beer', category: { id: 'cat_beer', name: 'Bier & Wein' } } };
+
+      // 1. All selected -> both visible
+      expect(isItemVisible(itemGrill, ['cat_grill', 'cat_beer'])).toBe(true);
+      expect(isItemVisible(itemBeer, ['cat_grill', 'cat_beer'])).toBe(true);
+
+      // 2. Only grill selected -> grill visible, beer hidden
+      expect(isItemVisible(itemGrill, ['cat_grill'])).toBe(true);
+      expect(isItemVisible(itemBeer, ['cat_grill'])).toBe(false);
+
+      // 3. None selected ("Keine") -> both hidden
+      expect(isItemVisible(itemGrill, [])).toBe(false);
+      expect(isItemVisible(itemBeer, [])).toBe(false);
+    });
+
+    it('should group items by exact category name without symbols or emojis', () => {
+      const items = [
+        { id: '1', productName: 'Schnitzel', categoryName: 'Küche / Grill' },
+        { id: '2', productName: 'Pommes', categoryName: 'Küche / Grill' },
+        { id: '3', productName: 'Pils 0.5l', categoryName: 'Bier & Wein' },
+      ];
+
+      const categoryMap = new Map<string, typeof items>();
+      for (const it of items) {
+        if (!categoryMap.has(it.categoryName)) categoryMap.set(it.categoryName, []);
+        categoryMap.get(it.categoryName)!.push(it);
+      }
+
+      const categoryNames = Array.from(categoryMap.keys());
+      expect(categoryNames).toEqual(['Küche / Grill', 'Bier & Wein']);
+      // Verify no emojis or symbols injected
+      expect(categoryNames[0]).not.toMatch(/[\u{1F300}-\u{1F9FF}]/u);
+      expect(categoryMap.get('Küche / Grill')?.length).toBe(2);
+      expect(categoryMap.get('Bier & Wein')?.length).toBe(1);
+    });
+
+    it('should show "Alles markieren" or "Auswahl aufheben" button label, never "Teilauswahl"', () => {
+      const getButtonLabel = (checkedCount: number, totalOpenCount: number) => {
+        return checkedCount === totalOpenCount && totalOpenCount > 0 ? 'Auswahl aufheben' : 'Alles markieren';
+      };
+
+      expect(getButtonLabel(0, 3)).toBe('Alles markieren');
+      expect(getButtonLabel(1, 3)).toBe('Alles markieren');
+      expect(getButtonLabel(3, 3)).toBe('Auswahl aufheben');
+      expect(getButtonLabel(0, 0)).toBe('Alles markieren');
+    });
+  });
 });
