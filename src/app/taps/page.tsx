@@ -105,7 +105,8 @@ export default function TapsMonitorPage() {
     if (socket) {
       socket.on('tap:updated', () => fetchTaps());
       socket.on('tap:deleted', () => fetchTaps());
-      socket.on('tap:volume_updated', (update: { tapId: string; currentVolumeLiters: number }) => {
+      socket.on('tap:volume_updated', (update?: { tapId: string; currentVolumeLiters: number }) => {
+        if (!update?.tapId) return;
         setTaps((prev) =>
           prev.map((t) => {
             if (t.id !== update.tapId) return t;

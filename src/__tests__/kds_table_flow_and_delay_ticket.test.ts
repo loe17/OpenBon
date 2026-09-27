@@ -416,5 +416,92 @@ describe('KDS Küchenmonitor: Table-Flow, Print Control & Warte-Bon (v0.4.67)', 
       expect(getButtonLabel(3, 3)).toBe('Auswahl aufheben');
       expect(getButtonLabel(0, 0)).toBe('Alles markieren');
     });
+
+    it('should safely handle product:updated event when payload is undefined or empty without throwing TypeError', () => {
+      let productsList = [
+        { id: 'prod_1', name: 'Bier', isSoldOut: false },
+        { id: 'prod_2', name: 'Bratwurst', isSoldOut: false },
+      ];
+      let fetchProductsCalled = false;
+      const fetchProducts = () => {
+        fetchProductsCalled = true;
+      };
+
+      const handleProductUpdated = (updated?: { id?: string; isSoldOut?: boolean }) => {
+        if (updated?.id) {
+          productsList = productsList.map((p) =>
+            p.id === updated.id ? { ...p, isSoldOut: Boolean(updated.isSoldOut) } : p
+          );
+        } else {
+          fetchProducts();
+        }
+      };
+
+      // 1. Server emits product:updated with NO argument (order created) -> should NOT throw
+      expect(() => handleProductUpdated(undefined)).not.toThrow();
+      expect(fetchProductsCalled).toBe(true);
+
+      // 2. Server emits product:updated with empty object -> should NOT throw
+      fetchProductsCalled = false;
+      expect(() => handleProductUpdated({} as any)).not.toThrow();
+      expect(fetchProductsCalled).toBe(true);
+
+      // 3. Server emits product:updated with specific product -> updates sold-out
+      handleProductUpdated({ id: 'prod_1', isSoldOut: true });
+      expect(productsList.find((p) => p.id === 'prod_1')?.isSoldOut).toBe(true);
+    });
+
+    it('should handle isItemVisible safely when item.product or categories contain undefined/null entries', () => {
+      const categories: any[] = [
+        { id: 'cat_1', name: 'Essen', products: [{ id: 'p1' }, null, undefined] },
+        null,
+        undefined,
+      ];
+      const selectedCategoryIds = ['cat_1'];
+
+      const isItemVisible = (item: any) => {
+        if (!item) return false;
+        if (categories.length === 0) return true;
+        if (selectedCategoryIds.length === 0) return false;
+
+        const catId = item.product?.categoryId || item.product?.category?.id;
+        if (catId && selectedCategoryIds.includes(catId)) return true;
+
+        const prodCatId = item.product?.categoryId;
+        const prodId = item.product?.id || item.productId;
+
+        const itemCatName =
+          item.product?.category?.name ||
+          (prodCatId ? categories.find((c) => c?.id === prodCatId)?.name : undefined) ||
+          (prodId
+            ? (categories as any[]).find((c) =>
+                c?.products?.some((p: any) => p?.id === prodId)
+              )?.name
+            : undefined);
+
+        if (itemCatName) {
+          const selectedNames = categories
+            .filter((c) => c?.id && selectedCategoryIds.includes(c.id))
+            .map((c) => c?.name?.trim().toLowerCase())
+            .filter(Boolean);
+          if (selectedNames.includes(itemCatName.trim().toLowerCase())) {
+            return true;
+          }
+        }
+        return false;
+      };
+
+      // Corrupt/null item
+      expect(() => isItemVisible(null)).not.toThrow();
+      expect(isItemVisible(null)).toBe(false);
+
+      // Item without product
+      expect(() => isItemVisible({ productId: 'p1' })).not.toThrow();
+      expect(isItemVisible({ productId: 'p1' })).toBe(true);
+
+      // Item with unknown product
+      expect(() => isItemVisible({ product: null })).not.toThrow();
+      expect(isItemVisible({ product: null })).toBe(false);
+    });
   });
 });

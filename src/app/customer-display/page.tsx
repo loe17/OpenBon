@@ -139,7 +139,8 @@ export default function CustomerDisplayPage() {
       };
 
       // Höre auf Live-Warenkorb Aktualisierungen von der Kasse
-      socket.on('pos:cart_updated', (payload: any) => {
+      socket.on('pos:cart_updated', (payload?: any) => {
+        if (!payload) return;
         registerStation(payload.stationId, payload.stationName);
         if (!isMatch(payload.stationId, payload.stationName)) return;
         setState({
@@ -152,12 +153,14 @@ export default function CustomerDisplayPage() {
         });
       });
 
-      socket.on('pos:station_online', (payload: any) => {
+      socket.on('pos:station_online', (payload?: any) => {
+        if (!payload) return;
         registerStation(payload.stationId, payload.stationName);
       });
 
       // Höre auf Bezahlungsabschluss
-      socket.on('payment:completed', (payment: any) => {
+      socket.on('payment:completed', (payment?: any) => {
+        if (!payment) return;
         if (!isMatch(payment.deviceId || payment.stationId, payment.stationName)) return;
         const receiptUrl = payment.digitalReceiptUrl || (payment.digitalReceiptCode ? buildReceiptUrl('http://openbon.local', payment.digitalReceiptCode) : null);
         

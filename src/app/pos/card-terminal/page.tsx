@@ -118,8 +118,8 @@ export default function CardTerminalCompanionPage() {
       }
     };
 
-    const handlePaymentCompleted = (data: { sessionId: string }) => {
-      if (incoming && incoming.sessionId === data.sessionId) {
+    const handlePaymentCompleted = (data?: { sessionId: string }) => {
+      if (incoming && data?.sessionId && incoming.sessionId === data.sessionId) {
         setStatus('SUCCESS');
         setStatusMessage('Zahlung erfolgreich autorisiert!');
         setTimeout(() => {
@@ -129,8 +129,8 @@ export default function CardTerminalCompanionPage() {
       }
     };
 
-    const handlePaymentCancelled = (data: { sessionId: string }) => {
-      if (incoming && incoming.sessionId === data.sessionId) {
+    const handlePaymentCancelled = (data?: { sessionId: string }) => {
+      if (incoming && data?.sessionId && incoming.sessionId === data.sessionId) {
         setStatus('CANCELLED');
         setStatusMessage('Zahlung am Kiosk abgebrochen');
         setTimeout(() => {

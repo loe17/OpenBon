@@ -151,15 +151,16 @@ function KitchenMonitorContent() {
       const data = await res.json();
       if (Array.isArray(data)) {
         setCategories(data);
+        const validIds = data.filter((c: any) => c?.id).map((c: any) => c.id);
         const saved = localStorage.getItem('openbon_kds_category_filter');
         if (saved) {
           try {
             setSelectedCategoryIds(JSON.parse(saved));
           } catch {
-            setSelectedCategoryIds(data.map((c: any) => c.id));
+            setSelectedCategoryIds(validIds);
           }
         } else {
-          setSelectedCategoryIds(data.map((c: any) => c.id));
+          setSelectedCategoryIds(validIds);
         }
       }
     } catch {}
@@ -264,22 +265,26 @@ function KitchenMonitorContent() {
       socket.on('kds:item_updated', () => fetchKdsOrders());
       socket.on('kds:order_updated', () => fetchKdsOrders());
 
-      socket.on('kds:mode_updated', (data: { kdsControlsPrinting?: boolean; kdsPrintDelayTicket?: boolean }) => {
-        if (typeof data.kdsControlsPrinting === 'boolean') {
+      socket.on('kds:mode_updated', (data?: { kdsControlsPrinting?: boolean; kdsPrintDelayTicket?: boolean }) => {
+        if (typeof data?.kdsControlsPrinting === 'boolean') {
           setKdsControlsPrinting(data.kdsControlsPrinting);
         }
-        if (typeof data.kdsPrintDelayTicket === 'boolean') {
+        if (typeof data?.kdsPrintDelayTicket === 'boolean') {
           setKdsPrintDelayTicket(data.kdsPrintDelayTicket);
         }
       });
 
-      socket.on('product:updated', (updated: ProductSoldOutItem) => {
-        setProductsList((prev) =>
-          prev.map((p) => (p.id === updated.id ? { ...p, isSoldOut: updated.isSoldOut } : p))
-        );
+      socket.on('product:updated', (updated?: ProductSoldOutItem) => {
+        if (updated?.id) {
+          setProductsList((prev) =>
+            prev.map((p) => (p.id === updated.id ? { ...p, isSoldOut: Boolean(updated.isSoldOut) } : p))
+          );
+        } else {
+          fetchProducts();
+        }
       });
 
-      socket.on('order:voided', (payload: { reason?: string }) => {
+      socket.on('order:voided', (payload?: { reason?: string }) => {
         playVoidAlert();
         setVoidAlert(payload?.reason ? `Storno eingegangen: ${payload.reason}` : 'Storno eingegangen');
         setTimeout(() => setVoidAlert(null), 8000);
@@ -472,6 +477,7 @@ function KitchenMonitorContent() {
   };
 
   const isItemVisible = (item: KitchenOrder['items'][0]) => {
+    if (!item) return false;
     if (categories.length === 0) return true;
     if (selectedCategoryIds.length === 0) return false;
     if (selectedCategoryIds.length === categories.length) return true;
@@ -479,17 +485,23 @@ function KitchenMonitorContent() {
     const catId = item.product?.categoryId || item.product?.category?.id;
     if (catId && selectedCategoryIds.includes(catId)) return true;
 
+    const prodCatId = item.product?.categoryId;
+    const prodId = item.product?.id || (item as any).productId;
+
     const itemCatName =
       item.product?.category?.name ||
-      categories.find((c) => c.id === item.product?.categoryId)?.name ||
-      (categories as any[]).find((c) =>
-        c.products?.some((p: any) => p.id === (item.product?.id || (item as any).productId))
-      )?.name;
+      (prodCatId ? categories.find((c) => c?.id === prodCatId)?.name : undefined) ||
+      (prodId
+        ? (categories as any[]).find((c) =>
+            c?.products?.some((p: any) => p?.id === prodId)
+          )?.name
+        : undefined);
 
     if (itemCatName) {
       const selectedNames = categories
-        .filter((c) => selectedCategoryIds.includes(c.id))
-        .map((c) => c.name.trim().toLowerCase());
+        .filter((c) => c?.id && selectedCategoryIds.includes(c.id))
+        .map((c) => c?.name?.trim().toLowerCase())
+        .filter(Boolean);
       if (selectedNames.includes(itemCatName.trim().toLowerCase())) {
         return true;
       }
@@ -499,6 +511,7 @@ function KitchenMonitorContent() {
   };
 
   const toggleCategory = (catId: string) => {
+    if (!catId) return;
     triggerHapticFeedback();
     let updated: string[];
     if (selectedCategoryIds.includes(catId)) {
@@ -512,7 +525,7 @@ function KitchenMonitorContent() {
 
   const selectAllCategories = () => {
     triggerHapticFeedback();
-    const all = categories.map((c) => c.id);
+    const all = categories.filter((c) => c?.id).map((c) => c.id);
     setSelectedCategoryIds(all);
     localStorage.setItem('openbon_kds_category_filter', JSON.stringify(all));
   };
@@ -561,14 +574,15 @@ function KitchenMonitorContent() {
       }
 
       for (const item of order.items) {
+        if (!item) continue;
         let categoryName = item.product?.category?.name;
         if (!categoryName && item.product?.categoryId) {
-          const foundCat = categories.find((c) => c.id === item.product?.categoryId);
+          const foundCat = categories.find((c) => c?.id === item.product?.categoryId);
           if (foundCat) categoryName = foundCat.name;
         }
         if (!categoryName) {
           const catForProd = (categories as any[]).find((c) =>
-            c.products?.some((p: any) => p.id === (item.product?.id || (item as any).productId))
+            c?.products?.some((p: any) => p?.id === (item.product?.id || (item as any).productId))
           );
           if (catForProd) categoryName = catForProd.name;
         }
@@ -890,7 +904,7 @@ function KitchenMonitorContent() {
                     if (!map.has(cName)) map.set(cName, []);
                     map.get(cName)!.push(item);
                   }
-                  const orderList = categories.map((c) => c.name.trim());
+                  const orderList = categories.map((c) => c?.name?.trim()).filter(Boolean) as string[];
                   const sortedKeys = Array.from(map.keys()).sort((a, b) => {
                     const idxA = orderList.indexOf(a);
                     const idxB = orderList.indexOf(b);
