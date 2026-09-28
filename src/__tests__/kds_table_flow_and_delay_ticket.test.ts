@@ -195,15 +195,15 @@ describe('KDS Küchenmonitor: Table-Flow, Print Control & Warte-Bon (v0.4.67)', 
       }
 
       const tableList = Array.from(map.values());
-      // Anforderung: "setze den tisch an dem die gäste am längsten warten nach ganz rechts"
-      tableList.sort((a, b) => b.oldestTimestamp - a.oldestTimestamp);
+      // Ergonomische FIFO-Sortierung: Ältester Tisch ganz links (Index 0), neue Tische rechts
+      tableList.sort((a, b) => a.oldestTimestamp - b.oldestTimestamp);
 
-      // Index 0 (ganz links) = Tisch 3 (neueste Bestellung, 2 Min)
-      expect(tableList[0].tableLabel).toBe('Tisch 3');
+      // Index 0 (ganz links im Direktblick) = Tisch 1 (älteste Bestellung, 30 Min)
+      expect(tableList[0].tableLabel).toBe('Tisch 1');
       // Index 1 (Mitte) = Tisch 2 (15 Min)
       expect(tableList[1].tableLabel).toBe('Tisch 2');
-      // Index 2 (ganz rechts) = Tisch 1 (älteste Bestellung, 30 Min)
-      expect(tableList[2].tableLabel).toBe('Tisch 1');
+      // Index 2 (rechts) = Tisch 3 (neueste Bestellung, 2 Min)
+      expect(tableList[2].tableLabel).toBe('Tisch 3');
     });
 
     it('should bundle multiple orders for the same table together', () => {

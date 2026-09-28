@@ -83,6 +83,29 @@ Vor dem Release müssen folgende Dateien auf die identische neue Versionsnummer 
 - `src/lib/version.ts` (`APP_VERSION`, `APP_BUILD_DATE`, `APP_RELEASE_DATE`, `APP_CODENAME`)
 - `src/__tests__/build_and_schema.test.ts` (Versions-Assert)
 
+## v0.4.71 – KDS FIFO-Sortierung von links nach rechts & automatische Warengruppen-Platzersparnis (28.09.2026)
+
+> Ergonomische Tisch-Sortierung im Küchen- und Ausschankmonitor nach natürlicher Leserichtung von links nach rechts (am längsten wartende, dringendste Tische stehen auf Platz 1 ganz links im Direktblick ohne Scrollen, neue Bestellungen reihen sich nach rechts an), automatisches Ausblenden überflüssiger Warengruppen-Trennbalken bei Einzelfiltern oder reinen Speisen-/Getränketischen zur maximalen vertikalen Platzersparnis auf Tablets und Bildschirmen sowie erweiterte Unit- und Integrationstests.
+
+### Weshalb
+1. **Ergonomische FIFO-Sortierung von links nach rechts:** Wenn mehr Tische aktiv sind als auf die Monitorbreite passen, startet der Bildschirm standardmäßig ganz links (Scrollposition 0). Bei der bisherigen Rechts-Platzierung der ältesten Tische sah die Küchen- oder Schankkraft beim ersten Blick nur die allerneuesten Bestellungen, während die ältesten, dringendsten Tische rechts aus dem Bildschirm herausgeschoben waren und erst durch mühsames horizontales Scrollen gesucht werden mussten. Die natürliche und ergonomische Lösung platziert die am längsten wartenden Tische ganz links auf Index 0, sodass sie sofort im Blickfeld liegen.
+2. **Automatische Platzersparnis bei Warengruppen:** Wenn im Filter oben nur eine einzige Warengruppe ausgewählt ist (z. B. Grill-Tablet nur für Speisen, Schank-Tablet nur für Getränke) oder wenn ein Tisch ohnehin nur Artikel aus einer einzigen Gruppe enthält, ist eine Zwischenüberschrift wie `[ KÜCHE – 2 offen ]` auf jeder einzelnen Tischkarte doppelt gemoppelt. Durch das automatische Ausblenden dieser Leiste schließen die Artikel direkt oben an, was wertvollen vertikalen Platz spart und unnötiges Scrollen innerhalb der Tischkarte verhindert.
+
+### Wie (Technik)
+- **Tisch-Sortierung (`src/app/kitchen/page.tsx`):**
+  - In `tableGroups` wird die Liste aufsteigend nach `oldestTimestamp` sortiert: `list.sort((a, b) => a.oldestTimestamp - b.oldestTimestamp)`. Der älteste Tisch steht damit verlässlich an Position 0 (ganz links).
+  - Neu eintreffende Tische reihen sich rechts an. Wird der älteste Tisch fertig gemeldet und abgehakt, rücken die nächsten Tische automatisch von rechts nach links nach.
+- **Warengruppen-Trennbalken (`src/app/kitchen/page.tsx`):**
+  - Ermittlung von `isSingleCategoryFilter = selectedCategoryIds.length === 1 || categories.length <= 1`.
+  - Bedingung für die Anzeige des Trennbalkens: `showCategoryHeader = !isSingleCategoryFilter && categoryGroups.length > 1`.
+  - Bei Einzelfiltern oder Tischen mit nur einer Warengruppe wird der Trennbalken ausgeblendet; bei Tischen mit gemischten Warengruppen (z. B. Speisen UND Getränke) bleibt die übersichtliche Farb-Trennung aktiv.
+- **Bedienungsanleitung (`docs/ANLEITUNG.md`):**
+  - Kapitel 3 um die ergonomische Sortierung von links nach rechts und die automatische Platzersparnis erweitert.
+- **Automatisierte Tests (`src/__tests__/kds_table_flow_and_delay_ticket.test.ts`, `src/__tests__/kds_ergonomics_history_v0470.test.ts`):**
+  - Tests an die neue FIFO-Reihenfolge (ältester Tisch links auf Index 0) angepasst.
+  - Neuer Testfall für die Bedingungslogik der Warengruppen-Trennleisten.
+  - 61 Test-Dateien mit 431 Tests ausnahmslos grün (100% bestanden).
+
 ## v0.4.70 – KDS Doppel-Druckschutz, Tages-Historie mit Wiederherstellung, Vollbild per Kochmütze, ergonomischer Haken & dynamische Warengruppen-Farben (28.09.2026)
 
 > Zuverlässiger Doppel-Druckschutz für alle Betriebsmodi und Storno-Verzögerungstimer, sauberes automatisches Abräumen erledigter Tische im Küchenmonitor, neue Tages-Historie aller fertiggestellten Tische mit vollständigen Detailinformationen und Ein-Klick-Wiederherstellung, Touch-Vollbildmodus per Fingertipp auf die Kochmütze (analog zur Bonkasse), ergonomischer Haken-Button im Tisch-Kopf zur schnellen Gesamtauswahl/Abwahl neben einer statischen (nicht-pulsierenden) Wartezeit-Anzeige, kompaktere Tischspalten (4–5 Tische nebeneinander), dynamische Übernahme der im Artikelstamm angelegten Warengruppen-Farben mit Ausblendung leerer Gruppen sowie ein neuer Konfigurationsschalter für Kellner-Fertigmeldungsbenachrichtigungen (Standard: Aus).

@@ -725,10 +725,9 @@ function KitchenMonitorContent() {
     }
 
     const list = Array.from(map.values());
-    // FIFO Sortierung:
-    // "setze den tisch an dem die gäste am längsten warten nach ganz rechts"
-    // Neueste Bestellungen links (größter Zeitstempel), älteste Bestellungen rechts (kleinster Zeitstempel)
-    list.sort((a, b) => b.oldestTimestamp - a.oldestTimestamp);
+    // FIFO Sortierung (Ältester Tisch ganz links im Direktblick):
+    // Älteste Bestellungen links (kleinster Zeitstempel, höchste Dringlichkeit), neueste rechts (größter Zeitstempel)
+    list.sort((a, b) => a.oldestTimestamp - b.oldestTimestamp);
 
     return list;
   }, [filteredOrders, categories]);
@@ -1225,21 +1224,28 @@ function KitchenMonitorContent() {
                     <div className="flex-1 overflow-y-auto min-h-0 p-2.5 sm:p-3 space-y-3 overscroll-contain touch-pan-y">
                       {categoryGroups.map((catGroup) => {
                         const openCount = catGroup.items.filter((i) => i.kdsStatus !== 'COMPLETED' && !i.isCancelled).length;
+                        // Trennleiste nur anzeigen, wenn mehr als eine Warengruppe im Tisch vorhanden ist
+                        // und oben im Filter nicht ohnehin nur eine einzige Warengruppe aktiv ist
+                        const isSingleCategoryFilter = selectedCategoryIds.length === 1 || categories.length <= 1;
+                        const showCategoryHeader = !isSingleCategoryFilter && categoryGroups.length > 1;
+
                         return (
                           <div key={catGroup.name} className="space-y-2">
-                            {/* Warengruppen-Trennleiste: Farblich wie im Artikelstamm angelegt */}
-                            <div
-                              className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-slate-800/90 border border-slate-700/80 shadow-sm text-xs font-black uppercase tracking-wider"
-                              style={{ borderLeftWidth: 4, borderLeftColor: catGroup.color }}
-                            >
-                              <span className="truncate" style={{ color: catGroup.color }}>{catGroup.name}</span>
-                              <span
-                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ml-1.5"
-                                style={{ backgroundColor: `${catGroup.color}25`, color: catGroup.color }}
+                            {/* Warengruppen-Trennleiste: Nur anzeigen, wenn mehrere Warengruppen vorhanden sind */}
+                            {showCategoryHeader && (
+                              <div
+                                className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-slate-800/90 border border-slate-700/80 shadow-sm text-xs font-black uppercase tracking-wider"
+                                style={{ borderLeftWidth: 4, borderLeftColor: catGroup.color }}
                               >
-                                {openCount > 0 ? `${openCount} offen` : 'erledigt'}
-                              </span>
-                            </div>
+                                <span className="truncate" style={{ color: catGroup.color }}>{catGroup.name}</span>
+                                <span
+                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ml-1.5"
+                                  style={{ backgroundColor: `${catGroup.color}25`, color: catGroup.color }}
+                                >
+                                  {openCount > 0 ? `${openCount} offen` : 'erledigt'}
+                                </span>
+                              </div>
+                            )}
 
                             {catGroup.items.map((item) => (
                               <TableItemCard
