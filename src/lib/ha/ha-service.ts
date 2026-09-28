@@ -15,7 +15,7 @@ interface SyncJournalEntry {
 const LEASE_TTL_MS = 10000;
 
 export class HighAvailabilityService {
-  private static instance: HighAvailabilityService;
+  private static instance: HighAvailabilityService | null = null;
   private currentRole: 'STANDALONE' | 'PRIMARY' | 'STANDBY' = (process.env.HA_ROLE as any) || 'STANDALONE';
   private partnerUrl: string = process.env.HA_PARTNER_URL || '';
   private missedHeartbeats = 0;
@@ -37,6 +37,17 @@ export class HighAvailabilityService {
       HighAvailabilityService.instance = new HighAvailabilityService();
     }
     return HighAvailabilityService.instance;
+  }
+
+  public static resetInstance(): void {
+    if (HighAvailabilityService.instance) {
+      HighAvailabilityService.instance.dispose();
+      HighAvailabilityService.instance = null;
+    }
+    if (singletonInstance) {
+      singletonInstance.dispose();
+      singletonInstance = null;
+    }
   }
 
   private async initRole(): Promise<void> {
@@ -626,10 +637,7 @@ export class HighAvailabilityService {
 let singletonInstance: HighAvailabilityService | null = null;
 
 function getHaInstance(): HighAvailabilityService {
-  if (!singletonInstance) {
-    singletonInstance = new HighAvailabilityService();
-  }
-  return singletonInstance;
+  return HighAvailabilityService.getInstance();
 }
 
 export const haService: HighAvailabilityService = new Proxy(

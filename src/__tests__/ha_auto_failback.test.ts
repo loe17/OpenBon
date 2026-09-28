@@ -3,19 +3,25 @@ import prisma from '../lib/db';
 import { HighAvailabilityService } from '../lib/ha/ha-service';
 import { POST as handoverHandler } from '../app/api/system/ha/handover/route';
 import { GET as getPublicConfig } from '../app/api/config/public/route';
-import { getHaSyncSecret } from '../lib/ha/ha-secret';
+import { getHaSyncSecret, clearHaCaches } from '../lib/ha/ha-secret';
 import { ensureSessionSecret } from '../lib/session-secret';
 import { signSessionToken, SESSION_COOKIE_NAME } from '../lib/auth-session';
+
+const TEST_HA_SECRET = '6f8a9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e';
 
 describe('HA Auto-Failback & Handover System', () => {
   beforeEach(async () => {
     await ensureSessionSecret();
+    process.env.HA_SYNC_SECRET = TEST_HA_SECRET;
+    clearHaCaches();
+    HighAvailabilityService.resetInstance();
     await prisma.haLease.deleteMany().catch(() => {});
     await prisma.eventConfig.upsert({
       where: { id: 'default' },
       update: {
         haRole: 'PRIMARY',
         haPartnerUrl: 'http://192.168.178.60:3000',
+        haSyncSecret: TEST_HA_SECRET,
         haAutoFailover: true,
         haAutoFailback: true,
       },
@@ -24,6 +30,7 @@ describe('HA Auto-Failback & Handover System', () => {
         name: 'Test Event',
         haRole: 'PRIMARY',
         haPartnerUrl: 'http://192.168.178.60:3000',
+        haSyncSecret: TEST_HA_SECRET,
         haAutoFailover: true,
         haAutoFailback: true,
       },
@@ -31,8 +38,20 @@ describe('HA Auto-Failback & Handover System', () => {
   });
 
   afterEach(async () => {
-    await prisma.haLease.deleteMany().catch(() => {});
+    HighAvailabilityService.resetInstance();
+    delete process.env.HA_SYNC_SECRET;
     delete process.env.HA_AUTO_FAILBACK;
+    clearHaCaches();
+    await prisma.haLease.deleteMany().catch(() => {});
+    await prisma.eventConfig.update({
+      where: { id: 'default' },
+      data: {
+        haRole: 'STANDALONE',
+        haPartnerUrl: null,
+        haAutoFailover: false,
+        haAutoFailback: true,
+      },
+    }).catch(() => {});
   });
 
   describe('Public Config API Auto-Failback', () => {

@@ -71,18 +71,27 @@ describe('Praxisnahe End-to-End Workflow Tests (Cent-hart)', () => {
   });
 
   it('Workflow 4: Hot-Standby Failover und Rollenwechsel', async () => {
+    HighAvailabilityService.resetInstance();
+    const prisma = (await import('../lib/db')).default;
+    await prisma.haLease.deleteMany().catch(() => {});
+    await prisma.eventConfig.upsert({
+      where: { id: 'default' },
+      update: { haRole: 'STANDBY', haPartnerUrl: null, haAutoFailover: false },
+      create: { id: 'default', name: 'Test Event', haRole: 'STANDBY', haPartnerUrl: null, haAutoFailover: false },
+    }).catch(() => {});
+
     const haService = new HighAvailabilityService();
     await haService.ready;
     await haService.setRole('STANDBY');
     expect(haService.getRole()).toBe('STANDBY');
 
-    const prisma = (await import('../lib/db')).default;
     await prisma.haLease.deleteMany().catch(() => {});
     const promoted = await haService.promoteToPrimary();
     expect(promoted).toBe(true);
     expect(haService.getRole()).toBe('PRIMARY');
 
     haService.dispose();
+    HighAvailabilityService.resetInstance();
   });
 
   it('Workflow 5: VR-Pay Me & Kartenzahlung mit prozentualem und festem Aufschlag', () => {

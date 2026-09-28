@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import prisma from '../lib/db';
+import { HighAvailabilityService } from '../lib/ha/ha-service';
 import { GET as getHealth } from '../app/api/health/route';
 import { GET as getPublicConfig } from '../app/api/config/public/route';
 import { GET as getDiscover } from '../app/api/system/ha/discover/route';
@@ -24,6 +25,19 @@ describe('HA 1-Klick-Netzwerksuche & Waiter Offline Puffer', () => {
         haAutoFailover: true,
       },
     });
+  });
+
+  afterAll(async () => {
+    HighAvailabilityService.resetInstance();
+    await prisma.haLease.deleteMany().catch(() => {});
+    await prisma.eventConfig.update({
+      where: { id: 'default' },
+      data: {
+        haRole: 'STANDALONE',
+        haPartnerUrl: null,
+        haAutoFailover: false,
+      },
+    }).catch(() => {});
   });
 
   describe('Health API Erweiterung', () => {
