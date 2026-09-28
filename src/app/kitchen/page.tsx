@@ -25,6 +25,10 @@ import {
   Square,
   Eye,
   FileText,
+  History,
+  RotateCcw,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 
 import StationGate from '@/components/auth/station-gate';
@@ -65,6 +69,7 @@ interface KitchenOrder {
 interface CategoryOption {
   id: string;
   name: string;
+  color?: string | null;
 }
 
 interface ProductSoldOutItem {
@@ -125,12 +130,34 @@ function KitchenMonitorContent() {
   const [delayTicketToggles, setDelayTicketToggles] = useState<Record<string, boolean>>({});
   const [isSubmittingPrint, setIsSubmittingPrint] = useState(false);
 
+  // Vollbild & Historie Modal
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyOrders, setHistoryOrders] = useState<KitchenOrder[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
+
   // Ausverkauft-Schnellzugriff & Modal
   const [productsList, setProductsList] = useState<ProductSoldOutItem[]>([]);
   const [showSoldOutModal, setShowSoldOutModal] = useState(false);
   const [soldOutSearch, setSoldOutSearch] = useState('');
   const [soldOutFilterCategory, setSoldOutFilterCategory] = useState<string>('ALL');
   const [togglingProductId, setTogglingProductId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
+  const handleToggleFullscreen = () => {
+    triggerHapticFeedback();
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
 
   const fetchConfig = async () => {
     try {
@@ -177,6 +204,75 @@ function KitchenMonitorContent() {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await fetch('/api/orders?kdsHistory=true', { cache: 'no-store' });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setHistoryOrders(data);
+      }
+    } catch (e) {
+      console.error('Fehler beim Laden der Historie:', e);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const handleOpenHistory = () => {
+    triggerHapticFeedback();
+    setShowHistoryModal(true);
+    fetchHistory();
+  };
+
+  const handleRestoreItem = async (itemId: string, orderId: string) => {
+    triggerHapticFeedback();
+    try {
+      const res = await fetch('/api/kds/undo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderItemId: itemId }),
+      });
+      if (!res.ok) {
+        await fetch(`/api/orders/${orderId}/status`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ itemId, itemKdsStatus: 'PENDING' }),
+        });
+      }
+      toastSuccess('Position wiederhergestellt');
+      fetchKdsOrders();
+      fetchHistory();
+    } catch {
+      toastError('Fehler beim Wiederherstellen');
+    }
+  };
+
+  const handleRestoreTable = async (tableItems: { id: string; orderId: string }[]) => {
+    triggerHapticFeedback();
+    try {
+      for (const it of tableItems) {
+        const res = await fetch('/api/kds/undo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderItemId: it.id }),
+        });
+        if (!res.ok) {
+          await fetch(`/api/orders/${it.orderId}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itemId: it.id, itemKdsStatus: 'PENDING' }),
+          });
+        }
+      }
+      toastSuccess('Tisch wiederhergestellt');
+      fetchKdsOrders();
+      fetchHistory();
+    } catch {
+      toastError('Fehler beim Wiederherstellen des Tisches');
     }
   };
 
@@ -253,6 +349,7 @@ function KitchenMonitorContent() {
     fetchCategories();
     fetchKdsOrders();
     fetchProducts();
+    fetchHistory();
 
     const timer = setInterval(() => setCurrentTime(Date.now()), 10000);
 
@@ -260,10 +357,17 @@ function KitchenMonitorContent() {
       socket.on('order:new', () => {
         playKitchenChime();
         fetchKdsOrders();
+        fetchHistory();
       });
 
-      socket.on('kds:item_updated', () => fetchKdsOrders());
-      socket.on('kds:order_updated', () => fetchKdsOrders());
+      socket.on('kds:item_updated', () => {
+        fetchKdsOrders();
+        fetchHistory();
+      });
+      socket.on('kds:order_updated', () => {
+        fetchKdsOrders();
+        fetchHistory();
+      });
 
       socket.on('kds:mode_updated', (data?: { kdsControlsPrinting?: boolean; kdsPrintDelayTicket?: boolean }) => {
         if (typeof data?.kdsControlsPrinting === 'boolean') {
@@ -629,6 +733,103 @@ function KitchenMonitorContent() {
     return list;
   }, [filteredOrders, categories]);
 
+  // Aktive Tische: Nur Tische mit mindestens einer noch offenen (nicht fertigen) Position
+  const activeTableGroups: TableGroup[] = React.useMemo(() => {
+    return tableGroups.filter((t) =>
+      t.items.some((i) => i.kdsStatus !== 'COMPLETED' && !i.isCancelled)
+    );
+  }, [tableGroups]);
+
+  // Aktive Einzelbestellungen (für FIFO / Order-Ansicht)
+  const activeOrders = React.useMemo(() => {
+    return filteredOrders.filter((o) =>
+      o.items.some((i) => i.kdsStatus !== 'COMPLETED' && !i.isCancelled)
+    );
+  }, [filteredOrders]);
+
+  // Gruppierung der Historie nach Tischen für den Tag
+  const historyTables = React.useMemo(() => {
+    const map = new Map<string, {
+      tableKey: string;
+      tableLabel: string;
+      waiterNames: string[];
+      orderNumbers: number[];
+      completedAt: number;
+      items: {
+        id: string;
+        orderId: string;
+        productName: string;
+        quantity: number;
+        variantName?: string | null;
+        selectedOptions?: string | null;
+        customizationText?: string | null;
+        courseNumber?: number;
+      }[];
+    }>();
+
+    for (const order of historyOrders) {
+      const tableLabel = order.tokenNumber
+        ? `Marke #${order.tokenNumber}`
+        : (order.table?.label || order.tableLabel || 'Theke');
+      const tableKey = order.tokenNumber
+        ? `token_${order.tokenNumber}`
+        : (order.table?.label || order.tableLabel || (order.tableId ? `table_${order.tableId}` : `theke_${order.waiterName || 'kasse'}_${order.id}`));
+
+      if (!map.has(tableKey)) {
+        map.set(tableKey, {
+          tableKey,
+          tableLabel,
+          waiterNames: [],
+          orderNumbers: [],
+          completedAt: new Date(order.createdAt).getTime(),
+          items: [],
+        });
+      }
+
+      const g = map.get(tableKey)!;
+      if (order.waiterName && !g.waiterNames.includes(order.waiterName)) {
+        g.waiterNames.push(order.waiterName);
+      }
+      if (!g.orderNumbers.includes(order.orderNumber)) {
+        g.orderNumbers.push(order.orderNumber);
+      }
+      const orderTime = new Date(order.createdAt).getTime();
+      if (orderTime > g.completedAt) g.completedAt = orderTime;
+
+      for (const it of order.items) {
+        if (it.kdsStatus === 'COMPLETED' && !it.isCancelled) {
+          g.items.push({
+            id: it.id,
+            orderId: order.id,
+            productName: it.productName,
+            quantity: it.quantity,
+            variantName: it.variantName,
+            selectedOptions: it.selectedOptions,
+            customizationText: it.customizationText,
+            courseNumber: it.courseNumber,
+          });
+        }
+      }
+    }
+
+    const list = Array.from(map.values()).filter((t) => t.items.length > 0);
+    list.sort((a, b) => b.completedAt - a.completedAt);
+    return list;
+  }, [historyOrders]);
+
+  const filteredHistoryTables = React.useMemo(() => {
+    if (!historySearch.trim()) return historyTables;
+    const q = historySearch.toLowerCase();
+    return historyTables.filter((t) =>
+      t.tableLabel.toLowerCase().includes(q) ||
+      t.waiterNames.some((w) => w.toLowerCase().includes(q)) ||
+      t.orderNumbers.some((num) => String(num).includes(q)) ||
+      t.items.some((i) => i.productName.toLowerCase().includes(q))
+    );
+  }, [historyTables, historySearch]);
+
+  const historyCount = historyTables.length;
+
   const backlogMap = new Map<string, number>();
   for (const ord of filteredOrders) {
     for (const item of ord.items) {
@@ -668,9 +869,15 @@ function KitchenMonitorContent() {
       <div className="bg-slate-900 border-b border-slate-800 p-2.5 sm:p-3 shadow-md space-y-2.5 shrink-0">
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           <div className="flex items-center gap-2.5">
-            <div className="bg-amber-500 text-black p-2 rounded-2xl shadow">
+            <button
+              type="button"
+              onClick={handleToggleFullscreen}
+              className="bg-amber-500 hover:bg-amber-400 text-black p-2 rounded-2xl shadow transition active:scale-95 touch-manipulation cursor-pointer flex items-center justify-center relative group"
+              title={isFullscreen ? 'Vollbild beenden' : 'Vollbild aktivieren'}
+              aria-label={isFullscreen ? 'Vollbild beenden' : 'Vollbild aktivieren'}
+            >
               <ChefHat className="w-5 h-5 sm:w-6 sm:h-6" />
-            </div>
+            </button>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-black text-base sm:text-lg">Küchen- & Schankmonitor</h2>
@@ -685,7 +892,7 @@ function KitchenMonitorContent() {
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 font-medium">
-                {viewMode === 'TABLE' ? `${tableGroups.length} aktive Tische` : `${filteredOrders.length} aktive Bestellungen`} •{' '}
+                {viewMode === 'TABLE' ? `${activeTableGroups.length} aktive Tische` : `${activeOrders.length} aktive Bestellungen`} •{' '}
                 {selectedCategoryIds.length} von {categories.length} Warengruppen
               </p>
             </div>
@@ -705,6 +912,22 @@ function KitchenMonitorContent() {
             >
               {kdsControlsPrinting ? <Printer className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               <span>{kdsControlsPrinting ? 'Monitor steuert Druck' : 'Reine Überwachung'}</span>
+            </button>
+
+            {/* Historie erledigter Tische */}
+            <button
+              type="button"
+              onClick={handleOpenHistory}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition border bg-slate-800 text-slate-300 border-slate-700 hover:text-white hover:bg-slate-700 active:scale-95"
+              title="Erledigte Tische des heutigen Tages einsehen und wiederherstellen"
+            >
+              <History className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Historie</span>
+              {historyCount > 0 && (
+                <span className="bg-emerald-600 text-white px-1.5 py-0.2 rounded text-[10px] font-black">
+                  {historyCount}
+                </span>
+              )}
             </button>
 
             {/* Ausverkauft / Artikel sperren Schnellzugriff */}
@@ -877,7 +1100,7 @@ function KitchenMonitorContent() {
               <RefreshCw className="w-6 h-6 animate-spin mr-2" />
               <span>Lade Küchenübersicht...</span>
             </div>
-          ) : tableGroups.length === 0 ? (
+          ) : activeTableGroups.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-500">
               <ChefHat className="w-16 h-16 text-slate-700 mb-3" />
               <h3 className="text-lg font-black text-slate-300">Monitor ist bereit</h3>
@@ -885,7 +1108,7 @@ function KitchenMonitorContent() {
             </div>
           ) : (
             <div className="flex flex-row items-stretch h-full max-h-full gap-3 pb-1 min-h-0">
-              {tableGroups.map((table) => {
+              {activeTableGroups.map((table) => {
                 const openItems = table.items.filter((i) => i.kdsStatus !== 'COMPLETED' && !i.isCancelled);
                 const completedItems = table.items.filter((i) => i.kdsStatus === 'COMPLETED');
                 const checkedOpenItems = openItems.filter((i) => selectedItemIds.has(i.id));
@@ -898,11 +1121,15 @@ function KitchenMonitorContent() {
                 const wantDelayTicket = delayTicketToggles[table.tableKey] ?? kdsPrintDelayTicket;
 
                 const categoryGroups = (() => {
-                  const map = new Map<string, TableGroupItem[]>();
+                  const map = new Map<string, { color: string; items: TableGroupItem[] }>();
                   for (const item of table.items) {
                     const cName = item.categoryName || 'Sonstiges';
-                    if (!map.has(cName)) map.set(cName, []);
-                    map.get(cName)!.push(item);
+                    if (!map.has(cName)) {
+                      const catObj = categories.find((c) => c?.name?.trim()?.toLowerCase() === cName.trim().toLowerCase());
+                      const prodCatColor = item.product?.category?.color || catObj?.color || '#eab308';
+                      map.set(cName, { color: prodCatColor, items: [] });
+                    }
+                    map.get(cName)!.items.push(item);
                   }
                   const orderList = categories.map((c) => c?.name?.trim()).filter(Boolean) as string[];
                   const sortedKeys = Array.from(map.keys()).sort((a, b) => {
@@ -913,16 +1140,22 @@ function KitchenMonitorContent() {
                     if (idxB !== -1) return 1;
                     return a.localeCompare(b);
                   });
-                  return sortedKeys.map((name) => ({
-                    name,
-                    items: map.get(name)!.sort((a, b) => (a.courseNumber ?? 1) - (b.courseNumber ?? 1)),
-                  }));
+                  return sortedKeys
+                    .map((name) => {
+                      const entry = map.get(name)!;
+                      return {
+                        name,
+                        color: entry.color || '#eab308',
+                        items: entry.items.sort((a, b) => (a.courseNumber ?? 1) - (b.courseNumber ?? 1)),
+                      };
+                    })
+                    .filter((group) => group.items.length > 0);
                 })();
 
                 return (
                   <div
                     key={table.tableKey}
-                    className={`w-80 sm:w-88 min-w-[300px] max-w-[350px] h-full max-h-full flex flex-col rounded-3xl border-2 bg-slate-900 shadow-xl overflow-hidden shrink-0 transition-all ${
+                    className={`w-72 sm:w-76 min-w-[260px] max-w-[290px] h-full max-h-full flex flex-col rounded-3xl border-2 bg-slate-900 shadow-xl overflow-hidden shrink-0 transition-all ${
                       isUrgent
                         ? 'border-rose-500 shadow-rose-950/60'
                         : isWarning
@@ -931,15 +1164,15 @@ function KitchenMonitorContent() {
                     }`}
                   >
                     {/* Tisch-Kopfzeile (Fixiert oben im Tisch) */}
-                    <div className="p-3.5 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-950/60">
-                      <div className="min-w-0 pr-2">
+                    <div className="p-3 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-950/60 gap-2">
+                      <div className="min-w-0 flex-1">
                         <div className="font-black text-base sm:text-lg text-white flex items-center gap-1.5 truncate">
                           <span className="truncate">{table.tableLabel}</span>
                           <span className="text-[11px] text-slate-400 font-semibold shrink-0">
                             ({openItems.length} offen)
                           </span>
                         </div>
-                        <div className="text-xs text-slate-400 font-medium truncate mt-0.5">
+                        <div className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
                           Bedienung:{' '}
                           <span className="text-slate-200 font-bold">
                             {table.waiterNames.join(', ') || 'Kasse'}
@@ -952,19 +1185,39 @@ function KitchenMonitorContent() {
                         </div>
                       </div>
 
-                      {/* Wartezeit-Badge */}
-                      <div
-                        className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-black font-mono shadow shrink-0 ${
-                          isUrgent
-                            ? 'bg-rose-600 text-white animate-pulse'
-                            : isWarning
-                            ? 'bg-amber-500 text-black'
-                            : 'bg-slate-800 text-slate-300 border border-slate-700'
-                        }`}
-                        title="Wartezeit seit Bestelleingang"
-                      >
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>{elapsedMinutes}m</span>
+                      {/* Rechte Steuerleiste im Header: Zeit nach links gerückt, rechts daneben Haken-Button */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Wartezeit-Badge ohne animate-pulse */}
+                        <div
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black font-mono shadow shrink-0 ${
+                            isUrgent
+                              ? 'bg-rose-600 text-white'
+                              : isWarning
+                              ? 'bg-amber-500 text-black'
+                              : 'bg-slate-800 text-slate-300 border border-slate-700'
+                          }`}
+                          title="Wartezeit seit Bestelleingang"
+                        >
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{elapsedMinutes}m</span>
+                        </div>
+
+                        {/* Haken-Button für 'Alles markieren' */}
+                        <button
+                          type="button"
+                          onClick={() => toggleSelectTableItems(table)}
+                          disabled={openItems.length === 0}
+                          title={checkedOpenItems.length === openItems.length && openItems.length > 0 ? 'Auswahl aufheben' : 'Alle Positionen markieren'}
+                          className={`p-1.5 rounded-xl border flex items-center justify-center transition active:scale-95 ${
+                            checkedOpenItems.length === openItems.length && openItems.length > 0
+                              ? 'bg-emerald-500 text-white border-emerald-400 shadow-md shadow-emerald-950/40'
+                              : checkedOpenItems.length > 0
+                              ? 'bg-emerald-950 text-emerald-300 border-emerald-600/60'
+                              : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700 hover:bg-slate-700'
+                          }`}
+                        >
+                          <Check className="w-4 h-4 stroke-[3]" />
+                        </button>
                       </div>
                     </div>
 
@@ -974,10 +1227,16 @@ function KitchenMonitorContent() {
                         const openCount = catGroup.items.filter((i) => i.kdsStatus !== 'COMPLETED' && !i.isCancelled).length;
                         return (
                           <div key={catGroup.name} className="space-y-2">
-                            {/* Warengruppen-Trennleiste: Schlicht, klar, ohne Emojis/Symbole, exakter Warengruppenname */}
-                            <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-slate-800/90 border border-slate-700/80 shadow-sm text-xs font-black uppercase tracking-wider text-amber-300">
-                              <span className="truncate">{catGroup.name}</span>
-                              <span className="text-[10px] text-slate-400 font-semibold shrink-0 ml-1.5">
+                            {/* Warengruppen-Trennleiste: Farblich wie im Artikelstamm angelegt */}
+                            <div
+                              className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-slate-800/90 border border-slate-700/80 shadow-sm text-xs font-black uppercase tracking-wider"
+                              style={{ borderLeftWidth: 4, borderLeftColor: catGroup.color }}
+                            >
+                              <span className="truncate" style={{ color: catGroup.color }}>{catGroup.name}</span>
+                              <span
+                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ml-1.5"
+                                style={{ backgroundColor: `${catGroup.color}25`, color: catGroup.color }}
+                              >
                                 {openCount > 0 ? `${openCount} offen` : 'erledigt'}
                               </span>
                             </div>
@@ -1050,20 +1309,13 @@ function KitchenMonitorContent() {
                             </span>
                           </button>
 
-                          <div className="flex items-center justify-between px-1">
-                            <button
-                              type="button"
-                              onClick={() => toggleSelectTableItems(table)}
-                              className="text-[11px] text-slate-400 hover:text-white underline font-semibold"
-                            >
-                              {checkedOpenItems.length === openItems.length && openItems.length > 0 ? 'Auswahl aufheben' : 'Alles markieren'}
-                            </button>
-                            {completedItems.length > 0 && (
+                          {completedItems.length > 0 && (
+                            <div className="flex items-center justify-end px-1">
                               <span className="text-[11px] text-emerald-400 font-bold">
                                 {completedItems.length} bereits serviert
                               </span>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </>
                       ) : (
                         /* Modus: Reine Überwachung (Sofortdruck war bereits aktiv) */
@@ -1085,15 +1337,6 @@ function KitchenMonitorContent() {
                                 : `Tisch komplett fertig (${openItems.length})`}
                             </span>
                           </button>
-                          <div className="flex items-center justify-between px-1">
-                            <button
-                              type="button"
-                              onClick={() => toggleSelectTableItems(table)}
-                              className="text-[11px] text-slate-400 hover:text-white underline font-semibold"
-                            >
-                              {checkedOpenItems.length === openItems.length && openItems.length > 0 ? 'Auswahl aufheben' : 'Alles markieren'}
-                            </button>
-                          </div>
                         </>
                       )}
                     </div>
@@ -1111,7 +1354,7 @@ function KitchenMonitorContent() {
               <RefreshCw className="w-6 h-6 animate-spin mr-2" />
               <span>Lade Küchenbons...</span>
             </div>
-          ) : filteredOrders.length === 0 ? (
+          ) : activeOrders.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-500">
               <ChefHat className="w-16 h-16 text-slate-700 mb-3" />
               <h3 className="text-lg font-black text-slate-300">Monitor ist bereit</h3>
@@ -1119,7 +1362,7 @@ function KitchenMonitorContent() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 items-start pb-8">
-              {filteredOrders.map((order) => {
+              {activeOrders.map((order) => {
                 const elapsedMinutes = Math.floor(
                   (currentTime - new Date(order.createdAt).getTime()) / 60000
                 );
@@ -1159,7 +1402,7 @@ function KitchenMonitorContent() {
                       <div
                         className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-black font-mono shadow ${
                           isUrgent
-                            ? 'bg-rose-600 text-white animate-pulse'
+                            ? 'bg-rose-600 text-white'
                             : isWarning
                             ? 'bg-amber-500 text-black'
                             : 'bg-slate-800 text-slate-300 border border-slate-700'
@@ -1425,6 +1668,146 @@ function KitchenMonitorContent() {
               <button
                 type="button"
                 onClick={() => setShowSoldOutModal(false)}
+                className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm rounded-xl transition"
+              >
+                Schließen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Historie Modal für erledigte Tische des Tages */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-600/20 text-emerald-400 border border-emerald-600/30 rounded-2xl">
+                  <History className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-white">Erledigte Tische des Tages (Historie)</h3>
+                  <p className="text-xs text-slate-400">
+                    Alle heute fertiggestellten Tische und Positionen im Überblick mit Option zum Wiederherstellen.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-900/50 shrink-0">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Tisch, Bedienung oder Bon-Nummer suchen..."
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={fetchHistory}
+                disabled={loadingHistory}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 active:scale-95"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingHistory ? 'animate-spin' : ''}`} />
+                <span>Aktualisieren</span>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+              {loadingHistory ? (
+                <div className="flex items-center justify-center p-12 text-slate-400 font-bold gap-2">
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  <span>Lade Historie...</span>
+                </div>
+              ) : filteredHistoryTables.length === 0 ? (
+                <div className="text-center p-12 text-slate-500 font-medium">
+                  Keine erledigten Tische {historySearch ? 'für diese Suche ' : ''}vorhanden.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {filteredHistoryTables.map((hTable) => (
+                    <div
+                      key={hTable.tableKey}
+                      className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between gap-3 shadow-md"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                          <div>
+                            <span className="font-black text-white text-base">{hTable.tableLabel}</span>
+                            <div className="text-xs text-slate-400 mt-0.5">
+                              Bedienung: <span className="text-slate-200 font-semibold">{hTable.waiterNames.join(', ') || 'Kasse'}</span>
+                              {hTable.orderNumbers.length > 0 && (
+                                <span className="text-slate-400 ml-1">(#{hTable.orderNumbers.join(', #')})</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xs font-mono font-bold text-slate-400">
+                              {new Date(hTable.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <div className="text-[11px] text-emerald-400 font-bold">
+                              {hTable.items.length} Position(en)
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                          {hTable.items.map((it) => (
+                            <div key={it.id} className="text-xs flex items-start justify-between gap-2 py-1 px-2 rounded-lg bg-slate-900 border border-slate-800/80">
+                              <div>
+                                <span className="font-black text-amber-300 mr-2">{it.quantity}x</span>
+                                <span className="font-bold text-slate-200">{it.productName}</span>
+                                {it.variantName && <span className="text-slate-400 ml-1">({it.variantName})</span>}
+                                {it.selectedOptions && <div className="text-[11px] text-slate-400 ml-5">{it.selectedOptions}</div>}
+                                {it.customizationText && (
+                                  <div className="text-[11px] font-bold text-rose-300 ml-5">! {it.customizationText}</div>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => void handleRestoreItem(it.id, it.orderId)}
+                                className="text-[11px] text-emerald-400 hover:text-emerald-300 underline font-semibold shrink-0 ml-2"
+                                title="Diese Position zurückholen"
+                              >
+                                Zurück
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => void handleRestoreTable(hTable.items)}
+                        className="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-98"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Ganzen Tisch wiederherstellen (auf Monitor holen)</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-800 flex items-center justify-between bg-slate-950/60 shrink-0">
+              <span className="text-xs text-slate-400">
+                {historyTables.length} Tisch(e) heute fertiggestellt
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(false)}
                 className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm rounded-xl transition"
               >
                 Schließen

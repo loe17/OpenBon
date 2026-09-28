@@ -46,6 +46,7 @@ model EventConfig {
   orderPrintDelaySeconds      Int     @default(60)
   kdsControlsPrinting         Boolean @default(false) // KDS steuert Druck (Bypass Sofortdruck)
   kdsPrintDelayTicket         Boolean @default(true) // Warte-Bon bei Teillieferung drucken
+  kdsNotifyWaitersOnReady     Boolean @default(false) // Kellnerbenachrichtigung bei Fertigmeldung (Standard: Aus)
 
   // Beleg- & Bon-Druck Layout & Schriftgrößen
   receiptHeader                 String? @default("")

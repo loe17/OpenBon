@@ -39,6 +39,7 @@ export async function GET() {
         enableKioskMode: false,
         kdsControlsPrinting: false,
         kdsPrintDelayTicket: true,
+        kdsNotifyWaitersOnReady: false,
 
         lockStartScreen: true,
         activeTheme: 'dark',
@@ -120,6 +121,7 @@ export async function GET() {
       orderPrintDelaySeconds: config.orderPrintDelaySeconds ?? 60,
       kdsControlsPrinting: config.kdsControlsPrinting ?? false,
       kdsPrintDelayTicket: config.kdsPrintDelayTicket ?? true,
+      kdsNotifyWaitersOnReady: config.kdsNotifyWaitersOnReady ?? false,
       receiptHeader: config.receiptHeader,
       receiptSubHeader: config.receiptSubHeader,
       receiptFooterText: config.receiptFooterText,

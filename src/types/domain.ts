@@ -128,6 +128,7 @@ export interface EventConfigDTO {
   orderPrintDelaySeconds?: number;
   kdsControlsPrinting?: boolean;
   kdsPrintDelayTicket?: boolean;
+  kdsNotifyWaitersOnReady?: boolean;
   cardSumupEnabled?: boolean;
   cardVrPayEnabled?: boolean;
   cardSparkasseEnabled?: boolean;

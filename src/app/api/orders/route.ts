@@ -23,16 +23,22 @@ export async function GET(req: Request) {
     const tableId = searchParams.get('tableId');
     const status = searchParams.get('status');
     const isKds = searchParams.get('kds') === 'true';
+    const isKdsHistory = searchParams.get('kdsHistory') === 'true';
     const waiterName = searchParams.get('waiterName');
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : undefined;
-    const sort = searchParams.get('sort') || (waiterName ? 'desc' : 'asc');
+    const sort = searchParams.get('sort') || (waiterName || isKdsHistory ? 'desc' : 'asc');
 
     const where: Record<string, unknown> = {};
     if (tableId) where.tableId = tableId;
     if (status) where.status = status;
     if (waiterName) where.waiterName = waiterName;
 
-    if (isKds) {
+    if (isKdsHistory) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      where.createdAt = { gte: today };
+      where.items = { some: { kdsStatus: 'COMPLETED' } };
+    } else if (isKds) {
       where.status = { in: ['OPEN', 'IN_PREPARATION', 'READY'] };
     }
 

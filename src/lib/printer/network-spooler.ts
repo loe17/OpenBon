@@ -90,6 +90,17 @@ class NetworkSpooler {
           data: { totalPaperMm: { increment: lengthMm } },
         }).catch(() => null);
       }
+      if (options?.itemIds && options.itemIds.length > 0) {
+        await prisma.orderItem.updateMany({
+          where: { id: { in: options.itemIds }, printStatus: { not: 'PRINTED' } },
+          data: { printStatus: 'PRINTED' },
+        }).catch(() => null);
+      } else if (options?.orderId) {
+        await prisma.orderItem.updateMany({
+          where: { orderId: options.orderId, printStatus: { not: 'PRINTED' } },
+          data: { printStatus: 'PRINTED' },
+        }).catch(() => null);
+      }
       return { success: res.success, isVirtual: true, jobId: job.id };
     } else {
       // Ehrlich: PENDING einreihen, erst nach Socket-ACK als PRINTED melden.
@@ -345,9 +356,9 @@ class NetworkSpooler {
         const parsed = JSON.parse(updatedRaw || '{}') as { __itemIds?: string[] };
         const ids = Array.isArray(parsed.__itemIds) ? parsed.__itemIds.filter((x) => typeof x === 'string') : [];
         if (ids.length > 0) {
-          await prisma.orderItem.updateMany({ where: { id: { in: ids }, printStatus: 'PENDING' }, data: { printStatus: 'PRINTED' } }).catch(() => null);
+          await prisma.orderItem.updateMany({ where: { id: { in: ids }, printStatus: { not: 'PRINTED' } }, data: { printStatus: 'PRINTED' } }).catch(() => null);
         } else if (orderId) {
-          await prisma.orderItem.updateMany({ where: { orderId, printStatus: 'PENDING' }, data: { printStatus: 'PRINTED' } }).catch(() => null);
+          await prisma.orderItem.updateMany({ where: { orderId, printStatus: { not: 'PRINTED' } }, data: { printStatus: 'PRINTED' } }).catch(() => null);
         }
       } catch {}
       if (global.io) {

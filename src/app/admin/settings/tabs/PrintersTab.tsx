@@ -145,6 +145,30 @@ export function PrintersTab({ config, onChange, printers }: PrintersTabProps) {
             )}
           </button>
         </div>
+
+        <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-slate-950 border border-slate-800">
+          <div className="min-w-0">
+            <div className="font-bold text-sm text-white">
+              Kellner bei Fertigmeldung benachrichtigen (Gong &amp; Banner)
+            </div>
+            <p className="text-xs text-slate-400 leading-snug mt-0.5">
+              Wenn aktiv, ertönt beim Kellner ein Signalton und ein Banner erscheint, sobald ein Tisch in der Küche fertig gemeldet wird. (Standard: Ausgeschaltet)
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onChange({ kdsNotifyWaitersOnReady: !config.kdsNotifyWaitersOnReady })}
+            aria-pressed={!!config.kdsNotifyWaitersOnReady}
+            aria-label="Kellner bei Fertigmeldung benachrichtigen"
+            className="p-1.5 shrink-0 active:scale-95 touch-manipulation transition-transform"
+          >
+            {config.kdsNotifyWaitersOnReady ? (
+              <ToggleRight className="w-10 h-10 text-emerald-400" />
+            ) : (
+              <ToggleLeft className="w-10 h-10 text-slate-600" />
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

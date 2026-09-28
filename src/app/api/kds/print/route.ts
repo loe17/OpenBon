@@ -6,6 +6,7 @@ import { TicketSplitter } from '@/lib/printer/ticket-splitter';
 import { EscPosBuilder } from '@/lib/printer/escpos-builder';
 import networkSpooler from '@/lib/printer/network-spooler';
 import { parseSelectedOptions } from '@/lib/stock';
+import { cancelDelayedPrint } from '@/lib/order-delay-manager';
 
 export async function POST(req: Request) {
   const auth = await requireApiAuth(req);
@@ -40,7 +41,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Ausgewählte Artikel nicht gefunden.' }, { status: 404 });
     }
 
-    // 2. Status der abgehakten Artikel auf COMPLETED & PRINTED setzen
+    // Laufende Druckverzögerungen für diese Bestellungen sofort abbrechen (verhindert Doppeldruck)
+    const distinctOrderIds = Array.from(new Set(completedItems.map((i) => i.orderId)));
+    for (const ordId of distinctOrderIds) {
+      cancelDelayedPrint(ordId);
+    }
+
+    // 2. Nur ungedruckte Positionen drucken (schützt vor doppeltem Druck, falls in "Reine Überwachung" schon gedruckt wurde)
+    const unprintedItems = completedItems.filter((i) => i.printStatus !== 'PRINTED');
+
+    // Status aller abgehakten Artikel auf COMPLETED & PRINTED setzen
     await prisma.orderItem.updateMany({
       where: { id: { in: itemIds } },
       data: {
@@ -51,53 +61,56 @@ export async function POST(req: Request) {
     });
 
     // 3. Nach Bestellung gruppieren und Bons über TicketSplitter erzeugen & drucken
-    const orderGroupMap = new Map<string, typeof completedItems>();
-    for (const it of completedItems) {
-      const arr = orderGroupMap.get(it.orderId) || [];
-      arr.push(it);
-      orderGroupMap.set(it.orderId, arr);
-    }
-
     let totalTickets = 0;
     const allJobIds: string[] = [];
 
-    for (const [orderId, itemsForOrder] of orderGroupMap.entries()) {
-      const ord = itemsForOrder[0].order;
-      const orderToRoute = {
-        id: ord.id,
-        orderNumber: ord.orderNumber,
-        tableLabel: ord.table?.label || (ord.tokenNumber ? `Abholmarke #${ord.tokenNumber}` : 'Theke'),
-        waiterName: ord.waiterName,
-        tokenNumber: ord.tokenNumber,
-        isTraining: ord.isTraining,
-        createdAt: ord.createdAt,
-        items: itemsForOrder.map((i) => ({
-          id: i.id,
-          productId: i.productId,
-          productName: i.productName,
-          alternativeName: i.product?.alternativeTicketName,
-          quantity: i.quantity,
-          unitPriceCents: i.unitPriceCents,
-          depositCents: i.depositCents ?? 0,
-          variantName: i.variantName,
-          selectedOptions: i.selectedOptions,
-          customizationText: i.customizationText,
-          courseNumber: i.courseNumber,
-          isHold: false,
-        })),
-      };
+    if (unprintedItems.length > 0) {
+      const orderGroupMap = new Map<string, typeof unprintedItems>();
+      for (const it of unprintedItems) {
+        const arr = orderGroupMap.get(it.orderId) || [];
+        arr.push(it);
+        orderGroupMap.set(it.orderId, arr);
+      }
 
-      const printRes = await TicketSplitter.routeAndPrintOrder(orderToRoute, {
-        onlyItemIds: itemsForOrder.map((i) => i.id),
-        includeHold: true,
-      });
+      for (const [orderId, itemsForOrder] of orderGroupMap.entries()) {
+        const ord = itemsForOrder[0].order;
+        const orderToRoute = {
+          id: ord.id,
+          orderNumber: ord.orderNumber,
+          tableLabel: ord.table?.label || (ord.tokenNumber ? `Abholmarke #${ord.tokenNumber}` : 'Theke'),
+          waiterName: ord.waiterName,
+          tokenNumber: ord.tokenNumber,
+          isTraining: ord.isTraining,
+          createdAt: ord.createdAt,
+          items: itemsForOrder.map((i) => ({
+            id: i.id,
+            productId: i.productId,
+            productName: i.productName,
+            alternativeName: i.product?.alternativeTicketName,
+            quantity: i.quantity,
+            unitPriceCents: i.unitPriceCents,
+            depositCents: i.depositCents ?? 0,
+            variantName: i.variantName,
+            selectedOptions: i.selectedOptions,
+            customizationText: i.customizationText,
+            courseNumber: i.courseNumber,
+            isHold: false,
+            printStatus: i.printStatus,
+          })),
+        };
 
-      totalTickets += printRes.ticketsGenerated;
-      if (printRes.jobIds) allJobIds.push(...printRes.jobIds);
+        const printRes = await TicketSplitter.routeAndPrintOrder(orderToRoute, {
+          onlyItemIds: itemsForOrder.map((i) => i.id),
+          includeHold: true,
+        });
+
+        totalTickets += printRes.ticketsGenerated;
+        if (printRes.jobIds) allJobIds.push(...printRes.jobIds);
+      }
     }
 
     // 4. Prüfen, ob alle Positionen der Bestellungen abgeschlossen sind
-    for (const orderId of orderGroupMap.keys()) {
+    for (const orderId of distinctOrderIds) {
       const remainingCount = await prisma.orderItem.count({
         where: {
           orderId,
@@ -108,7 +121,7 @@ export async function POST(req: Request) {
       if (remainingCount === 0) {
         await prisma.order.update({
           where: { id: orderId },
-          data: { status: 'COMPLETED' },
+          data: { status: 'READY' },
         });
       }
     }

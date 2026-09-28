@@ -32,7 +32,12 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
           include: { table: true },
         });
 
-        if (global.io) {
+        const config = await prisma.eventConfig.findUnique({
+          where: { id: 'default' },
+          select: { kdsNotifyWaitersOnReady: true },
+        });
+
+        if (config?.kdsNotifyWaitersOnReady && global.io) {
           global.io.emit('order:ready', {
             orderId,
             orderNumber: order.orderNumber,
@@ -40,6 +45,14 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
             tableLabel: order.table?.label,
             waiterName: order.waiterName,
             tokenNumber: order.tokenNumber,
+          });
+        }
+      } else {
+        const existingOrder = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true } });
+        if (existingOrder?.status === 'READY') {
+          await prisma.order.update({
+            where: { id: orderId },
+            data: { status: 'IN_PREPARATION' },
           });
         }
       }

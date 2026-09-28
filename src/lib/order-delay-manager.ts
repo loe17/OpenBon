@@ -49,7 +49,7 @@ export async function executeDelayedPrint(orderId: string): Promise<{ printed: b
       include: {
         table: true,
         items: {
-          where: { isCancelled: false },
+          where: { isCancelled: false, printStatus: { not: 'PRINTED' } },
           include: {
             product: {
               include: {
@@ -68,8 +68,8 @@ export async function executeDelayedPrint(orderId: string): Promise<{ printed: b
       return { printed: false, jobIds: [] };
     }
 
-    // Wenn Bestellung komplett storniert wurde oder keine Positionen übrig sind: nichts drucken!
-    if (order.status === 'CANCELLED' || order.items.length === 0) {
+    // Wenn Bestellung komplett storniert wurde, nicht mehr offen ist oder keine ungedruckten Positionen übrig sind: nichts drucken!
+    if (order.status === 'CANCELLED' || order.status === 'COMPLETED' || order.items.length === 0) {
       return { printed: false, jobIds: [] };
     }
 
@@ -94,6 +94,7 @@ export async function executeDelayedPrint(orderId: string): Promise<{ printed: b
         customizationText: i.customizationText,
         courseNumber: i.courseNumber,
         isHold: i.isHold,
+        printStatus: i.printStatus,
       })),
     });
 

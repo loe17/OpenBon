@@ -22,6 +22,7 @@ interface RoutableItem {
   productId: string;
   courseNumber?: number;
   isHold?: boolean;
+  printStatus?: string;
 }
 
 interface OrderToRoute {
@@ -59,11 +60,12 @@ export class TicketSplitter {
    */
   public static async routeAndPrintOrder(
     order: OrderToRoute,
-    options: { onlyItemIds?: string[]; includeHold?: boolean } = {}
+    options: { onlyItemIds?: string[]; includeHold?: boolean; forceReprint?: boolean } = {}
   ): Promise<{ ticketsGenerated: number; printedItemIds: string[]; ticketsQueued: number; jobIds: string[]; queuedItemIds: string[] }> {
     const candidates = order.items.filter((item) => {
       if (options.onlyItemIds && !options.onlyItemIds.includes(item.id)) return false;
       if (item.isHold && !options.includeHold) return false;
+      if (item.printStatus === 'PRINTED' && !options.forceReprint) return false;
       return true;
     });
 

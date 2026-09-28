@@ -63,16 +63,21 @@ Willkommen bei **OpenBon**, dem plattformunabhängigen, hochverfügbaren Kassens
 ### 3. Küchen- & Schankmonitor (KDS)
 - **Tischweise Spalten (Volle Bildschirmhöhe & internes Scrollen)**: Optimiert für Tablets im Querformat. Jeder Tisch nimmt eine eigene senkrechte Karte über die gesamte Bildschirmhöhe ein, die niemals über den unteren Bildschirmrand hinauswächst. Kopfzeile (Tisch, Bedienung) und Fußzeile (Bestätigen, Drucken) bleiben dauerhaft fixiert; bei vielen Positionen scrollt der Inhalt flüssig innerhalb der Tischkarte. Mehrere Tische lassen sich seitlich durchwischen (horizontales Scrollen).
 - **Tischbezeichnung oben & Bestellnummer beim Kellner**: Im Kopf der Karte steht prominent die Tischnummer (bzw. „Theke“ oder „Abholmarke“). Die Bestellnummer(n) werden übersichtlich in Klammern hinter dem Namen der Bedienung angezeigt (z. B. `Bedienung: Anna (#101)`).
+- **Vollbildmodus per Kochmütze**: Durch Antippen des Kochmützen-Symbols neben dem Schriftzug „Küchen- & Schankmonitor“ wird der Vollbildmodus aktiviert oder beendet (wie in der Bonkasse).
 - **Sortierung nach Wartezeit (Ältester Tisch ganz rechts)**: Neue Bestellungen reihen sich links ein, während der Tisch, an dem die Gäste am längsten warten, ganz rechts im Blickfeld steht.
-- **Klare Trennung nach Warengruppen (ohne störende Emojis)**: Die Positionen werden pro Tisch nach ihren exakten Warengruppen übersichtlich mit Trennbannern unterteilt.
+- **Kompaktere Tischspalten**: Die Spaltenbreite ist für Tablets und Großbildschirme optimiert, sodass 4–5 Tische bequem nebeneinander Platz finden.
+- **Farbe der Warengruppen aus dem Artikelstamm**: Die Zwischenüberschriften der Warengruppen übernehmen automatisch die im Artikelstamm konfigurierte Farbe. Warengruppen ohne Positionen werden nicht angezeigt.
+- **Ergonomischer Haken-Button im Kopf**: Rechts neben der dezenten, nicht-pulsierenden Wartezeit-Anzeige befindet sich ein praktischer Haken-Button, um alle Positionen eines Tisches mit einem Klick auszuwählen oder abzuwählen.
 - **Zuverlässiger Warengruppen-Filter**: Über den Warengruppen-Filter oben können Stationen gezielt gefiltert werden (z. B. Grill-Tablet nur für Speisen, Schank-Tablet nur für Getränke). Ein Klick auf „Keine“ leert die Anzeige für eine gezielte Auswahl.
-- **Schnellumschalter „Alles markieren“ / „Auswahl aufheben“**: Ermöglicht mit einem Klick das Markieren aller noch offenen Positionen oder das Aufheben der Markierung.
-- **Einzelnes Abhaken von Artikeln**: Positionen können einzeln per Fingertipp abgehakt werden (mit deutlichem grünem Häkchen). Versehentlich abgehakte Positionen können innerhalb von 10 Minuten mit einem Klick auf *„Rückgängig“* wiederhergestellt werden.
-- **Umschaltbare Betriebsmodi**:
+- **Umschaltbare Betriebsmodi mit Doppel-Druckschutz**:
   - **Reine Überwachung**: Bons drucken sofort beim Kellner; der Küchenmonitor dient als Live-Übersicht.
   - **Monitor steuert Druck**: Der Bon druckt erst dann am Drucker aus, wenn die Küche fertige Positionen abgehakt hat und auf *„Bons drucken & bestätigen“* tippt! Nicht fertige Artikel verbleiben auf dem Tisch.
-- **Kompakter Warte-Bon für verzögerte Speisen**: Dauert eine Speise länger (z. B. Kaiserschmarrn), kann bei Teillieferung ein kompakter, papiersparender Hinweisbon gedruckt werden (*„Speise folgt in Kürze nach!“*), damit die Bedienung den Gast am Tisch sofort informieren kann.
-- **Dringlichkeits-Ampel**: Zeigt die Wartezeit in Minuten (Grau -> Bernstein ab 5 Min. -> Rot blinkend ab 10 Min.).
+  - **Garantierter Einmal-Druck**: Jeder Bon druckt garantiert genau einmal – selbst bei nachträglichem Umschalten der Modi oder aktiver Bestellverzögerung.
+- **Sauberes Abräumen & Tages-Historie**:
+  - Sobald ein Tisch auf „Tisch komplett fertig“ gesetzt wird, verschwindet er sofort aus dem aktiven Monitor.
+  - Über den neuen Button **„Historie“** oben rechts können alle heute abgehakten Tische mit allen Details eingesehen und bei Bedarf mit einem Klick auf *„Wiederherstellen“* direkt wieder auf den Monitor zurückgeholt werden.
+- **Optionale Kellner-Benachrichtigung**: In den Druckereinstellungen (`/admin/settings` -> Drucker -> Küchenmonitor) kann eingestellt werden, ob Bedienungen bei Fertigmeldung eines Tisches per Gong und Banner benachrichtigt werden (standardmäßig zum Schutz vor Lärm ausgeschaltet).
+- **Kompakter Warte-Bon für verzögerte Speisen**: Dauert eine Speise länger (z. B. Kaiserschmarrn), kann bei Teillieferung ein kompakter Hinweisbon gedruckt werden (*„Warte-Bon: Speise folgt in Kürze nach!“*).
 - **Rückstandszähler**: Zeigt oben in Echtzeit den Gesamtrückstand aller offenen Speisen (z. B. *"Noch 18x Pommes"*).
 - **Audio-Gong**: Bei jedem neuen Bon ertönt ein akustisches Signal.
 

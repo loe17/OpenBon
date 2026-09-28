@@ -23,6 +23,13 @@ export async function POST(req: Request) {
       where: { id: item.id },
       data: { kdsStatus: 'IN_PROGRESS', kdsCompletedAt: null },
     });
+    const ord = await prisma.order.findUnique({ where: { id: item.orderId }, select: { status: true } });
+    if (ord && (ord.status === 'READY' || ord.status === 'COMPLETED')) {
+      await prisma.order.update({
+        where: { id: item.orderId },
+        data: { status: 'IN_PREPARATION' },
+      });
+    }
     await logSystemActionSafe(() => ({
       action: 'KDS_UNDO',
       category: 'ORDERS',
@@ -30,7 +37,11 @@ export async function POST(req: Request) {
       details: `KDS-Rückgängig: ${item.productName} x${item.quantity}`,
       metadata: { orderItemId: item.id, orderId: item.orderId },
     }));
-    if (global.io) global.io.emit('kds:updated', { orderItemId: item.id, kdsStatus: 'IN_PROGRESS' });
+    if (global.io) {
+      global.io.emit('kds:updated', { orderItemId: item.id, kdsStatus: 'IN_PROGRESS' });
+      global.io.emit('kds:item_updated', { orderId: item.orderId, itemId: item.id });
+      global.io.emit('kds:order_updated');
+    }
     return NextResponse.json({ success: true, item: updated });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });

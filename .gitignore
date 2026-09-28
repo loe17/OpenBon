@@ -42,7 +42,7 @@ yarn-error.log*
 **/*.md
 !README.md
 !**/README.md
-CHANGELOG.md
+!CHANGELOG.md
 !docs/**
 docs/SPECIFICATION.md
 docs/SPECIFICATION_V2.md

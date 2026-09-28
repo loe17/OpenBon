@@ -1,7 +1,7 @@
 # OpenBon – Enterprise Kassen-, Bestell- & Festmanagementsystem
 
-[![Version](https://img.shields.io/badge/version-v0.4.69-blue.svg)](https://github.com/loe17/OpenBon/releases)
-[![Tests](https://img.shields.io/badge/tests-60%20passed%20%7C%20425%20tests-brightgreen.svg)](https://github.com/loe17/OpenBon)
+[![Version](https://img.shields.io/badge/version-v0.4.70-blue.svg)](https://github.com/loe17/OpenBon/releases)
+[![Tests](https://img.shields.io/badge/tests-61%20passed%20%7C%20429%20tests-brightgreen.svg)](https://github.com/loe17/OpenBon)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-PWA%20%7C%20Linux%20%7C%20Windows%20%7C%20Docker%20%7C%20iOS%20%7C%20Android-lightgrey.svg)](https://github.com/loe17/OpenBon)
 [![Compliance](https://img.shields.io/badge/compliance-GoBD%20%7C%20KassenSichV%20%7C%20DSFinV--K-purple.svg)](https://github.com/loe17/OpenBon)
@@ -32,7 +32,7 @@
 | 👨‍🍳 Küchen- & Ausschankmonitor (KDS) | 🧾 Digitaler E-Bon (§33 KassenSichV) |
 | :---: | :---: |
 | ![Küchenmonitor KDS](public/docs/images/08_kitchen_kds.png) | ![Digitaler E-Bon](public/docs/images/12_receipt_ebon.png) |
-| *Tischweise Vollbild-Spalten (FIFO ältester Tisch rechts), Einzel-Abhaken, umschaltbare KDS-Drucksteuerung & Warte-Bons.* | *Rechtssicherer, papierloser Beleg am Gast-Smartphone via QR-Code & NFC.* |
+| *Tischweise Spalten, Tages-Historie mit Wiederherstellung, Doppel-Druckschutz, Kochmütze-Vollbild & Warengruppen-Farben.* | *Rechtssicherer, papierloser Beleg am Gast-Smartphone via QR-Code & NFC.* |
 
 ---
 
