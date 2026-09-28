@@ -104,8 +104,31 @@ function WaiterPaymentContent() {
 
   const [stage, setStage] = useState<Stage>('SPLIT');
   const [config, setConfig] = useState<EventConfigDTO | null>(null);
-  const [table, setTable] = useState<DiningTableDTO | null>(null);
-  const [items, setItems] = useState<PayableItem[]>([]);
+  const [table, setTable] = useState<DiningTableDTO | null>(() => {
+    if (typeof window !== 'undefined' && tableId) {
+      try {
+        const cached = localStorage.getItem('openbon_cached_tables');
+        if (cached) {
+          const list = JSON.parse(cached);
+          const found = Array.isArray(list) ? list.find((t: any) => t.id === tableId) : null;
+          if (found) return found;
+        }
+      } catch {}
+    }
+    return null;
+  });
+  const [items, setItems] = useState<PayableItem[]>(() => {
+    if (typeof window !== 'undefined' && tableId) {
+      try {
+        const cached = localStorage.getItem('openbon_cached_orders_' + tableId);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
 
   const [returnDeposits, setReturnDeposits] = useState<Record<number, number>>({
     0.5: 0,
@@ -184,6 +207,9 @@ function WaiterPaymentContent() {
           const payables = extractPayableItems(openOrders);
           setItems(payables);
           ordersLoaded = true;
+          try {
+            localStorage.setItem('openbon_cached_orders_' + tableId, JSON.stringify(payables));
+          } catch {}
         }
       }
     } catch (err) {
@@ -205,6 +231,10 @@ function WaiterPaymentContent() {
             const payables = extractPayableItems(openOrders);
             if (payables.length > 0) {
               setItems(payables);
+              ordersLoaded = true;
+              try {
+                localStorage.setItem('openbon_cached_orders_' + tableId, JSON.stringify(payables));
+              } catch {}
             }
           }
         }
@@ -212,6 +242,32 @@ function WaiterPaymentContent() {
     } catch (err) {
       console.warn('[fetchTableOrders] Abfrage /api/tables fehlgeschlagen:', err);
     }
+
+    // 3. Lokaler Offline-Fallback: Wenn Server nicht erreichbar ist
+    if (!ordersLoaded) {
+      try {
+        const cached = localStorage.getItem('openbon_cached_orders_' + tableId);
+        if (cached) {
+          const payables = JSON.parse(cached);
+          if (Array.isArray(payables) && payables.length > 0) {
+            setItems(payables);
+            ordersLoaded = true;
+          }
+        }
+      } catch {}
+    }
+    setTable((prev) => {
+      if (prev) return prev;
+      try {
+        const cachedTables = localStorage.getItem('openbon_cached_tables');
+        if (cachedTables) {
+          const list = JSON.parse(cachedTables);
+          const found = Array.isArray(list) ? list.find((t: any) => t.id === tableId) : null;
+          if (found) return found;
+        }
+      } catch {}
+      return prev;
+    });
   }, [tableId]);
 
   useEffect(() => {
@@ -586,6 +642,41 @@ function WaiterPaymentContent() {
       }
 
       if (res.pending || !res.data) {
+        if (paymentMethod === 'CASH') {
+          // Offline-Puffer: Barzahlung nahtlos lokal abschließen, Rückgeld anzeigen und Vorgang puffern
+          haptic();
+          playPaymentSuccess();
+          setRequestId(generateIdempotencyKey('pay'));
+          setCompletedInvoice('LOKAL GESICHERT (OFFLINE)');
+          setCompletedPaymentId(null);
+          setReceiptPrinted(false);
+          setCompletedDigitalReceiptUrl(null);
+          setCompletedDigitalReceiptCode(null);
+          setTipCents(0);
+
+          // Positionen lokal reduzieren
+          const updatedItems = items
+            .map((i) => {
+              const paid = itemsToPay.find((p) => p.orderItemId === i.orderItemId);
+              if (paid) {
+                const remaining = i.totalUnpaidQty - paid.quantityToPay;
+                return { ...i, totalUnpaidQty: remaining, selectedQty: 0 };
+              }
+              return i;
+            })
+            .filter((i) => i.totalUnpaidQty > 0);
+          setItems(updatedItems);
+          if (tableId) {
+            try {
+              localStorage.setItem('openbon_cached_orders_' + tableId, JSON.stringify(updatedItems));
+            } catch {}
+          }
+
+          toastSuccess('Barzahlung lokal gesichert – wird automatisch übertragen, sobald Verbindung steht');
+          setStage('DONE');
+          return;
+        }
+
         playPaymentFailure();
         setError(
           res.error ||

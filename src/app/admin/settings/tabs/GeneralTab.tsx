@@ -646,6 +646,18 @@ export function GeneralTab({
           }
         />
 
+        <Toggle
+          label="Automatische Rückkehr zum Hauptrechner (Auto-Failback)"
+          hint="Sobald der ursprüngliche Hauptrechner wieder hochfährt und alle Buchungen synchronisiert hat, übergibt dieser Ersatzrechner die Kassenführung wieder sanft und unterbrechungsfrei an ihn zurück."
+          color="blue"
+          value={(config as any).haAutoFailback ?? true}
+          onToggle={() =>
+            onChange({
+              haAutoFailback: !((config as any).haAutoFailback ?? true),
+            } as any)
+          }
+        />
+
         {/* N1 In-App-HA-Pairing-Assistent: ersetzt das manuelle ha-pair-Skript */}
         <HaPairingAssistant />
       </div>

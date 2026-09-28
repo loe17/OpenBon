@@ -54,6 +54,10 @@ export async function GET() {
         receiptTableFontSize: 3,
         receiptSingleItemFoodSlips: true,
         receiptSingleItemDrinkSlips: true,
+        haRole: 'STANDALONE',
+        haPartnerUrl: null,
+        haAutoFailover: false,
+        haAutoFailback: true,
       });
     }
 
@@ -164,6 +168,10 @@ export async function GET() {
       isInternetOnline: (await checkInternetConnectivity()).online,
       // N3.3: Versionskennung fuer den "Update verfuegbar"-Hinweis der Clients
       appVersion: APP_VERSION,
+      haRole: config.haRole || 'STANDALONE',
+      haPartnerUrl: config.haPartnerUrl || null,
+      haAutoFailover: Boolean(config.haAutoFailover),
+      haAutoFailback: config.haAutoFailback ?? true,
       serverTimestamp: Date.now(),
       serverTime: new Date().toISOString(),
     };

@@ -129,6 +129,7 @@ model EventConfig {
   haRole          String   @default("STANDALONE") // STANDALONE, PRIMARY, STANDBY
   haPartnerUrl    String?
   haAutoFailover  Boolean  @default(false)
+  haAutoFailback  Boolean  @default(true)
   aisles             String?  @default("[]")
   tablePlanLandmarks String?  @default("[]")
   tokenSequence   Int      @default(1)

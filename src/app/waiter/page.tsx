@@ -75,7 +75,18 @@ interface RepeatLine {
 function WaiterTablesContent() {
   const router = useRouter();
   const { socket } = useSocket();
-  const [tables, setTables] = useState<TableData[]>([]);
+  const [tables, setTables] = useState<TableData[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('openbon_cached_tables');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
   const [selectedTable, setSelectedTable] = useState<TableData | null>(null);
   const selectedTableRef = useRef<TableData | null>(selectedTable);
   useEffect(() => {
@@ -111,6 +122,11 @@ function WaiterTablesContent() {
         const data = await res.json();
         if (data && !data.error) {
           setConfig(data);
+          if (data.haPartnerUrl) {
+            try {
+              localStorage.setItem('openbon_ha_partner_url', String(data.haPartnerUrl));
+            } catch {}
+          }
           return data;
         }
       }
@@ -477,9 +493,21 @@ function WaiterTablesContent() {
           orders: (t.orders || []).map((o: any) => ({ ...o, _fetchedAt: fetchTime })),
         }));
         setTables(stamped);
+        try {
+          localStorage.setItem('openbon_cached_tables', JSON.stringify(stamped));
+        } catch {}
       }
     } catch (e) {
       console.error(e);
+      try {
+        const cached = localStorage.getItem('openbon_cached_tables');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setTables(parsed);
+          }
+        }
+      } catch {}
     } finally {
       setLoading(false);
     }
@@ -500,11 +528,22 @@ function WaiterTablesContent() {
             const unique = Array.from(new Set(rawNames));
             if (unique.length > 0) {
               setAvailableWaiters(unique);
+              try {
+                localStorage.setItem('openbon_cached_waiters', JSON.stringify(unique));
+              } catch {}
             }
           }
         }
       } catch {
-        // ignore
+        try {
+          const cached = localStorage.getItem('openbon_cached_waiters');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setAvailableWaiters(parsed);
+            }
+          }
+        } catch {}
       }
     };
     fetchAvailableWaiters();

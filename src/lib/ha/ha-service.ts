@@ -20,6 +20,9 @@ export class HighAvailabilityService {
   private partnerUrl: string = process.env.HA_PARTNER_URL || '';
   private missedHeartbeats = 0;
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  private isPreferredPrimary = false;
+  private stableSyncStartMs: number | null = null;
+  private isHandoverInProgress = false;
   /** Eindeutige Instanz-ID fuer das Split-Brain-Fencing (Leader-Lease) */
   public readonly instanceId: string = randomUUID();
   /** Wird erfüllt, sobald Rollen-Ermittlung & Lease-Check beim Start abgeschlossen sind */
@@ -40,6 +43,9 @@ export class HighAvailabilityService {
     try {
       const config = await prisma.eventConfig.findUnique({ where: { id: 'default' } });
       if (config) {
+        if (config.haRole === 'PRIMARY') {
+          this.isPreferredPrimary = true;
+        }
         this.currentRole = (config.haRole as any) || 'STANDALONE';
         if (config.haPartnerUrl) this.partnerUrl = config.haPartnerUrl;
       }
@@ -116,19 +122,62 @@ export class HighAvailabilityService {
     if (role === 'STANDALONE') {
       this.dispose();
       this.currentRole = 'STANDALONE';
+      this.isPreferredPrimary = false;
+      this.stableSyncStartMs = null;
       return true;
     }
 
     if (role === 'PRIMARY') {
+      this.isPreferredPrimary = true;
       const acquired = await this.acquireOrRenewLease().catch(() => false);
       if (!acquired) {
         console.error('[HA] Promote zu PRIMARY abgelehnt: Lease wird von einer anderen Instanz gehalten.');
         return false;
       }
+    } else if (role === 'STANDBY') {
+      this.isPreferredPrimary = false;
+      this.stableSyncStartMs = null;
     }
     this.currentRole = role;
     this.startHeartbeatWatcher();
     return true;
+  }
+
+  /**
+   * Geordneter Rücktritt auf STANDBY (z. B. bei Handover an zurückkehrenden Hauptrechner).
+   */
+  public async demoteToStandby(): Promise<boolean> {
+    try {
+      this.currentRole = 'STANDBY';
+      this.isPreferredPrimary = false;
+      this.stableSyncStartMs = null;
+
+      // 1. PRIMARY-Lease löschen / freigeben
+      await prisma.haLease.deleteMany({
+        where: { id: 'primary' },
+      }).catch(() => {});
+
+      // 2. DB aktualisieren
+      await prisma.eventConfig.update({
+        where: { id: 'default' },
+        data: { haRole: 'STANDBY' },
+      }).catch(() => {});
+
+      // 3. Heartbeat-Watcher im STANDBY-Modus starten
+      this.startHeartbeatWatcher();
+
+      // 4. WebSocket-Event senden, damit Clients umschwenken
+      if (global.io) {
+        global.io.emit('ha:role_changed', {
+          role: 'STANDBY',
+          partnerUrl: this.partnerUrl,
+        });
+      }
+      return true;
+    } catch (err) {
+      console.error('[HA] Fehler beim Rücktritt auf STANDBY:', err);
+      return false;
+    }
   }
 
   /**
@@ -233,12 +282,31 @@ export class HighAvailabilityService {
         if (res.ok) {
           this.missedHeartbeats = 0;
           // Primary is healthy -> pull new sync delta logs
-          await this.pullAndApplySyncDelta();
+          const applied = await this.pullAndApplySyncDelta();
+
+          // Auto-Failback: Wenn dieser Knoten der bevorzugte Hauptrechner ist
+          if (this.isPreferredPrimary && this.partnerUrl && !this.isHandoverInProgress) {
+            if (applied === 0) {
+              if (!this.stableSyncStartMs) {
+                this.stableSyncStartMs = Date.now();
+              } else {
+                const elapsed = Date.now() - this.stableSyncStartMs;
+                const autoFailback = await this.isAutoFailbackEnabled();
+                if (autoFailback && elapsed >= 20000) {
+                  await this.executeFailbackHandover();
+                }
+              }
+            } else {
+              this.stableSyncStartMs = Date.now();
+            }
+          }
         } else {
+          this.stableSyncStartMs = null;
           this.handleHeartbeatFailure();
         }
       } catch (err) {
         if (this.currentRole === 'STANDBY') {
+          this.stableSyncStartMs = null;
           this.handleHeartbeatFailure();
         }
       }
@@ -340,7 +408,8 @@ export class HighAvailabilityService {
   }
 
   // Pull latest SyncJournal entries from Primary (paginiert bis kein Rückstand)
-  private async pullAndApplySyncDelta() {
+  private async pullAndApplySyncDelta(): Promise<number> {
+    let totalApplied = 0;
     try {
       for (let page = 0; page < 20; page++) {
         const lastLocalEntry = await prisma.syncJournal.findFirst({
@@ -351,20 +420,88 @@ export class HighAvailabilityService {
         const res = await fetch(`${this.partnerUrl}/api/sync/pull?sinceSequence=${lastSeq}`, {
           headers: { 'X-HA-Secret': await getHaSyncSecret() },
         });
-        if (!res.ok) return;
+        if (!res.ok) return totalApplied;
 
         const data = await res.json();
         const newEntries = data.entries || [];
-        if (newEntries.length === 0) return;
+        if (newEntries.length === 0) return totalApplied;
 
         for (const entry of newEntries) {
           // Apply journal entry to local DB
           await this.applyJournalEntry(entry);
+          totalApplied++;
         }
-        if (newEntries.length < 100) return; // letzte Seite (Server-take:100)
+        if (newEntries.length < 100) return totalApplied; // letzte Seite (Server-take:100)
       }
     } catch (err) {
       // Sync error
+    }
+    return totalApplied;
+  }
+
+  public isPreferred(): boolean {
+    return this.isPreferredPrimary;
+  }
+
+  public async isAutoFailbackEnabled(): Promise<boolean> {
+    if (process.env.HA_AUTO_FAILBACK === '0') return false;
+    try {
+      const cfg = await prisma.eventConfig.findUnique({
+        where: { id: 'default' },
+        select: { haAutoFailback: true },
+      });
+      return cfg ? cfg.haAutoFailback !== false : true;
+    } catch {
+      return true;
+    }
+  }
+
+  public async executeFailbackHandover(): Promise<boolean> {
+    if (this.isHandoverInProgress) return false;
+    this.isHandoverInProgress = true;
+    console.log(`[HA FAILBACK] Hauptrechner ist seit 20s stabil und synchron. Fordere Übergabe an von: ${this.partnerUrl}`);
+
+    try {
+      const res = await fetch(`${this.partnerUrl}/api/system/ha/handover`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-HA-Secret': await getHaSyncSecret(),
+        },
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (!res.ok) {
+        this.stableSyncStartMs = Date.now();
+        return false;
+      }
+
+      // Restliche Deltas abziehen
+      await this.pullAndApplySyncDelta();
+
+      // Lease übernehmen und Rolle auf PRIMARY setzen
+      const promoted = await this.promoteToPrimary();
+      if (promoted) {
+        console.log('[HA FAILBACK] Kassenführung erfolgreich zurück auf Hauptrechner übertragen!');
+        await prisma.eventConfig.update({
+          where: { id: 'default' },
+          data: { haRole: 'PRIMARY' },
+        }).catch(() => {});
+        this.isPreferredPrimary = true;
+        this.stableSyncStartMs = null;
+
+        if (global.io) {
+          global.io.emit('ha:role_changed', { role: 'PRIMARY' });
+        }
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.warn('[HA FAILBACK] Fehler bei Kassenübergabe:', err);
+      this.stableSyncStartMs = Date.now();
+      return false;
+    } finally {
+      this.isHandoverInProgress = false;
     }
   }
 

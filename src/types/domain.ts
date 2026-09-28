@@ -160,6 +160,7 @@ export interface EventConfigDTO {
   haRole: string;
   haPartnerUrl: string | null;
   haAutoFailover: boolean;
+  haAutoFailback?: boolean;
   tokenSequence: number;
   invoiceSequence: number;
   orderSequence: number;

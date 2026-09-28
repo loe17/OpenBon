@@ -151,4 +151,41 @@ Willkommen bei **OpenBon**, dem plattformunabhängigen, hochverfügbaren Kassens
   - Die Beschriftungsfelder erscheinen im **Tischplan-Designer** (`/admin/tables`) sowie auf dem **ausgedruckten Tischplan** (`/admin/tables/print`), der zur Orientierung für Aushilfen im Ausschank oder der Küche aufgehängt wird.
   - Auf den **Smartphones der Bedienungen** (`/waiter`) bleibt der Bildschirm bewusst übersichtlich und blendet nur die Tische ein, damit alles schnell mit einem Daumen erreichbar bleibt.
 
+### 15. Ausfallsicherheit mit Ersatzrechner (High Availability) & Offline-Puffer
+
+- **Warum ein Ersatzrechner?**:
+  Fällt der Haupt-Laptop an der Theke plötzlich aus (z. B. versehentlich ausgeschaltet, Stromstecker gezogen, Display defekt oder Flüssigkeit verschüttet), übernimmt ein beliebiger zweiter Rechner im Netzwerk (z. B. ein alter Laptop, Mini-PC oder Raspberry Pi am Router) nach 10 Sekunden vollautomatisch den Kassenbetrieb.
+  Alle Buchungen, Tische und Kassenstände werden im laufenden Betrieb fortlaufend im Sekundentakt auf den Ersatzrechner gespiegelt.
+
+- **Muss man auf dem Ersatzrechner auch OpenBon installieren und starten?**:
+  Ja. Auf dem Ersatzrechner muss OpenBon ebenfalls installiert und gestartet sein. Dort stellt man in den Einstellungen einmalig die Rolle auf *„STANDBY (Ersatzrechner)“*. Ab diesem Moment läuft das Programm auf dem Ersatzrechner still im Hintergrund mit und synchronisiert sich pausenlos mit der Hauptkasse.
+
+- **Automatische 1-Klick-Netzwerksuche im Adminbereich (`/admin/settings` → Reiter *Allgemein*)**:
+  - Im Bereich **Sync-Sicherheit & Pairing-Assistent** befindet sich der Knopf **„Nach Ersatzrechner suchen“**.
+  - Ein Klick genügt: OpenBon tastet das lokale Netzwerk selbstständig ab und findet jeden beliebigen PC, Laptop oder Raspberry Pi, auf dem OpenBon läuft.
+  - Sobald das Gerät gefunden wird, klickt man einfach auf **„Koppeln“** – die Netzwerkadresse wird sofort vollautomatisch hinterlegt.
+  - Wer feste Adressen bevorzugt, kann die IP-Adresse des Ersatzrechners auch weiterhin wie gewohnt von Hand eingeben.
+
+- **Der Offline-Puffer auf den Kellner-Smartphones**:
+  - **Dauerhafte Speisekarte**: Die Speisekarte, Preise und Warengruppen werden im internen Speicher des Smartphones vorgehalten. Selbst im Funkloch oder während eines Kassenwechsels öffnet sich die Bestellmaske sofort.
+  - **Nahtloses Kassieren**: Bricht die Netzwerkverbindung kurz ab, erscheint **keine rote Fehlermeldung**. Die Bedienung kann Barzahlungen wie gewohnt abrechnen – das Smartphone berechnet das Rückgeld sekundenschnell und sichert die Zahlung im internen Ausgangskorb.
+  - **Automatischer Wechsel**: Sobald der Ersatzrechner nach wenigen Sekunden übernimmt, bemerken die Kellnerhandys das Signal automatisch. Sie schwenken ohne Neuanmeldung oder QR-Code-Scan im Hintergrund auf den Ersatzrechner um und übertragen alle gepufferten Bons und Zahlungen selbstständig.
+
+- **Vollautomatische Rückkehr zur Hauptkasse (Auto-Failback)**:
+  - **Was passiert, wenn der Hauptrechner wieder startet?**:
+    Wird der Haupt-Laptop nach einem Stromausfall oder Neustart wieder eingeschaltet, startet OpenBon darauf zunächst leise als „Zuhörer“. Er verbindet sich mit dem Ersatzrechner und lädt alle Bestellungen und Zahlungen nach, die während des Ausfalls auf dem Ersatzrechner kassiert wurden.
+  - **Stabilitätsschutz (20-Sekunden-Puffer)**:
+    Damit die Kassen nicht bei einem Wackelkontakt am Stromkabel hin- und herspringen, wartet der Hauptrechner ab, bis die Verbindung 20 Sekunden lang lückenlos und ohne Verzögerung stabil läuft.
+  - **Sanfte Kassenübergabe (Handover)**:
+    Sobald alle Buchungen auf dem Hauptrechner aktuell sind, gibt der Ersatzrechner die Kassenführung automatisch an den Hauptrechner zurück und wechselt wieder in den Standby-Bereitschaftsmodus.
+  - **Unterbrechungsfreier Rückschwenk**:
+    Die Smartphones aller Bedienungen bemerken die Rückkehr der Hauptkasse automatisch und schalten die Verbindung nahtlos zurück. Keine Bedienung muss sich neu einloggen oder den QR-Code neu scannen.
+
+- **Was passiert, wenn genau während der Übergabe kassiert wird? (3-facher Schutz)**:
+  Niemand muss beim Wechsel aufpassen – das System schützt Buchungen zu 100 % vor Verlust und doppelten Abrechnungen:
+  1. **Handy-Ausgangskorb**: Drückt eine Bedienung exakt im Moment der Umschaltung auf „Bezahlen“, speichert das Handy die Zahlung für einen Wimpernschlag im internen Puffer und sendet sie sofort an die Hauptkasse, sobald die Umschaltung steht.
+  2. **Kurze Ausklingzeit (200 Millisekunden)**: Bevor der Ersatzrechner die Führung abgibt, wartet er einen Sekundenbruchteil ab, damit alle bereits losgeschickten Buchungen die Datenbank sicher erreichen. Der Hauptrechner zieht vor der Übernahme die allerletzten Bons ab.
+  3. **Einmaliges Bonsiegel (Schutz vor Doppelbuchungen)**: Jeder Bon und jede Abrechnung hat einen weltweit einmaligen Schlüssel. Selbst wenn eine Zahlung durch eine Funkstörung versehentlich auf beiden Rechnern ankommen sollte, erkennt das System die Kennung sofort und führt die Buchung nur exakt ein einziges Mal durch.
+
+
 

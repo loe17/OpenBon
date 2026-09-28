@@ -90,8 +90,30 @@ function WaiterOrderContent() {
   const waiterFromUrl = searchParams.get('waiterName');
 
   const [table, setTable] = useState<DiningTableDTO | null>(null);
-  const [categories, setCategories] = useState<ProductCategoryDTO[]>([]);
-  const [selectedCatId, setSelectedCatId] = useState<string>('');
+  const [categories, setCategories] = useState<ProductCategoryDTO[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('openbon_cached_categories');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
+  const [selectedCatId, setSelectedCatId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('openbon_cached_categories');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed[0]?.id) return parsed[0].id;
+        }
+      } catch {}
+    }
+    return '';
+  });
   const [selectedProductInfo, setSelectedProductInfo] = useState<any | null>(null);
   const [enableAgeAlerts, setEnableAgeAlerts] = useState(true);
 
@@ -99,7 +121,18 @@ function WaiterOrderContent() {
   const minBirth18 = calculateMinBirthdate(18);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartExpanded, setCartExpanded] = useState(false);
-  const [wordGroups, setWordGroups] = useState<WordGroup[]>([]);
+  const [wordGroups, setWordGroups] = useState<WordGroup[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('openbon_cached_word_groups');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
   const [customizingItem, setCustomizingItem] = useState<CartItem | null>(null);
   const [selectedPrefix, setSelectedPrefix] = useState<string>('');
   const [selectedIngredient, setSelectedIngredient] = useState<string>('');
@@ -125,10 +158,24 @@ function WaiterOrderContent() {
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
           setCategories(data);
+          try {
+            localStorage.setItem('openbon_cached_categories', JSON.stringify(data));
+          } catch {}
           setSelectedCatId((prev) => (prev ? prev : data[0].id));
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        try {
+          const cached = localStorage.getItem('openbon_cached_categories');
+          if (cached) {
+            const data = JSON.parse(cached);
+            if (Array.isArray(data) && data.length > 0) {
+              setCategories(data);
+              setSelectedCatId((prev) => (prev ? prev : data[0].id));
+            }
+          }
+        } catch {}
+      });
   };
 
   useEffect(() => {
@@ -139,6 +186,11 @@ function WaiterOrderContent() {
           if (cfg && !cfg.error) {
             setEnableCourses(Boolean(cfg.enableCourses));
             setEnableAgeAlerts(Boolean(cfg.enableAgeVerificationAlerts ?? true));
+            if (cfg.haPartnerUrl) {
+              try {
+                localStorage.setItem('openbon_ha_partner_url', String(cfg.haPartnerUrl));
+              } catch {}
+            }
           }
         })
         .catch(() => {});
@@ -225,18 +277,47 @@ function WaiterOrderContent() {
             }
           }
           setWordGroups(unique);
+          try {
+            localStorage.setItem('openbon_cached_word_groups', JSON.stringify(unique));
+          } catch {}
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        try {
+          const cached = localStorage.getItem('openbon_cached_word_groups');
+          if (cached) {
+            const data = JSON.parse(cached);
+            if (Array.isArray(data) && data.length > 0) {
+              setWordGroups(data);
+            }
+          }
+        } catch {}
+      });
 
     if (tableId) {
       fetch('/api/tables')
         .then((r) => r.json())
         .then((tables: DiningTableDTO[]) => {
-          const found = tables.find((t) => t.id === tableId);
-          if (found) setTable(found);
+          if (Array.isArray(tables)) {
+            try {
+              localStorage.setItem('openbon_cached_tables', JSON.stringify(tables));
+            } catch {}
+            const found = tables.find((t) => t.id === tableId);
+            if (found) setTable(found);
+          }
         })
-        .catch(() => {});
+        .catch(() => {
+          try {
+            const cached = localStorage.getItem('openbon_cached_tables');
+            if (cached) {
+              const tables = JSON.parse(cached);
+              if (Array.isArray(tables)) {
+                const found = tables.find((t: any) => t.id === tableId);
+                if (found) setTable(found);
+              }
+            }
+          } catch {}
+        });
     }
 
     // Letzte Runde aus vorheriger Bestellung übernehmen

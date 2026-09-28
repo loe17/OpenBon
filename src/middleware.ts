@@ -26,6 +26,7 @@ export const PUBLIC_PATHS = [
   // N1 Pairing-Abruf: Server-zu-Server vom Partnerknoten (keine Admin-Session
   // moeglich). Interne Doppelabsicherung: Shared Secret + 6-stelliger Code.
   '/api/system/ha/pull',
+  '/api/system/ha/handover', // Server-zu-Server geordneter Failback-Handshake
   '/customer-display',
   '/pos/card-terminal',
   '/payment/callback',
@@ -89,7 +90,17 @@ function checkCsrfOrigin(req: NextRequest): NextResponse | null {
     return null;
   }
 
-  const sameHost = sourceHost === requestHost;
+  const isLocalOrPrivateHost = (host: string): boolean => {
+    const hostname = host.split(':')[0].toLowerCase();
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.local')) return true;
+    if (hostname.startsWith('192.168.') || hostname.startsWith('10.')) return true;
+    if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname)) return true;
+    return false;
+  };
+
+  const sameHost =
+    sourceHost === requestHost ||
+    (isLocalOrPrivateHost(sourceHost) && isLocalOrPrivateHost(requestHost));
   const trusted = getTrustedOrigins().includes(sourceHost);
 
   if (!sameHost && !trusted) {
@@ -114,8 +125,11 @@ function withSecurityHeaders(res: NextResponse): NextResponse {
   res.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
   res.headers.set(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'self'"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss: http: https:; frame-ancestors 'self'"
   );
+  res.headers.set('Access-Control-Allow-Origin', '*');
+  res.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.headers.set('Access-Control-Allow-Headers', '*');
   return res;
 }
 

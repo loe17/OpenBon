@@ -83,6 +83,32 @@ Vor dem Release müssen folgende Dateien auf die identische neue Versionsnummer 
 - `src/lib/version.ts` (`APP_VERSION`, `APP_BUILD_DATE`, `APP_RELEASE_DATE`, `APP_CODENAME`)
 - `src/__tests__/build_and_schema.test.ts` (Versions-Assert)
 
+## v0.4.72 – Hochverfügbarkeit: Vollautomatisches Auto-Failback, sanfte Kassenübergabe & Kellner-Offline-Puffer (29.09.2026)
+
+> Vollautomatisches Auto-Failback für unterbrechungsfreien Kassenbetrieb: Startet der Haupt-Laptop nach einem Stromausfall oder Neustart wieder, synchronisiert er sich zunächst als stiller Zuhörer im Hintergrund, prüft die Netzwerkstabilität für 20 Sekunden ohne Buchungsrückstand und übernimmt die Kassenführung danach vollautomatisch vom Ersatzrechner zurück. Inklusive 3-fachem Schutz beim Kassieren während der Übergabe (Handy-Ausgangskorb, 200ms Drain-Phase und globale UUID-Deduplizierung), Ein-Klick-Netzwerksuche (Discover API & In-App-Pairing) und nahtlosem Rückschwenk aller Kellner-Smartphones ohne Neuanmeldung oder QR-Scan.
+
+### Weshalb
+1. **Vollautomatisches Auto-Failback ohne manuelle Umschaltung:** Bislang musste nach dem Neustart der Hauptkasse manuell im Adminbereich umgestellt werden. Nun erkennt das System die Rückkehr des Hauptrechners, wartet 20 Sekunden stabile Verbindung ab (Schutz vor Wackelkontakten) und führt eine sanfte, geordnete Übergabe durch.
+2. **Unterbrechungsfreier Kassenbetrieb beim Übergang:** Bedienungen können selbst während der Übergabesekunde ununterbrochen weiterkassieren. Der 3-Stufen-Schutz garantiert, dass keine Buchung verloren geht und niemals ein Bon doppelt abgerechnet wird.
+3. **Nahtloses Umschwenken der Mobilgeräte:** Kellner-Smartphones, Tablets und POS-Stationen schwenken via WebSocket-Signal ohne Unterbrechung oder Re-Login automatisch wieder auf den Hauptrechner um.
+
+### Wie (Technik)
+- **Geordneter Handshake-Endpunkt (`/api/system/ha/handover`):**
+  - Authentifizierung über HA-Sync-Secret oder Admin-Session.
+  - 200 ms Drain-Phase zum sauberen Abschluss aller im Flug befindlichen Buchungen.
+  - Ermittlung der letzten Journal-Sequenznummer und geordneter Rücktritt auf `STANDBY` via `haService.demoteToStandby()`.
+- **Echtzeit-Synchronisation & Stabilität (`src/lib/ha/ha-service.ts`):**
+  - Bevorzugter Hauptrechner (`isPreferredPrimary`) wartet nach dem Hochfahren 20 Sekunden fehlerfreie Synchronisation ohne Rückstände ab (`applied === 0`).
+  - Löst danach `executeFailbackHandover()` aus: Partner wird zu Standby degradiert, finale Deltas werden gezogen, Primary-Lease übernommen und die Rolle auf `PRIMARY` gesetzt.
+- **Client-Reaktion (`src/components/providers/socket-provider.tsx`):**
+  - Hört auf `ha:role_changed` (`STANDBY` mit Partner-URL), leert den lokalen Handy-Ausgangskorb und schwenkt nach 1,5 Sekunden sanft auf die Haupt-URL um.
+- **Admin-Konfiguration (`src/app/admin/settings/tabs/GeneralTab.tsx`):**
+  - Neuer Schalter für „Automatische Rückkehr zum Hauptrechner (Auto-Failback)“, abgesichert über `haAutoFailback` in `EventConfig` und Config-Whitelist.
+- **Bedienungsanleitung (`docs/ANLEITUNG.md`):**
+  - Kapitel 15 um die Funktionsweise von Auto-Failback und den 3-Stufen-Schutz beim Kassieren erweitert.
+- **Automatisierte Tests (`src/__tests__/ha_auto_failback.test.ts`):**
+  - 8 neue Unittests für Handover, Secret-Schutz, Demote-Logik und Konfiguration (444 Tests in 63 Suiten ausnahmslos bestanden).
+
 ## v0.4.71 – KDS FIFO-Sortierung von links nach rechts & automatische Warengruppen-Platzersparnis (28.09.2026)
 
 > Ergonomische Tisch-Sortierung im Küchen- und Ausschankmonitor nach natürlicher Leserichtung von links nach rechts (am längsten wartende, dringendste Tische stehen auf Platz 1 ganz links im Direktblick ohne Scrollen, neue Bestellungen reihen sich nach rechts an), automatisches Ausblenden überflüssiger Warengruppen-Trennbalken bei Einzelfiltern oder reinen Speisen-/Getränketischen zur maximalen vertikalen Platzersparnis auf Tablets und Bildschirmen sowie erweiterte Unit- und Integrationstests.

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { RefreshCw, ShieldCheck, KeyRound, Copy, CheckCircle2, AlertTriangle, ChevronDown } from 'lucide-react';
+import { RefreshCw, ShieldCheck, KeyRound, Copy, CheckCircle2, AlertTriangle, ChevronDown, Search, Radio, Server, Check } from 'lucide-react';
 
 interface HaStatus {
   role?: string;
@@ -15,8 +15,9 @@ interface HaStatus {
  * N1 In-App-HA-Pairing-Assistent.
  *
  * Ersetzt den manuellen Terminal-Befehl (`node scripts/ha-pair.mjs ...`)
- * durch einen gefuehrten 3-Schritt-Flow mit manueller Bestaetigung:
+ * durch einen gefuehrten Flow mit 1-Klick-Netzwerksuche oder manueller Eingabe:
  *
+ *   0) Automatische Netzwerksuche nach Ersatzrechnern (beliebige PCs / Laptops / Raspberry Pis)
  *   A) Diesen Server vorbereiten  -> erzeugt 6-stelligen Code (Admin-PIN)
  *   B) Am Partner-Server: Code eintragen -> uebernimmt das Secret (Admin-PIN)
  *   C) Zurück am Initiator: "Übernehmen" -> aktiviert beidseitig (Admin-PIN)
@@ -29,6 +30,14 @@ export default function HaPairingAssistant({ highlight: externalHighlight }: { h
   );
   const [status, setStatus] = useState<HaStatus | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
+
+  // Automatische Netzwerksuche nach Ersatzrechnern
+  const [discovering, setDiscovering] = useState(false);
+  const [discoveredNodes, setDiscoveredNodes] = useState<
+    Array<{ ip: string; port: number; url: string; status: string; haRole?: string; systemName?: string }>
+  >([]);
+  const [discoverError, setDiscoverError] = useState<string | null>(null);
+  const [hasScanned, setHasScanned] = useState(false);
 
   // Schritt A - Initiation
   const [initiating, setInitiating] = useState(false);
@@ -52,6 +61,43 @@ export default function HaPairingAssistant({ highlight: externalHighlight }: { h
 
   const [message, setMessage] = useState<{ kind: 'ok' | 'err' | 'info'; text: string } | null>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
+
+  const handleDiscover = async () => {
+    setDiscovering(true);
+    setDiscoverError(null);
+    setHasScanned(true);
+    try {
+      const res = await fetch('/api/system/ha/discover', { cache: 'no-store' });
+      const data = await res.json();
+      if (!res.ok) {
+        setDiscoverError(data.error || 'Fehler beim Suchen nach Ersatzrechnern');
+      } else {
+        setDiscoveredNodes(data.nodes || []);
+        if ((data.nodes || []).length === 0) {
+          setDiscoverError('Kein weiterer OpenBon-Rechner im lokalen Netzwerk gefunden. Prüfe, ob OpenBon auf dem Ersatzrechner gestartet ist.');
+        }
+      }
+    } catch (err: any) {
+      setDiscoverError(err.message || 'Netzwerkfehler bei der Suche');
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
+  const handleSelectDiscoveredNode = async (nodeUrl: string) => {
+    setPeerUrl(nodeUrl);
+    try {
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ haPartnerUrl: nodeUrl }),
+      });
+      setMessage({ kind: 'ok', text: `Partner-Adresse ${nodeUrl} als Ersatzrechner erfolgreich hinterlegt!` });
+      void loadStatus();
+    } catch {
+      setMessage({ kind: 'info', text: `Adresse ${nodeUrl} als Partner vorausgewählt.` });
+    }
+  };
 
   const loadStatus = useCallback(async () => {
     try {
@@ -237,6 +283,70 @@ export default function HaPairingAssistant({ highlight: externalHighlight }: { h
           {status.secret?.enforceMode ? ' · Enforce-Modus aktiv.' : ''}
         </p>
       )}
+
+      {/* 1-Klick-Netzwerksuche nach Ersatzrechnern (beliebige PCs / Laptops / Raspberry Pis) */}
+      <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div className="font-bold text-xs text-white flex items-center gap-1.5">
+              <Radio className="w-4 h-4 text-blue-400" />
+              <span>Automatische 1-Klick-Netzwerksuche</span>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Durchsucht das lokale Netzwerk automatisch nach beliebigen Ersatzrechnern (PCs, Laptops oder Raspberry Pis), auf denen OpenBon läuft.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleDiscover}
+            disabled={discovering}
+            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-2 shrink-0 transition active:scale-95"
+          >
+            {discovering ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+            <span>{discovering ? 'Durchsuche Netzwerk...' : 'Nach Ersatzrechner suchen'}</span>
+          </button>
+        </div>
+
+        {discoverError && (
+          <div className="p-2.5 rounded-lg bg-amber-950/40 border border-amber-800/60 text-xs text-amber-200">
+            {discoverError}
+          </div>
+        )}
+
+        {hasScanned && discoveredNodes.length > 0 && (
+          <div className="space-y-2 pt-1">
+            <div className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+              Gefundene Rechner im Netzwerk:
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {discoveredNodes.map((node) => (
+                <div
+                  key={node.url}
+                  className="p-3 rounded-xl bg-slate-950 border border-slate-700 flex items-center justify-between gap-3 shadow"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-white">
+                      <Server className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                      <span className="truncate">{node.systemName || node.ip}</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                      {node.url} · Rolle: <span className="text-slate-200 font-bold">{node.haRole || 'STANDALONE'}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectDiscoveredNode(node.url)}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shrink-0 flex items-center gap-1 shadow transition active:scale-95"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Koppeln</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Schritt-A-Karte */}
       <div className="space-y-2">

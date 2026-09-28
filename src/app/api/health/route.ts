@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import prisma from '@/lib/db';
 import networkSpooler from '@/lib/printer/network-spooler';
+import haService from '@/lib/ha/ha-service';
+import { APP_VERSION } from '@/lib/version';
 
 export async function GET() {
   const startTime = Date.now();
@@ -59,6 +61,9 @@ export async function GET() {
   return NextResponse.json(
     {
       status,
+      system: 'OpenBon',
+      version: APP_VERSION,
+      haRole: haService.getRole(),
       timestamp: new Date().toISOString(),
       uptimeSeconds: Math.floor(process.uptime()),
       db: {
