@@ -11,6 +11,8 @@ const PRECACHE_ASSETS = [
   '/chat',
   '/manifest.json',
   '/icon.png',
+  '/icon-192.png',
+  '/icon-512.png',
 ];
 
 // Statische API-Endpunkte, die für den Offline-Betrieb zwischengespeichert werden

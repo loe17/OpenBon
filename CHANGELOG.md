@@ -83,6 +83,25 @@ Vor dem Release müssen folgende Dateien auf die identische neue Versionsnummer 
 - `src/lib/version.ts` (`APP_VERSION`, `APP_BUILD_DATE`, `APP_RELEASE_DATE`, `APP_CODENAME`)
 - `src/__tests__/build_and_schema.test.ts` (Versions-Assert)
 
+## v0.4.73 – Android PWA App-Installation, 192x192 & 512x512 Maskable Icons & Schritt-für-Schritt Anleitung (29.09.2026)
+
+> Volle Unterstützung für die native App-Installation (Progressive Web App) unter Google Chrome auf Android-Smartphones und -Tablets. Bisher bot Chrome bei verschlüsselter Verbindung lediglich die Option „Verknüpfung erstellen“ an, da Icons in den strikten Standardauflösungen 192x192 und 512x512 Pixel fehlten. Mit exakt dimensionierten Maskable-Icons, aktualisiertem Web-App-Manifest, Service Worker Caching und einem neuen Schritt-für-Schritt-Kapitel in der Bedienungsanleitung lässt sich OpenBon nun als vollwertige, eigenständige Vollbild-App direkt vom Android-Startbildschirm ohne Browser-Rahmen oder Adressleiste installieren.
+
+### Weshalb
+1. **Echte App-Installation statt nur Lesezeichen/Verknüpfung:** Bedienungen auf Vereinsfesten profitieren von einer echten App ohne ablenkende oder störende Browser-Adressleiste oben. Chrome erfordert für die Bereitstellung des Dialogs „App installieren“ zwingend PNG-Icons in 192x192 und 512x512 Pixeln mit Deklaration im `manifest.json`.
+2. **Offline-Stabilität & Caching:** Die neuen Icon-Ressourcen werden im Service-Worker gecacht, wodurch auch nach einem Verbindungsabbruch oder bei schlechtem Empfang die App-Darstellung auf dem Homescreen und beim Starten konsistent bleibt.
+3. **Verständliche Anleitung ohne Fachbegriffe:** In `docs/ANLEITUNG.md` führt ein neues Kapitel 16 Bedienungen und Fest-Administratoren Schritt für Schritt durch das einmalige Einbinden des Sicherheits-Zertifikats und die anschließende Installation als App.
+
+### Wie (Technik)
+- **App-Symbole & Manifest (`public/`):**
+  - Erstellung von `public/icon-192.png` und `public/icon-512.png` mit exakten Abmessungen und `maskable`-Zweck.
+  - Erweiterung von `public/manifest.json` um `id: "/"`, `start_url: "/"`, `scope: "/"` sowie die 192x192- und 512x512-Icon-Deklarationen.
+  - Aufnahme der Icons in `PRECACHE_ASSETS` in `public/sw.js` und in die Metadaten von `src/app/layout.tsx`.
+- **Bedienungsanleitung (`docs/ANLEITUNG.md`):**
+  - Neues Kapitel 16: „OpenBon als echte App auf Smartphones & Tablets installieren (Android & iOS)“ mit einfacher Schritt-für-Schritt-Erklärung.
+- **Automatisierte Tests (`src/__tests__/pwa_manifest_and_icons.test.ts`):**
+  - Validierung von Manifest-Attributen, Icon-Dimensionen (PNG-Header-Prüfung) und Service-Worker-Precache (64 Suiten, 448 Tests erfolgreich).
+
 ## v0.4.72 – Hochverfügbarkeit: Vollautomatisches Auto-Failback, sanfte Kassenübergabe & Kellner-Offline-Puffer (29.09.2026)
 
 > Vollautomatisches Auto-Failback für unterbrechungsfreien Kassenbetrieb: Startet der Haupt-Laptop nach einem Stromausfall oder Neustart wieder, synchronisiert er sich zunächst als stiller Zuhörer im Hintergrund, prüft die Netzwerkstabilität für 20 Sekunden ohne Buchungsrückstand und übernimmt die Kassenführung danach vollautomatisch vom Ersatzrechner zurück. Inklusive 3-fachem Schutz beim Kassieren während der Übergabe (Handy-Ausgangskorb, 200ms Drain-Phase und globale UUID-Deduplizierung), Ein-Klick-Netzwerksuche (Discover API & In-App-Pairing) und nahtlosem Rückschwenk aller Kellner-Smartphones ohne Neuanmeldung oder QR-Scan.

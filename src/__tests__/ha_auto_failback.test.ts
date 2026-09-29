@@ -122,6 +122,7 @@ describe('HA Auto-Failback & Handover System', () => {
       await ha.ready;
 
       // Zunächst als PRIMARY aktiv
+      await prisma.haLease.deleteMany().catch(() => {});
       await ha.setRole('PRIMARY');
       expect(ha.getRole()).toBe('PRIMARY');
 

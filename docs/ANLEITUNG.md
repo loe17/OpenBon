@@ -187,5 +187,24 @@ Willkommen bei **OpenBon**, dem plattformunabhängigen, hochverfügbaren Kassens
   2. **Kurze Ausklingzeit (200 Millisekunden)**: Bevor der Ersatzrechner die Führung abgibt, wartet er einen Sekundenbruchteil ab, damit alle bereits losgeschickten Buchungen die Datenbank sicher erreichen. Der Hauptrechner zieht vor der Übernahme die allerletzten Bons ab.
   3. **Einmaliges Bonsiegel (Schutz vor Doppelbuchungen)**: Jeder Bon und jede Abrechnung hat einen weltweit einmaligen Schlüssel. Selbst wenn eine Zahlung durch eine Funkstörung versehentlich auf beiden Rechnern ankommen sollte, erkennt das System die Kennung sofort und führt die Buchung nur exakt ein einziges Mal durch.
 
+### 16. OpenBon als echte App auf Smartphones & Tablets installieren (Android & iOS)
 
+- **Vorteile der App-Installation**:
+  - Kein Browser-Rahmen und keine störende Adresszeile – die Bedienung hat den kompletten Bildschirm für Tische und Bestellungen zur Verfügung.
+  - Schneller Direktstart mit eigenem Icon vom Startbildschirm des Handys.
+  - Bessere Stabilität und automatischer Offline-Puffer auch bei Funkaussetzern.
 
+- **Schritt 1: Einmaliges Sicherheits-Zertifikat am Smartphone hinterlegen**:
+  1. Am Handy im Browser auf die Kassenadresse gehen und das Sicherheits-Zertifikat herunterladen (z. B. unter Einstellungen oder über den bereitgestellten Download-Link).
+  2. In die Smartphone-Einstellungen wechseln: Menüpunkt *Sicherheit* (oder *Sicherheit & Datenschutz* bzw. *Biometrische Daten*).
+  3. Dort auf *Weitere Sicherheitseinstellungen* → *Zertifikate* → *Vom Speicher installieren* (oder *CA-Zertifikat installieren*) tippen.
+  4. Die heruntergeladene Datei auswählen und mit Geräte-PIN oder Fingerabdruck bestätigen.
+  5. Sobald das Zertifikat hinterlegt ist, zeigt der Chrome-Browser bei der Kassenadresse (`https://...`) das grüne bzw. geschlossene Sicherheitsschloss an.
+
+- **Schritt 2: Als vollwertige App auf dem Startbildschirm installieren**:
+  1. Im Chrome-Browser die Kassenansicht (z. B. Kellner-Station `/waiter`) über die sichere Adresse aufrufen.
+  2. Falls die Seite vorher schon geöffnet war: Einmal von oben nach unten wischen, um die Seite frisch zu laden.
+  3. Oben rechts auf die drei Punkte (`⋮`) im Browser tippen.
+  4. Im Menü auf **„App installieren“** (oder **„OpenBon installieren“**) tippen.
+  5. Die Nachfrage mit **„Installieren“** bestätigen.
+  6. Fertig! OpenBon öffnet sich ab jetzt als eigenständige App direkt vom Startbildschirm.
