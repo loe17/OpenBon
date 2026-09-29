@@ -8,7 +8,7 @@ import path from 'path';
 
 describe('OpenBon v0.4.62: Compact Header & Smooth Monotonic Uptime', () => {
   it('should verify APP_VERSION is 0.4.62 or higher', () => {
-    expect(['0.4.62', '0.4.63', '0.4.64', '0.4.65', '0.4.66', '0.4.67', '0.4.68', '0.4.69', '0.4.70', '0.4.71', '0.4.72', '0.4.73']).toContain(APP_VERSION);
+    expect(['0.4.62', '0.4.63', '0.4.64', '0.4.65', '0.4.66', '0.4.67', '0.4.68', '0.4.69', '0.4.70', '0.4.71', '0.4.72', '0.4.73', '0.4.74']).toContain(APP_VERSION);
   });
 
   describe('Smooth & Non-Decreasing Server Uptime Calculation', () => {

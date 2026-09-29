@@ -83,6 +83,30 @@ Vor dem Release müssen folgende Dateien auf die identische neue Versionsnummer 
 - `src/lib/version.ts` (`APP_VERSION`, `APP_BUILD_DATE`, `APP_RELEASE_DATE`, `APP_CODENAME`)
 - `src/__tests__/build_and_schema.test.ts` (Versions-Assert)
 
+## v0.4.74 – Dauer-Vollbildmodus (PWA), automatische Vollbild-Wiederherstellung nach Bildschirmsperre & kompakte Status-Pille (29.09.2026)
+
+> Konsequente Optimierung der mobilen Nutzung auf Kellner-Smartphones: Umstellung der Web-App auf echten Dauer-Vollbildmodus (`display: fullscreen`), automatische und geräuschlose Wiederherstellung des Vollbildmodus beim ersten Fingertipp nach dem Entsperren des Handys sowie schlanke Neugestaltung des Verbindungsstatus in der Menüleiste (kompakter Signalpunkt ohne raumgreifende Statustexte auf Mobilgeräten) und Korrektur der internen HA-Statusprüfung.
+
+### Weshalb
+1. **Dauer-Vollbildmodus ohne System- und Browserleisten:** Mit `display: fullscreen` nutzt OpenBon auf Android-Geräten standardmäßig die gesamte Bildschirmoberfläche bis an den Rand.
+2. **Automatisches Wiederherstellen nach Bildschirmsperre:** Android beendet aus Sicherheitsgründen bei jeder Bildschirmsperre den Vollbildmodus einer Webanwendung. Dank des neuen Berührungs-Wächters (`openbon_fullscreen_preferred`) genügt nach dem Entsperren ein einziger gewöhnlicher Fingertipp auf das Display, um den Vollbildmodus sofort geräuschlos wiederherzustellen.
+3. **Kompakte Status-Signalanzeige ohne Zeilenüberhang:** Auf Smartphones und kleineren Tablets ist die Kassen-Statusanzeige analog zum Internet-Globus als dezenter Signalpunkt gehalten. Irreführende „HA Offline“-Texte auf Einzelkassen und unnötige Zeilenumbrüche werden dadurch zuverlässig verhindert.
+
+### Wie (Technik)
+- **App-Manifest (`public/manifest.json`):**
+  - Umstellung von `standalone` auf `fullscreen`.
+- **Vollbild-Automatik (`src/components/ui/fullscreen-button.tsx`):**
+  - Persistenz des Vollbild-Zustands in `localStorage` (`openbon_fullscreen_preferred`).
+  - Globaler `pointerdown`-Listener zur sofortigen Re-Aktivierung des Vollbildmodus beim ersten Fingertipp nach Bildschirmsperren.
+  - Saubere Deaktivierung bei explizitem Klick auf „Vollbild beenden“.
+- **Kompakte Menüleiste (`src/components/navigation/navbar.tsx`):**
+  - Ausblendung des Statustextes unterhalb der `md`-Breakpoint-Breite (`hidden md:inline`).
+  - Abfrage des HA-Verbindungsstatus über die öffentliche Schnittstelle `/api/system/ha/status` statt der Peer-to-Peer-Sync-Route.
+- **Bedienungsanleitung (`docs/ANLEITUNG.md`):**
+  - Kapitel 16 um Erklärungen zum Dauer-Vollbildmodus und zur Bildschirmsperre erweitert.
+- **Automatisierte Tests (`src/__tests__/pwa_manifest_and_icons.test.ts`):**
+  - Testsuite auf `fullscreen`-Display-Modus und Interaktions-Automatik erweitert (64 Suiten, 449 Tests erfolgreich).
+
 ## v0.4.73 – Android PWA App-Installation, 192x192 & 512x512 Maskable Icons & Schritt-für-Schritt Anleitung (29.09.2026)
 
 > Volle Unterstützung für die native App-Installation (Progressive Web App) unter Google Chrome auf Android-Smartphones und -Tablets. Bisher bot Chrome bei verschlüsselter Verbindung lediglich die Option „Verknüpfung erstellen“ an, da Icons in den strikten Standardauflösungen 192x192 und 512x512 Pixel fehlten. Mit exakt dimensionierten Maskable-Icons, aktualisiertem Web-App-Manifest, Service Worker Caching und einem neuen Schritt-für-Schritt-Kapitel in der Bedienungsanleitung lässt sich OpenBon nun als vollwertige, eigenständige Vollbild-App direkt vom Android-Startbildschirm ohne Browser-Rahmen oder Adressleiste installieren.

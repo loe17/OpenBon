@@ -343,10 +343,11 @@ export default function Navbar() {
           }
           if (data.trainingMode !== undefined) setTrainingMode(data.trainingMode);
           if (data.haPartnerUrl && data.haPartnerUrl.trim() !== '') {
-            fetch('/api/sync/heartbeat')
+            fetch('/api/system/ha/status')
               .then((r) => r.json())
-              .then((hb) => {
-                setHaStatus(hb.partnerConnected ? 'CONNECTED' : 'DISCONNECTED');
+              .then((ha) => {
+                const isConnected = Boolean(ha.partnerUrl && (ha.missedHeartbeats ?? 0) < 3);
+                setHaStatus(isConnected ? 'CONNECTED' : 'DISCONNECTED');
               })
               .catch(() => setHaStatus('DISCONNECTED'));
           } else {
@@ -686,7 +687,7 @@ export default function Navbar() {
                     : 'bg-emerald-400 animate-pulse'
                 }`}
               />
-              <span className="hidden sm:inline">
+              <span className="hidden md:inline">
                 {!isConnected
                   ? 'Getrennt'
                   : haStatus === 'CONNECTED'
