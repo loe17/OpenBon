@@ -12,41 +12,16 @@ export default function FullscreenButton() {
     const checkIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     setIsIos(checkIos);
 
+    try {
+      localStorage.removeItem('openbon_fullscreen_preferred');
+    } catch {}
+
     const onFullscreenChange = () => {
-      const active = Boolean(document.fullscreenElement);
-      setIsFullscreen(active);
-      if (active) {
-        try {
-          localStorage.setItem('openbon_fullscreen_preferred', 'true');
-        } catch {}
-      }
+      setIsFullscreen(!!document.fullscreenElement);
     };
 
     document.addEventListener('fullscreenchange', onFullscreenChange);
-
-    // Automatisches Wiederherstellen beim ersten Fingertipp nach Entsperren
-    const handleGlobalInteraction = (e: PointerEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target && target.closest('[data-fullscreen-button]')) {
-        return;
-      }
-      try {
-        if (
-          !document.fullscreenElement &&
-          localStorage.getItem('openbon_fullscreen_preferred') === 'true' &&
-          !checkIos
-        ) {
-          document.documentElement.requestFullscreen().catch(() => {});
-        }
-      } catch {}
-    };
-
-    window.addEventListener('pointerdown', handleGlobalInteraction, { passive: true });
-
-    return () => {
-      document.removeEventListener('fullscreenchange', onFullscreenChange);
-      window.removeEventListener('pointerdown', handleGlobalInteraction);
-    };
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
   }, []);
 
   const toggleFullscreen = () => {
@@ -56,16 +31,10 @@ export default function FullscreenButton() {
     }
 
     if (!document.fullscreenElement) {
-      try {
-        localStorage.setItem('openbon_fullscreen_preferred', 'true');
-      } catch {}
       document.documentElement.requestFullscreen().catch(() => {
         setShowIosTip(true);
       });
     } else {
-      try {
-        localStorage.setItem('openbon_fullscreen_preferred', 'false');
-      } catch {}
       document.exitFullscreen().catch(() => {});
     }
   };
@@ -73,7 +42,6 @@ export default function FullscreenButton() {
   return (
     <>
       <button
-        data-fullscreen-button="true"
         onClick={toggleFullscreen}
         className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition active:scale-95 touch-manipulation flex items-center justify-center"
         title={isFullscreen ? 'Vollbild beenden (Fenstermodus)' : 'Vollbildmodus aktivieren'}

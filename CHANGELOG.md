@@ -83,6 +83,24 @@ Vor dem Release müssen folgende Dateien auf die identische neue Versionsnummer 
 - `src/lib/version.ts` (`APP_VERSION`, `APP_BUILD_DATE`, `APP_RELEASE_DATE`, `APP_CODENAME`)
 - `src/__tests__/build_and_schema.test.ts` (Versions-Assert)
 
+## v0.4.75 – Rückkehr zum manuellen Vollbildmodus & Standalone-App-Betrieb (29.09.2026)
+
+> Rückabwicklung der automatischen Vollbild-Reaktivierung auf Nutzerwunsch: Vollbildmodus verbleibt als rein manuelle Steuerung ohne automatische Berührungs-Wächter bei Bildschirmsperren. Web-App-Manifest wurde auf den bewährten Standalone-Modus zurückgestellt, während die schlanke Signalpunkt-Statusanzeige und die bereinigte HA-Verbindungsprüfung erhalten bleiben.
+
+### Weshalb
+1. **Keine ungefragte Vollbild-Aktivierung:** Der automatische Vollbild-Wechsel bei Berührung nach dem Entsperren wurde deaktiviert, um jegliche unerwünschte Interaktion auf Mobilgeräten auszuschließen. Der Vollbildmodus wird nun ausschließlich bei explizitem Tippen auf das Vollbild-Symbol aktiviert.
+2. **Standardmäßiger Standalone-Modus:** Die Web-App wird wieder im Standard-Modus (`standalone`) installiert.
+
+### Wie (Technik)
+- **Vollbild-Schalter (`src/components/ui/fullscreen-button.tsx`):**
+  - Entfernung des `pointerdown`-Listeners und Bereinigung von `openbon_fullscreen_preferred`.
+- **Web-App-Manifest (`public/manifest.json`):**
+  - Rückstellung von `display` auf `standalone`.
+- **Bedienungsanleitung (`docs/ANLEITUNG.md`):**
+  - Kapitel 16 aktualisiert: Manueller Vollbild-Togglemode und Standalone-Installation dokumentiert.
+- **Automatisierte Tests (`src/__tests__/pwa_manifest_and_icons.test.ts`):**
+  - Validierung des `standalone`-Manifests und des manuellen Vollbild-Umschalters (64 Suiten, 449 Tests erfolgreich).
+
 ## v0.4.74 – Dauer-Vollbildmodus (PWA), automatische Vollbild-Wiederherstellung nach Bildschirmsperre & kompakte Status-Pille (29.09.2026)
 
 > Konsequente Optimierung der mobilen Nutzung auf Kellner-Smartphones: Umstellung der Web-App auf echten Dauer-Vollbildmodus (`display: fullscreen`), automatische und geräuschlose Wiederherstellung des Vollbildmodus beim ersten Fingertipp nach dem Entsperren des Handys sowie schlanke Neugestaltung des Verbindungsstatus in der Menüleiste (kompakter Signalpunkt ohne raumgreifende Statustexte auf Mobilgeräten) und Korrektur der internen HA-Statusprüfung.

@@ -209,7 +209,7 @@ Willkommen bei **OpenBon**, dem plattformunabhängigen, hochverfügbaren Kassens
   5. Die Nachfrage mit **„Installieren“** bestätigen.
   6. Fertig! OpenBon öffnet sich ab jetzt als eigenständige App direkt vom Startbildschirm.
 
-- **Dauer-Vollbildmodus & automatische Wiederherstellung nach Bildschirmsperre**:
-  - **Echter Vollbildmodus**: Die installierte App nutzt auf dem Smartphone automatisch den gesamten Bildschirm ohne störende Browserleisten aus.
-  - **Intelligente Rückkehr nach Bildschirmsperre**: Wenn das Smartphone gesperrt und wieder entsperrt wird, beendet das Betriebssystem kurz den Vollbildmodus. OpenBon merkt sich deinen Vollbildmodus jedoch: **Ein einziger Fingertipp irgendwo auf das Display** (z. B. auf einen Tisch) stellt den Vollbildmodus sofort geräuschlos wieder her.
+- **Vollbild & kompakte Bedienung auf Smartphones**:
+  - **Eigenständige App**: Die installierte App startet sauber ohne Adressleiste direkt vom Startbildschirm des Handys.
+  - **Manueller Vollbildmodus**: Über das Vollbild-Symbol oben rechts in der Menüleiste kann das Vollbild jederzeit manuell aktiviert oder beendet werden.
   - **Kompakte Kopfleiste**: Auf Smartphones ist der Verbindungsstatus oben extrem platzsparend als dezenter Signalpunkt gestaltet, sodass keine breiten Texte stören.

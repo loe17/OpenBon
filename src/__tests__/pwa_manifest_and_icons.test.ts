@@ -16,7 +16,7 @@ describe('PWA Manifest & Icon Validation for Chrome / Android App Installation',
     expect(manifest.short_name).toBeTruthy();
     expect(manifest.start_url).toBe('/');
     expect(manifest.scope).toBe('/');
-    expect(['fullscreen', 'standalone']).toContain(manifest.display);
+    expect(manifest.display).toBe('standalone');
 
     const sizes = manifest.icons.map((i: any) => i.sizes);
     expect(sizes).toContain('192x192');
@@ -59,11 +59,11 @@ describe('PWA Manifest & Icon Validation for Chrome / Android App Installation',
     expect(swContent).toContain('/icon-512.png');
   });
 
-  it('validates fullscreen-button.tsx implements auto-restore on pointerdown', () => {
+  it('validates fullscreen-button.tsx implements manual fullscreen toggle', () => {
     const fsBtnPath = path.join(process.cwd(), 'src', 'components', 'ui', 'fullscreen-button.tsx');
     const content = fs.readFileSync(fsBtnPath, 'utf8');
-    expect(content).toContain('openbon_fullscreen_preferred');
-    expect(content).toContain('pointerdown');
-    expect(content).toContain('data-fullscreen-button');
+    expect(content).toContain('requestFullscreen');
+    expect(content).toContain('exitFullscreen');
+    expect(content).not.toContain('pointerdown');
   });
 });
