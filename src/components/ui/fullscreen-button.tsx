@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Maximize2, Minimize2, Share, HelpCircle, X } from 'lucide-react';
 
-export default function FullscreenButton() {
+export default function FullscreenButton({ className }: { className?: string } = {}) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isIos, setIsIos] = useState(false);
   const [showIosTip, setShowIosTip] = useState(false);
@@ -43,7 +43,7 @@ export default function FullscreenButton() {
     <>
       <button
         onClick={toggleFullscreen}
-        className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition active:scale-95 touch-manipulation flex items-center justify-center"
+        className={className || "p-2 rounded-xl w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition active:scale-95 touch-manipulation flex items-center justify-center"}
         title={isFullscreen ? 'Vollbild beenden (Fenstermodus)' : 'Vollbildmodus aktivieren'}
         aria-label={isFullscreen ? 'Vollbild beenden' : 'Vollbild aktivieren'}
       >

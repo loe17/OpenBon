@@ -129,6 +129,48 @@ html[data-theme="light"] .bg-gradient-to-r {
   background-color: #ffffff !important;
 }
 
+/* Redesign 2b: KDS Ticket Kopf */
+.kds-ticket-header {
+  background-color: #1c1917;
+  border-bottom: 1px solid #78350f;
+}
+html.light .kds-ticket-header, html[data-theme="light"] .kds-ticket-header {
+  background-color: #fffbeb !important;
+  border-bottom-color: #fde68a !important;
+}
+
+/* Redesign 2b: Kellner Tischkarte Offen */
+.waiter-table-open {
+  background-color: #1c1310;
+  border-color: #b45309;
+}
+html.light .waiter-table-open, html[data-theme="light"] .waiter-table-open {
+  background-color: #fffbeb !important;
+  border-color: #f59e0b !important;
+}
+
+/* Redesign 2b: Kellner Stummschalt-Knopf */
+.waiter-mute-btn {
+  background-color: #450a0a;
+  border-color: #9f1239;
+  color: #fb7185;
+}
+html.light .waiter-mute-btn, html[data-theme="light"] .waiter-mute-btn {
+  background-color: #fee2e2 !important;
+  border-color: #fca5a5 !important;
+  color: #b91c1c !important;
+}
+
+/* Redesign 2b: Admin Prognose Banner */
+.admin-forecast-banner {
+  background-color: #1e1b4b;
+  border-color: #3730a3;
+}
+html.light .admin-forecast-banner, html[data-theme="light"] .admin-forecast-banner {
+  background-color: #eef2ff !important;
+  border-color: #c7d2fe !important;
+}
+
 /* Theme 3: Kompakt Hell (High-Speed Tresen, sonnentauglich hell, 4px-Radien) */
 html.speed-light body, html[data-theme="speed-light"] body {
   background-color: #f8fafc !important;

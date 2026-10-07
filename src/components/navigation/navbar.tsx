@@ -51,7 +51,10 @@ import {
   Scaling,
   Clock,
   Globe,
+  ExternalLink,
+  ShieldAlert,
 } from 'lucide-react';
+import { calculateMinBirthdate } from '@/lib/compliance';
 
 interface NavItem {
   href: string;
@@ -161,6 +164,80 @@ export default function Navbar() {
   const [isAutoFit, setIsAutoFit] = useState(false);
   const [hasUnreadChat, setHasUnreadChat] = useState(false);
   const { socket } = useSocket();
+
+  const [posStationName, setPosStationName] = useState('Bonkasse 1');
+  const [posLowStock, setPosLowStock] = useState<string | null>(null);
+  const [kdsCount, setKdsCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const savedName = localStorage.getItem('openbon_pos_name') || 'Bonkasse 1';
+    setPosStationName(savedName);
+
+    const onStationChange = (e: any) => {
+      if (e.detail) setPosStationName(e.detail);
+      else setPosStationName(localStorage.getItem('openbon_pos_name') || 'Bonkasse 1');
+    };
+    const onLowStock = (e: any) => {
+      setPosLowStock(e.detail || null);
+    };
+    const onKdsCount = (e: any) => {
+      if (typeof e.detail === 'number') setKdsCount(e.detail);
+    };
+    const onOpenMenu = () => setIsOpen(true);
+
+    window.addEventListener('openbon:pos_station_changed', onStationChange);
+    window.addEventListener('openbon:pos_low_stock', onLowStock);
+    window.addEventListener('openbon:kds_active_count', onKdsCount);
+    window.addEventListener('openbon:open_menu', onOpenMenu);
+
+    return () => {
+      window.removeEventListener('openbon:pos_station_changed', onStationChange);
+      window.removeEventListener('openbon:pos_low_stock', onLowStock);
+      window.removeEventListener('openbon:kds_active_count', onKdsCount);
+      window.removeEventListener('openbon:open_menu', onOpenMenu);
+    };
+  }, []);
+
+  const minBirth16 = calculateMinBirthdate(16);
+  const minBirth18 = calculateMinBirthdate(18);
+
+  const getAdminTitle = (path: string) => {
+    if (path === '/admin' || path === '/admin/dashboard') return 'Command Center';
+    if (path.startsWith('/admin/products')) return 'Artikel & Speisekarte';
+    if (path.startsWith('/admin/inventory')) return 'Warenbestand';
+    if (path.startsWith('/admin/stock-units')) return 'Lagerposten';
+    if (path.startsWith('/admin/procurement')) return 'Bestellvorschlag';
+    if (path.startsWith('/admin/reports')) return 'Berichte & Statistik';
+    if (path.startsWith('/admin/cashbook')) return 'Kassenbuch';
+    if (path.startsWith('/admin/settle')) return 'Schichtabrechnung';
+    if (path.startsWith('/admin/accounting')) return 'DATEV Export';
+    if (path.startsWith('/admin/fiscal')) return 'DSFinV-K & TSE';
+    if (path.startsWith('/admin/tokens')) return 'Wertmarken & Bons';
+    if (path.startsWith('/admin/devices')) return 'Geräte & Hardware';
+    if (path.startsWith('/admin/tables')) return 'Tische & Bereiche';
+    if (path.startsWith('/admin/printers')) return 'Drucker';
+    if (path.startsWith('/admin/customer-cards')) return 'Kundenkarten';
+    if (path.startsWith('/admin/security')) return 'Sicherheit & PINs';
+    if (path.startsWith('/admin/settings')) return 'Kasseneinstellungen';
+    if (path.startsWith('/admin/diagnostics')) return 'Testbetrieb & Hardware';
+    if (path.startsWith('/admin/backup')) return 'Backup & Wiederherstellung';
+    if (path.startsWith('/admin/logs')) return 'System- & Fehlerprotokoll';
+    if (path.startsWith('/admin/qr-codes')) return 'QR-Codes';
+    return 'Command Center';
+  };
+
+  const getOtherPageTitle = (path: string) => {
+    if (path === '/kiosk') return 'SB-Bestellterminal';
+    if (path === '/customer-display') return 'Kundendisplay';
+    if (path === '/chat') return 'Team-Funk';
+    if (path === '/taps') return 'Fass- & Schankmonitor';
+    if (path === '/order') return 'Gast-Bestellung';
+    if (path === '/receipt') return 'Digitaler Beleg';
+    if (path === '/docs') return 'Dokumentation';
+    if (path === '/') return 'Hauptmenü';
+    return 'OpenBon';
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -486,13 +563,6 @@ export default function Navbar() {
     }
   };
 
-  // Header im Vollbildmodus auf allen Nicht-Admin Seiten ausblenden
-  const isNonAdminFullscreen = isFullscreen && !pathname.startsWith('/admin');
-
-  if (isNonAdminFullscreen) {
-    return null;
-  }
-
   return (
     <>
       {/* Training Mode Banner */}
@@ -503,163 +573,156 @@ export default function Navbar() {
         </div>
       )}
 
-      {/* Main Top Header */}
-      <header className="sticky top-0 z-50 bg-slate-900 text-white border-b border-slate-800 shadow-md">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 flex items-center justify-between h-14 sm:h-16">
-          {/* Logo & Brand */}
-          <div className="flex items-center gap-3">
+      {/* Main Top Header (46px - Redesign 2b) - Nicht auf Kellner-Mobilansicht anzeigen */}
+      {!pathname.startsWith('/waiter') && (
+        <header className="sticky top-0 z-50 h-[46px] flex-none flex items-center justify-between gap-2.5 px-3 bg-slate-900 text-white border-b border-slate-800 shadow-sm select-none">
+          {/* Links: Menü 32x32 · OpenBon · / · Seitenname · Zusatzinfo */}
+          <div className="flex items-center gap-2.5 min-w-0">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="relative p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition active:scale-95 touch-manipulation"
+              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition active:scale-95 touch-manipulation flex items-center justify-center shrink-0 relative"
               title="Menü öffnen"
+              aria-label="Menü öffnen"
             >
-              {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {isOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
               {hasUnreadChat && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full ring-2 ring-slate-900 animate-pulse shadow shadow-rose-950" />
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-slate-900 animate-pulse shadow shadow-rose-950" />
               )}
             </button>
-            <Link href="/" className="flex items-center gap-2 font-black text-lg sm:text-xl tracking-tight">
-              <span className="text-white">OpenBon</span>
-              {pathname.startsWith('/admin') && (
-                <span className="text-[11px] font-semibold text-slate-400 bg-slate-800/70 px-2 py-0.5 rounded-full border border-slate-700/60 tracking-normal">
+
+            <Link href="/" className="flex items-center gap-2 font-['Plus_Jakarta_Sans',sans-serif] font-extrabold text-[16px] tracking-tight text-white hover:opacity-90 shrink-0">
+              <span>OpenBon</span>
+            </Link>
+
+            <span className="text-slate-600 font-normal shrink-0 select-none">/</span>
+
+            {/* Seitenbezogener Name */}
+            {pathname === '/pos' ? (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="font-bold text-[14px] text-white">{posStationName}</span>
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('openbon:open_station_modal'))}
+                  className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 underline cursor-pointer"
+                  title="Kassenname ändern"
+                >
+                  Ändern
+                </button>
+              </div>
+            ) : pathname === '/kitchen' ? (
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="font-bold text-[14px] text-white">Küche &amp; Schank</span>
+                <span className="text-[12px] font-semibold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">{kdsCount} aktiv</span>
+              </div>
+            ) : pathname.startsWith('/admin') ? (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="font-bold text-[14px] text-white">{getAdminTitle(pathname)}</span>
+                <span className="text-[11px] font-semibold text-slate-400 bg-slate-800/70 px-2 py-0.5 rounded-full border border-slate-700/60">
                   v{APP_VERSION}{APP_IS_BETA ? ' Beta' : ''}
                 </span>
-              )}
-            </Link>
+              </div>
+            ) : (
+              <span className="font-bold text-[14px] text-white truncate">{getOtherPageTitle(pathname)}</span>
+            )}
           </div>
 
-          {/* Controls: Outbox Badge, Internet, Clock, Tool-Group, Server-Status, Role */}
-          <div className="flex items-center gap-1.5 sm:gap-2 text-xs relative">
+          {/* Mitte / Seitenbezogene Zusatzinfo */}
+          <div className="flex-1 flex items-center justify-end gap-3 min-w-0 pr-2">
+            {pathname === '/pos' && (
+              <div className="hidden lg:flex items-center gap-3 shrink-0">
+                {posLowStock && (
+                  <span className="text-[12px] font-bold text-amber-300 flex items-center gap-1.5 bg-amber-950/60 border border-amber-800 px-2.5 py-1 rounded-md">
+                    <Package className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{posLowStock}</span>
+                  </span>
+                )}
+                <span className="font-mono text-[12px] text-slate-300 flex items-center gap-1.5 px-2 select-none">
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                  <span>16 <b className="text-amber-400 font-bold">≤{minBirth16.formattedDate}</b></span>
+                  <span>18 <b className="text-rose-400 font-bold">≤{minBirth18.formattedDate}</b></span>
+                </span>
+              </div>
+            )}
+
+            {pathname.startsWith('/admin') && (
+              <div className="hidden sm:flex items-center gap-2 shrink-0">
+                {formattedServerTime && (
+                  <div
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-slate-700/80 bg-slate-800/80 text-slate-200 font-mono font-bold text-xs shadow-sm select-none"
+                    title={`Kassen-Uhrzeit (OpenBon Server): ${formattedServerDate}, ${formattedServerTime} Uhr`}
+                  >
+                    <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
+                    <span>{formattedServerTime}</span>
+                  </div>
+                )}
+                {isInternetOnline !== null && (
+                  <div
+                    className={`flex items-center justify-center w-8 h-8 rounded-lg border transition cursor-default ${
+                      isInternetOnline
+                        ? 'bg-emerald-950/70 border-emerald-800 text-emerald-300'
+                        : 'bg-amber-950/70 border-amber-800 text-amber-300'
+                    }`}
+                    title={isInternetOnline ? 'Internetverbindung aktiv' : 'Kein Internet'}
+                    aria-label={isInternetOnline ? 'Internet online' : 'Kein Internet'}
+                  >
+                    <div className="relative flex items-center justify-center">
+                      <Globe className="w-4 h-4" />
+                      <span
+                        className={`absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ring-1 ring-slate-900 ${
+                          isInternetOnline ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                        }`}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Rechts (Reihenfolge: Hell/Dunkel 32x32 · Vollbild 32x32 · Extern öffnen 32x32 · Status-Pille · ADMIN) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 text-xs shrink-0">
             {/* Offline / Outbox Status Badge */}
             {(!isOnline || pendingOutboxCount > 0) && (
               <div
-                className={`flex items-center gap-1.5 px-2 py-1 rounded-xl border font-bold text-[11px] animate-pulse ${
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border font-bold text-[11px] animate-pulse ${
                   !isOnline
                     ? 'bg-rose-950/80 border-rose-700 text-rose-300'
                     : 'bg-amber-950/80 border-amber-700 text-amber-300'
                 }`}
-                title={
-                  !isOnline
-                    ? 'Offline: Vorgänge werden lokal gespeichert'
-                    : `${pendingOutboxCount} Vorgänge in der Warteschlange`
-                }
+                title={!isOnline ? 'Offline: Vorgänge werden lokal gespeichert' : `${pendingOutboxCount} Vorgänge in der Warteschlange`}
               >
-                <div
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    !isOnline ? 'bg-rose-500' : 'bg-amber-400'
-                  }`}
-                />
-                <span>
-                  {!isOnline ? 'Offline' : `${pendingOutboxCount} wartend`}
-                </span>
+                <div className={`w-1.5 h-1.5 rounded-full ${!isOnline ? 'bg-rose-500' : 'bg-amber-400'}`} />
+                <span>{!isOnline ? 'Offline' : `${pendingOutboxCount} wartend`}</span>
               </div>
             )}
 
-            {/* Internet Status (Nur im Admin-Bereich sichtbar) - Option A: Schlanker Globus mit Signalpunkt */}
-            {pathname.startsWith('/admin') && isInternetOnline !== null && (
-              <div
-                className={`flex items-center justify-center p-2 rounded-xl border transition cursor-default ${
-                  isInternetOnline
-                    ? 'bg-emerald-950/70 border-emerald-800 text-emerald-300'
-                    : 'bg-amber-950/70 border-amber-800 text-amber-300'
-                }`}
-                title={
-                  isInternetOnline
-                    ? 'Internetverbindung aktiv (E-Bon & Webhosting online)'
-                    : 'Kein Internet – Kasse läuft offline (E-Bons pausiert, Papierbon aktiv)'
-                }
-                aria-label={isInternetOnline ? 'Internet online' : 'Kein Internet'}
-              >
-                <div className="relative flex items-center justify-center">
-                  <Globe className="w-4 h-4" />
-                  <span
-                    className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ring-1 ring-slate-900 ${
-                      isInternetOnline ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
-                    }`}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Kassen-Uhrzeit (Nur im Admin-Bereich sichtbar) */}
-            {pathname.startsWith('/admin') && formattedServerTime && (
-              <div
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-700/80 bg-slate-800/80 text-slate-200 font-mono font-bold text-xs shadow-sm select-none"
-                title={`Kassen-Uhrzeit (OpenBon Server): ${formattedServerDate}, ${formattedServerTime} Uhr\nMaßgeblich für Artikel-Zeitfenster, Bestellungen und Abrechnungen.`}
-              >
-                <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
-                <span>{formattedServerTime}</span>
-              </div>
-            )}
-
-            {/* Theme Picker Dropdown Toggle */}
-            <div className="relative">
-              <button
-                onClick={() => setShowThemePicker(!showThemePicker)}
-                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition active:scale-95 flex items-center justify-center"
-                title="Farbschema wechseln"
-                aria-label="Farbschema wechseln"
-              >
-                <Sun className="w-4 h-4 text-amber-400" />
-              </button>
-
-              {showThemePicker && (
-                <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-700 rounded-2xl p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2.5 py-1 mb-1">
-                    Design / Theme wählen
-                  </div>
-                  {AVAILABLE_THEMES.map((t) => {
-                    const ThemeIcon =
-                      t.id === 'dark' ? Moon :
-                      t.id === 'light' ? Sun :
-                      t.id === 'speed-light' ? Sparkles :
-                      t.id === 'speed' ? LayoutGrid : Square;
-
-                    return (
-                      <button
-                        key={t.id}
-                        onClick={() => {
-                          setTheme(t.id);
-                          setShowThemePicker(false);
-                        }}
-                        className={`w-full p-2 rounded-xl text-left text-xs font-bold flex items-center justify-between transition ${
-                          theme === t.id
-                            ? 'bg-blue-600 text-white shadow'
-                            : 'text-slate-300 hover:bg-slate-800'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <ThemeIcon className="w-3.5 h-3.5" />
-                          <span>{t.label}</span>
-                        </div>
-                        {theme === t.id && <Check className="w-3.5 h-3.5 text-white" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Fullscreen Button */}
-            <FullscreenButton />
-
-            {/* Screen Auto-Fit Scale Toggle */}
+            {/* Theme Switcher (32x32) */}
             <button
-              onClick={toggleAutoFit}
-              className={`p-2 rounded-xl border transition active:scale-95 flex items-center justify-center ${
-                isAutoFit
-                  ? 'bg-blue-600 text-white border-blue-500 shadow-md'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
-              }`}
-              title={isAutoFit ? 'Bildschirmanpassung aktiv (Klick zum Deaktivieren)' : 'Auf Bildschirmhöhe einpassen (Scrollen vermeiden)'}
-              aria-label="Bildschirmanpassung"
+              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition active:scale-95 flex items-center justify-center"
+              title={theme === 'light' ? 'Dunkelmodus aktivieren' : 'Hellmodus aktivieren'}
+              aria-label="Farbschema wechseln"
             >
-              <Scaling className="w-4 h-4" />
+              {theme === 'light' ? <Moon className="w-4 h-4 text-blue-400" /> : <Sun className="w-4 h-4 text-amber-400" />}
             </button>
 
-            {/* Kassen- & Server-Verbindungsstatus */}
+            {/* Fullscreen Button (32x32) */}
+            <FullscreenButton className="p-2 rounded-xl w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition active:scale-95 touch-manipulation flex items-center justify-center" />
+
+            {/* Extern öffnen Button (32x32) */}
+            <button
+              type="button"
+              onClick={() => window.open(window.location.href, '_blank')}
+              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition active:scale-95 flex items-center justify-center"
+              title="In neuem Fenster / Tab öffnen"
+              aria-label="In neuem Fenster öffnen"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Kassen- & Server-Verbindungsstatus (h 32, 12 px 700) */}
             <div
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold transition select-none ${
+              className={`h-8 px-2.5 rounded-lg border text-[12px] font-bold flex items-center gap-1.5 transition select-none ${
                 !isConnected
                   ? 'bg-rose-950/80 text-rose-300 border-rose-700'
                   : haStatus === 'CONNECTED'
@@ -698,13 +761,25 @@ export default function Navbar() {
               </span>
             </div>
 
-            {/* Role Badge */}
-            <div className="bg-blue-950 text-blue-300 border border-blue-700 px-2.5 py-1 rounded-xl font-bold uppercase tracking-wider text-[10px] sm:text-xs shadow select-none">
-              {role === 'WAITER' ? 'Bedienung' : role === 'POS_CASHIER' ? 'Bonkasse' : role === 'KITCHEN' ? 'Küche' : 'Admin'}
-            </div>
+            {/* ADMIN Button (h 32, 12 px 800, tracking .06em) */}
+            <button
+              type="button"
+              onClick={() => {
+                if (role === 'ADMIN') {
+                  router.push('/admin/dashboard');
+                } else {
+                  setPinTarget('ADMIN');
+                  setShowPinModal(true);
+                }
+              }}
+              className="h-8 px-3 rounded-lg bg-blue-950 hover:bg-blue-900 border border-blue-600 text-blue-300 font-extrabold text-[12px] tracking-[0.06em] flex items-center justify-center transition active:scale-95"
+              title="Zum Admin Command Center wechseln (PIN-geschützt)"
+            >
+              ADMIN
+            </button>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* Slide-out Navigation Drawer */}
       {isOpen && (
@@ -722,6 +797,9 @@ export default function Navbar() {
                   </span>
                 </div>
                 <p className="text-xs text-slate-400">OpenBon Kassen- &amp; Bestellsystem</p>
+                <div className="mt-2 bg-blue-950 text-blue-300 border border-blue-700 px-2.5 py-1 rounded-xl font-bold uppercase tracking-wider text-[10px] shadow select-none w-fit">
+                  {role === 'WAITER' ? 'Bedienung' : role === 'POS_CASHIER' ? 'Bonkasse' : role === 'KITCHEN' ? 'Küche' : 'Admin'}
+                </div>
               </div>
               <button onClick={() => setIsOpen(false)} className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800">
                 <X className="w-5 h-5" />

@@ -135,284 +135,201 @@ export default function AdminDashboardPage() {
   const onlineDevices = devices.filter((d) => d.status === 'ONLINE');
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-y-auto bg-slate-950 text-white p-3 sm:p-6 max-w-7xl mx-auto w-full">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="bg-purple-600 text-white p-2.5 rounded-2xl shadow">
-            <LayoutDashboard className="w-6 h-6" />
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white">
+      {/* Scrollbarer Inhaltsbereich */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-2.5 max-w-7xl mx-auto w-full">
+        {loading ? (
+          <div className="flex items-center justify-center h-48 text-slate-400">
+            <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+            <span>Lade Live-Dashboard...</span>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-black">Admin Command Center</h1>
-              <span className="bg-blue-950 text-blue-300 font-bold px-2.5 py-0.5 rounded-lg text-xs border border-blue-700">
-                v{APP_VERSION}
-              </span>
+        ) : (
+          <>
+            {/* 4 Kennzahl-Karten (2x2 Raster) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {/* KPI 1: Realisierter Umsatz */}
+              <div className="p-3.5 bg-slate-900 rounded-xl border border-slate-800 shadow flex items-center justify-between gap-3 border-l-4 border-l-emerald-500">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                    Realisierter Umsatz
+                  </span>
+                  <div className="text-xs text-slate-400">
+                    Bar: {formatCents((reportsData as any)?.totalCashCents ?? Math.round(((reportsData as any)?.totalCash ?? 0) * 100))} · Karte: {formatCents((reportsData as any)?.totalCardCents ?? Math.round(((reportsData as any)?.totalCard ?? 0) * 100))}
+                  </div>
+                </div>
+                <div className="text-[28px] font-black text-emerald-400 font-mono text-right shrink-0">
+                  {formatCents((reportsData as any)?.totalGrossCents ?? Math.round(((reportsData as any)?.totalGross ?? 0) * 100))}
+                </div>
+              </div>
+
+              {/* KPI 2: Offene Tische */}
+              <div className="p-3.5 bg-slate-900 rounded-xl border border-slate-800 shadow flex items-center justify-between gap-3 border-l-4 border-l-amber-500">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                    Offene Tische
+                  </span>
+                  <div className="text-xs text-slate-400">
+                    {occupiedTables.length} von {tablesData.length} Tischen belegt
+                  </div>
+                </div>
+                <div className="text-[28px] font-black text-amber-400 font-mono text-right shrink-0">
+                  {formatCents(Math.round(openTableGross * 100))}
+                </div>
+              </div>
+
+              {/* KPI 3: Aktive Küchenbons */}
+              <div className="p-3.5 bg-slate-900 rounded-xl border border-slate-800 shadow flex items-center justify-between gap-3 border-l-4 border-l-blue-500">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                    Aktive Küchenbons
+                  </span>
+                  <Link href="/kitchen" className="text-xs text-blue-400 font-bold hover:underline">
+                    KDS →
+                  </Link>
+                </div>
+                <div className="text-[28px] font-black text-blue-400 font-mono text-right shrink-0">
+                  {kitchenOrders.length}
+                </div>
+              </div>
+
+              {/* KPI 4: Geräte im Einsatz */}
+              <div className="p-3.5 bg-slate-900 rounded-xl border border-slate-800 shadow flex items-center justify-between gap-3 border-l-4 border-l-purple-500">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                    Geräte im Einsatz
+                  </span>
+                  <Link href="/admin/devices" className="text-xs text-purple-400 font-bold hover:underline">
+                    Geräte →
+                  </Link>
+                </div>
+                <div className="text-[28px] font-black text-purple-400 font-mono text-right shrink-0">
+                  {onlineDevices.length} <span className="text-xs text-slate-400 font-normal">/ {devices.length}</span>
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-slate-400">
-              Echtzeit-Leitstand für Umsatz, Auslastung, Küche und Serviceteam
-            </p>
-          </div>
+
+            {/* Prognose heute (Volle Breite, eine Zeile mit .admin-forecast-banner) */}
+            {reportsData?.forecast && (
+              <div className="admin-forecast-banner p-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3 shadow">
+                <div className="flex items-center gap-2.5">
+                  <Sparkles className="w-5 h-5 text-blue-400 shrink-0" />
+                  <div>
+                    <span className="text-xs font-black uppercase tracking-wider text-blue-300 block">
+                      Prognose heute
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      Ansturm {reportsData.forecast.peakHourLabel} · {reportsData.forecast.confidencePercent}% Konfidenz
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-[28px] font-black text-white font-mono shrink-0">
+                  ca. {formatCents((reportsData as any).forecast.projectedEodGrossCents ?? Math.round(((reportsData as any).forecast.projectedEodGross ?? 0) * 100))}
+                </div>
+
+                <Link
+                  href="/admin/reports"
+                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow shrink-0"
+                >
+                  <span>Detail-Analyse</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            )}
+
+            {/* Warengruppen-Verteilung (Volle Breite, Balken 10px) */}
+            <div className="p-3.5 bg-slate-900 rounded-xl border border-slate-800 shadow space-y-2.5">
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="text-white">Warengruppen-Verteilung</span>
+                <span className="text-slate-400 font-normal">Live nach Umsatz</span>
+              </div>
+
+              <div className="space-y-2">
+                {reportsData?.categoryBreakdown?.map((cat) => (
+                  <div key={cat.id}>
+                    <div className="flex justify-between text-xs font-bold mb-1">
+                      <span>{cat.name} ({cat.count} Positionen)</span>
+                      <span className="font-mono text-emerald-400">
+                        {formatCents((cat as any).revenueCents ?? Math.round(((cat as any).revenue ?? 0) * 100))} ({cat.percent}%)
+                      </span>
+                    </div>
+                    <div className="h-2.5 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700/60">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${Math.max(3, cat.percent)}%`, backgroundColor: cat.color || '#3b82f6' }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Leiste unten (64 px) */}
+      <div className="h-16 min-h-[64px] bg-slate-900 border-t border-slate-800 px-3 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 shrink-0 shadow-lg">
+        {/* Schnellzugriff-Knöpfe nebeneinander */}
+        <div className="flex items-center gap-1.5 overflow-x-auto min-w-0 pr-2">
+          <Link
+            href="/admin/diagnostics"
+            className="h-11 px-3 rounded-xl border bg-slate-800 border-slate-700 text-slate-200 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 text-xs font-bold transition shrink-0"
+          >
+            <Activity className="w-4 h-4 text-blue-400" />
+            <span>Testbetrieb</span>
+          </Link>
+          <Link
+            href="/admin/qr-codes"
+            className="h-11 px-3 rounded-xl border bg-slate-800 border-slate-700 text-slate-200 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 text-xs font-bold transition shrink-0"
+          >
+            <QrCode className="w-4 h-4 text-blue-400" />
+            <span>QR-Codes</span>
+          </Link>
+          <Link
+            href="/admin/reports"
+            className="h-11 px-3 rounded-xl border bg-slate-800 border-slate-700 text-slate-200 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 text-xs font-bold transition shrink-0"
+          >
+            <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <span>Berichte</span>
+          </Link>
+          <Link
+            href="/admin/settings"
+            className="h-11 px-3 rounded-xl border bg-slate-800 border-slate-700 text-slate-200 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 text-xs font-bold transition shrink-0"
+          >
+            <HardDrive className="w-4 h-4 text-amber-400" />
+            <span>Backup</span>
+          </Link>
+          <Link
+            href="/admin/system-update"
+            className="h-11 px-3 rounded-xl border bg-slate-800 border-slate-700 text-slate-200 hover:text-white hover:bg-slate-700 flex items-center gap-1.5 text-xs font-bold transition shrink-0"
+          >
+            <Terminal className="w-4 h-4 text-purple-400" />
+            <span>Update</span>
+          </Link>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Live Systemauslastung Badge */}
-          {systemMetrics && (
-            <Link
-              href="/admin/system-update"
-              className="flex items-center gap-2.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-850 rounded-xl text-xs border border-slate-800 transition shadow-inner group"
-              title="Klicken für Systemdetails & Update-Manager"
-            >
-              <div className="flex items-center gap-1.5">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <Cpu className="w-3.5 h-3.5 text-slate-400 group-hover:text-sky-400 transition-colors" />
-                <span className="font-semibold text-slate-300">CPU:</span>
-                <span className={`font-mono font-bold ${systemMetrics.cpuPercent > 85 ? 'text-rose-400 font-black animate-pulse' : systemMetrics.cpuPercent > 70 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                  {systemMetrics.cpuPercent}%
-                </span>
-              </div>
-              <span className="text-slate-700">|</span>
-              <div className="flex items-center gap-1.5">
-                <span className="font-semibold text-slate-300">RAM:</span>
-                <span className={`font-mono font-bold ${systemMetrics.ramPercent > 85 ? 'text-rose-400' : systemMetrics.ramPercent > 70 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                  {systemMetrics.ramPercent}%
-                </span>
-              </div>
-            </Link>
-          )}
+        {/* Rechts: System-Status kompakt + Aktualisieren */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="text-xs text-slate-400 font-medium px-2.5 py-1.5 bg-slate-950 rounded-xl border border-slate-800 flex items-center gap-1.5">
+            <span className="font-bold text-emerald-400">{config?.haRole || 'PRIMARY'}</span>
+            <span>·</span>
+            <span>{config?.trainingMode ? 'Trainingsmodus' : 'Echtbetrieb'}</span>
+            <span>·</span>
+            <span className="font-mono text-slate-300">CPU {systemMetrics?.cpuPercent ?? 0}%</span>
+            <span>·</span>
+            <span className="font-mono text-slate-300">RAM {systemMetrics?.ramPercent ?? 0}%</span>
+          </div>
 
           <button
             onClick={fetchAllDashboardData}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-200 border border-slate-700 transition"
+            className="h-11 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 flex items-center gap-1.5 transition active:scale-95"
+            title="Aktualisieren"
           >
             <RefreshCw className="w-4 h-4" />
             <span>Aktualisieren</span>
           </button>
         </div>
       </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center h-48 text-slate-400">
-          <RefreshCw className="w-6 h-6 animate-spin mr-2" />
-          <span>Lade Live-Dashboard...</span>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Top Live KPIs Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {/* KPI 1: Realized Sales */}
-            <div className="p-5 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl flex flex-col justify-between">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                  Realisierter Umsatz
-                </span>
-                <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono">
-                  {formatCents((reportsData as any).totalGrossCents ?? Math.round(((reportsData as any)?.totalGross ?? 0) * 100))}
-                </div>
-              </div>
-              <div className="mt-3 pt-3 border-t border-slate-800 flex justify-between text-xs text-slate-400">
-                <span>Bar: {formatCents((reportsData as any).totalCashCents ?? Math.round(((reportsData as any)?.totalCash ?? 0) * 100))}</span>
-                <span>Karte: {formatCents((reportsData as any).totalCardCents ?? Math.round(((reportsData as any)?.totalCard ?? 0) * 100))}</span>
-              </div>
-            </div>
-
-            {/* KPI 2: Open Tables Gross */}
-            <div className="p-5 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl flex flex-col justify-between">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                  Offene Tische (Nicht bezahlt)
-                </span>
-                <div className="text-2xl sm:text-3xl font-black text-amber-400 font-mono">
-                  {formatCents(Math.round((openTableGross) * 100))}
-                </div>
-              </div>
-              <div className="mt-3 pt-3 border-t border-slate-800 flex justify-between text-xs text-slate-400">
-                <span>{occupiedTables.length} von {tablesData.length} Tischen belegt</span>
-              </div>
-            </div>
-
-            {/* KPI 3: Kitchen Backlog */}
-            <div className="p-5 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl flex flex-col justify-between">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                  Aktive Küchenbons
-                </span>
-                <div className="text-2xl sm:text-3xl font-black text-blue-400 font-mono">
-                  {kitchenOrders.length}
-                </div>
-              </div>
-              <div className="mt-3 pt-3 border-t border-slate-800 flex justify-between text-xs text-slate-400">
-                <span>Wartezeit-Alarm aktiv</span>
-                <Link href="/kitchen" className="text-blue-400 hover:underline font-bold">KDS →</Link>
-              </div>
-            </div>
-
-            {/* KPI 4: Connected Devices */}
-            <div className="p-5 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl flex flex-col justify-between">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                  Geräte im Einsatz
-                </span>
-                <div className="text-2xl sm:text-3xl font-black text-purple-400 font-mono">
-                  {onlineDevices.length} Online
-                </div>
-              </div>
-              <div className="mt-3 pt-3 border-t border-slate-800 flex justify-between text-xs text-slate-400">
-                <span>{devices.length} Registriert</span>
-                <Link href="/admin/devices" className="text-purple-400 hover:underline font-bold">Geräte →</Link>
-              </div>
-            </div>
-          </div>
-
-          {/* Middle Split: Revenue Distribution & Predictive Forecast */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left 2 Cols: Category Shares & Forecast */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Forecast Banner */}
-              {reportsData?.forecast && (
-                <div className="p-5 bg-gradient-to-r from-blue-950/80 via-purple-950/60 to-slate-900 rounded-3xl border-2 border-blue-500/40 shadow-xl flex flex-wrap items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-blue-300">
-                      <Sparkles className="w-4 h-4" />
-                      <span>KI-Umsatzprognose für heute (EOD)</span>
-                    </div>
-                    <div className="text-3xl sm:text-4xl font-black text-white font-mono">
-                      ca. {formatCents((reportsData as any).forecast.projectedEodGrossCents ?? Math.round(((reportsData as any).forecast.projectedEodGross ?? 0) * 100))}
-                    </div>
-                    <div className="text-xs text-slate-400 font-medium">
-                      Hauptansturm (Peak): <span className="text-amber-400 font-bold">{reportsData.forecast.peakHourLabel}</span> • Konfidenz: {reportsData.forecast.confidencePercent}%
-                    </div>
-                  </div>
-
-                  <Link
-                    href="/admin/reports"
-                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold transition flex items-center gap-1 shadow-lg"
-                  >
-                    <span>Detail-Analyse</span>
-                    <ArrowUpRight className="w-4 h-4" />
-                  </Link>
-                </div>
-              )}
-
-              {/* Category Breakdown */}
-              <div className="p-5 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl space-y-4">
-                <h3 className="text-base font-bold text-white flex items-center justify-between">
-                  <span>Warengruppen-Verteilung</span>
-                  <span className="text-xs text-slate-400 font-normal">Live nach Umsatz</span>
-                </h3>
-
-                <div className="space-y-3">
-                  {reportsData?.categoryBreakdown?.map((cat) => (
-                    <div key={cat.id}>
-                      <div className="flex justify-between text-xs font-bold mb-1">
-                        <span>{cat.name} ({cat.count} Positionen)</span>
-                        <span className="font-mono text-emerald-400">{formatCents((cat as any).revenueCents ?? Math.round(((cat as any).revenue ?? 0) * 100))} ({cat.percent}%)</span>
-                      </div>
-                      <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{ width: `${Math.max(3, cat.percent)}%`, backgroundColor: cat.color || '#3b82f6' }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Right Col: Quick Actions & System Health */}
-            <div className="space-y-4">
-              {/* System Health */}
-              <div className="p-5 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl space-y-3">
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-emerald-400" />
-                  <span>System-Status</span>
-                </h3>
-
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800">
-                    <span className="text-slate-400">Server-Rolle:</span>
-                    <span className="font-bold text-emerald-400">{config?.haRole || 'PRIMARY'}</span>
-                  </div>
-                  <div className="flex justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800">
-                    <span className="text-slate-400">Trainingsmodus:</span>
-                    <span className={`font-bold ${config?.trainingMode ? 'text-amber-400' : 'text-slate-300'}`}>
-                      {config?.trainingMode ? 'AKTIV' : 'Aus (Echter Betrieb)'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800">
-                    <span className="text-slate-400">mDNS Domain:</span>
-                    <span className="font-mono text-blue-400">openbon.local:3000</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick Actions */}
-              <div className="p-5 bg-slate-900 rounded-3xl border border-slate-800 shadow-xl space-y-2.5">
-                <h3 className="text-base font-bold text-white mb-2">Schnellzugriff</h3>
-
-                <Link
-                  href="/admin/diagnostics"
-                  className="w-full p-3 bg-blue-950/60 hover:bg-blue-900/60 rounded-2xl flex items-center justify-between text-xs font-bold text-blue-200 transition border border-blue-700/60 shadow-sm"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Activity className="w-4 h-4 text-blue-400" />
-                    <span>Testbetrieb & Hardware-Check</span>
-                  </div>
-                  <ArrowUpRight className="w-4 h-4 text-blue-400" />
-                </Link>
-
-                <Link
-                  href="/admin/qr-codes"
-                  className="w-full p-3 bg-slate-800 hover:bg-slate-700 rounded-2xl flex items-center justify-between text-xs font-bold text-slate-200 transition border border-slate-700"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <QrCode className="w-4 h-4 text-blue-400" />
-                    <span>QR-Code Beitritts-Center</span>
-                  </div>
-                  <ArrowUpRight className="w-4 h-4 text-slate-500" />
-                </Link>
-
-                <Link
-                  href="/admin/reports"
-                  className="w-full p-3 bg-slate-800 hover:bg-slate-700 rounded-2xl flex items-center justify-between text-xs font-bold text-slate-200 transition border border-slate-700"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <TrendingUp className="w-4 h-4 text-emerald-400" />
-                    <span>Statistiken & Z-Bon</span>
-                  </div>
-                  <ArrowUpRight className="w-4 h-4 text-slate-500" />
-                </Link>
-
-                <Link
-                  href="/admin/settings"
-                  className="w-full p-3 bg-slate-800 hover:bg-slate-700 rounded-2xl flex items-center justify-between text-xs font-bold text-slate-200 transition border border-slate-700"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <HardDrive className="w-4 h-4 text-amber-400" />
-                    <span>Selektives Backup & Export</span>
-                  </div>
-                  <ArrowUpRight className="w-4 h-4 text-slate-500" />
-                </Link>
-
-                <Link
-                  href="/admin/system-update"
-                  className="w-full p-3 bg-slate-800 hover:bg-slate-700 rounded-2xl flex items-center justify-between text-xs font-bold text-slate-200 transition border border-slate-700"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Terminal className="w-4 h-4 text-purple-400" />
-                    <span>System-Update & Konsole</span>
-                  </div>
-                  <ArrowUpRight className="w-4 h-4 text-slate-500" />
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

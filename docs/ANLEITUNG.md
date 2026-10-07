@@ -19,8 +19,17 @@ Willkommen bei **OpenBon**, dem plattformunabhängigen, hochverfügbaren Kassens
 
 ## 2. Die Stationen im Detail
 
+### Gemeinsame Kopfleiste (Desktop & Tablet)
+- **Schlanke 46 px Höhe**: Alle Bildschirme nutzen eine einheitliche, aufgeräumte Kopfleiste ohne störende Großbanner.
+- **Alles Wichtige auf einen Blick**: Anzeige des aktuellen Stationsnamens, Schnellwechsel, kompakte Lagerbestands-Warnung bei knapper Ware, gesetzliche Jugendschutz-Datumsanzeige (16/18 Jahre) sowie Schnellzugriff auf Vollbild, Hell/Dunkel-Umschaltung und Administration.
+
 ### 1. Bedienung / Service (Kellner-Smartphone)
-- **Tischübersicht**: Zeigt alle Tische mit Farbcodierung (Grau = Frei, Gelb/Orange = Belegt mit offenen Posten und Gesamtsumme).
+- **Ergonomische Daumen-Leiste & Kopfzeile (56 px)**:
+  - Große, 44×44 px touch-optimierte Schaltflächen oben: Menü, Kellner-Name mit integriertem Live-WLAN-Signalpunkt, Tisch-Bestellhistorie, Kellner-Abrechnung (X-Bon) sowie ein direkter **Stumm-Schalter** für akustische Signale.
+- **Kompakte 3-Spalten-Tischübersicht**:
+  - Alle Tische werden in einem übersichtlichen 3-Spalten-Raster mit 92 px Kachelhöhe dargestellt. Offene Tische mit Betrag heben sich sofort farblich ab (Bernstein/Orange).
+- **Feste Daumen-Taste unten („Tischnummer eingeben“)**:
+  - Große 56 px hohe Schaltfläche am unteren Displayrand für blitzschnelles Öffnen eines Tisches per Ziffernblock ohne lästiges Suchen.
 - **Bestellaufnahme**:
   - Schnellauswahl nach Warengruppen (Getränke, Speisen, etc.).
   - Schnelle Mengenänderung per `+` / `-`.
@@ -37,13 +46,15 @@ Willkommen bei **OpenBon**, dem plattformunabhängigen, hochverfügbaren Kassens
 
 ### 2. Bonkasse / Thekenverkauf (Counter Express)
 - Für den schnellen Direktverkauf und Wertmarkenausgabe an der Theke ohne Tischauswahl.
-- **Klare Kassier-Auswahl im Bezahlfenster**:
-  - `[ Barzahlung ]`: Direkte Barzahlung an der Theke ohne Bon-Druck für die Küche/Schänke.
-  - `[ Wertmarke ]`: Barzahlung mit automatischem Ausdruck von Wertmarken/Abholbons für Küche und Schänke.
-  - `[ Kartenzahlung (Beta) ]`: Kartenzahlung bei angebundenem Kartenterminal.
+- **Großzügiges 4-Spalten-Artikelfeld**: Große 104 px Kacheln für fehlerfreies und zügiges Tippen bei hohem Gästeeinlass.
+- **320 px Warenkorb**: Feste rechte Seitenleiste mit Direktzugriff auf die Tages-Bestellhistorie und Ein-Klick-Leeren direkt oben im Kopf.
+- **Feste 72 px Aktionsleiste unten (Daumen-Bereich)**:
+  - **Ausgabe-Modus Umschalter**: Direkte Umschaltung zwischen `[ Nur Kassieren ]`, `[ Wertmarken ]` und `[ Gutschein + Gegenbon ]`.
+  - **Zentraler Papierbon-Knopf**: Ein-Klick-Schalter mit eindeutiger Statusanzeige (`AUS` / `AKTIV`).
+  - **34 px Gesamtsumme**: Extragroße Zahlenanzeige für optimale Ablesbarkeit aus jedem Blickwinkel.
+  - **Großer Kassieren-Knopf (308×56 px)**: Treffsicherer, grüner Haupt-Button für sofortigen Kassenabschluss.
 - **Kompakte Kassenansicht ohne Scrollen**:
   - Bargeldrechner (Scheine, Münzen und Ziffernblock) nebeneinander angeordnet – kein vertikales Scrollen nötig.
-  - Aufgeräumter Kassieren-Button für schnellen Durchsatz.
 - **4-Pfeile Trinkgeld-System**:
   - Wie in der Bedienansicht: 4 Pfeiltasten (▲/▼ links für 1,00 € und ▲/▼ rechts für 0,50 €) zum blitzschnellen Aufrunden.
 - **Touch-Artikelsuche mit Bildschirmtastatur**:
@@ -61,27 +72,40 @@ Willkommen bei **OpenBon**, dem plattformunabhängigen, hochverfügbaren Kassens
   - Nachdruck-Funktion: Bei Papierstau oder Gast-Nachfrage kann der Beleg jederzeit über `[ 🖨 Erneut drucken ]` nochmals gedruckt werden.
 
 ### 3. Küchen- & Schankmonitor (KDS)
-- **Tischweise Spalten (Volle Bildschirmhöhe & internes Scrollen)**: Optimiert für Tablets im Querformat. Jeder Tisch nimmt eine eigene senkrechte Karte über die gesamte Bildschirmhöhe ein, die niemals über den unteren Bildschirmrand hinauswächst. Kopfzeile (Tisch, Bedienung) und Fußzeile (Bestätigen, Drucken) bleiben dauerhaft fixiert; bei vielen Positionen scrollt der Inhalt flüssig innerhalb der Tischkarte. Mehrere Tische lassen sich seitlich durchwischen (horizontales Scrollen).
-- **Tischbezeichnung oben & Bestellnummer beim Kellner**: Im Kopf der Karte steht prominent die Tischnummer (bzw. „Theke“ oder „Abholmarke“). Die Bestellnummer(n) werden übersichtlich in Klammern hinter dem Namen der Bedienung angezeigt (z. B. `Bedienung: Anna (#101)`).
-- **Vollbildmodus per Kochmütze**: Durch Antippen des Kochmützen-Symbols neben dem Schriftzug „Küchen- & Schankmonitor“ wird der Vollbildmodus aktiviert oder beendet (wie in der Bonkasse).
+- **Tischweise Spalten über die volle Bildschirmhöhe**: Genau ein Tisch bzw. Bon belegt eine senkrechte Spalte über die komplette Displayhöhe. Bons werden niemals untereinander gestapelt. Bis zu 7 Spalten sind gleichzeitig sichtbar, weitere Tische lassen sich seitlich flüssig durchwischen.
+- **Kartenkopf mit Wartezeit & Schnellauswahl**:
+  - Prominente Tischnummer (bzw. „Theke“ oder „Abholmarke“), darunter `#Nr · Bedienung`.
+  - Gut sichtbare, gelbe Wartezeitanzeige und ein praktischer Haken-Button, um alle Positionen eines Tisches mit einem Klick auszuwählen oder abzuwählen.
+- **Direkte Aktionen am Fuß jeder Tischkarte**:
+  - `[ Bon erhalten ]` (32 px blauer Rand) und der große grüne Hauptknopf `[ Fertig ]` (48 px) für schnelles Quittieren.
+- **Feste 60 px Werkzeugleiste unten**:
+  - **Live-Rückstandsanzeige**: Horizontales Band (`RÜCKSTAND`) mit sofort sichtbaren Mengen-Pillen (z. B. „18x Pommes“, „6x Schnitzel“).
+  - Schnellzugriff-Schaltflächen für `[ Ausverkauft ]`, Warengruppen-`[ Filter ]`, Umschaltung `[ Wartezeit ]` / `[ Nach Tisch ]`, Tages-`[ Historie ]` und Aktualisieren.
+- **Vollbildmodus per Kochmütze**: Durch Antippen des Kochmützen-Symbols neben dem Schriftzug „Küchen- & Schankmonitor“ wird der Vollbildmodus aktiviert oder beendet.
 - **Ergonomische Sortierung nach Wartezeit (Ältester Tisch ganz links im Direktblick)**: Die am längsten wartende, dringendste Bestellung steht immer ganz links auf Platz 1 – direkt im natürlichen Blickfeld ohne Scrollen. Neu eingehende Bestellungen reihen sich nach rechts an. Wird der Tisch links abgehakt, rücken die nächsten Tische automatisch nach links nach.
-- **Kompaktere Tischspalten**: Die Spaltenbreite ist für Tablets und Großbildschirme optimiert, sodass 4–5 Tische bequem nebeneinander Platz finden.
 - **Farbe der Warengruppen & automatische Platzersparnis**: Die Trennbalken der Warengruppen übernehmen automatisch die im Artikelstamm konfigurierte Farbe. Ist oben im Filter nur eine Warengruppe aktiv (oder enthält ein Tisch nur Artikel aus einer Gruppe), wird der Trennbalken automatisch ausgeblendet, um wertvollen vertikalen Platz zu sparen und unnötiges Scrollen zu vermeiden. Warengruppen ohne Positionen werden nicht angezeigt.
-- **Ergonomischer Haken-Button im Kopf**: Rechts neben der dezenten, nicht-pulsierenden Wartezeit-Anzeige befindet sich ein praktischer Haken-Button, um alle Positionen eines Tisches mit einem Klick auszuwählen oder abzuwählen.
-- **Zuverlässiger Warengruppen-Filter**: Über den Warengruppen-Filter oben können Stationen gezielt gefiltert werden (z. B. Grill-Tablet nur für Speisen, Schank-Tablet nur für Getränke). Ein Klick auf „Keine“ leert die Anzeige für eine gezielte Auswahl.
 - **Umschaltbare Betriebsmodi mit Doppel-Druckschutz**:
   - **Reine Überwachung**: Bons drucken sofort beim Kellner; der Küchenmonitor dient als Live-Übersicht.
   - **Monitor steuert Druck**: Der Bon druckt erst dann am Drucker aus, wenn die Küche fertige Positionen abgehakt hat und auf *„Bons drucken & bestätigen“* tippt! Nicht fertige Artikel verbleiben auf dem Tisch.
   - **Garantierter Einmal-Druck**: Jeder Bon druckt garantiert genau einmal – selbst bei nachträglichem Umschalten der Modi oder aktiver Bestellverzögerung.
 - **Sauberes Abräumen & Tages-Historie**:
   - Sobald ein Tisch auf „Tisch komplett fertig“ gesetzt wird, verschwindet er sofort aus dem aktiven Monitor.
-  - Über den neuen Button **„Historie“** oben rechts können alle heute abgehakten Tische mit allen Details eingesehen und bei Bedarf mit einem Klick auf *„Wiederherstellen“* direkt wieder auf den Monitor zurückgeholt werden.
-- **Optionale Kellner-Benachrichtigung**: In den Druckereinstellungen (`/admin/settings` -> Drucker -> Küchenmonitor) kann eingestellt werden, ob Bedienungen bei Fertigmeldung eines Tisches per Gong und Banner benachrichtigt werden (standardmäßig zum Schutz vor Lärm ausgeschaltet).
+  - Über den Button **„Historie“** können alle heute abgehakten Tische mit allen Details eingesehen und bei Bedarf mit einem Klick auf *„Wiederherstellen“* direkt wieder auf den Monitor zurückgeholt werden.
+- **Optionale Kellner-Benachrichtigung**: In den Druckereinstellungen (`/admin/settings` -> Drucker -> Küchenmonitor) kann eingestellt werden, ob Bedienungen bei Fertigmeldung eines Tisches per Gong und Banner benachrichtigt werden.
 - **Kompakter Warte-Bon für verzögerte Speisen**: Dauert eine Speise länger (z. B. Kaiserschmarrn), kann bei Teillieferung ein kompakter Hinweisbon gedruckt werden (*„Warte-Bon: Speise folgt in Kürze nach!“*).
-- **Rückstandszähler**: Zeigt oben in Echtzeit den Gesamtrückstand aller offenen Speisen (z. B. *"Noch 18x Pommes"*).
 - **Audio-Gong**: Bei jedem neuen Bon ertönt ein akustisches Signal.
 
-### 4. Geräteübersicht & Akku-Monitor (`/admin/devices`)
+### 4. Admin Command Center & Dashboard (`/admin/dashboard`)
+- **46 px Kopfleiste**: Mit sekundengenauer Kassen-Systemzeit, Online-Status und Navigationsknöpfen.
+- **2×2 Kennzahlen-Raster**: Großformatige Kacheln mit farbigen Akzentstreifen für Gesamtumsatz, aktive Tische, KDS-Bons und verbundene Geräte mit Direktlinks in die Fachbereiche.
+- **Vollbreite Prognose & Umsatzverteilung**:
+  - Live-Umsatzprognose mit Stoßzeiten-Vorhersage auf einen Blick.
+  - Farbige Warengruppen-Umsatzverteilung mit prozentualer Visualisierung.
+- **Feste 64 px Leiste unten**:
+  - Direkte Schnellzugriffe auf Artikel, Tische, Drucker, Berichte und Abrechnung.
+  - Kompakte System-Status-Anzeige (`PRIMARY`, Betriebsmodus, Prozessor- und Speicherauslastung) sowie Schnell-Aktualisieren.
+
+### 5. Geräteübersicht & Akku-Monitor (`/admin/devices`)
 - Zeigt alle verbundenen Smartphones mit **Live-Akkustand %**, Ladezustand und Uptime.
 - **Suchton (Find My Device)**: Löst auf einem verlegten Smartphone einen lauten Signalton und Vibration aus.
 - **Fernabmeldung**: Ermöglicht das Kicken nicht autorisierter Geräte.

@@ -1,6 +1,6 @@
 # OpenBon – Enterprise Kassen-, Bestell- & Festmanagementsystem
 
-[![Version](https://img.shields.io/badge/version-v0.4.75-blue.svg)](https://github.com/loe17/OpenBon/releases)
+[![Version](https://img.shields.io/badge/version-v0.4.76-blue.svg)](https://github.com/loe17/OpenBon/releases)
 [![Tests](https://img.shields.io/badge/tests-64%20passed%20%7C%20449%20tests-brightgreen.svg)](https://github.com/loe17/OpenBon)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-PWA%20%7C%20Linux%20%7C%20Windows%20%7C%20Docker%20%7C%20iOS%20%7C%20Android-lightgrey.svg)](https://github.com/loe17/OpenBon)

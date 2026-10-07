@@ -186,9 +186,12 @@ export const HANDBOOK: DocChapter[] = [
     sections: [
       {
         id: '2.1',
-        heading: '2.1 Schnelle Tischauswahl per Ziffernblock (Keypad)',
+        heading: '2.1 Schnelle Tischauswahl per Ziffernblock (Keypad) & Daumen-Leiste',
         paragraphs: [
-          'Im hektischen Festbetrieb ist das Tippen der Tischnummer schneller als das Suchen auf großen Raumplänen. Die Kellneransicht bietet ganz oben eine Direkteingabe mit großen Touch-Tasten.',
+          'Im hektischen Festbetrieb ist das Tippen der Tischnummer schneller als das Suchen auf großen Raumplänen. Die Kellneransicht nutzt das optimierte Design „2b Daumen-Leiste“:',
+          '• Feste 56 px Kopfleiste: Touch-Schaltflächen (44×44 px) für Menü, Kellner-Name mit farbigem Live-WLAN-Signalpunkt, Tisch-Bestellhistorie, Kellner-Abrechnung (X-Bon) sowie einen direkten Stumm-Schalter.',
+          '• Kompakte 3-Spalten-Tischübersicht: Alle Tische werden in übersichtlichen 3 Spalten mit 92 px Kachelhöhe dargestellt. Offene Tische mit Betrag heben sich sofort farblich hervor.',
+          '• Große Daumen-Taste („Tischnummer eingeben“): Eine 56 px hohe Taste am unteren Bildschirmrand öffnet mit einem Fingertipp das Ziffern-Keypad.',
           'Geben Sie die Tischnummer (z. B. "12") ein und tippen Sie auf "Tisch öffnen". Existiert der Tisch noch nicht, wird er sofort automatisch angelegt.',
         ],
         image: {
@@ -364,7 +367,9 @@ export const HANDBOOK: DocChapter[] = [
         heading: '3.1 Sofortverkauf an der Bonkasse',
         paragraphs: [
           'Unter /pos befindet sich die optimierte Theken- und Bonkasse für feste Kassenplätze, Wertmarkenbuden und Zelteingänge.',
-          'Artikel werden mit einem Klick ausgewählt und erscheinen im übersichtlichen Warenkorb.',
+          'Artikel werden über ein großzügiges 4-Spalten-Raster mit 104 px Kachelhöhe ausgewählt und erscheinen im 320 px breiten Warenkorb.',
+          'Feste 72 px Aktionsleiste unten: Die wichtigsten Kassenfunktionen liegen dauerhaft erreichbar im Daumen-Bereich: Direkter Umschalter für den Ausgabemodus („Nur Kassieren“, „Wertmarken“, „Gutschein + Gegenbon“), zentraler Papierbon-Knopf mit Statusanzeige (AUS / AKTIV), extragroße Gesamtsumme (34 px) und der 308×56 px große Kassieren-Knopf.',
+          'Kompakte Kopfleiste (46 px): Zeigt den Stationsnamen mit Umschalt-Option, Artikel-Schnellsuche, kompakte Lagerbestands-Warnungen sowie die gesetzliche Jugendschutz-Datumsanzeige direkt in der Leiste an.',
           'Touch-Artikelsuche mit Bildschirmtastatur: Oben in der Menüleiste befindet sich neben der Kassenlade die Suchfunktion mit Lupen-Symbol. Ein Klick öffnet links die Live-Trefferliste und rechts eine Touch-Tastatur zur bequemen Eingabe ohne physische Tastatur.',
           'Ergonomischer Bezahlvorgang: Im Bezahlfenster stehen Scheine, Münzen und Ziffernblock nebeneinander, sodass auf keinem Bildschirm mehr gescrollt werden muss. Mit dem integrierten 4-Pfeile-Trinkgeldsystem kann der Betrag wie in der Kellner-Ansicht in 1-Euro- oder 50-Cent-Schritten aufgerundet werden.',
         ],
@@ -553,7 +558,8 @@ export const HANDBOOK: DocChapter[] = [
         heading: '4.1 Digitale Bonleiste & Farbsignalisierung',
         paragraphs: [
           'Der Küchen- und Schankmonitor (/kitchen) ersetzt Papierbons durch digitale Kacheln auf einem Touch-Bildschirm.',
-          'Feste Kopfleiste & vertikales Scrollen: Die obere Leiste mit Schnellfiltern (Ausverkauft, Warengruppen, Wartezeit-Sortierung) bleibt dauerhaft fest oben fixiert. Bei vielen gleichzeitigen Bestellungen scrollt nur der Kachelbereich nach unten durch. Alle Bestellkarten passen sich der Bildschirmbreite an, sodass kein Bon seitlich über den Bildschirmrand hinausragt.',
+          'Volle Bildschirmhöhe je Tisch: Jeder Tisch bzw. Bon belegt genau eine senkrechte Spalte über die volle Monitorhöhe. Tische werden niemals untereinander gestapelt. Bis zu 7 Spalten sind gleichzeitig sichtbar, weitere Tische lassen sich seitlich flüssig durchwischen.',
+          'Feste 60 px Werkzeugleiste unten: Enthält ein horizontales Rückstandsband („RÜCKSTAND“ mit Mengen-Pillen), Knöpfe für Ausverkauft, Warengruppen-Filter, Umschalter Wartezeit / Nach Tisch sowie Tages-Historie und Aktualisieren.',
         ],
         table: {
           headers: ['Farbe der Bonkarte', 'Wartezeit', 'Status & Bedeutung'],
@@ -575,7 +581,8 @@ export const HANDBOOK: DocChapter[] = [
         paragraphs: [
           'Der Küchenmonitor bündelt alle aktiven Bestellungen tischweise in übersichtlichen, senkrechten Spalten über die gesamte Bildschirmhöhe (ideal für Tablets im Querformat). Mehrere Tische lassen sich bequem seitlich durchwischen.',
           'Feste Display-Höhe: Die Tischkarten überschreiten niemals die Bildschirmhöhe. Kopf- und Fußzeile bleiben fixiert; bei vielen Positionen scrollt der Inhalt flüssig innerhalb der Karte.',
-          'Tischbezeichnung oben & Bestellnummer beim Kellner: Im Kopf der Karte steht prominent die Tischnummer (bzw. "Theke" oder "Abholmarke"). Die Bestellnummer(n) stehen in Klammern hinter dem Kellnernamen.',
+          'Tischbezeichnung oben & Bestellnummer beim Kellner: Im Kopf der Karte steht prominent die Tischnummer (bzw. "Theke" oder "Abholmarke"), gefolgt von der Bestellnummer und dem Kellnernamen, der gelben Wartezeitanzeige und einem Haken zur Komplettauswahl.',
+          'Direkte Aktionen unten an der Karte: Jede Tischspalte schließt unten mit den Buttons „Bon erhalten“ (32 px) und dem großen grünen „Fertig“-Knopf (48 px) ab.',
           'Sortierung nach Wartezeit: Neue Bestellungen reihen sich links ein, während der Tisch, an dem die Gäste am längsten warten, ganz rechts im Blickfeld steht.',
           'Klare Warengruppen-Trennung: Innerhalb der Tischkarte sind die Positionen nach ihren exakten Warengruppen übersichtlich mit Trennbannern (ohne Emojis) gegliedert.',
         ],
@@ -583,7 +590,7 @@ export const HANDBOOK: DocChapter[] = [
           'Artikel antippen: Das grüne Häkchen markiert die Speise als fertig zubereitet.',
           'Mit "Alles markieren" / "Auswahl aufheben" können alle offenen Positionen mit einem Tipp an- oder abgewählt werden.',
           'Wurde ein Artikel versehentlich angetippt, kann dies innerhalb von 10 Minuten mit "Rückgängig" korrigiert werden.',
-          'Über den Warengruppen-Filter in der Kopfzeile lässt sich der Monitor gezielt auf bestimmte Warengruppen eingrenzen (z. B. nur Küche oder nur Schänke; "Keine" leert die Ansicht).',
+          'Über den Warengruppen-Filter in der Werkzeugleiste unten lässt sich der Monitor gezielt auf bestimmte Warengruppen eingrenzen (z. B. nur Küche oder nur Schänke; "Keine" leert die Ansicht).',
         ],
       },
       {
@@ -1186,9 +1193,10 @@ export const HANDBOOK: DocChapter[] = [
           '2. Kasse, Abrechnung & Finanzen: Berichte & Z-Bons, GoBD-Kassenbuch, Schichtabrechnung, DATEV-Export, TSE-Archiv und Wertmarken.',
           '3. Geräte, Tische & Hardware: Tischplan-Designer, Drucker & Druckgruppen, Virtueller Drucker, Kundendisplay, Geräte-Manager und QR-Beitritt.',
           '4. System & Verwaltung: Admin Command Center, Grundeinstellungen, Datensicherung & Backup, System-Update, Testbetrieb & Hardware-Diagnose, Revisions-Logs, Team-Funk und Handbuch.',
+          'Admin Command Center (/admin/dashboard): Das Dashboard bietet 2×2 große Kennzahlen-Kacheln mit farbigen Akzentstreifen, eine Live-Umsatzprognose mit Stoßzeiten-Analyse, die Warengruppen-Umsatzverteilung in voller Breite und eine 64 px Leiste unten mit Schnellzugriffen und kompakter Systemstatus-Anzeige (PRIMARY, Betriebsmodus, CPU- und RAM-Auslastung).',
           'Keine doppelten Verkaufsreiter: Die operativen Stationen "Bonkasse" und "Bedienung" sind oben im Menü über die 4 großen Kacheln "Station wechseln" erreichbar und wurden aus den Admin-Listen entfernt.',
           'Kassen-Uhrzeit in der oberen Leiste: Direkt in der oberen Kopfleiste des Adminbereichs läuft dauerhaft eine gut sichtbare Digitaluhr mit Sekundenanzeige mit (z. B. 14:23:05). Diese Uhr zeigt exakt die Systemzeit des Kassenrechners an. Sie ist der maßgebliche Taktgeber für die zeitgesteuerte Verfügbarkeit von Speisen und Getränken (Artikel-Zeitfenster) sowie für alle Buchungs- und Schichtzeitstempel.',
-          'Kompakte Kopfleiste & Status-Anzeige: Die obere Menüleiste ist besonders platzsparend gestaltet. Ein dezenter Internet-Globus mit Signalpunkt zeigt sofort an, ob E-Bon und Webanbindung online sind. Über kompakte Schnellwahltasten für Vollbild, Farbschema und Bildschirmanpassung sowie den Kassenverbindungs-Status bleibt die Leiste auf jedem Tablet und Smartphone aufgeräumt und übersichtlich.',
+          'Kompakte Kopfleiste & Status-Anzeige: Die obere Menüleiste ist besonders platzsparend gestaltet (46 px). Ein dezenter Internet-Globus mit Signalpunkt zeigt sofort an, ob E-Bon und Webanbindung online sind. Über kompakte Schnellwahltasten für Vollbild, Farbschema und Bildschirmanpassung sowie den Kassenverbindungs-Status bleibt die Leiste auf jedem Tablet und Smartphone aufgeräumt und übersichtlich.',
         ],
       },
     ],

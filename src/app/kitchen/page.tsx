@@ -864,492 +864,223 @@ function KitchenMonitorContent() {
         </div>
       )}
 
-      {/* Top Header & Live Backlog Bar (Fixiert oben) */}
-      <div className="bg-slate-900 border-b border-slate-800 p-2.5 sm:p-3 shadow-md space-y-2.5 shrink-0">
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={handleToggleFullscreen}
-              className="bg-amber-500 hover:bg-amber-400 text-black p-2 rounded-2xl shadow transition active:scale-95 touch-manipulation cursor-pointer flex items-center justify-center relative group"
-              title={isFullscreen ? 'Vollbild beenden' : 'Vollbild aktivieren'}
-              aria-label={isFullscreen ? 'Vollbild beenden' : 'Vollbild aktivieren'}
-            >
-              <ChefHat className="w-5 h-5 sm:w-6 sm:h-6" />
-            </button>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-black text-base sm:text-lg">Küchen- & Schankmonitor</h2>
-                <span
-                  className={`text-[11px] font-black px-2 py-0.5 rounded-full border shadow-sm ${
-                    kdsControlsPrinting
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                      : 'bg-sky-500/20 text-sky-300 border-sky-500/40'
-                  }`}
-                >
-                  {kdsControlsPrinting ? 'Drucksteuerung aktiv' : 'Reine Überwachung'}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 font-medium">
-                {viewMode === 'TABLE' ? `${activeTableGroups.length} aktive Tische` : `${activeOrders.length} aktive Bestellungen`} •{' '}
-                {selectedCategoryIds.length} von {categories.length} Warengruppen
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Umschalter: Drucksteuerung vs. Reine Überwachung */}
-            <button
-              type="button"
-              onClick={handleTogglePrintMode}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition border shadow-sm ${
-                kdsControlsPrinting
-                  ? 'bg-amber-500 text-black border-amber-400 font-black shadow-amber-950/40'
-                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
-              }`}
-              title="Klicken zum Umschalten: Druckt der Bon erst bei Freigabe oder sofort bei Bestellung?"
-            >
-              {kdsControlsPrinting ? <Printer className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              <span>{kdsControlsPrinting ? 'Monitor steuert Druck' : 'Reine Überwachung'}</span>
-            </button>
-
-            {/* Historie erledigter Tische */}
-            <button
-              type="button"
-              onClick={handleOpenHistory}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition border bg-slate-800 text-slate-300 border-slate-700 hover:text-white hover:bg-slate-700 active:scale-95"
-              title="Erledigte Tische des heutigen Tages einsehen und wiederherstellen"
-            >
-              <History className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Historie</span>
-              {historyCount > 0 && (
-                <span className="bg-emerald-600 text-white px-1.5 py-0.2 rounded text-[10px] font-black">
-                  {historyCount}
-                </span>
-              )}
-            </button>
-
-            {/* Ausverkauft / Artikel sperren Schnellzugriff */}
-            <button
-              type="button"
-              onClick={() => {
-                triggerHapticFeedback();
-                fetchProducts();
-                setShowSoldOutModal(true);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
-                soldOutCount > 0
-                  ? 'bg-rose-950/80 text-rose-300 border-rose-600 shadow-md font-black'
-                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
-              }`}
-              title="Artikel als ausverkauft sperren oder wieder freigeben"
-            >
-              <Ban className="w-3.5 h-3.5 text-rose-400" />
-              <span>Ausverkauft</span>
-              {soldOutCount > 0 && (
-                <span className="bg-rose-600 text-white px-1.5 py-0.2 rounded text-[10px] font-black animate-pulse">
-                  {soldOutCount}
-                </span>
-              )}
-            </button>
-
-            {/* Warengruppen-Filter Toggle Button */}
-            <button
-              type="button"
-              onClick={() => {
-                triggerHapticFeedback();
-                setShowFilterBar(!showFilterBar);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
-                showFilterBar || selectedCategoryIds.length < categories.length
-                  ? 'bg-amber-500 text-black border-amber-400 shadow font-black'
-                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
-              }`}
-            >
-              <Filter className="w-3.5 h-3.5" />
-              <span>Filter</span>
-              {selectedCategoryIds.length < categories.length && (
-                <span className="bg-black text-amber-300 px-1.5 py-0.2 rounded text-[10px]">
-                  {selectedCategoryIds.length}/{categories.length}
-                </span>
-              )}
-            </button>
-
-            {/* Ansicht-Umschalter: Tisch-Spalten vs. Einzelbons */}
-            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-700">
-              <button
-                onClick={() => setViewMode('TABLE')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition ${
-                  viewMode === 'TABLE' ? 'bg-amber-500 text-black shadow' : 'text-slate-400 hover:text-white'
-                }`}
-                title="Tischweise Spalten über die volle Bildschirmhöhe"
-              >
-                <Layers className="w-3.5 h-3.5" />
-                <span>Tische</span>
-              </button>
-              <button
-                onClick={() => setViewMode('FIFO')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition ${
-                  viewMode === 'FIFO' ? 'bg-amber-500 text-black shadow' : 'text-slate-400 hover:text-white'
-                }`}
-                title="Einzelne Bestellbons nebeneinander"
-              >
-                <ListOrdered className="w-3.5 h-3.5" />
-                <span>Einzelbons</span>
-              </button>
-            </div>
-
-            <button
-              onClick={() => {
-                playKitchenChime();
-                fetchKdsOrders();
-              }}
-              className="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 border border-slate-700 transition"
-              title="Aktualisieren & Signalton"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Ausklappbare Warengruppen-Filterleiste */}
-        {showFilterBar && (
-          <div className="bg-slate-950 p-3 rounded-2xl border-2 border-amber-500/50 space-y-2 animate-in fade-in">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase text-amber-400 tracking-wider">
-                Warengruppen auswählen (z. B. Küche / Grill, Ausschank, Alkoholfrei):
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={selectAllCategories}
-                  className="text-xs text-amber-300 hover:underline font-bold"
-                >
-                  Alle auswählen
-                </button>
-                <span className="text-slate-600">•</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    triggerHapticFeedback();
-                    setSelectedCategoryIds([]);
-                    localStorage.setItem('openbon_kds_category_filter', JSON.stringify([]));
-                  }}
-                  className="text-xs text-slate-400 hover:underline font-bold"
-                >
-                  Keine
-                </button>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 pt-1">
-              {categories.map((cat) => {
-                const isSelected = selectedCategoryIds.includes(cat.id);
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => toggleCategory(cat.id)}
-                    className={`min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-2 border transition active:scale-95 touch-manipulation ${
-                      isSelected
-                        ? 'bg-amber-500 text-black border-amber-400 shadow-md'
-                        : 'bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500'
-                    }`}
-                  >
-                    <span
-                      className={`w-4 h-4 rounded-md flex items-center justify-center text-[10px] font-bold ${
-                        isSelected ? 'bg-black text-amber-400' : 'border border-slate-600'
-                      }`}
-                    >
-                      {isSelected && <Check className="w-2.5 h-2.5" />}
-                    </span>
-                    <span>{cat.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Live Backlog Summary Strip */}
-        <div className="bg-slate-950 px-3 py-2 rounded-2xl border border-slate-800 flex items-center gap-2 overflow-x-auto shadow-inner">
-          <span className="text-xs font-black uppercase tracking-wider text-amber-400 whitespace-nowrap mr-1">
-            Offener Rückstand:
-          </span>
-          {backlogMap.size === 0 ? (
-            <span className="text-xs text-emerald-400 font-bold">Keine offenen Positionen</span>
-          ) : (
-            Array.from(backlogMap.entries()).map(([name, qty]) => (
-              <span
-                key={name}
-                className="bg-slate-800 text-slate-200 border border-slate-700 px-2.5 py-0.5 rounded-xl text-xs font-black whitespace-nowrap shadow-sm"
-              >
-                {qty}x <span className="text-white font-bold">{name}</span>
-              </span>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* HAUPTBEREICH: TISCH-SPALTEN (Volle Bildschirmhöhe, seitlich scrollbar für Tablet-Querformat) */}
+      {/* HAUPTBEREICH: TISCH-SPALTEN (Genau ein Tisch/Bon pro Spalte über volle Höhe) */}
       {viewMode === 'TABLE' ? (
-        <div className="flex-1 overflow-x-auto overflow-y-hidden p-2.5 sm:p-3 min-h-0 max-h-full">
+        <div
+          className="flex-1 overflow-x-auto overflow-y-hidden p-2.5 min-h-0 max-h-full"
+          style={{
+            display: 'grid',
+            gridAutoFlow: 'column',
+            gridAutoColumns: 'max(200px, calc((100% - 48px) / 7))',
+            gap: '8px',
+          }}
+        >
           {loading ? (
-            <div className="flex items-center justify-center h-full text-slate-400 font-bold">
+            <div className="flex items-center justify-center h-full text-slate-400 font-bold col-span-full">
               <RefreshCw className="w-6 h-6 animate-spin mr-2" />
               <span>Lade Küchenübersicht...</span>
             </div>
           ) : activeTableGroups.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-500">
+            <div className="flex flex-col items-center justify-center h-full text-slate-500 col-span-full">
               <ChefHat className="w-16 h-16 text-slate-700 mb-3" />
               <h3 className="text-lg font-black text-slate-300">Monitor ist bereit</h3>
               <p className="text-xs font-semibold mt-0.5">Aktuell liegen keine offenen Positionen für diese Warengruppen vor.</p>
             </div>
           ) : (
-            <div className="flex flex-row items-stretch h-full max-h-full gap-3 pb-1 min-h-0">
-              {activeTableGroups.map((table) => {
-                const openItems = table.items.filter((i) => i.kdsStatus !== 'COMPLETED' && !i.isCancelled);
-                const completedItems = table.items.filter((i) => i.kdsStatus === 'COMPLETED');
-                const checkedOpenItems = openItems.filter((i) => selectedItemIds.has(i.id));
-                const remainingOpenItems = openItems.filter((i) => !selectedItemIds.has(i.id));
+            activeTableGroups.map((table) => {
+              const openItems = table.items.filter((i) => i.kdsStatus !== 'COMPLETED' && !i.isCancelled);
+              const completedItems = table.items.filter((i) => i.kdsStatus === 'COMPLETED');
+              const checkedOpenItems = openItems.filter((i) => selectedItemIds.has(i.id));
+              const remainingOpenItems = openItems.filter((i) => !selectedItemIds.has(i.id));
 
-                const elapsedMinutes = Math.floor((currentTime - table.oldestTimestamp) / 60000);
-                const isUrgent = elapsedMinutes >= 10;
-                const isWarning = elapsedMinutes >= 5 && elapsedMinutes < 10;
+              const elapsedMinutes = Math.floor((currentTime - table.oldestTimestamp) / 60000);
+              const isUrgent = elapsedMinutes >= 10;
+              const isWarning = elapsedMinutes >= 5 && elapsedMinutes < 10;
 
-                const wantDelayTicket = delayTicketToggles[table.tableKey] ?? kdsPrintDelayTicket;
+              const wantDelayTicket = delayTicketToggles[table.tableKey] ?? kdsPrintDelayTicket;
 
-                const categoryGroups = (() => {
-                  const map = new Map<string, { color: string; items: TableGroupItem[] }>();
-                  for (const item of table.items) {
-                    const cName = item.categoryName || 'Sonstiges';
-                    if (!map.has(cName)) {
-                      const catObj = categories.find((c) => c?.name?.trim()?.toLowerCase() === cName.trim().toLowerCase());
-                      const prodCatColor = item.product?.category?.color || catObj?.color || '#eab308';
-                      map.set(cName, { color: prodCatColor, items: [] });
-                    }
-                    map.get(cName)!.items.push(item);
+              const categoryGroups = (() => {
+                const map = new Map<string, { color: string; items: TableGroupItem[] }>();
+                for (const item of table.items) {
+                  const cName = item.categoryName || 'Sonstiges';
+                  if (!map.has(cName)) {
+                    const catObj = categories.find((c) => c?.name?.trim()?.toLowerCase() === cName.trim().toLowerCase());
+                    const prodCatColor = item.product?.category?.color || catObj?.color || '#eab308';
+                    map.set(cName, { color: prodCatColor, items: [] });
                   }
-                  const orderList = categories.map((c) => c?.name?.trim()).filter(Boolean) as string[];
-                  const sortedKeys = Array.from(map.keys()).sort((a, b) => {
-                    const idxA = orderList.indexOf(a);
-                    const idxB = orderList.indexOf(b);
-                    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                    if (idxA !== -1) return -1;
-                    if (idxB !== -1) return 1;
-                    return a.localeCompare(b);
-                  });
-                  return sortedKeys
-                    .map((name) => {
-                      const entry = map.get(name)!;
-                      return {
-                        name,
-                        color: entry.color || '#eab308',
-                        items: entry.items.sort((a, b) => (a.courseNumber ?? 1) - (b.courseNumber ?? 1)),
-                      };
-                    })
-                    .filter((group) => group.items.length > 0);
-                })();
+                  map.get(cName)!.items.push(item);
+                }
+                const orderList = categories.map((c) => c?.name?.trim()).filter(Boolean) as string[];
+                const sortedKeys = Array.from(map.keys()).sort((a, b) => {
+                  const idxA = orderList.indexOf(a);
+                  const idxB = orderList.indexOf(b);
+                  if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                  if (idxA !== -1) return -1;
+                  if (idxB !== -1) return 1;
+                  return a.localeCompare(b);
+                });
+                return sortedKeys
+                  .map((name) => {
+                    const entry = map.get(name)!;
+                    return {
+                      name,
+                      color: entry.color || '#eab308',
+                      items: entry.items.sort((a, b) => (a.courseNumber ?? 1) - (b.courseNumber ?? 1)),
+                    };
+                  })
+                  .filter((group) => group.items.length > 0);
+              })();
 
-                return (
-                  <div
-                    key={table.tableKey}
-                    className={`w-72 sm:w-76 min-w-[260px] max-w-[290px] h-full max-h-full flex flex-col rounded-3xl border-2 bg-slate-900 shadow-xl overflow-hidden shrink-0 transition-all ${
-                      isUrgent
-                        ? 'border-rose-500 shadow-rose-950/60'
-                        : isWarning
-                        ? 'border-amber-500 shadow-amber-950/40'
-                        : 'border-slate-700'
-                    }`}
-                  >
-                    {/* Tisch-Kopfzeile (Fixiert oben im Tisch) */}
-                    <div className="p-3 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-950/60 gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="font-black text-base sm:text-lg text-white flex items-center gap-1.5 truncate">
-                          <span className="truncate">{table.tableLabel}</span>
-                          <span className="text-[11px] text-slate-400 font-semibold shrink-0">
-                            ({openItems.length} offen)
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
-                          Bedienung:{' '}
-                          <span className="text-slate-200 font-bold">
-                            {table.waiterNames.join(', ') || 'Kasse'}
-                          </span>
-                          {table.orderNumbers.length > 0 && (
-                            <span className="text-slate-400 ml-1 font-semibold">
-                              (#{table.orderNumbers.join(', #')})
-                            </span>
-                          )}
-                        </div>
+              return (
+                <div
+                  key={table.tableKey}
+                  className={`h-full max-h-full flex flex-col rounded-xl border bg-slate-900 shadow-md overflow-hidden shrink-0 transition-all ${
+                    isUrgent
+                      ? 'border-rose-500 shadow-rose-950/60'
+                      : isWarning
+                      ? 'border-amber-500 shadow-amber-950/40'
+                      : 'border-slate-800'
+                  }`}
+                >
+                  {/* Tisch-Kopfzeile (.kds-ticket-header) */}
+                  <div className="kds-ticket-header p-2 border-b flex items-center justify-between shrink-0 gap-1.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-extrabold text-[15px] text-white truncate leading-tight">
+                        {table.tableLabel}
                       </div>
-
-                      {/* Rechte Steuerleiste im Header: Zeit nach links gerückt, rechts daneben Haken-Button */}
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {/* Wartezeit-Badge ohne animate-pulse */}
-                        <div
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black font-mono shadow shrink-0 ${
-                            isUrgent
-                              ? 'bg-rose-600 text-white'
-                              : isWarning
-                              ? 'bg-amber-500 text-black'
-                              : 'bg-slate-800 text-slate-300 border border-slate-700'
-                          }`}
-                          title="Wartezeit seit Bestelleingang"
-                        >
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>{elapsedMinutes}m</span>
-                        </div>
-
-                        {/* Haken-Button für 'Alles markieren' */}
-                        <button
-                          type="button"
-                          onClick={() => toggleSelectTableItems(table)}
-                          disabled={openItems.length === 0}
-                          title={checkedOpenItems.length === openItems.length && openItems.length > 0 ? 'Auswahl aufheben' : 'Alle Positionen markieren'}
-                          className={`p-1.5 rounded-xl border flex items-center justify-center transition active:scale-95 ${
-                            checkedOpenItems.length === openItems.length && openItems.length > 0
-                              ? 'bg-emerald-500 text-white border-emerald-400 shadow-md shadow-emerald-950/40'
-                              : checkedOpenItems.length > 0
-                              ? 'bg-emerald-950 text-emerald-300 border-emerald-600/60'
-                              : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700 hover:bg-slate-700'
-                          }`}
-                        >
-                          <Check className="w-4 h-4 stroke-[3]" />
-                        </button>
+                      <div className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
+                        #{table.orderNumbers.join(', #')} · {table.waiterNames.join(', ') || 'Kasse'}
                       </div>
                     </div>
 
-                    {/* Artikel-Liste des Tisches (Scrollt innerhalb der Tischspalte) */}
-                    <div className="flex-1 overflow-y-auto min-h-0 p-2.5 sm:p-3 space-y-3 overscroll-contain touch-pan-y">
-                      {categoryGroups.map((catGroup) => {
-                        const openCount = catGroup.items.filter((i) => i.kdsStatus !== 'COMPLETED' && !i.isCancelled).length;
-                        // Trennleiste nur anzeigen, wenn mehr als eine Warengruppe im Tisch vorhanden ist
-                        // und oben im Filter nicht ohnehin nur eine einzige Warengruppe aktiv ist
-                        const isSingleCategoryFilter = selectedCategoryIds.length === 1 || categories.length <= 1;
-                        const showCategoryHeader = !isSingleCategoryFilter && categoryGroups.length > 1;
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="font-mono font-extrabold text-base text-amber-400 shrink-0">
+                        {elapsedMinutes}m
+                      </span>
 
-                        return (
-                          <div key={catGroup.name} className="space-y-2">
-                            {/* Warengruppen-Trennleiste: Nur anzeigen, wenn mehrere Warengruppen vorhanden sind */}
-                            {showCategoryHeader && (
-                              <div
-                                className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-slate-800/90 border border-slate-700/80 shadow-sm text-xs font-black uppercase tracking-wider"
-                                style={{ borderLeftWidth: 4, borderLeftColor: catGroup.color }}
+                      <button
+                        type="button"
+                        onClick={() => toggleSelectTableItems(table)}
+                        disabled={openItems.length === 0}
+                        title={checkedOpenItems.length === openItems.length && openItems.length > 0 ? 'Auswahl aufheben' : 'Alle Positionen markieren'}
+                        className={`w-6 h-6 rounded-lg border flex items-center justify-center transition active:scale-95 ${
+                          checkedOpenItems.length === openItems.length && openItems.length > 0
+                            ? 'bg-emerald-500 text-white border-emerald-400'
+                            : checkedOpenItems.length > 0
+                            ? 'bg-emerald-950 text-emerald-300 border-emerald-600/60'
+                            : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700'
+                        }`}
+                      >
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Artikel-Liste des Tisches */}
+                  <div className="flex-1 overflow-y-auto min-h-0 p-2 space-y-2 overscroll-contain touch-pan-y">
+                    {categoryGroups.map((catGroup) => {
+                      const openCount = catGroup.items.filter((i) => i.kdsStatus !== 'COMPLETED' && !i.isCancelled).length;
+                      const isSingleCategoryFilter = selectedCategoryIds.length === 1 || categories.length <= 1;
+                      const showCategoryHeader = !isSingleCategoryFilter && categoryGroups.length > 1;
+
+                      return (
+                        <div key={catGroup.name} className="space-y-1.5">
+                          {showCategoryHeader && (
+                            <div
+                              className="flex items-center justify-between px-2 py-0.5 rounded-lg bg-slate-800/90 border border-slate-700/80 shadow-sm text-[11px] font-black uppercase tracking-wider"
+                              style={{ borderLeftWidth: 3, borderLeftColor: catGroup.color }}
+                            >
+                              <span className="truncate" style={{ color: catGroup.color }}>{catGroup.name}</span>
+                              <span
+                                className="text-[10px] font-bold px-1.5 py-0.2 rounded-full shrink-0 ml-1"
+                                style={{ backgroundColor: `${catGroup.color}25`, color: catGroup.color }}
                               >
-                                <span className="truncate" style={{ color: catGroup.color }}>{catGroup.name}</span>
-                                <span
-                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ml-1.5"
-                                  style={{ backgroundColor: `${catGroup.color}25`, color: catGroup.color }}
-                                >
-                                  {openCount > 0 ? `${openCount} offen` : 'erledigt'}
-                                </span>
-                              </div>
-                            )}
-
-                            {catGroup.items.map((item) => (
-                              <TableItemCard
-                                key={item.id}
-                                item={item}
-                                isChecked={selectedItemIds.has(item.id)}
-                                kdsControlsPrinting={kdsControlsPrinting}
-                                onToggleCheck={() => toggleItemSelection(item.id)}
-                                onToggleDoneDirect={() => toggleItemDoneDirect(item.orderId, item.id, item.kdsStatus)}
-                                onUndo={() => undoItem(item.id)}
-                              />
-                            ))}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Fußzeile: Aktionen (Drucken / Fertigstellen / Warte-Bon) */}
-                    <div className="p-3 border-t border-slate-800 shrink-0 bg-slate-950/80 space-y-2">
-                      {kdsControlsPrinting ? (
-                        /* Modus: Küchenmonitor steuert Druck */
-                        <>
-                          {/* Warte-Bon Schalter (wird nur eingeblendet, wenn noch Speisen zurückgehalten werden) */}
-                          {checkedOpenItems.length > 0 && remainingOpenItems.length > 0 && (
-                            <label className="flex items-center justify-between text-xs text-amber-300 font-bold bg-amber-950/40 px-3 py-1.5 rounded-xl border border-amber-800/60 cursor-pointer select-none">
-                              <span className="flex items-center gap-1.5">
-                                <FileText className="w-3.5 h-3.5 text-amber-400" />
-                                <span>Warte-Bon für {remainingOpenItems.length} verzögerte Speise(n)</span>
-                              </span>
-                              <input
-                                type="checkbox"
-                                checked={wantDelayTicket}
-                                onChange={() =>
-                                  setDelayTicketToggles((prev) => ({
-                                    ...prev,
-                                    [table.tableKey]: !wantDelayTicket,
-                                  }))
-                                }
-                                className="w-4 h-4 rounded text-amber-500 accent-amber-500 cursor-pointer"
-                              />
-                            </label>
-                          )}
-
-                          {/* Druck & Bestätigen Button */}
-                          <button
-                            type="button"
-                            disabled={isSubmittingPrint || openItems.length === 0}
-                            onClick={() => {
-                              if (checkedOpenItems.length > 0) {
-                                void handlePrintTableSelection(table);
-                              } else {
-                                // Wenn noch nichts angetippt wurde: Alle offenen markieren
-                                toggleSelectTableItems(table);
-                              }
-                            }}
-                            className={`w-full min-h-[46px] rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg transition active:scale-98 ${
-                              checkedOpenItems.length > 0
-                                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/50'
-                                : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700'
-                            }`}
-                          >
-                            <Printer className="w-4 h-4" />
-                            <span>
-                              {checkedOpenItems.length > 0
-                                ? `${checkedOpenItems.length} Bon(s) drucken & bestätigen`
-                                : `Alle ${openItems.length} auswählen & drucken`}
-                            </span>
-                          </button>
-
-                          {completedItems.length > 0 && (
-                            <div className="flex items-center justify-end px-1">
-                              <span className="text-[11px] text-emerald-400 font-bold">
-                                {completedItems.length} bereits serviert
+                                {openCount > 0 ? `${openCount} offen` : 'erledigt'}
                               </span>
                             </div>
                           )}
-                        </>
-                      ) : (
-                        /* Modus: Reine Überwachung (Sofortdruck war bereits aktiv) */
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => void handleMarkTableDone(table)}
-                            disabled={openItems.length === 0}
-                            className={`w-full min-h-[46px] rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg transition active:scale-98 ${
-                              checkedOpenItems.length > 0
-                                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/50'
-                                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-                            }`}
-                          >
-                            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                            <span>
-                              {checkedOpenItems.length > 0
-                                ? `${checkedOpenItems.length} als fertig markieren`
-                                : `Tisch komplett fertig (${openItems.length})`}
-                            </span>
-                          </button>
-                        </>
-                      )}
-                    </div>
+
+                          {catGroup.items.map((item) => (
+                            <TableItemCard
+                              key={item.id}
+                              item={item}
+                              isChecked={selectedItemIds.has(item.id)}
+                              kdsControlsPrinting={kdsControlsPrinting}
+                              onToggleCheck={() => toggleItemSelection(item.id)}
+                              onToggleDoneDirect={() => toggleItemDoneDirect(item.orderId, item.id, item.kdsStatus)}
+                              onUndo={() => undoItem(item.id)}
+                            />
+                          ))}
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+
+                  {/* Fußzeile: Aktionen */}
+                  <div className="p-2 border-t border-slate-800 shrink-0 bg-slate-950/80 space-y-1.5">
+                    {kdsControlsPrinting ? (
+                      <>
+                        {checkedOpenItems.length > 0 && remainingOpenItems.length > 0 && (
+                          <label className="flex items-center justify-between text-[11px] text-amber-300 font-bold bg-amber-950/40 px-2 py-1 rounded-lg border border-amber-800/60 cursor-pointer select-none">
+                            <span className="flex items-center gap-1">
+                              <FileText className="w-3 h-3 text-amber-400" />
+                              <span>Warte-Bon ({remainingOpenItems.length})</span>
+                            </span>
+                            <input
+                              type="checkbox"
+                              checked={wantDelayTicket}
+                              onChange={() =>
+                                setDelayTicketToggles((prev) => ({
+                                  ...prev,
+                                  [table.tableKey]: !wantDelayTicket,
+                                }))
+                              }
+                              className="w-3.5 h-3.5 rounded text-amber-500 accent-amber-500 cursor-pointer"
+                            />
+                          </label>
+                        )}
+
+                        <button
+                          type="button"
+                          disabled={isSubmittingPrint || openItems.length === 0}
+                          onClick={() => {
+                            if (checkedOpenItems.length > 0) {
+                              void handlePrintTableSelection(table);
+                            } else {
+                              toggleSelectTableItems(table);
+                            }
+                          }}
+                          className="h-8 w-full rounded-lg border border-blue-500/80 text-blue-400 hover:bg-blue-950/40 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>Bon erhalten</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => void handleMarkTableDone(table)}
+                          disabled={openItems.length === 0}
+                          className="h-12 w-full rounded-xl bg-[#059669] hover:bg-emerald-500 text-white font-black text-sm flex items-center justify-center gap-1.5 transition active:scale-95 shadow-md"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Fertig</span>
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void handleMarkTableDone(table)}
+                        disabled={openItems.length === 0}
+                        className="h-12 w-full rounded-xl bg-[#059669] hover:bg-emerald-500 text-white font-black text-sm flex items-center justify-center gap-1.5 transition active:scale-95 shadow-md"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Fertig ({openItems.length})</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
       ) : (
@@ -1530,7 +1261,199 @@ function KitchenMonitorContent() {
         </div>
       )}
 
-      {/* Ausverkauft Modal für die Küche */}
+      {/* Ausklappbare Warengruppen-Filterleiste (Direkt über der unteren Werkzeugleiste) */}
+      {showFilterBar && (
+        <div className="bg-slate-950 p-3 border-t-2 border-amber-500/50 space-y-2 animate-in fade-in shrink-0">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black uppercase text-amber-400 tracking-wider">
+              Warengruppen auswählen (z. B. Küche / Grill, Ausschank, Alkoholfrei):
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={selectAllCategories}
+                className="text-xs text-amber-300 hover:underline font-bold"
+              >
+                Alle auswählen
+              </button>
+              <span className="text-slate-600">•</span>
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHapticFeedback();
+                  setSelectedCategoryIds([]);
+                  localStorage.setItem('openbon_kds_category_filter', JSON.stringify([]));
+                }}
+                className="text-xs text-slate-400 hover:underline font-bold"
+              >
+                Keine
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            {categories.map((cat) => {
+              const isSelected = selectedCategoryIds.includes(cat.id);
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => toggleCategory(cat.id)}
+                  className={`min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-2 border transition active:scale-95 touch-manipulation ${
+                    isSelected
+                      ? 'bg-amber-500 text-black border-amber-400 shadow-md'
+                      : 'bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500'
+                  }`}
+                >
+                  <span
+                    className={`w-4 h-4 rounded-md flex items-center justify-center text-[10px] font-bold ${
+                      isSelected ? 'bg-black text-amber-400' : 'border border-slate-600'
+                    }`}
+                  >
+                    {isSelected && <Check className="w-2.5 h-2.5" />}
+                  </span>
+                  <span>{cat.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Werkzeugleiste unten (60 px Daumen-Zone) */}
+      <div className="h-[60px] min-h-[60px] bg-slate-900 border-t border-slate-800 px-3 flex items-center justify-between gap-3 shrink-0 shadow-lg">
+        {/* Links: RÜCKSTAND + Rückstand-Pillen */}
+        <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
+          <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 shrink-0">
+            RÜCKSTAND:
+          </span>
+          <div className="flex items-center gap-1.5 overflow-x-auto min-w-0 pr-2">
+            {backlogMap.size === 0 ? (
+              <span className="text-xs text-emerald-400 font-bold whitespace-nowrap">Keine offenen Positionen</span>
+            ) : (
+              Array.from(backlogMap.entries()).map(([name, qty]) => (
+                <span
+                  key={name}
+                  className="bg-slate-800 text-slate-200 border border-slate-700 px-2 py-0.5 rounded-lg text-[13px] font-black whitespace-nowrap shadow-sm shrink-0"
+                >
+                  <strong className="text-amber-400">{qty}x</strong> {name}
+                </span>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Rechts: Knöpfe (Ausverkauft, Filter, Wartezeit/Nach Tisch, Historie, Neu laden) */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Umschalter: Drucksteuerung vs. Reine Überwachung */}
+          <button
+            type="button"
+            onClick={handleTogglePrintMode}
+            className={`h-11 px-2.5 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 ${
+              kdsControlsPrinting
+                ? 'bg-amber-500 text-black border-amber-400 font-black shadow-amber-950/40'
+                : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+            }`}
+            title="Drucksteuerung"
+          >
+            {kdsControlsPrinting ? <Printer className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            <span className="hidden xl:inline">{kdsControlsPrinting ? 'Monitor steuert Druck' : 'Reine Überwachung'}</span>
+          </button>
+
+          {/* Ausverkauft */}
+          <button
+            type="button"
+            onClick={() => {
+              triggerHapticFeedback();
+              fetchProducts();
+              setShowSoldOutModal(true);
+            }}
+            className={`h-11 px-3 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 ${
+              soldOutCount > 0
+                ? 'bg-rose-950/80 text-rose-300 border-rose-600 shadow-md font-black'
+                : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+            }`}
+            title="Artikel als ausverkauft sperren oder wieder freigeben"
+          >
+            <Ban className="w-4 h-4 text-rose-400" />
+            <span>Ausverkauft</span>
+            {soldOutCount > 0 && (
+              <span className="bg-rose-600 text-white px-1.5 py-0.2 rounded text-[10px] font-black animate-pulse">
+                {soldOutCount}
+              </span>
+            )}
+          </button>
+
+          {/* Filter */}
+          <button
+            type="button"
+            onClick={() => {
+              triggerHapticFeedback();
+              setShowFilterBar(!showFilterBar);
+            }}
+            className={`h-11 px-3 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 ${
+              showFilterBar || selectedCategoryIds.length < categories.length
+                ? 'bg-amber-500 text-black border-amber-400 shadow font-black'
+                : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+            }`}
+          >
+            <Filter className="w-4 h-4" />
+            <span>Filter</span>
+            {selectedCategoryIds.length < categories.length && (
+              <span className="bg-black text-amber-300 px-1.5 py-0.2 rounded text-[10px]">
+                {selectedCategoryIds.length}/{categories.length}
+              </span>
+            )}
+          </button>
+
+          {/* Umschalter Wartezeit / Nach Tisch */}
+          <div className="h-[38px] p-0.5 flex items-center gap-1 bg-slate-950 rounded-xl border border-slate-800">
+            <button
+              onClick={() => setViewMode('TABLE')}
+              className={`h-[32px] px-2.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                viewMode === 'TABLE' ? 'bg-amber-500 text-black shadow' : 'text-slate-400 hover:text-white'
+              }`}
+              title="Nach Tisch"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Nach Tisch</span>
+            </button>
+            <button
+              onClick={() => setViewMode('FIFO')}
+              className={`h-[32px] px-2.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                viewMode === 'FIFO' ? 'bg-amber-500 text-black shadow' : 'text-slate-400 hover:text-white'
+              }`}
+              title="Wartezeit (Einzelbons)"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Wartezeit</span>
+            </button>
+          </div>
+
+          {/* Historie */}
+          <button
+            type="button"
+            onClick={handleOpenHistory}
+            className="h-11 px-3 rounded-xl text-xs font-bold transition border bg-slate-800 text-slate-300 border-slate-700 hover:text-white active:scale-95 flex items-center gap-1.5"
+            title="Historie erledigter Tische"
+          >
+            <History className="w-4 h-4 text-emerald-400" />
+            <span className="hidden sm:inline">Historie</span>
+          </button>
+
+          {/* Neu laden */}
+          <button
+            onClick={() => {
+              playKitchenChime();
+              fetchKdsOrders();
+            }}
+            className="w-11 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center justify-center transition"
+            title="Aktualisieren"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
       {showSoldOutModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">

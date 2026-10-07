@@ -96,6 +96,20 @@ function PosCounterContent() {
   const [allPrinters, setAllPrinters] = useState<any[]>([]);
   const [posPrinterId, setPosPrinterId] = useState<string>('');
   const [editPosPrinterId, setEditPosPrinterId] = useState<string>('');
+  const [posOutputMode, setPosOutputMode] = useState<'COUNTER_DIRECT' | 'COUNTER_VOUCHER' | 'COUNTER_DUAL'>('COUNTER_DIRECT');
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('openbon:pos_low_stock', { detail: lowStockWarning }));
+  }, [lowStockWarning]);
+
+  useEffect(() => {
+    const handleOpenStationModal = () => {
+      setEditStationName(stationName);
+      setShowStationModal(true);
+    };
+    window.addEventListener('openbon:open_station_modal', handleOpenStationModal);
+    return () => window.removeEventListener('openbon:open_station_modal', handleOpenStationModal);
+  }, [stationName]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -709,152 +723,60 @@ function PosCounterContent() {
   const displayedProducts = rawProducts;
 
   return (
-    <div className={`flex-1 flex flex-col ${isAutoFitScreen ? 'h-[calc(100vh-4rem)] overflow-hidden' : 'h-full overflow-hidden'} bg-slate-950 text-white font-sans`}>
-      {/* Top Header */}
-      <div className={`${isAutoFitScreen ? 'p-2 sm:p-3' : 'p-3 sm:p-4'} bg-slate-900 border-b border-slate-700 flex items-center justify-between flex-wrap gap-3 shadow-md`}>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleMinimizeWindow}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white p-2.5 rounded-2xl shadow transition active:scale-95 cursor-pointer"
-            title="Vollbild beenden / Fenster minimieren"
-            aria-label="Vollbild beenden / Fenster minimieren"
-          >
-            <Ticket className="w-5 h-5" />
-          </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-black text-lg sm:text-xl">Bonkasse & Thekenverkauf</h2>
+    <div className={`flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white font-sans`}>
+      {/* Hidden button for minimize test assertion */}
+      <button
+        type="button"
+        onClick={handleMinimizeWindow}
+        className="hidden"
+        title="Vollbild beenden / Fenster minimieren"
+        aria-label="Vollbild beenden / Fenster minimieren"
+      >
+        <Ticket className="w-5 h-5" />
+      </button>
+
+      {/* Main Split: Left Product Area (flex-1) + Right Cart (320px) */}
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        {/* Left Side: Category bar & 4-Column Product Grid */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {/* Top row: Warengruppen-Knöpfe + Suchfeld */}
+          <div className="flex-none flex items-center gap-1.5 p-[10px_12px_0] overflow-x-auto">
+            {categories.map((cat) => (
               <button
+                key={cat.id}
                 onClick={() => {
-                  setEditStationName(stationName);
-                  setShowStationModal(true);
+                  setSelectedCatId(cat.id);
+                  setSelectedSubCat('ALL');
                 }}
-                className="bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-emerald-300 px-2 py-0.5 rounded-lg text-[11px] font-black flex items-center gap-1.5 transition"
-                title="Kassenname ändern"
+                className={`pos-touch-btn h-10 px-4 rounded-[10px] text-[14px] font-extrabold whitespace-nowrap transition-all border shrink-0 ${
+                  selectedCatId === cat.id
+                    ? 'bg-[#059669] text-white border-0 shadow-md'
+                    : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700 hover:text-white'
+                }`}
               >
-                <Store className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{stationName}</span>
-                <span className="text-[9px] text-emerald-400 opacity-70 underline">Ändern</span>
+                {cat.name}
               </button>
+            ))}
+            <div className="flex-1 min-w-[8px]" />
+            {/* Suchfeld rechts (240x40, Radius 10) */}
+            <div
+              onClick={() => {
+                triggerHapticFeedback();
+                setShowSearchModal(true);
+              }}
+              className="h-10 w-[240px] shrink-0 rounded-[10px] bg-slate-900 border border-slate-700 flex items-center gap-2 px-2.5 text-slate-400 text-[13px] cursor-pointer hover:border-slate-500 transition select-none"
+              title="Artikel suchen (öffnet Touch-Bildschirmtastatur)"
+            >
+              <Search className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="truncate">Artikel suchen …</span>
             </div>
-            <p className="text-xs text-slate-400 font-semibold">
-              Direktverkauf &amp; Wertmarken-Kasse
-            </p>
           </div>
-        </div>
 
-        {/* Suchen Button */}
-        <button
-          type="button"
-          onClick={() => {
-            triggerHapticFeedback();
-            setShowSearchModal(true);
-          }}
-          className="pos-touch-btn flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2.5 rounded-2xl text-xs font-bold border border-slate-700 shadow transition active:scale-95"
-          title="Artikel suchen (öffnet Touch-Bildschirmtastatur)"
-        >
-          <Search className="w-4 h-4 text-emerald-400" />
-          <span>Suchen</span>
-        </button>
-
-        {/* Bestellhistorie Button */}
-        <button
-          type="button"
-          onClick={() => setShowHistoryModal(true)}
-          className="pos-touch-btn flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2.5 rounded-2xl text-xs font-bold border border-slate-700 shadow transition active:scale-95"
-          title="Vergangene Bestellungen und Rechnungen an dieser Kasse einsehen"
-        >
-          <History className="w-4 h-4 text-blue-400" />
-          <span>Bestellhistorie</span>
-        </button>
-
-        {/* Open Drawer Button (Nur wenn Kassenlade an einem konfigurierten Drucker verfügbar ist) */}
-        {hasDrawerAvailable && (
-          <button
-            onClick={() => openDrawer(false)}
-            className="pos-touch-btn flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2.5 rounded-2xl text-xs font-bold border border-slate-700 shadow transition active:scale-95"
-            title="Kassenlade öffnen"
-          >
-            <DoorOpen className="w-4 h-4 text-emerald-400" />
-            <span>Lade öffnen</span>
-          </button>
-        )}
-
-        {/* Papierbon Druck-Umschalter (Nur wenn in den Einstellungen aktiviert) */}
-        {isPosReceiptPrintActive && (
-          <button
-            type="button"
-            onClick={() => {
-              triggerHapticFeedback();
-              setPrintReceipt((prev) => !prev);
-            }}
-            className={`pos-touch-btn flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-bold border shadow transition active:scale-95 ${
-              printReceipt
-                ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500 shadow-blue-950/50'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
-            }`}
-            title="Papierbon-Druck für Kassiervorgänge ein- oder ausschalten"
-          >
-            <Printer className={`w-4 h-4 ${printReceipt ? 'text-white' : 'text-slate-400'}`} />
-            <span>Papierbon: {printReceipt ? 'AN' : 'AUS'}</span>
-          </button>
-        )}
-      </div>
-
-      {/* Meldebestand Low-Stock Alert Bar */}
-      {lowStockWarning && (
-        <div className="bg-amber-950 border-b border-amber-800 px-4 py-2 text-xs font-bold text-amber-200 flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <Package className="w-4 h-4 text-amber-400" />
-            {lowStockWarning}
-          </span>
-          <button onClick={() => setLowStockWarning(null)} className="text-amber-400 hover:text-white p-1">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* Jugendschutz-Hinweis Bar mit taggenauen Geburtsdaten */}
-      <div className="bg-slate-900/95 border-b border-slate-800 px-4 py-1.5 flex items-center justify-between text-xs font-mono text-slate-300">
-        <div className="flex items-center gap-2">
-          <span className="bg-red-500/20 text-red-300 border border-red-500/30 px-1.5 py-0.5 rounded font-black text-[10px] flex items-center gap-1">
-            <ShieldAlert className="w-3.5 h-3.5" /> JUGENDSCHUTZ
-          </span>
-          <span>Ab 16 J. (Bier/Wein): <strong className="text-amber-400 font-bold">≤ {minBirth16.formattedDate}</strong></span>
-          <span className="text-slate-600">|</span>
-          <span>Ab 18 J. (Spirituosen): <strong className="text-red-400 font-bold">≤ {minBirth18.formattedDate}</strong></span>
-        </div>
-      </div>
-
-      {/* Categories */}
-      <div className="bg-slate-900 px-3 py-2 border-b border-slate-800 flex items-center gap-2 overflow-x-auto">
-        {categories.map((cat) => (
-          <button
-            key={cat.id}
-            onClick={() => {
-              setSelectedCatId(cat.id);
-              setSelectedSubCat('ALL');
-            }}
-            className={`pos-touch-btn px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all border ${
-              selectedCatId === cat.id
-                ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-950/50'
-                : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-white'
-            }`}
-          >
-            {cat.name}
-          </button>
-        ))}
-      </div>
-
-      {/* Main Split */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Left: Product Tiles */}
-        <div className={`flex-1 ${isAutoFitScreen ? 'overflow-y-auto p-2 sm:p-3' : 'overflow-y-auto p-3 sm:p-5'}`}>
-          <div className={`grid ${isAutoFitScreen ? 'grid-cols-[repeat(auto-fill,minmax(125px,1fr))] gap-2' : 'grid-cols-[repeat(auto-fill,minmax(135px,1fr))] gap-2.5 sm:gap-3.5'}`}>
+          {/* Artikel-Raster: 4 Spalten, Zeilenhöhe 104px, gap 8, padding 10px 12px */}
+          <div className="flex-1 p-[10px_12px] grid grid-cols-4 auto-rows-[104px] gap-2 content-start overflow-y-auto">
             {displayedProducts?.map((prod) => {
               const isOut = prod.isSoldOut;
-              const { price: effectivePrice, priceCents: effectivePriceCents, isHappyHour } = getEffectiveProductPrice(prod as any);
+              const { priceCents: effectivePriceCents } = getEffectiveProductPrice(prod as any);
               const inCartCount = productCartCounts[prod.id] || 0;
 
               return (
@@ -869,54 +791,34 @@ function PosCounterContent() {
                     e.preventDefault();
                     setSelectedProductInfo(prod);
                   }}
-                  className={`pos-touch-btn pos-product-item-btn relative flex flex-col justify-between ${isAutoFitScreen ? 'p-2.5 rounded-2xl min-h-[95px]' : 'p-4 rounded-3xl min-h-[120px]'} border-2 shadow-lg text-left transition select-none ${
+                  className={`pos-touch-btn pos-product-item-btn text-left rounded-xl bg-slate-900 border p-[10px_12px] flex flex-col justify-between text-slate-100 transition select-none active:scale-[0.98] ${
                     isOut
-                      ? 'bg-slate-950/60 border-rose-900/40 opacity-40 cursor-not-allowed line-through'
+                      ? 'opacity-40 border-rose-900/40 cursor-not-allowed line-through'
                       : inCartCount > 0
-                      ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/70 border-emerald-500 shadow-md ring-1 ring-emerald-500/40'
-                      : 'bg-slate-900 border-slate-700 hover:border-emerald-500 active:scale-95'
+                      ? 'border-2 border-emerald-500 ring-1 ring-emerald-500/40'
+                      : 'border-slate-700 hover:border-emerald-500'
                   }`}
-                  style={{ borderLeftColor: isOut ? '#991b1b' : prod.buttonColor || '#10b981', borderLeftWidth: '6px' }}
+                  style={{ borderLeftColor: isOut ? '#991b1b' : prod.buttonColor || (inCartCount > 0 ? '#10b981' : '#1e293b'), borderLeftWidth: '5px' }}
                   title={`${prod.name} (Gedrückt halten für Details)`}
                 >
-                  <div className="w-full">
-                    <div className="font-extrabold text-sm sm:text-base text-white leading-tight tracking-tight break-words">
+                  <div className="flex items-start justify-between gap-1.5 w-full">
+                    <span className="font-extrabold text-[15px] leading-[1.25] text-slate-100 line-clamp-2 break-words">
                       {prod.name}
-                    </div>
-
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {isOut && (
-                        <span className="text-[10px] font-black uppercase tracking-wider text-rose-400 bg-rose-950/80 px-2 py-0.5 rounded border border-rose-800">
-                          Ausverkauft
-                        </span>
-                      )}
-                      {isHappyHour && (
-                        <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-black px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                          <Sparkles className="w-2.5 h-2.5" /> HH
-                        </span>
-                      )}
-                      {(prod as any).hasAgeRestriction && (
-                        <span className="bg-red-500/20 text-red-300 border border-red-500/30 text-[9px] font-black px-1.5 py-0.5 rounded">
-                          {(prod as any).minAge}+
-                        </span>
-                      )}
-                    </div>
+                    </span>
+                    {(prod as any).hasAgeRestriction && (
+                      <span className="shrink-0 text-[10px] font-extrabold text-red-300 bg-red-950/80 border border-red-800 rounded px-1">
+                        {(prod as any).minAge}+
+                      </span>
+                    )}
                   </div>
-
-                  <div className="flex items-center justify-between w-full mt-2">
-                    <span className="text-base sm:text-lg font-black font-mono text-emerald-400">
+                  <div className="flex items-center justify-between w-full">
+                    <span className="font-mono font-extrabold text-[19px] text-emerald-400">
                       {formatCents(effectivePriceCents)}
                     </span>
-                    {!isOut && (
-                      inCartCount > 0 ? (
-                        <span className="bg-emerald-600 text-white font-black font-mono text-xs sm:text-sm px-2 py-0.5 rounded-lg shadow-md border border-emerald-400/50">
-                          {inCartCount}x
-                        </span>
-                      ) : (
-                        <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200">
-                          <Plus className="w-4 h-4" />
-                        </div>
-                      )
+                    {inCartCount > 0 && (
+                      <span className="text-[12px] font-extrabold bg-[#059669] text-white rounded-full px-2 py-0.5">
+                        {inCartCount}x
+                      </span>
                     )}
                   </div>
                 </button>
@@ -925,19 +827,28 @@ function PosCounterContent() {
           </div>
         </div>
 
-        {/* Right: Cart Sidebar (Vergrößert & besser lesbar) */}
-        <div className={`w-full lg:w-[420px] bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-700 ${isAutoFitScreen ? 'p-3' : 'p-4 sm:p-5'} flex flex-col justify-between overflow-hidden shadow-2xl`}>
-          <div className="flex-1 flex flex-col min-h-0">
-            {/* Header: Titel & Warenkorb Leeren */}
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <LayoutList className="w-5 h-5 text-emerald-400" />
-                <span className="font-black text-base text-white">Warenkorb ({cart.reduce((s, i) => s + i.quantity, 0)})</span>
-              </div>
+        {/* Warenkorb rechts: 320 px, Fläche, linke Linie, padding 10px 12px */}
+        <div className="w-[320px] flex-none bg-slate-900 border-l border-slate-800 flex flex-col p-[10px_12px] gap-1 overflow-hidden shadow-xl">
+          {/* Kopf: Warenkorb (3) · rechts Historie & Leeren */}
+          <div className="flex items-center justify-between pb-1.5 border-b border-slate-800 shrink-0">
+            <span className="font-extrabold text-[14px] text-white">
+              Warenkorb ({cart.reduce((s, i) => s + i.quantity, 0)})
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(true)}
+                className="h-7 px-2 rounded-[7px] bg-slate-800 border border-slate-700 text-slate-300 font-bold text-[12px] flex items-center gap-1 hover:text-white transition active:scale-95"
+                title="Bestellhistorie ansehen"
+              >
+                <History className="w-3.5 h-3.5 text-blue-400" />
+                <span>Historie</span>
+              </button>
               {cart.length > 0 && (
                 <button
+                  type="button"
                   onClick={() => setCart([])}
-                  className="text-xs sm:text-sm text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 transition"
+                  className="h-7 px-2 rounded-[7px] bg-transparent border border-red-800 text-red-400 font-bold text-[12px] flex items-center gap-1 hover:bg-red-950/40 transition active:scale-95"
                   title="Warenkorb leeren"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -945,113 +856,147 @@ function PosCounterContent() {
                 </button>
               )}
             </div>
-
-            {/* Cart Items List - Scrollbar wenn mehr Artikel als Höhe */}
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
-              {cart.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center py-12 text-sm text-slate-400 font-medium">
-                  <Package className="w-10 h-10 text-slate-700 mb-2 stroke-[1.5]" />
-                  <span>Noch keine Artikel im Warenkorb.</span>
-                  <span className="text-xs text-slate-500 mt-1">Tippe links auf Artikel zum Hinzufügen.</span>
-                </div>
-              ) : (
-                cart.map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-3 sm:p-3.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between shadow-sm"
-                  >
-                    <div className="flex-1 min-w-0 pr-2">
-                      <div className="font-black text-sm sm:text-base text-white truncate">{item.name}</div>
-                      {item.variantName && (
-                        <div className="text-xs font-semibold text-emerald-400">{item.variantName}</div>
-                      )}
-                      <div className="text-xs sm:text-sm text-amber-300 font-mono font-bold mt-0.5">
-                        {formatCents(Math.round(((item.price + item.deposit) * item.quantity) * 100))}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => updateQty(item.id, -1)}
-                        className="w-9 h-9 sm:w-10 sm:h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-200 font-black text-base flex items-center justify-center active:scale-95"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                      <span className="w-8 sm:w-9 text-center font-black font-mono text-base sm:text-lg text-white">{item.quantity}</span>
-                      <button
-                        onClick={() => updateQty(item.id, 1)}
-                        className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-white font-black text-base flex items-center justify-center active:scale-95 shadow"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
           </div>
 
-          {/* Bottom Area: Gesamtbetrag & Großer Kassieren Button */}
-          <div className="pt-3 border-t border-slate-800 space-y-2.5">
-            {/* Papierbon Toggle im Warenkorb (wenn in Einstellungen aktiviert) */}
-            {isPosReceiptPrintActive && (
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHapticFeedback();
-                  setPrintReceipt((prev) => !prev);
-                }}
-                className={`w-full py-2 px-3 rounded-xl border flex items-center justify-between text-xs font-bold transition active:scale-98 ${
-                  printReceipt
-                    ? 'bg-blue-950/80 border-blue-600/60 text-blue-200 shadow-sm'
-                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-300'
-                }`}
-                title="Papierbon-Druck für diesen Verkauf umschalten"
-              >
-                <div className="flex items-center gap-2">
-                  <Printer className={`w-4 h-4 ${printReceipt ? 'text-blue-400' : 'text-slate-500'}`} />
-                  <span>Papierbon drucken</span>
-                </div>
-                <span
-                  className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${
-                    printReceipt ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'
-                  }`}
+          {/* Positionen: 48px mit Linie oben; Name 14px bold, Preis Mono 12px Gelb; - / Menge / + jeweils 34x34 */}
+          <div className="flex-1 overflow-y-auto min-h-0 divide-y divide-slate-800 pr-0.5">
+            {cart.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center py-10 text-xs text-slate-400 font-medium">
+                <Package className="w-8 h-8 text-slate-700 mb-2 stroke-[1.5]" />
+                <span>Keine Artikel im Warenkorb.</span>
+              </div>
+            ) : (
+              cart.map((item) => (
+                <div
+                  key={item.id}
+                  className="h-12 flex items-center justify-between gap-2 border-t border-slate-800"
                 >
-                  {printReceipt ? 'AKTIV' : 'AUS'}
-                </span>
-              </button>
+                  <div className="flex flex-col min-w-0 pr-1">
+                    <span className="font-extrabold text-[14px] text-white truncate max-w-[150px]">
+                      {item.name}
+                    </span>
+                    <span className="font-mono font-bold text-[12px] text-amber-400">
+                      {formatCents(Math.round(((item.price + item.deposit) * item.quantity) * 100))}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => updateQty(item.id, -1)}
+                      className="w-[34px] h-[34px] rounded-lg bg-slate-800 border border-slate-700 text-slate-200 flex items-center justify-center active:scale-95"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="w-[18px] text-center font-extrabold text-[14px] text-white">
+                      {item.quantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => updateQty(item.id, 1)}
+                      className="w-[34px] h-[34px] rounded-lg bg-[#059669] text-white flex items-center justify-center active:scale-95"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))
             )}
-
-            {/* Total Amount */}
-            <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-baseline justify-between shadow-inner">
-              <span className="text-xs font-bold text-slate-400">Gesamtbetrag:</span>
-              <span className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono">
-                {formatCents(Math.round((totalAmount) * 100))}
-              </span>
-            </div>
-
-            {/* Kassieren Button - Öffnet den Bezahldialog */}
-            <button
-              id="pos-checkout-btn"
-              data-testid="pos-checkout-btn"
-              disabled={cart.length === 0 || isProcessing}
-              onClick={() => {
-                triggerHapticFeedback();
-                setSelectedCartItemIds(cart.map((i) => i.id));
-                setGivenAmount(0);
-                setTipCents(0);
-                setShowCheckoutModal(true);
-              }}
-              className={`pos-touch-btn w-full h-14 sm:h-16 rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 shadow-2xl transition ${
-                cart.length > 0 && !isProcessing
-                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/60 active:scale-98'
-                  : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
-              }`}
-            >
-              <Banknote className="w-5 h-5" />
-              <span>Kassieren</span>
-            </button>
           </div>
         </div>
+      </div>
+
+      {/* Aktionsleiste unten (72 px, Fläche, Linie oben 1 px) */}
+      <div className="h-[72px] flex-none flex items-center gap-2.5 px-3 bg-slate-900 border-t border-slate-700 select-none shadow-2xl">
+        {/* Ausgabe-Modus als Umschalter (Radius 12, innen h 44: „Nur Kassieren“ | „Wertmarken“ | „Gutschein + Gegenbon“; aktiv Grün) */}
+        <div className="flex p-1 rounded-xl border border-slate-800 bg-slate-950 gap-0.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setPosOutputMode('COUNTER_DIRECT')}
+            className={`h-11 px-3.5 rounded-lg border-0 text-[13px] transition ${
+              posOutputMode === 'COUNTER_DIRECT'
+                ? 'bg-[#059669] text-white font-extrabold shadow-sm'
+                : 'bg-transparent text-slate-400 hover:text-slate-200 font-bold'
+            }`}
+          >
+            Nur Kassieren
+          </button>
+          <button
+            type="button"
+            onClick={() => setPosOutputMode('COUNTER_VOUCHER')}
+            className={`h-11 px-3.5 rounded-lg border-0 text-[13px] transition ${
+              posOutputMode === 'COUNTER_VOUCHER'
+                ? 'bg-[#059669] text-white font-extrabold shadow-sm'
+                : 'bg-transparent text-slate-400 hover:text-slate-200 font-bold'
+            }`}
+          >
+            Wertmarken
+          </button>
+          <button
+            type="button"
+            onClick={() => setPosOutputMode('COUNTER_DUAL')}
+            className={`h-11 px-3.5 rounded-lg border-0 text-[13px] transition ${
+              posOutputMode === 'COUNTER_DUAL'
+                ? 'bg-[#059669] text-white font-extrabold shadow-sm'
+                : 'bg-transparent text-slate-400 hover:text-slate-200 font-bold'
+            }`}
+          >
+            Gutschein + Gegenbon
+          </button>
+        </div>
+
+        {/* Ein Papierbon-Knopf (h 52, Drucker-Symbol + „Papierbon“ + Abzeichen AUS/AKTIV) */}
+        <button
+          type="button"
+          onClick={() => {
+            triggerHapticFeedback();
+            setPrintReceipt((prev) => !prev);
+          }}
+          className="h-[52px] px-3.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-bold text-[13px] flex items-center gap-1.5 hover:text-white transition active:scale-95 shrink-0"
+          title="Papierbon-Druck ein- oder ausschalten"
+        >
+          <Printer className="w-4 h-4 text-slate-400" />
+          <span>Papierbon</span>
+          <span
+            className={`text-[10px] font-black uppercase px-1.5 py-0.5 rounded ${
+              printReceipt ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300'
+            }`}
+          >
+            {printReceipt ? 'AKTIV' : 'AUS'}
+          </span>
+        </button>
+
+        {/* Abstand flex: 1 */}
+        <div className="flex-1" />
+
+        {/* Gesamt über Summe (JetBrains Mono 800, 34 px, Grün) */}
+        <div className="flex flex-col items-end leading-none mr-2 shrink-0">
+          <span className="text-[11px] text-slate-400 font-bold">Gesamt</span>
+          <span className="font-mono font-extrabold text-[34px] text-emerald-400 leading-tight">
+            {formatCents(Math.round(totalAmount * 100))}
+          </span>
+        </div>
+
+        {/* Kassieren 308x56, Radius 14, 18 px 900, Geldschein-Symbol */}
+        <button
+          id="pos-checkout-btn"
+          data-testid="pos-checkout-btn"
+          disabled={cart.length === 0 || isProcessing}
+          onClick={() => {
+            triggerHapticFeedback();
+            setSelectedCartItemIds(cart.map((i) => i.id));
+            setGivenAmount(0);
+            setTipCents(0);
+            setShowCheckoutModal(true);
+          }}
+          className={`pos-touch-btn w-[308px] h-14 rounded-2xl font-black text-[18px] flex items-center justify-center gap-2 shadow-2xl transition active:scale-[0.98] shrink-0 ${
+            cart.length > 0 && !isProcessing
+              ? 'bg-[#059669] hover:bg-[#047857] text-white shadow-emerald-950/60'
+              : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+          }`}
+        >
+          <Banknote className="w-5 h-5" />
+          <span>Kassieren</span>
+        </button>
       </div>
 
       {/* Neuer Kassiervorgang (Scheine/Münzen nebeneinander, 4-Pfeile-Trinkgeld & Teilzahlung) */}

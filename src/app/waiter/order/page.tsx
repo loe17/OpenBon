@@ -645,56 +645,53 @@ function WaiterOrderContent() {
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950 text-white max-w-full">
-      {/* Top Header */}
-      <div className="p-2.5 sm:p-3 bg-slate-900 border-b border-slate-700 flex items-center justify-between gap-2 shadow-md shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <button
-            onClick={() => router.push('/waiter')}
-            className="pos-touch-btn px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 flex items-center gap-1.5 text-xs font-bold transition active:scale-95 shrink-0"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Tische</span>
-          </button>
+      {/* Top Header (56px Daumen-Leiste) */}
+      <div className="h-14 px-2 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-1.5 shadow-md shrink-0">
+        <button
+          onClick={() => router.push('/waiter')}
+          className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition active:scale-95 shrink-0"
+          title="Zurück zum Tischplan"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
 
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-black text-white truncate">
-                {table ? table.label : 'Tisch lädt...'}
-              </h1>
-              {table?.section && (
-                <span className="text-[10px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded font-bold">
-                  {table.section}
-                </span>
-              )}
-            </div>
-            <div className="text-[11px] text-slate-400 font-medium truncate">
-              Bedienung: <span className="text-slate-200 font-bold">{waiterName}</span>
-            </div>
+        <div className="flex-1 h-11 px-3 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between gap-2 min-w-0 overflow-hidden">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="font-extrabold text-sm text-white truncate">
+              {table ? table.label : 'Tisch lädt...'}
+            </span>
+            {table?.section && (
+              <span className="text-[10px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded font-bold shrink-0">
+                {table.section}
+              </span>
+            )}
+          </div>
+          <div className="text-[11px] text-slate-400 font-medium truncate shrink-0">
+            Bedienung: <span className="text-slate-200 font-bold">{waiterName}</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => setSoundMuted(!soundMuted)}
-            className={`p-2 rounded-xl border transition ${
-              soundMuted
-                ? 'bg-rose-950/40 text-rose-400 border-rose-800/60'
-                : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
-            }`}
-            title={soundMuted ? 'Ton stummgeschaltet' : 'Ton aktiv'}
-          >
-            {soundMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-          </button>
+        <button
+          type="button"
+          onClick={() => setShowHistoryModal(true)}
+          className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-blue-400 hover:text-blue-300 flex items-center justify-center transition active:scale-95 shrink-0 shadow-sm"
+          title="Bestellverlauf anzeigen"
+        >
+          <History className="w-5 h-5" />
+        </button>
 
-          <button
-            onClick={() => setShowHistoryModal(true)}
-            className="pos-touch-btn px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl flex items-center gap-1.5 text-xs font-bold transition border border-slate-700"
-            title="Bestellverlauf anzeigen"
-          >
-            <History className="w-4 h-4 text-blue-400" />
-            <span className="hidden sm:inline">Tisch-Verlauf</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setSoundMuted(!soundMuted)}
+          className={`waiter-mute-btn w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl border flex items-center justify-center transition active:scale-95 shrink-0 ${
+            soundMuted
+              ? 'bg-rose-950/60 border-rose-800 text-rose-400'
+              : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+          }`}
+          title={soundMuted ? 'Ton stummgeschaltet' : 'Ton aktiv'}
+        >
+          {soundMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+        </button>
       </div>
 
       {/* Jugendschutz & Allergen-Schnellfilter */}

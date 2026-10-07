@@ -769,24 +769,20 @@ function WaiterPaymentContent() {
     <div className="flex-1 flex flex-col h-[100dvh] max-h-[100dvh] overflow-hidden bg-slate-950 text-white">
       {/* ===================== STICKY TOP CONTAINER (Permanent ganz oben über der Tischnummer fixiert) ===================== */}
       <div className="sticky top-0 z-20 shadow-2xl bg-slate-950 shrink-0">
-        {/* Zeile 1: Zurück + Kassieren links, Tisch rechts */}
-        <div className="p-2 sm:p-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between shadow-md">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={goBack}
-              disabled={stage === 'DONE'}
-              className="pos-touch-btn px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 flex items-center gap-1.5 text-xs font-bold transition active:scale-95 disabled:opacity-40"
-              title="Zurück"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Zurück</span>
-            </button>
+        {/* Zeile 1 (56px Daumen-Leiste): Zurück 44x44, Kassieren & Tisch 44px hoch */}
+        <div className="h-14 px-2 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-1.5 shadow-md">
+          <button
+            onClick={goBack}
+            disabled={stage === 'DONE'}
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 flex items-center justify-center transition active:scale-95 disabled:opacity-40 shrink-0"
+            title="Zurück"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
 
-            <span className="text-sm font-black text-white">Kassieren</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="text-xs sm:text-sm font-black text-slate-300 bg-slate-800/80 px-2.5 py-1 rounded-xl border border-slate-700/80">
+          <div className="flex-1 h-11 px-3 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between gap-2 min-w-0 overflow-hidden">
+            <span className="text-sm font-extrabold text-white truncate">Kassieren</span>
+            <div className="text-xs font-black text-slate-300 truncate">
               {table?.label || (tableId ? `Tisch ${tableId}` : 'Direktverkauf')}
             </div>
           </div>
