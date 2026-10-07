@@ -98,8 +98,9 @@ html.light .bg-slate-900\/95, html.light .bg-slate-900\/90, html.light .bg-slate
 html[data-theme="light"] .bg-slate-900\/95, html[data-theme="light"] .bg-slate-900\/90, html[data-theme="light"] .bg-slate-900\/80, html[data-theme="light"] .bg-slate-900\/60 { background-color: #f1f5f9 !important; border-color: #cbd5e1 !important; color: #0f172a !important; }
 html.light .bg-amber-950\/40, html[data-theme="light"] .bg-amber-950\/40 { background-color: #fef3c7 !important; border-color: #d97706 !important; color: #92400e !important; }
 html.light .bg-rose-950\/60, html.light .bg-red-500\/20, html[data-theme="light"] .bg-rose-950\/60, html[data-theme="light"] .bg-red-500\/20 { background-color: #fee2e2 !important; border-color: #fca5a5 !important; color: #991b1b !important; }
-html.light .border-slate-800, html.light .border-slate-700, html[data-theme="light"] .border-slate-800, html[data-theme="light"] .border-slate-700 { border-color: #94a3b8 !important; }
-html.light .text-white, html.light .text-slate-100, html.light .text-slate-200, html.light .text-slate-300, html.light .text-slate-400, html[data-theme="light"] .text-white, html[data-theme="light"] .text-slate-100, html[data-theme="light"] .text-slate-200, html[data-theme="light"] .text-slate-300, html[data-theme="light"] .text-slate-400 { color: #000000 !important; }
+html.light .border-slate-800, html.light .border-slate-700, html[data-theme="light"] .border-slate-800, html[data-theme="light"] .border-slate-700 { border-color: #cbd5e1 !important; }
+html.light .text-white, html.light .text-slate-100, html.light .text-slate-200, html[data-theme="light"] .text-white, html[data-theme="light"] .text-slate-100, html[data-theme="light"] .text-slate-200 { color: #000000 !important; }
+html.light .text-slate-400, html.light .text-slate-300, html[data-theme="light"] .text-slate-400, html[data-theme="light"] .text-slate-300 { color: #475569 !important; }
 html.light .text-slate-500, html.light .text-slate-600, html[data-theme="light"] .text-slate-500, html[data-theme="light"] .text-slate-600 { color: #334155 !important; }
 html.light .text-emerald-400, html.light .text-emerald-300, html[data-theme="light"] .text-emerald-400, html[data-theme="light"] .text-emerald-300 { color: #047857 !important; font-weight: 800 !important; }
 html.light .text-amber-400, html.light .text-amber-300, html[data-theme="light"] .text-amber-400, html[data-theme="light"] .text-amber-300 { color: #b45309 !important; font-weight: 800 !important; }
@@ -230,16 +231,24 @@ html.speed .keypad-key, html[data-theme="speed"] .keypad-key { background-color:
 
 /* Erhalte weisse Schrift auf bunten Funktions-Buttons in hellen Themes */
 html.light button[class*="bg-blue-"], html.light button[class*="bg-emerald-"], html.light button[class*="bg-rose-"], html.light button[class*="bg-amber-"], html.light button[class*="bg-indigo-"], html.light [class*="bg-blue-600"], html.light [class*="bg-emerald-600"], html.light [class*="bg-rose-600"],
+html.light [class*="bg-[#059669]"], html.light [class*="bg-[#2563eb]"], html.light button[class*="bg-[#059669]"], html.light button[class*="bg-[#2563eb]"],
 html[data-theme="light"] button[class*="bg-blue-"], html[data-theme="light"] button[class*="bg-emerald-"], html[data-theme="light"] button[class*="bg-rose-"], html[data-theme="light"] button[class*="bg-amber-"], html[data-theme="light"] button[class*="bg-indigo-"], html[data-theme="light"] [class*="bg-blue-600"], html[data-theme="light"] [class*="bg-emerald-600"], html[data-theme="light"] [class*="bg-rose-600"],
+html[data-theme="light"] [class*="bg-[#059669]"], html[data-theme="light"] [class*="bg-[#2563eb]"], html[data-theme="light"] button[class*="bg-[#059669]"], html[data-theme="light"] button[class*="bg-[#2563eb]"],
 html.speed-light button[class*="bg-blue-"], html.speed-light button[class*="bg-emerald-"], html.speed-light button[class*="bg-rose-"], html.speed-light button[class*="bg-amber-"], html.speed-light button[class*="bg-indigo-"], html.speed-light [class*="bg-blue-600"], html.speed-light [class*="bg-emerald-600"], html.speed-light [class*="bg-rose-600"],
-html[data-theme="speed-light"] button[class*="bg-blue-"], html[data-theme="speed-light"] button[class*="bg-emerald-"], html[data-theme="speed-light"] button[class*="bg-rose-"], html[data-theme="speed-light"] button[class*="bg-amber-"], html[data-theme="speed-light"] button[class*="bg-indigo-"], html[data-theme="speed-light"] [class*="bg-blue-600"], html[data-theme="speed-light"] [class*="bg-emerald-600"], html[data-theme="speed-light"] [class*="bg-rose-600"] {
+html.speed-light [class*="bg-[#059669]"], html.speed-light [class*="bg-[#2563eb]"],
+html[data-theme="speed-light"] button[class*="bg-blue-"], html[data-theme="speed-light"] button[class*="bg-emerald-"], html[data-theme="speed-light"] button[class*="bg-rose-"], html[data-theme="speed-light"] button[class*="bg-amber-"], html[data-theme="speed-light"] button[class*="bg-indigo-"], html[data-theme="speed-light"] [class*="bg-blue-600"], html[data-theme="speed-light"] [class*="bg-emerald-600"], html[data-theme="speed-light"] [class*="bg-rose-600"],
+html[data-theme="speed-light"] [class*="bg-[#059669]"], html[data-theme="speed-light"] [class*="bg-[#2563eb]"] {
   color: #ffffff !important;
 }
 
 html.light button[class*="bg-blue-"] *, html.light button[class*="bg-emerald-"] *, html.light button[class*="bg-rose-"] *, html.light [class*="bg-blue-600"] *, html.light [class*="bg-emerald-600"] *, html.light [class*="bg-rose-600"] *,
+html.light [class*="bg-[#059669]"] *, html.light [class*="bg-[#2563eb]"] *, html.light button[class*="bg-[#059669]"] *, html.light button[class*="bg-[#2563eb]"] *,
 html[data-theme="light"] button[class*="bg-blue-"] *, html[data-theme="light"] button[class*="bg-emerald-"] *, html[data-theme="light"] button[class*="bg-rose-"] *, html[data-theme="light"] [class*="bg-blue-600"] *, html[data-theme="light"] [class*="bg-emerald-600"] *, html[data-theme="light"] [class*="bg-rose-600"] *,
+html[data-theme="light"] [class*="bg-[#059669]"] *, html[data-theme="light"] [class*="bg-[#2563eb]"] *, html[data-theme="light"] button[class*="bg-[#059669]"] *, html[data-theme="light"] button[class*="bg-[#2563eb]"] *,
 html.speed-light button[class*="bg-blue-"] *, html.speed-light button[class*="bg-emerald-"] *, html.speed-light button[class*="bg-rose-"] *, html.speed-light [class*="bg-blue-600"] *, html.speed-light [class*="bg-emerald-600"] *, html.speed-light [class*="bg-rose-600"] *,
-html[data-theme="speed-light"] button[class*="bg-blue-"] *, html[data-theme="speed-light"] button[class*="bg-emerald-"] *, html[data-theme="speed-light"] button[class*="bg-rose-"] *, html[data-theme="speed-light"] [class*="bg-blue-600"] *, html[data-theme="speed-light"] [class*="bg-emerald-600"] *, html[data-theme="speed-light"] [class*="bg-rose-600"] * {
+html.speed-light [class*="bg-[#059669]"] *, html.speed-light [class*="bg-[#2563eb]"] *,
+html[data-theme="speed-light"] button[class*="bg-blue-"] *, html[data-theme="speed-light"] button[class*="bg-emerald-"] *, html[data-theme="speed-light"] button[class*="bg-rose-"] *, html[data-theme="speed-light"] [class*="bg-blue-600"] *, html[data-theme="speed-light"] [class*="bg-emerald-600"] *, html[data-theme="speed-light"] [class*="bg-rose-600"] *,
+html[data-theme="speed-light"] [class*="bg-[#059669]"] *, html[data-theme="speed-light"] [class*="bg-[#2563eb]"] * {
   color: #ffffff !important;
 }
 

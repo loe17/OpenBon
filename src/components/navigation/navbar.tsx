@@ -51,7 +51,6 @@ import {
   Scaling,
   Clock,
   Globe,
-  ExternalLink,
   ShieldAlert,
 } from 'lucide-react';
 import { calculateMinBirthdate } from '@/lib/compliance';
@@ -707,18 +706,7 @@ export default function Navbar() {
             </button>
 
             {/* Fullscreen Button (32x32) */}
-            <FullscreenButton className="p-2 rounded-xl w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition active:scale-95 touch-manipulation flex items-center justify-center" />
-
-            {/* Extern öffnen Button (32x32) */}
-            <button
-              type="button"
-              onClick={() => window.open(window.location.href, '_blank')}
-              className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition active:scale-95 flex items-center justify-center"
-              title="In neuem Fenster / Tab öffnen"
-              aria-label="In neuem Fenster öffnen"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-            </button>
+            <FullscreenButton className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition active:scale-95 touch-manipulation flex items-center justify-center" />
 
             {/* Kassen- & Server-Verbindungsstatus (h 32, 12 px 700) */}
             <div

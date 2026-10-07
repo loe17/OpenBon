@@ -1162,7 +1162,7 @@ function WaiterTablesContent() {
       {/* Table Action Bottom Sheet / Modal */}
       {selectedTable && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-slate-900 border-t sm:border border-slate-700 rounded-t-3xl sm:rounded-3xl p-5 w-full max-w-lg shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-150">
+          <div className="bg-slate-900 border-t sm:border border-slate-700 rounded-t-2xl sm:rounded-2xl p-5 w-full max-w-lg shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
                 <span className="text-xs font-mono text-slate-400">
@@ -1180,7 +1180,7 @@ function WaiterTablesContent() {
             </div>
 
             {/* Table Financial Summary */}
-            <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800 flex items-center justify-between">
+            <div className="bg-slate-950 rounded-xl p-4 border border-slate-800 flex items-center justify-between">
               <div>
                 <span className="text-xs text-slate-400 block font-semibold">Offener Betrag:</span>
                 <span className="text-2xl font-black text-white">
@@ -1199,7 +1199,7 @@ function WaiterTablesContent() {
             <div className="grid grid-cols-2 gap-3 pt-2">
               <button
                 onClick={() => router.push(`/waiter/payment?tableId=${selectedTable.id}&waiterName=${encodeURIComponent(waiterName)}`)}
-                className={`h-14 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition ${
+                className={`h-14 rounded-[14px] font-black text-sm flex items-center justify-center gap-2 transition ${
                   selectedTable.openItemCount > 0
                     ? 'bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white shadow-lg shadow-emerald-950/50'
                     : 'bg-slate-800 text-slate-500 cursor-not-allowed'
@@ -1212,7 +1212,7 @@ function WaiterTablesContent() {
 
               <button
                 onClick={() => router.push(`/waiter/order?tableId=${selectedTable.id}&waiterName=${encodeURIComponent(waiterName)}`)}
-                className="h-14 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-950/50 transition"
+                className="h-14 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-[14px] font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-950/50 transition"
               >
                 <PlusCircle className="w-5 h-5" />
                 <span>Bestellen</span>
@@ -1224,7 +1224,7 @@ function WaiterTablesContent() {
               <button
                 onClick={() => void openVoidModal(selectedTable)}
                 disabled={busyAction !== null || !isStornoEnabled}
-                className={`touch-target h-14 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${
+                className={`touch-target h-14 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${
                   isStornoEnabled
                     ? 'bg-rose-600 hover:bg-rose-500 text-white border border-rose-400 shadow-lg shadow-rose-950/50'
                     : 'bg-rose-950/60 border border-rose-800 text-rose-200'
@@ -1253,7 +1253,7 @@ function WaiterTablesContent() {
                   setShowTransferModal(true);
                 }}
                 disabled={busyAction !== null || selectedTable.openItemCount === 0}
-                className="touch-target h-14 bg-slate-800 border border-slate-700 hover:border-blue-500 text-slate-100 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
+                className="touch-target h-14 bg-slate-800 border border-slate-700 hover:border-blue-500 text-slate-100 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
                 title="Bestellungen auf anderen Tisch verschieben"
               >
                 <ArrowRightLeft className="w-4 h-4 text-blue-400" />
@@ -1267,7 +1267,7 @@ function WaiterTablesContent() {
                   setShowTransferModal(true);
                 }}
                 disabled={busyAction !== null || selectedTable.openItemCount === 0}
-                className="touch-target h-14 bg-slate-800 border border-slate-700 hover:border-amber-500 text-slate-100 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
+                className="touch-target h-14 bg-slate-800 border border-slate-700 hover:border-amber-500 text-slate-100 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-50"
                 title="Tisch mit anderem Tisch zusammenlegen"
               >
                 <GitMerge className="w-4 h-4 text-amber-400" />
@@ -1278,7 +1278,7 @@ function WaiterTablesContent() {
                 onClick={() => {
                   setTableHistoryTarget({ id: selectedTable.id, label: selectedTable.label });
                 }}
-                className="touch-target h-14 bg-slate-800 border border-slate-700 hover:border-blue-500 text-slate-100 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow"
+                className="touch-target h-14 bg-slate-800 border border-slate-700 hover:border-blue-500 text-slate-100 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow"
                 title="Alle bisherigen Bestellungen an diesem Tisch anzeigen"
               >
                 <History className="w-4 h-4 text-blue-400" />
@@ -1292,10 +1292,10 @@ function WaiterTablesContent() {
       {/* Spec 5: Tisch Umbuchung / Zusammenlegung Modal */}
       {showTransferModal && selectedTable && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-slate-900 border-t sm:border border-slate-700 rounded-t-3xl sm:rounded-3xl p-5 w-full max-w-md shadow-2xl space-y-4">
+          <div className="bg-slate-900 border-t sm:border border-slate-700 rounded-t-2xl sm:rounded-2xl p-5 w-full max-w-md shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-blue-600/20 text-blue-400 rounded-2xl border border-blue-700">
+                <div className="p-2.5 bg-blue-600/20 text-blue-400 rounded-xl border border-blue-700">
                   {transferMode === 'TRANSFER' ? <ArrowRightLeft className="w-5 h-5" /> : <GitMerge className="w-5 h-5" />}
                 </div>
                 <div>
@@ -1390,10 +1390,10 @@ function WaiterTablesContent() {
       {/* Spec 6.4: Storno-Dialog mit PIN und Pflicht-Stornogrund */}
       {showVoidModal && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-sm">
-          <div className="bg-slate-900 border-t sm:border border-rose-900 rounded-t-3xl sm:rounded-3xl p-5 w-full max-w-lg shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+          <div className="bg-slate-900 border-t sm:border border-rose-900 rounded-t-2xl sm:rounded-2xl p-5 w-full max-w-lg shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-rose-600/20 text-rose-400 rounded-2xl border border-rose-700">
+                <div className="p-2.5 bg-rose-600/20 text-rose-400 rounded-xl border border-rose-700">
                   <Ban className="w-5 h-5" />
                 </div>
                 <div>
@@ -1597,10 +1597,10 @@ function WaiterTablesContent() {
       {/* Waiter Name Prompt Modal */}
       {showWaiterPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-blue-600/20 text-blue-400 rounded-2xl border border-blue-500/30">
+                <div className="p-3 bg-blue-600/20 text-blue-400 rounded-xl border border-blue-500/30">
                   <UserCheck className="w-6 h-6" />
                 </div>
                 <div>
@@ -1712,10 +1712,10 @@ function WaiterTablesContent() {
       {/* Abmelde-Auswahl Modal (Pause vs. Schicht beenden) */}
       {showLogoutConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-2xl border border-amber-500/30">
+                <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
                   <UserCheck className="w-5 h-5" />
                 </div>
                 <div>
@@ -1790,7 +1790,7 @@ function WaiterTablesContent() {
       {/* Touch-Keypad Modal für Tischnummern (0-9) */}
       {showTableKeypadModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-5 max-w-sm w-full shadow-2xl space-y-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <Hash className="w-5 h-5 text-blue-400" />
@@ -1825,7 +1825,7 @@ function WaiterTablesContent() {
             </div>
 
             {/* Display der eingegebenen Tischnummer */}
-            <div className="bg-slate-950 border-2 border-blue-500 rounded-2xl p-4 text-center">
+            <div className="bg-slate-950 border-2 border-blue-500 rounded-xl p-4 text-center">
               <span className="text-xs text-slate-400 font-bold block mb-1">Ausgewählter Tisch:</span>
               <div className="text-3xl font-black font-mono text-amber-300 min-h-[40px]">
                 {keypadTableNumber ? `Tisch ${keypadTableNumber}` : '—'}
@@ -1844,7 +1844,7 @@ function WaiterTablesContent() {
                       setKeypadTableNumber((prev) => `${prev}${digit}`);
                     }
                   }}
-                  className="min-h-[56px] rounded-2xl bg-slate-800 hover:bg-slate-700 active:bg-blue-600 text-white font-mono font-black text-2xl shadow transition active:scale-95 touch-manipulation flex items-center justify-center border border-slate-700"
+                  className="min-h-[56px] rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-blue-600 text-white font-mono font-black text-2xl shadow transition active:scale-95 touch-manipulation flex items-center justify-center border border-slate-700"
                 >
                   {digit}
                 </button>
@@ -1855,7 +1855,7 @@ function WaiterTablesContent() {
                   triggerHapticFeedback();
                   setKeypadTableNumber('');
                 }}
-                className="min-h-[56px] rounded-2xl bg-slate-800/60 hover:bg-slate-800 text-rose-400 font-bold text-sm transition active:scale-95 touch-manipulation flex items-center justify-center border border-slate-700"
+                className="min-h-[56px] rounded-xl bg-slate-800/60 hover:bg-slate-800 text-rose-400 font-bold text-sm transition active:scale-95 touch-manipulation flex items-center justify-center border border-slate-700"
               >
                 C
               </button>
@@ -1867,7 +1867,7 @@ function WaiterTablesContent() {
                     setKeypadTableNumber((prev) => `${prev}0`);
                   }
                 }}
-                className="min-h-[56px] rounded-2xl bg-slate-800 hover:bg-slate-700 active:bg-blue-600 text-white font-mono font-black text-2xl shadow transition active:scale-95 touch-manipulation flex items-center justify-center border border-slate-700"
+                className="min-h-[56px] rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-blue-600 text-white font-mono font-black text-2xl shadow transition active:scale-95 touch-manipulation flex items-center justify-center border border-slate-700"
               >
                 0
               </button>
@@ -1877,7 +1877,7 @@ function WaiterTablesContent() {
                   triggerHapticFeedback();
                   setKeypadTableNumber((prev) => prev.slice(0, -1));
                 }}
-                className="min-h-[56px] rounded-2xl bg-slate-800/60 hover:bg-slate-800 text-amber-400 font-bold text-base transition active:scale-95 touch-manipulation flex items-center justify-center border border-slate-700"
+                className="min-h-[56px] rounded-xl bg-slate-800/60 hover:bg-slate-800 text-amber-400 font-bold text-base transition active:scale-95 touch-manipulation flex items-center justify-center border border-slate-700"
               >
                 <Delete className="w-5 h-5 text-amber-400" />
               </button>
@@ -1888,7 +1888,7 @@ function WaiterTablesContent() {
               type="button"
               disabled={!keypadTableNumber || isCreatingTable}
               onClick={() => openTableFromNumber(keypadTableNumber)}
-              className="w-full min-h-[52px] bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-2xl font-black text-base shadow-lg shadow-emerald-950/60 transition active:scale-95 touch-manipulation flex items-center justify-center gap-2"
+              className="w-full min-h-[52px] bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-[14px] font-black text-base shadow-lg shadow-emerald-950/60 transition active:scale-95 touch-manipulation flex items-center justify-center gap-2"
             >
               <ArrowRight className="w-5 h-5" />
               <span>Tisch öffnen & Bestellen</span>
@@ -1900,7 +1900,7 @@ function WaiterTablesContent() {
       {/* X-Bon (Zwischenstand) Modal */}
       {showXBonModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <Wallet className="w-5 h-5 text-emerald-400" />

@@ -76,17 +76,18 @@ Willkommen bei **OpenBon**, dem plattformunabhängigen, hochverfügbaren Kassens
 - **Kartenkopf mit Wartezeit & Schnellauswahl**:
   - Prominente Tischnummer (bzw. „Theke“ oder „Abholmarke“), darunter `#Nr · Bedienung`.
   - Gut sichtbare, gelbe Wartezeitanzeige und ein praktischer Haken-Button, um alle Positionen eines Tisches mit einem Klick auszuwählen oder abzuwählen.
-- **Direkte Aktionen am Fuß jeder Tischkarte**:
-  - `[ Bon erhalten ]` (32 px blauer Rand) und der große grüne Hauptknopf `[ Fertig ]` (48 px) für schnelles Quittieren.
-- **Feste 60 px Werkzeugleiste unten**:
+- **Intelligente 1-Klick-Aktion am Fuß jeder Tischkarte**:
+  - Ein einziger, klarer Hauptknopf: Ist nichts ausgewählt, steht dort **„Fertig“** (quittiert alle offenen Speisen auf einmal und druckt bei aktivem Druckmodus sofort alle Bons).
+  - Bei gezielter Teilauswahl einzelner Posten wechselt der Button automatisch zu **„Auswahl fertig (X)“** (quittiert und druckt nur die ausgewählten Posten; verbleibende Speisen bleiben auf dem Monitor).
+- **Feste Werkzeugleiste oben (unter der Kopfzeile)**:
   - **Live-Rückstandsanzeige**: Horizontales Band (`RÜCKSTAND`) mit sofort sichtbaren Mengen-Pillen (z. B. „18x Pommes“, „6x Schnitzel“).
-  - Schnellzugriff-Schaltflächen für `[ Ausverkauft ]`, Warengruppen-`[ Filter ]`, Umschaltung `[ Wartezeit ]` / `[ Nach Tisch ]`, Tages-`[ Historie ]` und Aktualisieren.
+  - Schnellzugriff-Schaltflächen für Umschaltung Betriebsmodus (`[ Monitor steuert Druck ]` / `[ Reine Überwachung ]`), `[ Ausverkauft ]`, Warengruppen-`[ Filter ]`, Ansicht `[ Nach Tisch ]` / `[ Wartezeit ]`, Tages-`[ Historie ]` und Aktualisieren.
 - **Vollbildmodus per Kochmütze**: Durch Antippen des Kochmützen-Symbols neben dem Schriftzug „Küchen- & Schankmonitor“ wird der Vollbildmodus aktiviert oder beendet.
 - **Ergonomische Sortierung nach Wartezeit (Ältester Tisch ganz links im Direktblick)**: Die am längsten wartende, dringendste Bestellung steht immer ganz links auf Platz 1 – direkt im natürlichen Blickfeld ohne Scrollen. Neu eingehende Bestellungen reihen sich nach rechts an. Wird der Tisch links abgehakt, rücken die nächsten Tische automatisch nach links nach.
 - **Farbe der Warengruppen & automatische Platzersparnis**: Die Trennbalken der Warengruppen übernehmen automatisch die im Artikelstamm konfigurierte Farbe. Ist oben im Filter nur eine Warengruppe aktiv (oder enthält ein Tisch nur Artikel aus einer Gruppe), wird der Trennbalken automatisch ausgeblendet, um wertvollen vertikalen Platz zu sparen und unnötiges Scrollen zu vermeiden. Warengruppen ohne Positionen werden nicht angezeigt.
 - **Umschaltbare Betriebsmodi mit Doppel-Druckschutz**:
   - **Reine Überwachung**: Bons drucken sofort beim Kellner; der Küchenmonitor dient als Live-Übersicht.
-  - **Monitor steuert Druck**: Der Bon druckt erst dann am Drucker aus, wenn die Küche fertige Positionen abgehakt hat und auf *„Bons drucken & bestätigen“* tippt! Nicht fertige Artikel verbleiben auf dem Tisch.
+  - **Monitor steuert Druck**: Der Bon druckt erst dann am Drucker aus, wenn die Küche auf *„Fertig“* bzw. *„Auswahl fertig“* tippt! Nicht fertige Artikel verbleiben auf dem Tisch.
   - **Garantierter Einmal-Druck**: Jeder Bon druckt garantiert genau einmal – selbst bei nachträglichem Umschalten der Modi oder aktiver Bestellverzögerung.
 - **Sauberes Abräumen & Tages-Historie**:
   - Sobald ein Tisch auf „Tisch komplett fertig“ gesetzt wird, verschwindet er sofort aus dem aktiven Monitor.

@@ -1015,7 +1015,7 @@ function WaiterOrderContent() {
       {/* Große Touch-Sorten & Optionen-Auswahl Modal */}
       {productWithOptions && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl space-y-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 sm:p-6 w-full max-w-md shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <div>
                 <span className="text-xs text-blue-400 font-bold uppercase">1. Sorte & Zusätze wählen</span>
@@ -1201,7 +1201,7 @@ function WaiterOrderContent() {
       {/* Sonderwunsch-Modal (Deduplizierte Textbausteine) */}
       {customizingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-5 sm:p-6 w-full max-w-lg shadow-2xl space-y-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 sm:p-6 w-full max-w-lg shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <div>
                 <span className="text-xs text-blue-400 font-bold uppercase">Sonderwunsch</span>
@@ -1256,7 +1256,7 @@ function WaiterOrderContent() {
                   placeholder="z. B. Bitte extra kross..."
                   value={customText}
                   onChange={(e) => setCustomText(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold"
                 />
               </div>
             </div>
@@ -1265,14 +1265,14 @@ function WaiterOrderContent() {
               <button
                 type="button"
                 onClick={() => setCustomizingItem(null)}
-                className="flex-1 h-12 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-bold uppercase tracking-wider"
+                className="flex-1 h-12 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold uppercase tracking-wider"
               >
                 Abbrechen
               </button>
               <button
                 type="button"
                 onClick={saveCustomization}
-                className="flex-1 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg shadow-blue-950/50"
+                className="flex-1 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-blue-950/50"
               >
                 Übernehmen
               </button>
@@ -1285,7 +1285,7 @@ function WaiterOrderContent() {
       {/* Allergen & Product Detail Modal */}
       {selectedProductInfo && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 p-6 rounded-3xl max-w-sm w-full shadow-2xl">
+          <div className="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-sm w-full shadow-2xl">
             <h3 className="text-lg font-bold text-white mb-2">{selectedProductInfo.name}</h3>
 
             <div className="space-y-3 text-xs text-slate-300">

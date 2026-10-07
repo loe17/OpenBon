@@ -485,13 +485,11 @@ function KitchenMonitorContent() {
     triggerHapticFeedback();
     const openItems = table.items.filter((i) => i.kdsStatus !== 'COMPLETED' && !i.isCancelled);
     const checkedItemIds = openItems.filter((i) => selectedItemIds.has(i.id)).map((i) => i.id);
+    const itemIdsToPrint = checkedItemIds.length > 0 ? checkedItemIds : openItems.map((i) => i.id);
 
-    if (checkedItemIds.length === 0) {
-      toastError('Bitte mindestens einen fertigen Artikel zum Drucken antippen');
-      return;
-    }
+    if (itemIdsToPrint.length === 0) return;
 
-    const remainingItems = openItems.filter((i) => !selectedItemIds.has(i.id));
+    const remainingItems = openItems.filter((i) => !itemIdsToPrint.includes(i.id));
     const wantDelayTicket = delayTicketToggles[table.tableKey] ?? kdsPrintDelayTicket;
 
     setIsSubmittingPrint(true);
@@ -501,7 +499,7 @@ function KitchenMonitorContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tableLabel: table.tableLabel,
-          itemIds: checkedItemIds,
+          itemIds: itemIdsToPrint,
           printDelayTicket: wantDelayTicket && remainingItems.length > 0,
           delayedItemIds: remainingItems.map((i) => i.id),
         }),
@@ -516,14 +514,14 @@ function KitchenMonitorContent() {
       const result = await res.json();
       toastSuccess(
         result.delayTicketPrinted
-          ? `${checkedItemIds.length} Position(en) gedruckt + Warte-Bon ausgegeben!`
-          : `${checkedItemIds.length} Position(en) gedruckt & fertig!`
+          ? `${itemIdsToPrint.length} Position(en) gedruckt + Warte-Bon ausgegeben!`
+          : `${itemIdsToPrint.length} Position(en) gedruckt & fertig!`
       );
 
       // Gewählte IDs bereinigen
       setSelectedItemIds((prev) => {
         const next = new Set(prev);
-        checkedItemIds.forEach((id) => next.delete(id));
+        itemIdsToPrint.forEach((id) => next.delete(id));
         return next;
       });
 
@@ -864,6 +862,200 @@ function KitchenMonitorContent() {
         </div>
       )}
 
+      {/* WERKZEUGLEISTE OBEN (Bild 1: Rückstand, Drucksteuerung, Ausverkauft, Filter, Nach Tisch/Wartezeit, Historie, Neu laden) */}
+      <div className="h-[52px] min-h-[52px] bg-slate-900 border-b border-slate-800 px-3 flex items-center justify-between gap-3 shrink-0 shadow-sm z-10">
+        {/* Links: RÜCKSTAND + Rückstand-Pillen */}
+        <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
+          <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 shrink-0">
+            RÜCKSTAND:
+          </span>
+          <div className="flex items-center gap-1.5 overflow-x-auto min-w-0 pr-2">
+            {backlogMap.size === 0 ? (
+              <span className="text-xs text-emerald-400 font-bold whitespace-nowrap">Keine offenen Positionen</span>
+            ) : (
+              Array.from(backlogMap.entries()).map(([name, qty]) => (
+                <span
+                  key={name}
+                  className="bg-slate-800 text-slate-200 border border-slate-700 px-2.5 py-1 rounded-[7px] text-[13px] font-bold whitespace-nowrap shadow-sm shrink-0"
+                >
+                  <strong className="text-amber-400">{qty}x</strong> {name}
+                </span>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Rechts: Knöpfe (Ausverkauft, Filter, Wartezeit/Nach Tisch, Historie, Neu laden) */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Umschalter: Drucksteuerung vs. Reine Überwachung */}
+          <button
+            type="button"
+            onClick={handleTogglePrintMode}
+            className={`h-10 px-3 rounded-[10px] text-xs font-bold transition border flex items-center gap-1.5 ${
+              kdsControlsPrinting
+                ? 'bg-amber-500 text-black border-amber-400 font-black shadow-amber-950/40'
+                : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+            }`}
+            title="Drucksteuerung"
+          >
+            {kdsControlsPrinting ? <Printer className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            <span className="hidden xl:inline">{kdsControlsPrinting ? 'Monitor steuert Druck' : 'Reine Überwachung'}</span>
+          </button>
+
+          {/* Ausverkauft */}
+          <button
+            type="button"
+            onClick={() => {
+              triggerHapticFeedback();
+              fetchProducts();
+              setShowSoldOutModal(true);
+            }}
+            className={`h-10 px-3 rounded-[10px] text-xs font-bold transition border flex items-center gap-1.5 ${
+              soldOutCount > 0
+                ? 'bg-rose-950/80 text-rose-300 border-rose-600 shadow-md font-black'
+                : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+            }`}
+            title="Artikel als ausverkauft sperren oder wieder freigeben"
+          >
+            <Ban className="w-4 h-4 text-rose-400" />
+            <span>Ausverkauft</span>
+            {soldOutCount > 0 && (
+              <span className="bg-rose-600 text-white px-1.5 py-0.2 rounded text-[10px] font-black animate-pulse">
+                {soldOutCount}
+              </span>
+            )}
+          </button>
+
+          {/* Filter */}
+          <button
+            type="button"
+            onClick={() => {
+              triggerHapticFeedback();
+              setShowFilterBar(!showFilterBar);
+            }}
+            className={`h-10 px-3 rounded-[10px] text-xs font-bold transition border flex items-center gap-1.5 ${
+              showFilterBar || selectedCategoryIds.length < categories.length
+                ? 'bg-amber-500 text-black border-amber-400 shadow font-black'
+                : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+            }`}
+          >
+            <Filter className="w-4 h-4" />
+            <span>Filter</span>
+            {selectedCategoryIds.length < categories.length && (
+              <span className="bg-black text-amber-300 px-1.5 py-0.2 rounded text-[10px]">
+                {selectedCategoryIds.length}/{categories.length}
+              </span>
+            )}
+          </button>
+
+          {/* Umschalter Wartezeit / Nach Tisch */}
+          <div className="h-[38px] p-0.5 flex items-center gap-1 bg-slate-950 rounded-[10px] border border-slate-800">
+            <button
+              onClick={() => setViewMode('TABLE')}
+              className={`h-[32px] px-2.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                viewMode === 'TABLE' ? 'bg-amber-500 text-black shadow' : 'text-slate-400 hover:text-white'
+              }`}
+              title="Nach Tisch"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Nach Tisch</span>
+            </button>
+            <button
+              onClick={() => setViewMode('FIFO')}
+              className={`h-[32px] px-2.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                viewMode === 'FIFO' ? 'bg-amber-500 text-black shadow' : 'text-slate-400 hover:text-white'
+              }`}
+              title="Wartezeit (Einzelbons)"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Wartezeit</span>
+            </button>
+          </div>
+
+          {/* Historie */}
+          <button
+            type="button"
+            onClick={handleOpenHistory}
+            className="h-10 px-3 rounded-[10px] text-xs font-bold transition border bg-slate-800 text-slate-300 border-slate-700 hover:text-white active:scale-95 flex items-center gap-1.5"
+            title="Historie erledigter Tische"
+          >
+            <History className="w-4 h-4 text-emerald-400" />
+            <span className="hidden sm:inline">Historie</span>
+          </button>
+
+          {/* Neu laden */}
+          <button
+            onClick={() => {
+              playKitchenChime();
+              fetchKdsOrders();
+            }}
+            className="w-10 h-10 rounded-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center justify-center transition"
+            title="Aktualisieren"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Ausklappbare Warengruppen-Filterleiste (Direkt unter der oberen Werkzeugleiste) */}
+      {showFilterBar && (
+        <div className="bg-slate-950 p-3 border-b-2 border-amber-500/50 space-y-2 animate-in fade-in shrink-0 z-10">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black uppercase text-amber-400 tracking-wider">
+              Warengruppen auswählen (z. B. Küche / Grill, Ausschank, Alkoholfrei):
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={selectAllCategories}
+                className="text-xs text-amber-300 hover:underline font-bold"
+              >
+                Alle auswählen
+              </button>
+              <span className="text-slate-600">•</span>
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHapticFeedback();
+                  setSelectedCategoryIds([]);
+                  localStorage.setItem('openbon_kds_category_filter', JSON.stringify([]));
+                }}
+                className="text-xs text-slate-400 hover:underline font-bold"
+              >
+                Keine
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            {categories.map((cat) => {
+              const isSelected = selectedCategoryIds.includes(cat.id);
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => toggleCategory(cat.id)}
+                  className={`min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-2 border transition active:scale-95 touch-manipulation ${
+                    isSelected
+                      ? 'bg-amber-500 text-black border-amber-400 shadow-md'
+                      : 'bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500'
+                  }`}
+                >
+                  <span
+                    className={`w-4 h-4 rounded-md flex items-center justify-center text-[10px] font-bold ${
+                      isSelected ? 'bg-black text-amber-400' : 'border border-slate-600'
+                    }`}
+                  >
+                    {isSelected && <Check className="w-2.5 h-2.5" />}
+                  </span>
+                  <span>{cat.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* HAUPTBEREICH: TISCH-SPALTEN (Genau ein Tisch/Bon pro Spalte über volle Höhe) */}
       {viewMode === 'TABLE' ? (
         <div
@@ -1018,65 +1210,45 @@ function KitchenMonitorContent() {
 
                   {/* Fußzeile: Aktionen */}
                   <div className="p-2 border-t border-slate-800 shrink-0 bg-slate-950/80 space-y-1.5">
-                    {kdsControlsPrinting ? (
-                      <>
-                        {checkedOpenItems.length > 0 && remainingOpenItems.length > 0 && (
-                          <label className="flex items-center justify-between text-[11px] text-amber-300 font-bold bg-amber-950/40 px-2 py-1 rounded-lg border border-amber-800/60 cursor-pointer select-none">
-                            <span className="flex items-center gap-1">
-                              <FileText className="w-3 h-3 text-amber-400" />
-                              <span>Warte-Bon ({remainingOpenItems.length})</span>
-                            </span>
-                            <input
-                              type="checkbox"
-                              checked={wantDelayTicket}
-                              onChange={() =>
-                                setDelayTicketToggles((prev) => ({
-                                  ...prev,
-                                  [table.tableKey]: !wantDelayTicket,
-                                }))
-                              }
-                              className="w-3.5 h-3.5 rounded text-amber-500 accent-amber-500 cursor-pointer"
-                            />
-                          </label>
-                        )}
-
-                        <button
-                          type="button"
-                          disabled={isSubmittingPrint || openItems.length === 0}
-                          onClick={() => {
-                            if (checkedOpenItems.length > 0) {
-                              void handlePrintTableSelection(table);
-                            } else {
-                              toggleSelectTableItems(table);
-                            }
-                          }}
-                          className="h-8 w-full rounded-lg border border-blue-500/80 text-blue-400 hover:bg-blue-950/40 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95"
-                        >
-                          <Printer className="w-3.5 h-3.5" />
-                          <span>Bon erhalten</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => void handleMarkTableDone(table)}
-                          disabled={openItems.length === 0}
-                          className="h-12 w-full rounded-xl bg-[#059669] hover:bg-emerald-500 text-white font-black text-sm flex items-center justify-center gap-1.5 transition active:scale-95 shadow-md"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Fertig</span>
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => void handleMarkTableDone(table)}
-                        disabled={openItems.length === 0}
-                        className="h-12 w-full rounded-xl bg-[#059669] hover:bg-emerald-500 text-white font-black text-sm flex items-center justify-center gap-1.5 transition active:scale-95 shadow-md"
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Fertig ({openItems.length})</span>
-                      </button>
+                    {kdsControlsPrinting && checkedOpenItems.length > 0 && remainingOpenItems.length > 0 && (
+                      <label className="flex items-center justify-between text-[11px] text-amber-300 font-bold bg-amber-950/40 px-2 py-1 rounded-lg border border-amber-800/60 cursor-pointer select-none">
+                        <span className="flex items-center gap-1">
+                          <FileText className="w-3 h-3 text-amber-400" />
+                          <span>Warte-Bon ({remainingOpenItems.length})</span>
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={wantDelayTicket}
+                          onChange={() =>
+                            setDelayTicketToggles((prev) => ({
+                              ...prev,
+                              [table.tableKey]: !wantDelayTicket,
+                            }))
+                          }
+                          className="w-3.5 h-3.5 rounded text-amber-500 accent-amber-500 cursor-pointer"
+                        />
+                      </label>
                     )}
+
+                    <button
+                      type="button"
+                      disabled={isSubmittingPrint || openItems.length === 0}
+                      onClick={() => {
+                        if (kdsControlsPrinting) {
+                          void handlePrintTableSelection(table);
+                        } else {
+                          void handleMarkTableDone(table);
+                        }
+                      }}
+                      className="h-12 w-full rounded-[10px] bg-[#059669] hover:bg-emerald-500 text-white font-black text-sm flex items-center justify-center gap-1.5 transition active:scale-95 shadow-md disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>
+                        {checkedOpenItems.length > 0
+                          ? `Auswahl fertig (${checkedOpenItems.length})`
+                          : 'Fertig'}
+                      </span>
+                    </button>
                   </div>
                 </div>
               );
@@ -1261,199 +1433,6 @@ function KitchenMonitorContent() {
         </div>
       )}
 
-      {/* Ausklappbare Warengruppen-Filterleiste (Direkt über der unteren Werkzeugleiste) */}
-      {showFilterBar && (
-        <div className="bg-slate-950 p-3 border-t-2 border-amber-500/50 space-y-2 animate-in fade-in shrink-0">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-black uppercase text-amber-400 tracking-wider">
-              Warengruppen auswählen (z. B. Küche / Grill, Ausschank, Alkoholfrei):
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={selectAllCategories}
-                className="text-xs text-amber-300 hover:underline font-bold"
-              >
-                Alle auswählen
-              </button>
-              <span className="text-slate-600">•</span>
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHapticFeedback();
-                  setSelectedCategoryIds([]);
-                  localStorage.setItem('openbon_kds_category_filter', JSON.stringify([]));
-                }}
-                className="text-xs text-slate-400 hover:underline font-bold"
-              >
-                Keine
-              </button>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2 pt-1">
-            {categories.map((cat) => {
-              const isSelected = selectedCategoryIds.includes(cat.id);
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => toggleCategory(cat.id)}
-                  className={`min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-2 border transition active:scale-95 touch-manipulation ${
-                    isSelected
-                      ? 'bg-amber-500 text-black border-amber-400 shadow-md'
-                      : 'bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500'
-                  }`}
-                >
-                  <span
-                    className={`w-4 h-4 rounded-md flex items-center justify-center text-[10px] font-bold ${
-                      isSelected ? 'bg-black text-amber-400' : 'border border-slate-600'
-                    }`}
-                  >
-                    {isSelected && <Check className="w-2.5 h-2.5" />}
-                  </span>
-                  <span>{cat.name}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Werkzeugleiste unten (60 px Daumen-Zone) */}
-      <div className="h-[60px] min-h-[60px] bg-slate-900 border-t border-slate-800 px-3 flex items-center justify-between gap-3 shrink-0 shadow-lg">
-        {/* Links: RÜCKSTAND + Rückstand-Pillen */}
-        <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
-          <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 shrink-0">
-            RÜCKSTAND:
-          </span>
-          <div className="flex items-center gap-1.5 overflow-x-auto min-w-0 pr-2">
-            {backlogMap.size === 0 ? (
-              <span className="text-xs text-emerald-400 font-bold whitespace-nowrap">Keine offenen Positionen</span>
-            ) : (
-              Array.from(backlogMap.entries()).map(([name, qty]) => (
-                <span
-                  key={name}
-                  className="bg-slate-800 text-slate-200 border border-slate-700 px-2 py-0.5 rounded-lg text-[13px] font-black whitespace-nowrap shadow-sm shrink-0"
-                >
-                  <strong className="text-amber-400">{qty}x</strong> {name}
-                </span>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Rechts: Knöpfe (Ausverkauft, Filter, Wartezeit/Nach Tisch, Historie, Neu laden) */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Umschalter: Drucksteuerung vs. Reine Überwachung */}
-          <button
-            type="button"
-            onClick={handleTogglePrintMode}
-            className={`h-11 px-2.5 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 ${
-              kdsControlsPrinting
-                ? 'bg-amber-500 text-black border-amber-400 font-black shadow-amber-950/40'
-                : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
-            }`}
-            title="Drucksteuerung"
-          >
-            {kdsControlsPrinting ? <Printer className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            <span className="hidden xl:inline">{kdsControlsPrinting ? 'Monitor steuert Druck' : 'Reine Überwachung'}</span>
-          </button>
-
-          {/* Ausverkauft */}
-          <button
-            type="button"
-            onClick={() => {
-              triggerHapticFeedback();
-              fetchProducts();
-              setShowSoldOutModal(true);
-            }}
-            className={`h-11 px-3 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 ${
-              soldOutCount > 0
-                ? 'bg-rose-950/80 text-rose-300 border-rose-600 shadow-md font-black'
-                : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
-            }`}
-            title="Artikel als ausverkauft sperren oder wieder freigeben"
-          >
-            <Ban className="w-4 h-4 text-rose-400" />
-            <span>Ausverkauft</span>
-            {soldOutCount > 0 && (
-              <span className="bg-rose-600 text-white px-1.5 py-0.2 rounded text-[10px] font-black animate-pulse">
-                {soldOutCount}
-              </span>
-            )}
-          </button>
-
-          {/* Filter */}
-          <button
-            type="button"
-            onClick={() => {
-              triggerHapticFeedback();
-              setShowFilterBar(!showFilterBar);
-            }}
-            className={`h-11 px-3 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 ${
-              showFilterBar || selectedCategoryIds.length < categories.length
-                ? 'bg-amber-500 text-black border-amber-400 shadow font-black'
-                : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
-            }`}
-          >
-            <Filter className="w-4 h-4" />
-            <span>Filter</span>
-            {selectedCategoryIds.length < categories.length && (
-              <span className="bg-black text-amber-300 px-1.5 py-0.2 rounded text-[10px]">
-                {selectedCategoryIds.length}/{categories.length}
-              </span>
-            )}
-          </button>
-
-          {/* Umschalter Wartezeit / Nach Tisch */}
-          <div className="h-[38px] p-0.5 flex items-center gap-1 bg-slate-950 rounded-xl border border-slate-800">
-            <button
-              onClick={() => setViewMode('TABLE')}
-              className={`h-[32px] px-2.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
-                viewMode === 'TABLE' ? 'bg-amber-500 text-black shadow' : 'text-slate-400 hover:text-white'
-              }`}
-              title="Nach Tisch"
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Nach Tisch</span>
-            </button>
-            <button
-              onClick={() => setViewMode('FIFO')}
-              className={`h-[32px] px-2.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
-                viewMode === 'FIFO' ? 'bg-amber-500 text-black shadow' : 'text-slate-400 hover:text-white'
-              }`}
-              title="Wartezeit (Einzelbons)"
-            >
-              <Clock className="w-3.5 h-3.5" />
-              <span>Wartezeit</span>
-            </button>
-          </div>
-
-          {/* Historie */}
-          <button
-            type="button"
-            onClick={handleOpenHistory}
-            className="h-11 px-3 rounded-xl text-xs font-bold transition border bg-slate-800 text-slate-300 border-slate-700 hover:text-white active:scale-95 flex items-center gap-1.5"
-            title="Historie erledigter Tische"
-          >
-            <History className="w-4 h-4 text-emerald-400" />
-            <span className="hidden sm:inline">Historie</span>
-          </button>
-
-          {/* Neu laden */}
-          <button
-            onClick={() => {
-              playKitchenChime();
-              fetchKdsOrders();
-            }}
-            className="w-11 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center justify-center transition"
-            title="Aktualisieren"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
       {showSoldOutModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
@@ -1779,7 +1758,7 @@ function TableItemCard({
           onToggleCheck();
         }
       }}
-      className={`p-3 rounded-2xl border-2 select-none transition-all flex items-start justify-between gap-2.5 touch-manipulation cursor-pointer ${
+      className={`p-2.5 rounded-lg border select-none transition-all flex items-start justify-between gap-2.5 touch-manipulation cursor-pointer ${
         isVoided
           ? 'bg-rose-950/50 border-rose-700 text-rose-200 line-through cursor-not-allowed'
           : isDone
